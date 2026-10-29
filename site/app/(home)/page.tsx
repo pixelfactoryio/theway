@@ -377,7 +377,7 @@ function StepBlock({ step }: { step: Step }) {
       </div>
       <div className="mt-12 grid gap-12 md:mt-16 md:grid-cols-12 md:items-center">
         <div className="min-w-0 md:col-span-7">
-          <Window mock={first} className={second ? 'pb-8' : ''} />
+          <Window mock={first} className={second ? 'mr-8 pb-8' : ''} />
           {second ? <Window mock={second} className="relative -mt-8 ml-8 bg-fd-background" /> : null}
         </div>
         <ul className="border md:col-span-5">
