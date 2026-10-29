@@ -21,6 +21,9 @@ updates:
       # Types follow the minimum supported Node.js (engines: >=22.12).
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # TypeScript majors are adopted deliberately, not through grouped bumps.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore"
       include: "scope"
