@@ -377,7 +377,7 @@ function StepBlock({ step }: { step: Step }) {
       </div>
       <div className="mt-12 grid gap-12 md:mt-16 md:grid-cols-12 md:items-center">
         <div className="min-w-0 md:col-span-7">
-          <Window mock={first} className={second ? 'pb-8' : ''} />
+          <Window mock={first} className={second ? 'mr-8 pb-8' : ''} />
           {second ? <Window mock={second} className="relative -mt-8 ml-8 bg-fd-background" /> : null}
         </div>
         <ul className="border md:col-span-5">
@@ -434,17 +434,22 @@ export default function HomePage() {
             </a>
           </div>
         </div>
-        <video
-          src={`${basePath}/demo.mp4`}
-          poster={`${basePath}/demo-poster.png`}
-          aria-label="A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them"
-          className="mt-10 w-full max-w-4xl border"
-          autoPlay
-          muted
-          loop
-          playsInline
-          controls
-        />
+        <figure className="mt-10 flex w-full max-w-4xl flex-col gap-3">
+          <video
+            src={`${basePath}/demo.mp4`}
+            poster={`${basePath}/demo-poster.png`}
+            aria-label="A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them"
+            className="w-full border"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+          />
+          <figcaption className="text-xs text-fd-muted-foreground">
+            Real Claude Code session on Sonnet, sped up. Idle waits shortened.
+          </figcaption>
+        </figure>
       </Band>
 
       <Separator />
