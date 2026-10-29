@@ -9,7 +9,7 @@ import SearchDialog from '@/components/search';
 import { tagline } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: { default: 'theway', template: '%s | theway' },
+  title: { default: 'theway · A spec-first workflow for Claude Code', template: '%s · theway' },
   description: tagline,
 };
 
