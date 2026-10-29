@@ -4,6 +4,8 @@ theway writes a spec and a numbered task list before any code, then implements t
 
 ![A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them](.github/demo.gif)
 
+*Real Claude Code session on Sonnet, sped up. Idle waits shortened.*
+
 ## Install
 
 ```bash
