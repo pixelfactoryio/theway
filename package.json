@@ -2,7 +2,7 @@
   "name": "theway",
   "version": "0.1.0",
   "private": true,
-  "description": "TheWay methodology for Claude Code, installed with npx",
+  "description": "A spec-first workflow for Claude Code",
   "license": "MIT",
   "type": "module",
   "bin": { "theway": "dist/theway.js" },
