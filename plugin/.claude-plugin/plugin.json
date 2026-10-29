@@ -1,0 +1,9 @@
+{
+  "name": "theway",
+  "version": "0.1.0",
+  "description": "theway writes a spec and a numbered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.",
+  "author": {
+    "name": "Amine",
+    "email": "amine@pixelfactory.io"
+  }
+}

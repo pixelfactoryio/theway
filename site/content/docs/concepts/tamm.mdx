@@ -1,0 +1,31 @@
+---
+title: TAMM
+description: The Time, Autonomy, Mastery and Machine framework for spec risks.
+---
+
+TAMM (Time, Autonomy, Mastery, Machine) is the framework `/theway:engineering` uses to find the obstacles a change can hit. It is installed at `~/.theway/data/standards/tamm-framework.md`.
+
+## The four dimensions
+
+| Dimension | What it covers |
+|---|---|
+| Time | Timeline pressure, dependencies and blocking, the critical path, competing priorities |
+| Autonomy | Decision constraints, approval bottlenecks, organizational and policy dependencies, stakeholder alignment |
+| Mastery | Skill gaps, unfamiliar technology, learning curves, knowledge transfer, key-person dependencies |
+| Machine | Performance and scalability limits, infrastructure, legacy systems, security constraints, integration, technical debt |
+
+Some risks span several dimensions, for example learning while delivering (Time and Mastery) or an architecture decision that needs approval (Autonomy and Machine).
+
+## Risk levels
+
+- **Low:** clear countermeasures exist, the team has experience, no blockers are expected.
+- **Medium:** some uncertainty, limited experience, possible blockers that can be managed.
+- **High:** unclear countermeasures, no experience, likely blockers or critical dependencies.
+
+## The hardpoints table
+
+Every `spec.md` has a "Hardpoints (TAMM Analysis)" section. It lists only Medium and High risks; Low risks are left out.
+
+Columns: Category (one of the four dimensions), Risk (Medium or High), Impact, and numbered Countermeasures.
+
+Countermeasures must be specific to the change, not generic. When a risk appears during implementation that the spec did not foresee, it goes into this table.

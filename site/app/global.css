@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme inline {
+  --color-body: var(--body);
+  --color-accent-text: var(--accent-text);
+}
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --container-frame: 1080px;
+  --container-prose: 640px;
+  --text-hero: 4rem;
+  --text-hero-sm: 2.5rem;
+  --text-title: 3rem;
+  --text-title-sm: 2rem;
+  --text-code: 13px;
+  --text-detail: 16px;
+  --text-detail--line-height: 1.6;
+  --tracking-display: -0.03em;
+  --leading-display: 1;
+  --font-wordmark: 'Unbounded Variable', var(--font-sans);
+  --tracking-wordmark: 0.12em;
+  --color-amber: oklch(0.72 0.15 62);
+  --color-ink: oklch(0.24 0.008 240);
+}
+
+:root {
+  --color-fd-background: oklch(0.94 0.018 85);
+  --color-fd-card: oklch(0.965 0.012 85);
+  --color-fd-popover: oklch(0.965 0.012 85);
+  --color-fd-foreground: oklch(0.24 0.008 240);
+  --color-fd-card-foreground: oklch(0.24 0.008 240);
+  --color-fd-popover-foreground: oklch(0.24 0.008 240);
+  /* Metadata only (window titles, line numbers, footer): APCA Lc 77 on the background. */
+  --color-fd-muted-foreground: oklch(0.42 0.012 240);
+  /* Body copy (sublines, descriptions, docs prose): APCA Lc 92. Kept apart from the foreground so dark mode can soften it. */
+  --body: oklch(0.24 0.008 240);
+  /* Amber for small text (commands, command names): APCA Lc 78. */
+  --accent-text: oklch(0.42 0.1 55);
+  --color-fd-border: oklch(0.84 0.015 85);
+  /* Accent text: the amber mark darkened to 4.5:1 on the background and the card. */
+  --color-fd-primary: oklch(0.5 0.12 55);
+  --color-fd-primary-foreground: oklch(0.94 0.018 85);
+  --color-fd-ring: oklch(0.72 0.15 62);
+}
+
+.dark {
+  --color-fd-background: oklch(0.25 0.008 240);
+  --color-fd-card: oklch(0.285 0.008 240);
+  --color-fd-popover: oklch(0.285 0.008 240);
+  --color-fd-foreground: oklch(0.97 0.01 85);
+  --color-fd-card-foreground: oklch(0.97 0.01 85);
+  --color-fd-popover-foreground: oklch(0.97 0.01 85);
+  --color-fd-muted-foreground: oklch(0.86 0.012 80);
+  --body: oklch(0.94 0.01 85);
+  /* APCA Lc 79 on the background. */
+  --accent-text: oklch(0.88 0.13 70);
+  --color-fd-border: oklch(0.4 0.01 240);
+  --color-fd-primary: oklch(0.78 0.14 65);
+  --color-fd-primary-foreground: oklch(0.25 0.008 240);
+  --color-amber: oklch(0.78 0.14 65);
+  --color-fd-ring: oklch(0.78 0.14 65);
+}
+
+/* Body links keep the body colour; amber marks them through the underline only. */
+.prose {
+  --tw-prose-body: var(--body);
+  --tw-prose-links: var(--body);
+}
+.prose :is(p, li, td, th, blockquote) a:not(.not-prose a) {
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-amber);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* Code blocks: 8px radius, no shadow. */
+figure.shiki {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: 2px;
+}
+
+/* The landing page is square. Fumadocs' SearchTrigger and ThemeSwitch are rounded, so their radius is overridden here. */
+.landing,
+.landing * {
+  border-radius: 0 !important;
+}

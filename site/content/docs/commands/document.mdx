@@ -1,0 +1,38 @@
+---
+title: /theway:document
+description: Write architecture docs for the project in docs/architecture/
+---
+
+Three documents come from templates; others are added as the project needs them.
+
+## Usage
+
+```text
+/theway:document
+```
+
+## Steps
+
+1. Reads `~/.theway/config.yaml`, and `data/standards/architecture-principles.md` when it is enabled in the config.
+2. Generates each document from its template, following the template's frontmatter instructions. An existing file is overwritten.
+
+   | Template | Output |
+   |----------|--------|
+   | `~/.theway/templates/coding-standards-template.md` | `coding-standards.md` |
+   | `~/.theway/templates/source-tree-template.md` | `source-tree.md` |
+   | `~/.theway/templates/tech-stack-template.md` | `tech-stack.md` |
+
+3. Adds other documentation as needed: system overviews, backend design and API contracts, frontend patterns, infrastructure and deployment, and architecture decision records.
+
+The documents stay short and favor code examples over explanations.
+
+## Output
+
+```text
+docs/architecture/
+├── coding-standards.md     # project coding conventions
+├── source-tree.md          # repository structure
+└── tech-stack.md           # technology choices
+```
+
+`/theway:develop` and `/theway:develop-workflow` read `docs/architecture/coding-standards.md` when it exists.

@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ["/"]
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+  - package-ecosystem: bun
+    directories: ["/", "/site"]
+    schedule:
+      interval: weekly
+    groups:
+      bun:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore"
+      include: "scope"

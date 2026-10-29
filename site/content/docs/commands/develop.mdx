@@ -1,0 +1,33 @@
+---
+title: /theway:develop
+description: Implement a change's tasks in the current session and tick them off
+---
+
+The spec is the contract: the work follows it and ends with a report on each Success Criterion.
+
+## Usage
+
+```text
+/theway:develop <change-id>
+```
+
+The change ID can also come from the request, for example "develop the add-redis-cache change". The command asks only when none is given.
+
+## Steps
+
+1. **Load context**, reading these paths directly:
+   - `~/.theway/config.yaml`
+   - `~/.theway/data/standards/develop.md`
+   - `~/.theway/<project>/changes/<change-id>/spec.md`
+   - `~/.theway/<project>/changes/<change-id>/tasks.md`
+   - `~/.theway/<project>/changes/<change-id>/design.md`, when present
+   - `docs/architecture/coding-standards.md`, when present
+2. **Implement and verify**, following `develop.md`:
+   - Work through the numbered tasks in order, following the codebase's patterns, and write the tests with the code they cover.
+   - Tick each task (`- [x] N.`) once it is done, and record what the next person needs in the Notes section of `tasks.md`.
+   - When the code contradicts the spec, a task cannot be done as written, or a decision is missing, stop and bring back what was found and the options. Once decided, `spec.md` and `tasks.md` are updated, then the work continues.
+   - Run the project's tests and build, and the commands its CI runs where they can run locally. Then check each Success Criterion.
+
+## Output
+
+The code changes in your working tree, an updated `tasks.md`, and a report: the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided, and anything still open.

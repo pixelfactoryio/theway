@@ -1,0 +1,57 @@
+---
+title: Installation
+description: Install, update, pin and uninstall theway.
+---
+
+## Requirements
+
+- Node.js 22.12 or later.
+- macOS or Linux.
+- Claude Code.
+
+## Install and update
+
+```bash
+npx --yes github:pixelfactoryio/theway install
+```
+
+Every run fetches the tip of `main`, so running the command again updates theway. When it finishes, start a new Claude Code session or run `/reload-plugins`.
+
+From a session where theway is already loaded, `/theway:setup` runs the same command.
+
+## Pin to a release
+
+To install a specific release, add its tag:
+
+```bash
+npx --yes github:pixelfactoryio/theway#vX.Y.Z install
+```
+
+The tags are listed on the [GitHub releases page](https://github.com/pixelfactoryio/theway/releases).
+
+## Uninstall
+
+```bash
+npx --yes github:pixelfactoryio/theway uninstall
+```
+
+Uninstall removes `~/.claude/skills/theway` and the two permission rules. `~/.theway` is kept, with your changes and your config.
+
+## What install writes
+
+- **`~/.claude/skills/theway`:** the plugin, with its commands. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
+- **`~/.theway`:**
+  - `bin/theway` and `bin/theway.js`: the [CLI](./cli.mdx) the commands call. `bin/theway` runs `bin/theway.js` with the `node` on your `PATH`.
+  - `config.yaml`: the [configuration](./configuration.mdx). An existing `config.yaml` is kept.
+  - `config.default.yaml`: the shipped configuration, written on every install.
+  - `data/standards/` and `templates/`: the standards and templates the commands read.
+- **Two permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:
+  - `Read(~/.theway/**)`
+  - `Bash(~/.theway/bin/theway:*)`
+
+If `~/.claude/settings.json` is not valid settings JSON, install stops and changes nothing.
+
+### Other locations
+
+- `CLAUDE_CONFIG_DIR` replaces `~/.claude` when it is set.
+- `THEWAY_HOME` replaces `~/.theway` when it is set. The permission rules then name that absolute path.

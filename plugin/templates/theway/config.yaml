@@ -1,0 +1,80 @@
+# theway configuration
+
+# Standards read by the commands; only `architecture` honors `enabled`
+standards:
+  interaction:
+    enabled: true
+    file: "~/.theway/data/standards/interaction.md"
+    description: "Cross-cutting interaction conventions (exploration, reporting) for all commands"
+
+  develop:
+    enabled: true
+    file: "~/.theway/data/standards/develop.md"
+    description: "How a change is implemented and verified, shared by /theway:develop and /theway:develop-workflow"
+
+  architecture:
+    enabled: true
+    file: "~/.theway/data/standards/architecture-principles.md"
+    description: "SRE-EE architecture principles and web development standards"
+
+  tamm_framework:
+    enabled: true
+    file: "~/.theway/data/standards/tamm-framework.md"
+    description: "Time/Autonomy/Mastery/Machine hardpoint analysis framework"
+
+# Change Management Conventions
+changes:
+  naming_convention: "[verb]-[description]"
+  # Dependent change series: zero-padded two-digit ordinals starting at 01
+  series_convention: "[change-id]-NN"
+  allowed_verbs:
+    - add
+    - update
+    - refactor
+    - remove
+  archive_format: "YYYY-MM-DD-[change-id]"
+
+  # Required files in every change folder
+  required_files:
+    - spec.md
+    - tasks.md
+
+  # Optional files (create when needed)
+  optional_files:
+    - design.md
+
+# Develop Workflow - caps for /theway:develop-workflow (absent or invalid key means the default)
+workflow:
+  # Review rounds per change; 0 skips review and the fix check
+  review_rounds: 1
+  # CI attempts per change to reach green, re-runs included
+  ci_attempts: 2
+
+# Template Registry
+# Templates are self-contained with frontmatter containing usage instructions,
+# agent roles, required context, and quality standards
+templates:
+  value_engineering:
+    file: "~/.theway/templates/spec-template.md"
+    description: "TAMM-based Spec analysis for medium-to-large changes"
+    used_by: ["engineering"]
+
+  implementation_tasks:
+    file: "~/.theway/templates/tasks-template.md"
+    description: "Phase-based implementation checklist with numbered tasks"
+    used_by: ["engineering"]
+
+  coding_standards:
+    file: "~/.theway/templates/coding-standards-template.md"
+    description: "Project-specific coding conventions and quality standards"
+    used_by: ["document"]
+
+  source_tree:
+    file: "~/.theway/templates/source-tree-template.md"
+    description: "Repository structure and organization documentation"
+    used_by: ["document"]
+
+  tech_stack:
+    file: "~/.theway/templates/tech-stack-template.md"
+    description: "Technology choices, dependencies, and rationale"
+    used_by: ["document"]

@@ -1,0 +1,42 @@
+---
+title: How it works
+description: Engineering, then develop or develop-workflow, then archive.
+---
+
+A change goes through three commands.
+
+```text
+/theway:engineering <request>        writes spec.md and tasks.md
+/theway:develop <change-id>          implements the tasks inline
+  or /theway:develop-workflow <change-id>   implements them through agents and a PR
+/theway:archive <change-id>          moves the finished change to the archive
+```
+
+## 1. Engineering
+
+[`/theway:engineering`](./commands/engineering.mdx) reads the config and the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`. It investigates the code and the open questions, then writes `spec.md` and `tasks.md` from the templates, and `design.md` when the change needs API contracts, data models or diagrams.
+
+It writes only under `~/.theway/<project>/changes/<change-id>/`. If a question is still open, it reports the question and stops: the spec is not ready until it is answered.
+
+## 2. Develop
+
+Both develop commands read the same files: the config, `data/standards/develop.md`, the change's `spec.md`, `tasks.md` and `design.md`, and `docs/architecture/coding-standards.md` when it exists. Both treat the spec as the contract. When the code contradicts the spec, the work stops and comes back to you with the options.
+
+- [`/theway:develop`](./commands/develop.mdx) implements the tasks inline in the current session, ticks each one in `tasks.md` and reports how each Success Criterion was verified.
+- [`/theway:develop-workflow`](./commands/develop-workflow.mdx) hands the change to implementer agents. They commit on a feature branch and open a PR. The orchestrator runs review rounds and CI attempts, up to the caps in the [configuration](./configuration.mdx), and merges only with `--merge` or when developing a series.
+
+### Choosing between them
+
+| | `develop` | `develop-workflow` |
+|---|---|---|
+| Where the code is written | In your session | In agents |
+| Branch and PR | Not part of the command | Created by the implementer |
+| Review | None built in | Adversarial reviewer agents, `review_rounds` per change |
+| CI | Run the CI commands locally | Polled on the PR, failures go to a fix agent, `ci_attempts` per change |
+| Several changes | One change | A series, developed and merged in order |
+
+Pick `develop` to watch and steer the work in your session. Pick `develop-workflow` when the change should end as a reviewed, CI-green PR, or to run a whole series.
+
+## 3. Archive
+
+[`/theway:archive`](./commands/archive.mdx) moves a finished change to `~/.theway/<project>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a numbered task in `tasks.md` is open, unless you accept the open tasks and it runs with `--force`.

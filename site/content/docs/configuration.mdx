@@ -1,0 +1,59 @@
+---
+title: Configuration
+description: Every key of ~/.theway/config.yaml, with its default and meaning.
+---
+
+The configuration lives in `~/.theway/config.yaml`. Install writes it once and keeps your copy on later installs; the shipped version is always written to `~/.theway/config.default.yaml`, so you can compare the two.
+
+`/theway:engineering`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document` read this file; when it is missing, they tell you to run [`/theway:setup`](./commands/setup.mdx). `/theway:archive` only checks that it exists and gives the same instruction.
+
+## standards
+
+Each standard has three keys: `enabled`, `file` and `description`. Only `standards.architecture` honors `enabled`: `/theway:engineering` and `/theway:document` skip the architecture principles when it is `false`. The other standards are always read.
+
+| Standard | `enabled` | `file` | Used for |
+|----------|-----------|--------|----------|
+| `standards.interaction` | `true` | `~/.theway/data/standards/interaction.md` | How `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive` explore the codebase and report |
+| `standards.develop` | `true` | `~/.theway/data/standards/develop.md` | How a change is implemented and verified, shared by `/theway:develop` and `/theway:develop-workflow` |
+| `standards.architecture` | `true` | `~/.theway/data/standards/architecture-principles.md` | Architecture principles, web development conventions and quality targets |
+| `standards.tamm_framework` | `true` | `~/.theway/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
+
+## changes
+
+These keys describe fixed behavior: `validate-id`, `archive` and the commands hard-code it, so editing them has no effect.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `changes.naming_convention` | `"[verb]-[description]"` | Format of a change ID. |
+| `changes.series_convention` | `"[change-id]-NN"` | Format of a series member: a zero-padded two-digit ordinal starting at `01`. |
+| `changes.allowed_verbs` | `add`, `update`, `refactor`, `remove` | Verbs a change ID can start with. |
+| `changes.archive_format` | `"YYYY-MM-DD-[change-id]"` | Name of an archived change folder. |
+| `changes.required_files` | `spec.md`, `tasks.md` | Files every change folder has. |
+| `changes.optional_files` | `design.md` | Files created when needed. |
+
+The format of a change ID is enforced by [`theway validate-id`](./cli.mdx#validate-id). See [Changes](./concepts/changes.mdx).
+
+## workflow
+
+Caps for [`/theway:develop-workflow`](./commands/develop-workflow.mdx). A key that is absent or invalid takes its default.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the reviewers and the fix check, and only CI runs. |
+| `workflow.ci_attempts` | `2` | CI attempts per change to reach green, re-runs included. A positive integer. |
+
+## templates
+
+These keys describe fixed behavior: `validate-id`, `archive` and the commands hard-code it, so editing them has no effect.
+
+Each template has three keys: `file`, `description` and `used_by`.
+
+| Template | `file` | `used_by` | Produces |
+|----------|--------|-----------|----------|
+| `templates.value_engineering` | `~/.theway/templates/spec-template.md` | `engineering` | `spec.md`, the TAMM-based spec analysis |
+| `templates.implementation_tasks` | `~/.theway/templates/tasks-template.md` | `engineering` | `tasks.md`, the phase-based numbered task list |
+| `templates.coding_standards` | `~/.theway/templates/coding-standards-template.md` | `document` | `docs/architecture/coding-standards.md` |
+| `templates.source_tree` | `~/.theway/templates/source-tree-template.md` | `document` | `docs/architecture/source-tree.md` |
+| `templates.tech_stack` | `~/.theway/templates/tech-stack-template.md` | `document` | `docs/architecture/tech-stack.md` |
+
+Each template carries its own instructions in its frontmatter: the context to read, the role, the steps and the quality standards.

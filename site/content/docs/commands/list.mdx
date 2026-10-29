@@ -1,0 +1,39 @@
+---
+title: /theway:list
+description: List the active and archived changes of the current project
+---
+
+## Usage
+
+```text
+/theway:list
+```
+
+## Steps
+
+It takes the name of the current working directory as `<project>`, runs the CLI and shows the output as it is:
+
+```bash
+~/.theway/bin/theway list <project>
+```
+
+## Output
+
+```text
+theway changes — my-project
+
+Active changes
+
+  add-redis-cache      2 files   3/5 tasks done
+
+Archived changes (1)
+
+  2025-10-15-update-auth-middleware
+
+Summary: 1 active change(s), 1 archived.
+```
+
+- An active change shows its number of `.md` files and its ticked numbered tasks out of all numbered tasks.
+- Archived changes are listed by folder name.
+
+See [`theway list`](../cli.mdx#list).

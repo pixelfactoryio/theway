@@ -1,0 +1,81 @@
+---
+title: CLI
+description: The theway command line and its five subcommands.
+---
+
+The `theway` program has five subcommands: `install`, `uninstall`, `list`, `archive` and `validate-id`. The slash commands call it as `~/.theway/bin/theway`, which install writes.
+
+```text
+theway install
+theway uninstall
+theway list <project>
+theway archive <project> <change-id> [--force]
+theway validate-id <id> [--series]
+```
+
+It needs Node.js 22.12 or later and exits 1 with a message on older versions.
+
+Two environment variables change its locations:
+
+- `THEWAY_HOME` replaces `~/.theway`.
+- `CLAUDE_CONFIG_DIR` replaces `~/.claude`.
+
+## install
+
+```bash
+npx --yes github:pixelfactoryio/theway install
+```
+
+Copies the plugin to `~/.claude/skills/theway`, sets up `~/.theway` and adds the two permission rules to `~/.claude/settings.json`. Run it through `npx`, which carries the plugin files; `~/.theway/bin/theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+
+## uninstall
+
+```bash
+npx --yes github:pixelfactoryio/theway uninstall
+```
+
+Removes `~/.claude/skills/theway` and the two permission rules. `~/.theway` is kept.
+
+## list
+
+```bash
+~/.theway/bin/theway list <project>
+```
+
+Prints the active changes of `<project>`, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
+
+## archive
+
+```bash
+~/.theway/bin/theway archive <project> <change-id> [--force]
+```
+
+Moves `~/.theway/<project>/changes/<change-id>` to `~/.theway/<project>/changes/archive/YYYY-MM-DD-<change-id>`, with today's local date, and prints `Archived: <path>`.
+
+It exits 1 and moves nothing when:
+
+- the change folder does not exist;
+- the archive folder already exists;
+- `tasks.md` has unticked numbered tasks. It prints each one with its line number.
+
+`--force` archives despite unticked numbered tasks and prints them as a warning.
+
+## validate-id
+
+```bash
+~/.theway/bin/theway validate-id <id>
+~/.theway/bin/theway validate-id <id> --series
+```
+
+Checks a [change ID](./concepts/changes.mdx#change-ids). It exits 0 when the ID is valid. Otherwise it exits 1 and prints one line on stderr:
+
+```text
+invalid change id '<id>': <reason>
+```
+
+Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-` or `remove-`.
+
+- **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
+- **With `--series`** (a series member): the ID must end in a two-digit ordinal from `01`, such as `add-user-auth-01`. Letter suffixes, `-00` and double ordinals are rejected.
+
+`/theway:engineering` runs it before it writes a change folder.

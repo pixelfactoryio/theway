@@ -1,0 +1,55 @@
+---
+title: Changes
+description: Change IDs, series, the change folder and the archive.
+---
+
+A change is one unit of work: a folder with its spec and its tasks.
+
+## Change IDs
+
+A change ID is lowercase kebab-case and starts with one of four verbs: `add-`, `update-`, `refactor-` or `remove-`. For example `add-user-authentication` or `update-payment-api`.
+
+[`theway validate-id`](../cli.mdx#validate-id) checks the format, and `/theway:engineering` runs it before it writes a change folder. A standalone ID must not end in a one- or two-digit number, since `-NN` is kept for series members.
+
+## Series
+
+A series is a set of dependent changes that share a `<series-id>`. Each member is `<series-id>-NN`, with a zero-padded two-digit ordinal starting at `01`, assigned in dependency order:
+
+```text
+add-user-auth-01
+add-user-auth-02
+add-user-auth-03
+```
+
+- A new member continues from the next free ordinal, counting active and archived members. Existing folders are never renamed or renumbered.
+- With `--series`, topic suffixes (`add-user-auth-login`), letter suffixes (`-a`, `-b`), unpadded numbers (`-1`), `-00` and double ordinals are rejected.
+- A series member is validated with `validate-id --series`.
+- Each member's `spec.md` has a line under its title: `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`. The `01` member states no dependency.
+
+`/theway:develop-workflow` takes the members in order and merges each PR before it starts the next change.
+
+## Folder layout
+
+`<project>` is the name of your project directory.
+
+```text
+~/.theway/<project>/changes/
+├── add-redis-cache/
+│   ├── spec.md      # required: why, what, risks and Success Criteria
+│   ├── tasks.md     # required: numbered tasks
+│   └── design.md    # optional: contracts, data models, diagrams
+└── archive/
+    └── 2025-10-15-update-auth-middleware/
+```
+
+In `tasks.md`, only numbered checkbox lines are tasks: `- [ ] 1. …` or `- [x] 2a. …`. Other checkboxes are not counted.
+
+## Archive format
+
+An archived change keeps its whole folder and is named `YYYY-MM-DD-<change-id>`, with the local date of the archive:
+
+```text
+~/.theway/<project>/changes/archive/
+├── 2025-10-10-add-logging-framework/
+└── 2025-10-15-update-auth-middleware/
+```

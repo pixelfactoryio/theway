@@ -1,0 +1,45 @@
+---
+title: /theway:develop-workflow
+description: Implement changes through agents that open a PR, then review it and drive CI to green
+---
+
+It is the agent-driven counterpart of [`/theway:develop`](./develop.mdx): your session orchestrates, and agents write, review and fix the code.
+
+## Usage
+
+```text
+/theway:develop-workflow <change-id> [<change-id> ...] [--merge]
+```
+
+- **One change ID:** develops the change and stops when its PR is ready for your validation. It does not merge without `--merge`.
+- **Several change IDs (a series):** develops each change in the given order. Merging is implied: each PR is merged before the next change starts.
+- **`--merge`:** merges the PR once it is review-clean and CI-green.
+
+Running the command authorizes pushing branches, opening PRs and merging exactly as this syntax grants, and nothing more.
+
+## Steps
+
+The steps run once per change ID, in order.
+
+1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1) and `workflow.ci_attempts` (default 2). See [Configuration](../configuration.mdx#workflow).
+2. **Branch:** syncs the main branch, then creates or checks out the change's feature branch.
+3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md`, commits with Conventional Commits, verifies its work, pushes and opens the PR. When the spec does not fit the code, it returns a blocker instead of redesigning.
+4. **Open the PR** with `gh pr create`. The PR text describes only what the change does.
+5. **Review and CI**, for up to `review_rounds` rounds:
+   1. Reviewer agents try to refute the diff against `spec.md` (each Success Criterion, the scope) and for correctness, edge cases and conventions, while CI is polled.
+   2. Each finding is triaged as `confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`. Only confirmed findings are fixed.
+   3. A failed CI run is triaged from its log, with the real error line quoted. A failure of the PR goes to the fix agent. A red base branch or flaky infrastructure gets one re-run of the failed jobs.
+   4. One fix agent fixes the confirmed findings and the CI failure, and pushes once.
+   5. A fix-check agent answers `resolved` or `not resolved` for each confirmed finding.
+
+   After the last round, CI is driven alone until it is green or `ci_attempts` is used up. With `review_rounds: 0`, only CI runs.
+6. **Gate:**
+   - **Succeeded:** a single change without `--merge` stops with the PR ready for validation. With a series or `--merge`, the PR is squash-merged and the next change starts.
+   - **Blocked:** an implementer returned a blocker. Nothing is merged, the run stops and the blocker comes back to you with its options.
+   - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
+
+Implementers, reviewers, fix agents and the fix check run on `opus`; `sonnet` is allowed for implementers on mechanical tasks. CI polling and log fetching run on `sonnet`. `haiku` is never used.
+
+## Output
+
+For each change: the branch, the PR URL, the review outcome (rounds used, findings not fixed with their verdicts, the fix check per confirmed finding), the CI status and attempts used, whether the PR was merged or awaits validation, and any blocker. For a series, where it stopped and why.

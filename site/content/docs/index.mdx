@@ -1,0 +1,25 @@
+---
+title: Introduction
+description: A spec-first workflow for Claude Code, and where it keeps its files.
+---
+
+theway is a set of Claude Code slash commands for planning and implementing changes in a codebase. It turns a request into a spec and a numbered task list, then implements the tasks, either inline in your session or through agents that open a pull request, run review rounds and drive CI green.
+
+It is for Claude Code users who want the reasoning behind a change written down before its code.
+
+## Why spec-first
+
+`/theway:engineering` writes only the spec. It investigates the code, settles the unknowns and records what it found, the decisions and their reasons, the risks and the tasks. The code is written later, by `/theway:develop` or `/theway:develop-workflow`, from that spec.
+
+Writing the spec first means the blockers and alternatives are weighed before any code exists. A spec written after the code describes that code instead of the problem. During implementation, a gap between the spec and the code is brought back to you as a decision, not smoothed over.
+
+Every spec includes a [TAMM](./concepts/tamm.mdx) hardpoints table that names the Medium and High risks of the change and their countermeasures.
+
+## Where things live
+
+Each change is a folder under `~/.theway/<project>/changes/`, where `<project>` is the name of your project directory. The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in `~/.theway`. See [Changes](./concepts/changes.mdx).
+
+## Next steps
+
+- [Install theway](./installation.mdx).
+- Read [How it works](./workflow.mdx): engineering, develop, archive.

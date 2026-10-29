@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp
+*.tmp
+*.bak
+
+# Dependencies
+node_modules/
+
+# Claude
+.claude/
+
+# Secrets
+.env
