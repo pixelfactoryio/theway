@@ -20,6 +20,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { InstallPill } from '@/components/install-pill';
+import { basePath } from '@/lib/base-path.mjs';
 import { commandDescription } from '@/lib/commands';
 import { githubUrl } from '@/lib/layout.shared';
 import { column, mono, tagline } from '@/lib/site';
@@ -433,6 +434,17 @@ export default function HomePage() {
             </a>
           </div>
         </div>
+        <video
+          src={`${basePath}/demo.mp4`}
+          poster={`${basePath}/demo-poster.png`}
+          aria-label="A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them"
+          className="mt-10 w-full max-w-4xl border"
+          autoPlay
+          muted
+          loop
+          playsInline
+          controls
+        />
       </Band>
 
       <Separator />

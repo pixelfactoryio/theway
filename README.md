@@ -2,6 +2,8 @@
 
 theway writes a spec and a numbered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.
 
+![A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them](.github/demo.gif)
+
 ## Install
 
 ```bash
