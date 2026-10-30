@@ -38,27 +38,6 @@ standards:
     file: "<home>/data/standards/tamm-framework.md"
     description: "Time/Autonomy/Mastery/Machine hardpoint analysis framework"
 
-# Change Management Conventions
-changes:
-  naming_convention: "[verb]-[description]"
-  # Dependent change series: zero-padded two-digit ordinals starting at 01
-  series_convention: "[change-id]-NN"
-  allowed_verbs:
-    - add
-    - update
-    - refactor
-    - remove
-  archive_format: "YYYY-MM-DD-[change-id]"
-
-  # Required files in every change folder
-  required_files:
-    - spec.md
-    - tasks.md
-
-  # Optional files (create when needed)
-  optional_files:
-    - design.md
-
 # Engineering - spec review for /theway:engineering (absent or invalid key means the default)
 engineering:
   # Maximum review rounds per scaffold; 0 skips the review
@@ -85,32 +64,3 @@ workflow:
     fix: opus
     # CI polling and log fetching
     ci: sonnet
-
-# Template Registry
-# Templates are self-contained with frontmatter containing usage instructions,
-# agent roles, required context, and quality standards
-templates:
-  value_engineering:
-    file: "<home>/templates/spec-template.md"
-    description: "TAMM-based Spec analysis for medium-to-large changes"
-    used_by: ["engineering"]
-
-  implementation_tasks:
-    file: "<home>/templates/tasks-template.md"
-    description: "Phase-based implementation checklist with numbered tasks"
-    used_by: ["engineering"]
-
-  coding_standards:
-    file: "<home>/templates/coding-standards-template.md"
-    description: "Project-specific coding conventions and quality standards"
-    used_by: ["document"]
-
-  source_tree:
-    file: "<home>/templates/source-tree-template.md"
-    description: "Repository structure and organization documentation"
-    used_by: ["document"]
-
-  tech_stack:
-    file: "<home>/templates/tech-stack-template.md"
-    description: "Technology choices, dependencies, and rationale"
-    used_by: ["document"]
