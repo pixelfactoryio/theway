@@ -21,8 +21,8 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 /theway:develop-workflow <change-id> [<change-id> ...]
 ```
 
-- **One change ID:** develop the change and stop when its PR is ready for validation. Never merge it.
-- **Multiple change IDs (series):** develop each change strictly in the given order. Each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 6).
+- **One change ID:** develop the change and stop when its PR is ready for validation (with `workflow.open_pr: false`, when its local branch is ready). Never merge it.
+- **Multiple change IDs (series):** develop each change strictly in the given order. With `workflow.open_pr` true, each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 6). With `workflow.open_pr: false`, nothing is merged: each change's branch is created from the previous change's branch (Step 2).
 
 **Authorization boundary:** invoking this command authorizes, when `workflow.open_pr` is true (the default), pushing each change's own feature branch (never force-push, never the default branch) once its local review is done, and opening its PR — nothing more. With `workflow.open_pr: false` it pushes nothing and opens no PR. Merging always needs the user's explicit yes, asked at Step 6, and uses `gh pr merge <number> --squash`, never `--admin`. This invocation is also the explicit opt-in for the Workflow tool. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't.
 
@@ -71,7 +71,7 @@ Run up to `review_rounds` review rounds on the local branch, before anything is 
 
 Each round:
 
-1. **Review.** Spawn independent reviewer agents prompted to refute or break the branch diff (`git diff <main>...<branch>` on the round's head): against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. Each finding's `file` is a path relative to the repository root, without a leading `./`.
+1. **Review.** Spawn independent reviewer agents prompted to refute or break the branch diff (`git diff <base>...<branch>` on the round's head, where `<base>` is the main branch, or, in a series with `workflow.open_pr: false`, the previous change's branch): against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. Each finding's `file` is a path relative to the repository root, without a leading `./`.
 2. **Triage findings**, once per round:
    1. Number the round's findings `0..N-1` in the order reported and verify each one. Each gets one verdict: `confirmed` (real), `false_positive` (refuted), `duplicate` (the same problem as an earlier finding of the round, which it names), `nit` (real, cosmetic) or `out_of_scope` (not this change's).
    2. Only `confirmed` findings go to the fix agent. List the `false_positive`, `nit` and `out_of_scope` findings (index, verdict, title) in the Exit report.
@@ -101,7 +101,7 @@ Then drive CI on the PR:
 ### Step 6: Gate
 
 **Change succeeded** (every confirmed finding resolved by the fix check, and, with `workflow.open_pr` true, CI green):
-- Single change: stop and report the PR ready for validation (with `workflow.open_pr: false`: the reviewed local branch, not pushed).
+- Single change: stop and report the PR ready for validation (with `workflow.open_pr: false`: the local branch, not pushed, reviewed unless `review_rounds: 0`).
 - Series with `workflow.open_pr` true: report the PR URL, its diffstat (`gh pr diff <number> --stat`) and CI status, and ask the user whether to merge it. On an explicit yes, merge with `gh pr merge <number> --squash` (never `--admin`), sync main, then continue with the next change ID. On any other answer, stop the run and report where the series stopped.
 - Series with `workflow.open_pr: false`: nothing is merged; continue with the next change ID, whose branch Step 2 creates from this change's branch.
 
@@ -113,4 +113,4 @@ Then drive CI on the PR:
 
 ## Exit
 
-Report per change: branch, PR URL, review outcome (review rounds used, the findings not fixed with their verdicts, and the fix-check result per confirmed finding), CI status (CI attempts used; "not run" with `workflow.open_pr: false`), whether it was merged or awaits validation (with `workflow.open_pr: false`, the local branch), and any blocker waiting on the user. In series mode, also state where the series stopped and why if it did not complete.
+Report per change: branch, PR URL (or the local branch when nothing was pushed), review outcome (review rounds used, the findings not fixed with their verdicts, and the fix-check result per confirmed finding), CI status (CI attempts used; "not run" when nothing was pushed: with `workflow.open_pr: false`, or when the change failed or was blocked before Step 5), whether it was merged or awaits validation (with `workflow.open_pr: false`, the local branch), and any blocker waiting on the user. In series mode, also state where the series stopped and why if it did not complete.
