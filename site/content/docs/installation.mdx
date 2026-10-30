@@ -77,8 +77,10 @@ theway: warning: /usr/local/bin/theway comes before /home/you/.local/bin/theway 
 
 The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in its environment, then the pointer file, then `~/.theway`. After changing `THEWAY_HOME`, run install again with the new value: it rewrites the pointer, adds the rules of the new home and drops the `Read` and `Edit` rules of the previous one. Until then, `theway path` warns that `THEWAY_HOME` and the pointer differ.
 
+Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
+
 Install finds the data home the same way. Without `THEWAY_HOME`, it updates the home the pointer names, so `/theway:setup`, which sees `THEWAY_HOME` only when it is exported in the shell that started Claude Code, keeps a custom home. To go back to `~/.theway`, run install with `THEWAY_HOME=~/.theway`.
 
 ## Upgrading from 0.2.0
 
-theway 0.2.0 installed the CLI in the data home, as `bin/theway` and `bin/theway.js`, with the rule `Bash(~/.theway/bin/theway:*)` (or the absolute path for a custom home). Installing this version over it removes those two files, the `bin/` folder when nothing else is in it, and the old rule. Your config and change folders stay where they are.
+theway 0.2.0 installed the CLI in the data home, as `bin/theway` and `bin/theway.js`, with the rule `Bash(~/.theway/bin/theway:*)` (or the absolute path for a custom home). Installing this version over it removes those two files when they are the ones 0.2.0 wrote, the `bin/` folder when nothing else is in it, and the old rule. Your config and change folders stay where they are.

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { isDir, isFile, thewayHome } from "./io";
+import { invalidSegments } from "./path";
 
 // Only numbered lines (`N.` or `Na.`) are tasks; other checkboxes are not.
 const CHECKED = /^\s*-\s*\[x\]\s+[0-9]+[a-z]?\./;
@@ -51,6 +52,7 @@ function taskCounts(dir: string): [number, number] {
 }
 
 export function cmdList(project: string): number {
+  if (invalidSegments([["project", project]])) return 1;
   const home = thewayHome();
   const base = `${home}/${project}/changes`;
   let text = `theway changes — ${project}\n\nActive changes\n\n`;

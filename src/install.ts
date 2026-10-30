@@ -8,14 +8,16 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   rmdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { init } from "./core/init";
 import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./core/io";
@@ -95,10 +97,50 @@ function readSettings(path: string): Settings | null {
   return data as Settings;
 }
 
-function writeSettings(path: string, settings: Settings): void {
-  const tmp = `${path}.tmp-${process.pid}`;
-  writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
-  renameSync(tmp, path);
+/** Where writing `path` lands: the end of its symlink chain (even a missing file), or why it cannot be written. */
+function settingsTarget(path: string): { target: string } | { error: string } {
+  let target = path;
+  const seen = new Set<string>();
+  for (;;) {
+    let link: boolean;
+    try {
+      link = lstatSync(target).isSymbolicLink();
+    } catch {
+      break; // missing: the chain ends here
+    }
+    if (!link) break;
+    if (seen.has(target) || seen.size >= 40) return { error: "it is a symlink loop" };
+    seen.add(target);
+    target = resolve(dirname(target), readlinkSync(target));
+  }
+  // writeSettings creates the missing folders, so the nearest existing one must be writable.
+  let dir = dirname(target);
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
+  try {
+    accessSync(dir, constants.W_OK);
+  } catch {
+    return { error: `${dir} is not writable` };
+  }
+  return { target };
+}
+
+function unwritableSettings(path: string, reason: string): number {
+  return fail(`theway: cannot write ${path}: ${reason}; nothing was changed`);
+}
+
+/** Writes `settings` to `target` (a resolved settingsTarget), keeping its mode, `0600` when new. */
+function writeSettings(target: string, settings: Settings): void {
+  mkdirSync(dirname(target), { recursive: true });
+  const mode = existsSync(target) ? statSync(target).mode & 0o777 : 0o600;
+  const tmp = `${target}.tmp-${process.pid}`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`, { mode });
+    // The umask, or a stale tmp file, may have left another mode.
+    chmodSync(tmp, mode);
+    renameSync(tmp, target);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
 }
 
 function invalidSettings(path: string): number {
@@ -133,11 +175,25 @@ function removeIfEmpty(dir: string): void {
   }
 }
 
-/** Removes the 0.2.0 launcher (`bin/theway`, `bin/theway.js`, then `bin/` when empty) from `~/.theway` and `home`. */
+/** True when `path` is a regular file whose text passes `match`; false when absent, unreadable or not a regular file. */
+function legacyText(path: string, match: (text: string) => boolean): boolean {
+  try {
+    return lstatSync(path).isFile() && match(readFileSync(path, "utf-8"));
+  } catch {
+    return false;
+  }
+}
+
+/** Removes the 0.2.0 launcher (`bin/theway`, `bin/theway.js`, then `bin/` when empty) from `~/.theway` and `home`, only the files 0.2.0 wrote. */
 function removeLegacyBin(home: string): void {
   for (const h of new Set([defaultHome(), resolve(home)])) {
     const bin = join(h, "bin");
-    for (const f of ["theway", "theway.js"]) rmSync(join(bin, f), { force: true });
+    if (legacyText(join(bin, "theway"), (t) => t.startsWith('#!/bin/sh\nexec node ') && t.endsWith(`theway.js' "$@"\n`))) {
+      rmSync(join(bin, "theway"), { force: true });
+    }
+    if (legacyText(join(bin, "theway.js"), (t) => t.startsWith("#!/usr/bin/env node\n"))) {
+      rmSync(join(bin, "theway.js"), { force: true });
+    }
     removeIfEmpty(bin);
   }
 }
@@ -197,6 +253,19 @@ function realpathOr(path: string): string {
   }
 }
 
+/** Why install must not write rules for `tHome`, `""` when it may: the rules would cover far more than theway's files. */
+function unsafeHomeReason(tHome: string, custom: boolean): string {
+  const home = resolve(tHome);
+  const real = realpathOr(home);
+  const user = realpathOr(homedir());
+  if (real === user || user.startsWith(real + sep) || real === "/") {
+    return "it is your home folder or one of its parents";
+  }
+  // The default home goes into the rules as the literal ~/.theway, whatever $HOME holds.
+  if (custom && /[*?[\]{}\n\r]/.test(home)) return "it contains a glob character or a line break";
+  return "";
+}
+
 /** Every executable `theway` on `PATH`, in `PATH` order, without the npx copy running this install. */
 function copiesOnPath(): string[] {
   const running = realpathOr(self);
@@ -246,7 +315,14 @@ export function install(): number {
   const dir = installDir();
   const settingsPath = join(cHome, "settings.json");
 
-  const settings = readSettings(settingsPath);
+  const unsafe = unsafeHomeReason(tHome, custom);
+  if (unsafe !== "") {
+    return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME to a dedicated folder`);
+  }
+
+  const resolved = settingsTarget(settingsPath);
+  if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
+  const settings = readSettings(resolved.target);
   if (settings === null) return invalidSettings(settingsPath);
 
   // Never replace another program that happens to be called theway: uninstall would not remove it either.
@@ -284,7 +360,7 @@ export function install(): number {
   if (missing.length > 0 || kept.length !== allow.length) {
     settings.permissions = { ...perms, allow: [...kept, ...missing] };
     mkdirSync(cHome, { recursive: true });
-    writeSettings(settingsPath, settings);
+    writeSettings(resolved.target, settings);
   }
 
   checkPath(dir, binary);
@@ -302,6 +378,12 @@ export function uninstall(): number {
   // Every home theway may have rules for: the resolved one, the one the pointer names, and ~/.theway.
   const homes = [...new Set([tHome, recordedHome(), defaultHome()])];
   const settingsPath = join(cHome, "settings.json");
+  let settingsFile = settingsPath;
+  if (occupied(settingsPath)) {
+    const resolved = settingsTarget(settingsPath);
+    if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
+    settingsFile = resolved.target;
+  }
 
   rmSync(join(cHome, "skills", "theway"), { recursive: true, force: true });
 
@@ -313,7 +395,7 @@ export function uninstall(): number {
   removeIfEmpty(dirname(pointerPath()));
 
   if (existsSync(settingsPath)) {
-    const settings = readSettings(settingsPath);
+    const settings = readSettings(settingsFile);
     if (settings === null) return invalidSettings(settingsPath);
     const allow = settings.permissions?.allow;
     if (Array.isArray(allow)) {
@@ -321,7 +403,7 @@ export function uninstall(): number {
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };
-        writeSettings(settingsPath, settings);
+        writeSettings(settingsFile, settings);
       }
     }
   }

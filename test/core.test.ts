@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { changeIdReason, projectReason } from "../src/core/path";
 import { seriesReason, standaloneReason } from "../src/core/validate-id";
 
 const CLI = join(import.meta.dirname, "..", "dist", "theway.js");
@@ -155,17 +156,33 @@ test("path prints the project and change folders on one stdout line", () => {
   expect(verbose.stderr).toBe("theway: home /p (from pointer)\n");
 });
 
+const CHANGE_ID_REASON = "must be lowercase letters and digits in words separated by single hyphens";
+const PROJECT_REASON = 'must be letters, digits, ".", "_" or "-", not starting with "." or "-"';
+const LONG_REASON = "must be at most 200 characters";
+
 test("path exits 1 with one reason for an invalid project or change id", () => {
   const root = home();
+  const long = "a".repeat(201);
   const cases: [string[], string][] = [
     [[""], "theway: invalid project '': must not be empty\n"],
-    [["a/b"], "theway: invalid project 'a/b': must not contain /\n"],
-    [["."], "theway: invalid project '.': must not be .\n"],
-    [[".."], "theway: invalid project '..': must not be ..\n"],
+    [["a/b"], `theway: invalid project 'a/b': ${PROJECT_REASON}\n`],
+    [["."], `theway: invalid project '.': ${PROJECT_REASON}\n`],
+    [[".."], `theway: invalid project '..': ${PROJECT_REASON}\n`],
+    [[".hidden"], `theway: invalid project '.hidden': ${PROJECT_REASON}\n`],
+    [["--", "-p"], `theway: invalid project '-p': ${PROJECT_REASON}\n`],
+    [["a b"], `theway: invalid project 'a b': ${PROJECT_REASON}\n`],
+    [["a\\b"], `theway: invalid project 'a\\b': ${PROJECT_REASON}\n`],
+    [[long], `theway: invalid project '${long}': ${LONG_REASON}\n`],
     [["p", ""], "theway: invalid change id '': must not be empty\n"],
-    [["p", "x/y"], "theway: invalid change id 'x/y': must not contain /\n"],
-    [["p", "."], "theway: invalid change id '.': must not be .\n"],
-    [["p", ".."], "theway: invalid change id '..': must not be ..\n"],
+    [["p", "x/y"], `theway: invalid change id 'x/y': ${CHANGE_ID_REASON}\n`],
+    [["p", "."], `theway: invalid change id '.': ${CHANGE_ID_REASON}\n`],
+    [["p", ".."], `theway: invalid change id '..': ${CHANGE_ID_REASON}\n`],
+    [["p", "Add-X"], `theway: invalid change id 'Add-X': ${CHANGE_ID_REASON}\n`],
+    [["p", "add--x"], `theway: invalid change id 'add--x': ${CHANGE_ID_REASON}\n`],
+    [["p", "--", "-add"], `theway: invalid change id '-add': ${CHANGE_ID_REASON}\n`],
+    [["p", "add-"], `theway: invalid change id 'add-': ${CHANGE_ID_REASON}\n`],
+    [["p", "add_x"], `theway: invalid change id 'add_x': ${CHANGE_ID_REASON}\n`],
+    [["p", long], `theway: invalid change id '${long}': ${LONG_REASON}\n`],
   ];
   for (const [args, stderr] of cases) {
     const res = runPath(root, { env: "/h" }, ...args);
@@ -173,6 +190,23 @@ test("path exits 1 with one reason for an invalid project or change id", () => {
     expect(res.stdout).toBe("");
     expect(res.stderr).toBe(stderr);
   }
+});
+
+test("path accepts allowlisted project and change id names", () => {
+  const root = home();
+  const res = runPath(root, { env: "/h" }, "My_Repo.v2", "add-x-01");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe("/h/My_Repo.v2/changes/add-x-01\n");
+  expect(res.stderr).toBe("");
+});
+
+test("changeIdReason and projectReason reject a NUL byte and accept allowlisted names", () => {
+  expect(changeIdReason("a\u0000b")).toBe(CHANGE_ID_REASON);
+  expect(projectReason("a\u0000b")).toBe(PROJECT_REASON);
+  expect(changeIdReason("add-x-01")).toBe("");
+  expect(projectReason("My_Repo.v2")).toBe("");
+  expect(changeIdReason("a".repeat(200))).toBe("");
+  expect(projectReason("a".repeat(200))).toBe("");
 });
 
 test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
@@ -185,4 +219,31 @@ test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
     env: { HOME: join(root, "home"), PATH: process.env.PATH, XDG_CONFIG_HOME: join(root, "config") },
   });
   expect(res.stdout).toContain("add-x                1 files   1/1 tasks done");
+});
+
+test("list and archive exit 1 with the path reason for an invalid project or change id", () => {
+  const dir = home();
+  const cases: [string[], string][] = [];
+  for (const v of ["a/b", ".", ".."]) {
+    cases.push([["list", v], `theway: invalid project '${v}': ${PROJECT_REASON}\n`]);
+    cases.push([["archive", v, "add-x"], `theway: invalid project '${v}': ${PROJECT_REASON}\n`]);
+    cases.push([["archive", "p", v], `theway: invalid change id '${v}': ${CHANGE_ID_REASON}\n`]);
+  }
+  for (const [args, stderr] of cases) {
+    const res = run(dir, ...args);
+    expect(res.status).toBe(1);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toBe(stderr);
+  }
+});
+
+test("archive cannot move a folder outside the data home", () => {
+  const root = home();
+  const data = join(root, "home");
+  mkdirSync(data, { recursive: true });
+  const victim = join(root, "outside", "changes", "victim");
+  mkdirSync(victim, { recursive: true });
+  const res = run(data, "archive", "..", "victim");
+  expect(res.status).toBe(1);
+  expect(existsSync(victim)).toBe(true);
 });
