@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/pixelfactoryio/theway/compare/v0.5.0...v0.5.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **cli:** validate list and archive arguments and harden settings and home handling ([#26](https://github.com/pixelfactoryio/theway/issues/26)) ([eeefaae](https://github.com/pixelfactoryio/theway/commit/eeefaae72e31c39e3774ac254eba115e81e82c7c))
+
 ## [0.5.0](https://github.com/pixelfactoryio/theway/compare/v0.4.0...v0.5.0) (2026-10-30)
 
 
