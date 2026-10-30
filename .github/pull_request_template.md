@@ -10,5 +10,4 @@
 
 - [ ] The PR title is a Conventional Commit.
 - [ ] `bun test` passes.
-- [ ] `dist/` is rebuilt if `src/` changed.
 - [ ] Docs are updated.

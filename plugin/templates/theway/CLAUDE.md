@@ -11,7 +11,7 @@ Use TheWay slash commands for structured workflows:
 - `/theway:archive` - Archive completed changes
 - `/theway:list` - List active and archived changes
 
-Install with `npx --yes github:pixelfactoryio/theway install` (or `/theway:setup` from a session where theway is loaded).
+Install with `npx --yes @pixelfactoryio/theway@latest install` (or `/theway:setup` from a session where theway is loaded).
 
 `theway` subcommands (on `PATH`): `list`, `archive`, `path [<project> [<change-id>]] [--verbose]` (prints the theway home, a project folder or a change folder; `--verbose` names where the home came from) and `validate-id <id> [--series]` (change ID format check from `/theway:engineering` Step 2: exit 0 when valid, exit 1 with one reason on stderr).
 <!-- THEWAY:END -->

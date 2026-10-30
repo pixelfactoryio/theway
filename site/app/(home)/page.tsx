@@ -25,7 +25,7 @@ import { commandDescription } from '@/lib/commands';
 import { githubUrl } from '@/lib/layout.shared';
 import { column, mono, tagline } from '@/lib/site';
 
-const installCommand = 'npx --yes github:pixelfactoryio/theway install';
+const installCommand = 'npx --yes @pixelfactoryio/theway@latest install';
 
 /* One line of a file window: `heading` is a Markdown heading, `check` marks a task line. */
 type FileLine = { text: string; heading?: boolean; check?: 'done' | 'open' };

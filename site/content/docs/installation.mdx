@@ -13,10 +13,10 @@ description: Install, update, pin and uninstall theway.
 ## Install and update
 
 ```bash
-npx --yes github:pixelfactoryio/theway install
+npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Every run fetches the tip of `main`, so running the command again updates theway. When it finishes, start a new Claude Code session or run `/reload-plugins`.
+Every run fetches the latest release from npm, so running the command again updates theway. When it finishes, start a new Claude Code session or run `/reload-plugins`.
 
 When the install folder is not on your `PATH`, install still finishes and exits 0, and prints the line to add:
 
@@ -28,18 +28,18 @@ From a session where theway is already loaded, `/theway:setup` runs the same com
 
 ## Pin to a release
 
-To install a specific release, add its tag:
+To install a specific release, add its version:
 
 ```bash
-npx --yes github:pixelfactoryio/theway#vX.Y.Z install
+npx --yes @pixelfactoryio/theway@X.Y.Z install
 ```
 
-The tags are listed on the [GitHub releases page](https://github.com/pixelfactoryio/theway/releases).
+The versions are listed on [npm](https://www.npmjs.com/package/@pixelfactoryio/theway?activeTab=versions).
 
 ## Uninstall
 
 ```bash
-npx --yes github:pixelfactoryio/theway uninstall
+npx --yes @pixelfactoryio/theway@latest uninstall
 ```
 
 Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the one install wrote, the pointer file and the permission rules: those of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`, and the rules of 0.2.0. The data home (`~/.theway`, or your custom home) is kept, with your changes and your config.

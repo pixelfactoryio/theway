@@ -1,7 +1,7 @@
 ---
 description: Install or update theway from a Claude Code session
 author: Amine
-allowed-tools: Bash(npx --yes github:pixelfactoryio/theway install)
+allowed-tools: Bash(npx --yes @pixelfactoryio/theway@latest install)
 ---
 
 # TheWay: Setup
@@ -13,7 +13,7 @@ One-time setup: installs the `theway` CLI on your `PATH` and initializes the the
 ### Step 1: Run the Installer
 
 ```bash
-npx --yes github:pixelfactoryio/theway install
+npx --yes @pixelfactoryio/theway@latest install
 ```
 
 ### Step 2: Check the Result

@@ -9,13 +9,13 @@ theway writes a spec and a numbered task list before any code, then implements t
 ## Install
 
 ```bash
-npx --yes github:pixelfactoryio/theway install
+npx --yes @pixelfactoryio/theway@latest install
 ```
 
 Pin to a release:
 
 ```bash
-npx --yes github:pixelfactoryio/theway#vX.Y.Z install
+npx --yes @pixelfactoryio/theway@X.Y.Z install
 ```
 
 ## Documentation

@@ -262,7 +262,7 @@ test("the installed copy refuses install and points to npx", () => {
   expect(run(env, "install").status).toBe(0);
   const res = runInstalled(env, "install");
   expect(res.status).toBe(1);
-  expect(res.stderr).toContain("npx --yes github:pixelfactoryio/theway install");
+  expect(res.stderr).toContain("npx --yes @pixelfactoryio/theway@latest install");
 });
 
 test("install over a 0.2.0 default home removes the old launcher and rule and keeps the data", () => {

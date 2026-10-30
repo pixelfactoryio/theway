@@ -6,7 +6,7 @@ body:
     id: theway-version
     attributes:
       label: theway version
-      description: The installed release (`~/.theway/bin/theway`), or the commit.
+      description: The version install printed (`Installed theway X.Y.Z`), or `version` in `~/.claude/skills/theway/.claude-plugin/plugin.json`.
     validations:
       required: true
   - type: input
