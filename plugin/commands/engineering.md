@@ -10,7 +10,7 @@ You are now scaffolding a Spec analysis using templates.
 
 > **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:develop`, from that spec.
 >
-> Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
+> Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >
 > Do **not** suggest entering plan mode — its approval step is a "start coding" trigger that collapses scaffolding into implementation.
 
@@ -31,6 +31,10 @@ Read these files from `<home>`:
 - `<home>/config.yaml` - Global config and conventions
 - `<home>/data/standards/tamm-framework.md` - TAMM framework
 - `<home>/data/standards/architecture-principles.md` - SRE-EE principles (if enabled in config)
+
+From `<home>/config.yaml`, take `engineering.review_rounds` (maximum review rounds in Step 6, default `1`). A key that is absent or not a non-negative integer takes the default.
+
+Also take the critic model from `engineering.models.critic` (default `opus`). It must be `opus` or `sonnet`; a key that is absent or holds any other value takes the default.
 
 ### Step 2: Create Change Folder
 
@@ -79,6 +83,47 @@ If needed, create `<change-dir>/design.md` for:
 - Architecture decisions
 - Technical diagrams and specs
 
+### Step 6: Review
+
+Check that the change can be implemented without guessing, before it is reported ready. Run this step only when Steps 3-5 left no open question; an open point recorded in the spec counts as one. Otherwise do not run it: the spec is not ready, and the Exit report says the review was not run. With `review_rounds: 0`, skip this step.
+
+Run up to `review_rounds` review rounds. In a series, each round covers every member together.
+
+Each round:
+
+1. **Review.** Spawn two critic agents in parallel, in a single message, with the Agent tool and `model` set to `engineering.models.critic` (never `haiku`). Neither sees the other's findings.
+   - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code.
+   - **Implementability critic:** checks whether a cold-start implementer could carry out the change without guessing. It reports:
+     - choices left open ("probe X then decide", "A or B", "if needed");
+     - Success Criteria that cannot be checked, or whose check passes whatever the code does;
+     - Success Criteria with no task behind them, and tasks with no Success Criterion;
+     - tasks outside the Scope or listed as Out of Scope;
+     - tasks that cannot be done as written (a missing file, a command that does not exist, an environment the task assumes);
+     - contradictions between the spec and its tasks, or with the existing command, config or doc text the change touches;
+     - in a series, gaps and overlaps between members.
+
+   Each critic's prompt states:
+   - its lens and the finding format below;
+   - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt;
+   - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
+
+   Each finding names the file (`spec.md`, `tasks.md` or `design.md`, plus the change ID in a series), the section or task number, a short quote, the problem, its evidence (a file and line, a doc URL, or a probe with its result) and a `kind`: `fixable` (the spec can be corrected from facts) or `decision` (only the user can settle it). The critic's `kind` is a proposal; you set the final `kind` when you verify the finding.
+2. **Triage findings**, once per round: number the round's findings `0..N-1` in the order reported, the grounding critic's first, and verify each one against the code, the docs or a single-question probe. Each gets one verdict: `confirmed` (real), `false_positive` (refuted), `duplicate` (the same problem as an earlier finding of the round, which it names), `nit` (real, cosmetic) or `out_of_scope` (not this change's). Change a proposed `decision` to `fixable` only when the code, the docs or the change's own stated decisions determine the answer; its verdict reads `confirmed, settled`.
+3. **Fix.** First edit the change files for every confirmed `fixable` finding of the round, keeping them to the template structure. Then, if the round has a confirmed `decision` finding, end the step: each one is an open question, and the spec is not ready.
+
+A round with no confirmed findings ends the step. Otherwise start the next round only while rounds remain under `review_rounds`; the next round reviews the updated files. Your fixes are not re-checked unless another round runs.
+
+If the Agent tool is not available in the session, run both lenses yourself, one after the other, under the same rules, and say in the Exit report that the review ran inline.
+
 ## Exit
 
-Report the change folder, the findings that shaped the spec, and any question still open. If a question is open, say so and stop; the spec is not ready until it is answered.
+Report the change folder, the findings that shaped the spec, and any question still open. If a question is open, say so and stop; the spec is not ready until it is answered. A confirmed `decision` finding of Step 6 is an open question.
+
+Also report the review outcome:
+- how it ran: the rounds used, off (`review_rounds: 0`), not run because a question was already open, or inline;
+- every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding:
+  - `#` is the round and the triage index, as `R<round>-<index>`, for example `R1-0`;
+  - `Finding` is one line saying what is wrong;
+  - `Verdict` is the triage verdict, or `confirmed, settled` for a proposed `decision` you settled as `fixable`;
+  - `Fix` says how the change files changed for a confirmed `fixable` finding, reads `open question:` followed by the question for a confirmed `decision`, names the earlier `#` for a `duplicate`, and gives the one-line reason for the other verdicts;
+- under the table, each `confirmed, settled` finding again, with the choice made, so the user can overturn it.
