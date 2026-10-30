@@ -51,7 +51,7 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
 - **The data home, `~/.theway`** by default:
   - `config.yaml`: the [configuration](./configuration.mdx). An existing `config.yaml` is kept.
   - `config.default.yaml`: the shipped configuration, written on every install.
-  - `data/standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped.
+  - `data/standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped. A file theway no longer ships is left in the home untouched, and stays there as your own.
   - `<project>/changes/`: the change folders, written by the commands.
 - **`~/.config/theway/home`**, only for a custom `THEWAY_HOME`: the pointer file that holds the absolute data home, so the CLI finds it when `THEWAY_HOME` is not set. With the default home (`THEWAY_HOME` set to `~/.theway`, or neither `THEWAY_HOME` nor a pointer), install writes no pointer and removes an existing one.
 - **Two permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:

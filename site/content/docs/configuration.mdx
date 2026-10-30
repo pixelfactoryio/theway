@@ -9,14 +9,19 @@ The configuration lives in `<home>/config.yaml`, where `<home>` is the data home
 
 ## standards
 
-Each standard has three keys: `enabled`, `file` and `description`. In the shipped file, `file` values start with `<home>/`; the commands find the home with `theway path`, never from these values, so a copy that still says `~/.theway/` works with a custom home too. Only `standards.architecture` honors `enabled`: `/theway:engineering` and `/theway:document` skip the architecture principles when it is `false`. The other standards are always read.
+Each standard has three keys: `enabled`, `file` and `description`. In the shipped file, `file` values start with `<home>/`; the commands find the home with `theway path`, never from these values, so a copy that still says `~/.theway/` works with a custom home too. Only the four opt-in standards honor `enabled`: `standards.core_principles`, `standards.sre`, `standards.web_development` and `standards.quality`. `/theway:engineering` and `/theway:document` read each one only when its `enabled` is `true`. The other standards are always read.
 
 | Standard | `enabled` | `file` | Used for |
 |----------|-----------|--------|----------|
 | `standards.interaction` | `true` | `<home>/data/standards/interaction.md` | How `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive` explore the codebase and report |
 | `standards.develop` | `true` | `<home>/data/standards/develop.md` | How a change is implemented and verified, shared by `/theway:develop` and `/theway:develop-workflow` |
-| `standards.architecture` | `true` | `<home>/data/standards/architecture-principles.md` | Architecture principles, web development conventions and quality targets |
+| `standards.core_principles` | `false` | `<home>/data/standards/core-principles.md` | Architecture philosophy (simplicity, security, pragmatic technology) |
+| `standards.sre` | `false` | `<home>/data/standards/sre.md` | SRE operational excellence (reliability, observability, automation) |
+| `standards.web_development` | `false` | `<home>/data/standards/web-development.md` | Frontend, API and backend standards with web performance targets |
+| `standards.quality` | `false` | `<home>/data/standards/quality.md` | Testing, deployment, monitoring and security expectations |
 | `standards.tamm_framework` | `true` | `<home>/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
+
+A `config.yaml` written by an earlier install has `standards.architecture` instead of these four entries, so they stay off until you copy them from `config.default.yaml` and set `enabled: true` on the ones you want.
 
 ## changes
 
