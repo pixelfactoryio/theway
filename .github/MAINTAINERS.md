@@ -31,3 +31,15 @@ Run these steps once, after the `pixelfactoryio/theway` repository is created. T
 4. In Settings → Actions → General, enable "Allow GitHub Actions to create and approve pull requests". release-please needs it to open release PRs.
 
 5. In Settings → Pages, set the source to "GitHub Actions".
+
+6. Publish to npm once by hand, then let the release workflow publish through npm trusted publishing (needs npm 11.15 or later and 2FA on your npm account):
+
+   ```bash
+   npx --yes bun@1.3.14 install --frozen-lockfile
+   npx --yes bun@1.3.14 run build
+   npm login
+   npm publish
+   npm trust github @pixelfactoryio/theway --file release-please.yml --repo pixelfactoryio/theway --allow-publish
+   ```
+
+   The next release must publish within 2 days of `npm trust`, or the trusted publisher configuration expires and `npm trust` must be run again.
