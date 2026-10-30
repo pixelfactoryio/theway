@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/pixelfactoryio/theway/compare/v0.5.1...v0.5.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* stop granting edits to change folders, pin setup and review locally before the pr ([#29](https://github.com/pixelfactoryio/theway/issues/29)) ([1048b34](https://github.com/pixelfactoryio/theway/commit/1048b34b4097103c286fee27bbe1c18211a9df18))
+
 ## [0.5.1](https://github.com/pixelfactoryio/theway/compare/v0.5.0...v0.5.1) (2026-10-30)
 
 
