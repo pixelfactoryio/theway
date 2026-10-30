@@ -117,9 +117,9 @@ If the Agent tool is not available in the session, run both lenses yourself, one
 
 ## Exit
 
-Report the change folder, the findings that shaped the spec, and any question still open. If a question is open, say so and stop; the spec is not ready until it is answered. A confirmed `decision` finding of Step 6 is an open question.
+Report the change folder, the findings that shaped the spec, the review outcome below, and any question still open. A confirmed `decision` finding of Step 6 is an open question. If a question is open, stop after this report; the spec is not ready until it is answered.
 
-Also report the review outcome:
+The review outcome:
 - how it ran: the rounds used, off (`review_rounds: 0`), not run because a question was already open, or inline;
 - every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding:
   - `#` is the round and the triage index, as `R<round>-<index>`, for example `R1-0`;
