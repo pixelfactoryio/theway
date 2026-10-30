@@ -29,14 +29,27 @@ function readManifest(home: string): Manifest | undefined {
   }
 }
 
-function writeManifest(home: string, manifest: Manifest): void {
-  const target = `${home}/${MANIFEST}`;
+/** Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated target. */
+function writeAtomic(target: string, data: string | Buffer): void {
   const tmp = `${target}.tmp-${process.pid}`;
   try {
-    writeFileSync(tmp, `${JSON.stringify(manifest, null, 2)}\n`);
+    writeFileSync(tmp, data);
     renameSync(tmp, target);
   } finally {
     rmSync(tmp, { force: true });
+  }
+}
+
+function writeManifest(home: string, manifest: Manifest): void {
+  writeAtomic(`${home}/${MANIFEST}`, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+/** `<rel>.bak` when it is free or already holds `current`, else the first free `<rel>.bak.<n>`. */
+function backupPath(home: string, rel: string, current: Buffer): string {
+  const bak = `${rel}.bak`;
+  if (!existsSync(`${home}/${bak}`) || readFileSync(`${home}/${bak}`).equals(current)) return bak;
+  for (let n = 1; ; n++) {
+    if (!existsSync(`${home}/${bak}.${n}`)) return `${bak}.${n}`;
   }
 }
 
@@ -58,28 +71,31 @@ function copyShipped(src: string, home: string): void {
       const dst = `${home}/${rel}`;
       const shipped = readFileSync(`${src}/${rel}`);
       const old = previous?.[rel];
+      const sibling = `${dir}/${name.slice(0, -".md".length)}.default.md`;
+      let removeSibling = true;
       if (!existsSync(dst)) {
-        writeFileSync(dst, shipped);
+        writeAtomic(dst, shipped);
       } else {
         const current = readFileSync(dst);
         if (!current.equals(shipped)) {
-          const base = name.slice(0, -".md".length);
-          const sibling = `${dir}/${base}.default.md`;
           if (typeof old === "string") {
             if (sha256(current) === old) {
-              writeFileSync(dst, shipped);
-              rmSync(`${home}/${sibling}`, { force: true });
+              writeAtomic(dst, shipped);
             } else {
-              writeFileSync(`${home}/${sibling}`, shipped);
+              removeSibling = false;
+              writeAtomic(`${home}/${sibling}`, shipped);
               process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
             }
           } else {
-            copyFileSync(dst, `${dst}.bak`);
-            writeFileSync(dst, shipped);
-            process.stdout.write(`Replaced ${rel}; your previous version is in ${rel}.bak\n`);
+            removeSibling = false;
+            const bak = backupPath(home, rel, current);
+            copyFileSync(dst, `${home}/${bak}`);
+            writeAtomic(dst, shipped);
+            process.stdout.write(`Replaced ${rel}; your previous version is in ${bak}\n`);
           }
         }
       }
+      if (removeSibling) rmSync(`${home}/${sibling}`, { force: true });
       manifest[rel] = sha256(shipped);
     }
   }

@@ -669,6 +669,60 @@ test("install removes the stale shipped copy once an edit is reverted to the shi
   expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(false);
 });
 
+test("install removes the stale shipped copy once an edit is reverted to the current shipped content", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  put(join(env.theway, STD), "# my develop\n");
+  expect(run(env, "install").status).toBe(0);
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(true);
+  writeFileSync(join(env.theway, STD), readFileSync(join(env.theway, STD_DEFAULT)));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Kept your edited");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(false);
+});
+
+test("install removes the stale shipped copy once an edited file is deleted", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  put(join(env.theway, STD), "# my develop\n");
+  expect(run(env, "install").status).toBe(0);
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(true);
+  rmSync(join(env.theway, STD));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(false);
+});
+
+test("install backs up a differing file the manifest has no entry for", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const TPL = "templates/spec-template.md";
+  const { [TPL]: _, ...rest } = manifest(env);
+  put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
+  put(join(env.theway, TPL), "# my spec template\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Replaced ${TPL}; your previous version is in ${TPL}.bak\n`);
+  expect(readFileSync(join(env.theway, TPL), "utf-8")).toBe(shipped(TPL));
+  expect(readFileSync(join(env.theway, `${TPL}.bak`), "utf-8")).toBe("# my spec template\n");
+  expect(manifest(env)[TPL]).toBe(sha256(shipped(TPL)));
+});
+
+test("install keeps an existing differing backup and writes the next free one", () => {
+  const env = setup();
+  put(join(env.theway, `${STD}.bak`), "# earlier edit\n");
+  put(join(env.theway, STD), "# my develop\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Replaced ${STD}; your previous version is in ${STD}.bak.1\n`);
+  expect(readFileSync(join(env.theway, `${STD}.bak`), "utf-8")).toBe("# earlier edit\n");
+  expect(readFileSync(join(env.theway, `${STD}.bak.1`), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+});
+
 test("install treats an invalid manifest as absent", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
