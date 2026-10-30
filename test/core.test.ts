@@ -186,3 +186,31 @@ test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
   });
   expect(res.stdout).toContain("add-x                1 files   1/1 tasks done");
 });
+
+test("list and archive exit 1 with the path reason for an invalid project or change id", () => {
+  const dir = home();
+  const reasons: Record<string, string> = { "a/b": "must not contain /", ".": "must not be .", "..": "must not be .." };
+  const cases: [string[], string][] = [];
+  for (const [v, reason] of Object.entries(reasons)) {
+    cases.push([["list", v], `theway: invalid project '${v}': ${reason}\n`]);
+    cases.push([["archive", v, "add-x"], `theway: invalid project '${v}': ${reason}\n`]);
+    cases.push([["archive", "p", v], `theway: invalid change id '${v}': ${reason}\n`]);
+  }
+  for (const [args, stderr] of cases) {
+    const res = run(dir, ...args);
+    expect(res.status).toBe(1);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toBe(stderr);
+  }
+});
+
+test("archive cannot move a folder outside the data home", () => {
+  const root = home();
+  const data = join(root, "home");
+  mkdirSync(data, { recursive: true });
+  const victim = join(root, "outside", "changes", "victim");
+  mkdirSync(victim, { recursive: true });
+  const res = run(data, "archive", "..", "victim");
+  expect(res.status).toBe(1);
+  expect(existsSync(victim)).toBe(true);
+});

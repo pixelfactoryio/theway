@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { isDir, isFile, thewayHome } from "./io";
 import { UNCHECKED } from "./list";
+import { invalidSegments } from "./path";
 
 function localDate(): string {
   const d = new Date();
@@ -16,6 +17,13 @@ function uncheckedLines(path: string): string[] {
 }
 
 export function cmdArchive(project: string, changeId: string, force: boolean): number {
+  if (
+    invalidSegments([
+      ["project", project],
+      ["change id", changeId],
+    ])
+  )
+    return 1;
   const home = thewayHome();
   const src = `${home}/${project}/changes/${changeId}`;
   const dst = `${home}/${project}/changes/archive/${localDate()}-${changeId}`;

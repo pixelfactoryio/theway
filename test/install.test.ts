@@ -7,12 +7,15 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  lstatSync,
   readFileSync,
   rmSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const REPO = join(import.meta.dirname, "..");
 const CLI = join(REPO, "dist", "theway.js");
@@ -79,6 +82,20 @@ function put(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }
+
+/** The 0.2.0 `shQuote`: `'…'` with every `'` written as `'\''`. */
+function shQuote(s: string): string {
+  return `'${s.replaceAll("'", "'\\''")}'`;
+}
+
+/** Writes the launcher pair 0.2.0 put in `<home>/bin`. */
+function putLegacyBin(home: string): void {
+  const dir = join(home, "bin");
+  put(join(dir, "theway.js"), "#!/usr/bin/env node\n// 0.2.0 bundle\n");
+  put(join(dir, "theway"), `#!/bin/sh\nexec node ${shQuote(join(dir, "theway.js"))} "$@"\n`);
+}
+
+const mode = (path: string) => statSync(path).mode & 0o777;
 
 afterEach(() => {
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
@@ -267,8 +284,7 @@ test("the installed copy refuses install and points to npx", () => {
 
 test("install over a 0.2.0 default home removes the old launcher and rule and keeps the data", () => {
   const env = setup({ defaultHome: true });
-  put(join(env.theway, "bin", "theway"), "#!/bin/sh\nexec node theway.js\n");
-  put(join(env.theway, "bin", "theway.js"), "// old\n");
+  putLegacyBin(env.theway);
   put(join(env.theway, "config.yaml"), "# sentinel: keep me\n");
   put(join(env.theway, "proj", "changes", "add-x", "spec.md"), "# x\n");
   put(
@@ -282,22 +298,37 @@ test("install over a 0.2.0 default home removes the old launcher and rule and ke
   expect(allow(env)).toEqual(["Bash(ls:*)", "Read(~/.theway/**)", "Bash(theway:*)", "Edit(~/.theway/*/changes/**)"]);
 });
 
-test("install over a 0.2.0 custom home removes only the old launcher files and rule", () => {
+for (const [label, name] of [
+  ["", "theway"],
+  [" whose path contains '", "the'way"],
+]) {
+  test(`install over a 0.2.0 custom home${label} removes only the old launcher files and rule`, () => {
+    const env = setup();
+    env.theway = join(env.root, name);
+    env.thewayHome = env.theway;
+    putLegacyBin(env.theway);
+    put(join(env.theway, "bin", "mine.sh"), "# keep\n");
+    put(join(env.theway, "proj", "changes", "add-x", "spec.md"), "# x\n");
+    put(
+      join(env.claude, "settings.json"),
+      JSON.stringify({ permissions: { allow: [`Read(/${env.theway}/**)`, `Bash(${env.theway}/bin/theway:*)`] } }),
+    );
+    expect(run(env, "install").status).toBe(0);
+    expect(existsSync(join(env.theway, "bin", "theway"))).toBe(false);
+    expect(existsSync(join(env.theway, "bin", "theway.js"))).toBe(false);
+    expect(existsSync(join(env.theway, "bin", "mine.sh"))).toBe(true);
+    expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
+    expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)", `Edit(/${env.theway}/*/changes/**)`]);
+  });
+}
+
+test("install keeps a <home>/bin/theway and theway.js that 0.2.0 did not write", () => {
   const env = setup();
-  put(join(env.theway, "bin", "theway"), "#!/bin/sh\n");
-  put(join(env.theway, "bin", "theway.js"), "// old\n");
-  put(join(env.theway, "bin", "mine.sh"), "# keep\n");
-  put(join(env.theway, "proj", "changes", "add-x", "spec.md"), "# x\n");
-  put(
-    join(env.claude, "settings.json"),
-    JSON.stringify({ permissions: { allow: [`Read(/${env.theway}/**)`, `Bash(${env.theway}/bin/theway:*)`] } }),
-  );
+  put(join(env.theway, "bin", "theway"), "#!/bin/sh\necho mine\n");
+  put(join(env.theway, "bin", "theway.js"), "// mine\n");
   expect(run(env, "install").status).toBe(0);
-  expect(existsSync(join(env.theway, "bin", "theway"))).toBe(false);
-  expect(existsSync(join(env.theway, "bin", "theway.js"))).toBe(false);
-  expect(existsSync(join(env.theway, "bin", "mine.sh"))).toBe(true);
-  expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
-  expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)", `Edit(/${env.theway}/*/changes/**)`]);
+  expect(readFileSync(join(env.theway, "bin", "theway"), "utf-8")).toBe("#!/bin/sh\necho mine\n");
+  expect(readFileSync(join(env.theway, "bin", "theway.js"), "utf-8")).toBe("// mine\n");
 });
 
 test("uninstall removes the plugin, the binary, the pointer and the rules, and keeps the home", () => {
@@ -334,4 +365,98 @@ test("uninstall drops the rules of the pointer's home and ~/.theway as well as T
   expect(res.status).toBe(0);
   expect(existsSync(pointer(env))).toBe(false);
   expect(allow(env)).toEqual(["Bash(ls:*)"]);
+});
+
+for (const m of [0o600, 0o640]) {
+  test(`install and uninstall keep a ${m.toString(8)} settings.json at ${m.toString(8)}`, () => {
+    const env = setup();
+    const settings = join(env.claude, "settings.json");
+    put(settings, JSON.stringify({ env: { TOKEN: "x" } }));
+    chmodSync(settings, m);
+    expect(run(env, "install").status).toBe(0);
+    expect(mode(settings)).toBe(m);
+    expect(run(env, "uninstall").status).toBe(0);
+    expect(mode(settings)).toBe(m);
+    expect(allow(env)).toEqual([]);
+  });
+}
+
+test("install writes a new settings.json with mode 600", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  expect(mode(join(env.claude, "settings.json"))).toBe(0o600);
+});
+
+test("install and uninstall write through a symlinked settings.json", () => {
+  const env = setup();
+  const target = join(env.root, "dotfiles", "settings.json");
+  put(target, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }));
+  const link = join(env.claude, "settings.json");
+  mkdirSync(env.claude, { recursive: true });
+  symlinkSync(target, link);
+  expect(run(env, "install").status).toBe(0);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
+    "Bash(ls:*)",
+    "Bash(theway:*)",
+    `Read(/${env.theway}/**)`,
+    `Edit(/${env.theway}/*/changes/**)`,
+  ]);
+  expect(run(env, "uninstall").status).toBe(0);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual(["Bash(ls:*)"]);
+});
+
+test("install creates the target of a dangling settings.json symlink with mode 600", () => {
+  const env = setup();
+  const target = join(env.root, "dotfiles", "claude", "settings.json");
+  const link = join(env.claude, "settings.json");
+  mkdirSync(env.claude, { recursive: true });
+  symlinkSync(target, link);
+  expect(run(env, "install").status).toBe(0);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(mode(target)).toBe(0o600);
+  expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
+    "Bash(theway:*)",
+    `Read(/${env.theway}/**)`,
+    `Edit(/${env.theway}/*/changes/**)`,
+  ]);
+});
+
+test("install refuses a data home that is HOME, a parent of HOME, or holds a glob character", () => {
+  for (const pick of [
+    (e: Env) => e.home,
+    (e: Env) => e.root,
+    (e: Env) => join(e.root, "a*b"),
+    (e: Env) => join(e.root, "a[b"),
+  ]) {
+    const env = setup();
+    const home = pick(env);
+    env.thewayHome = home;
+    const settings = join(env.claude, "settings.json");
+    const before = `${JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } })}\n`;
+    put(settings, before);
+    const res = run(env, "install");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toBe(
+      `theway: refusing data home ${resolve(home)}: ${
+        home === env.home || home === env.root
+          ? "it is your home folder or one of its parents"
+          : "it contains a glob character or a line break"
+      }; set THEWAY_HOME to a dedicated folder\n`,
+    );
+    expect(readFileSync(settings, "utf-8")).toBe(before);
+    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+    expect(existsSync(bin(env))).toBe(false);
+    expect(existsSync(pointer(env))).toBe(false);
+    expect(existsSync(join(home, "config.yaml"))).toBe(false);
+  }
+});
+
+test("install accepts a data home inside HOME", () => {
+  const env = setup();
+  env.theway = join(env.home, "data");
+  env.thewayHome = env.theway;
+  expect(run(env, "install").status).toBe(0);
+  expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
 });

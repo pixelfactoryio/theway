@@ -8,14 +8,16 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   rmdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { init } from "./core/init";
 import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./core/io";
@@ -95,10 +97,38 @@ function readSettings(path: string): Settings | null {
   return data as Settings;
 }
 
+/** The file `path` names: its link target when it is a symlink (even a dangling one), else `path`. */
+function settingsTarget(path: string): string {
+  let link = false;
+  try {
+    link = lstatSync(path).isSymbolicLink();
+  } catch {
+    // absent
+  }
+  if (!link) return path;
+  let target: string;
+  try {
+    target = realpathSync(path);
+  } catch {
+    target = resolve(dirname(path), readlinkSync(path));
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  return target;
+}
+
+/** Writes `settings` to the file `path` names (through a symlink), keeping its mode, `0600` when new. */
 function writeSettings(path: string, settings: Settings): void {
-  const tmp = `${path}.tmp-${process.pid}`;
-  writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`);
-  renameSync(tmp, path);
+  const target = settingsTarget(path);
+  const mode = existsSync(target) ? statSync(target).mode & 0o777 : 0o600;
+  const tmp = `${target}.tmp-${process.pid}`;
+  try {
+    writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`, { mode });
+    // The umask, or a stale tmp file, may have left another mode.
+    chmodSync(tmp, mode);
+    renameSync(tmp, target);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
 }
 
 function invalidSettings(path: string): number {
@@ -133,11 +163,25 @@ function removeIfEmpty(dir: string): void {
   }
 }
 
-/** Removes the 0.2.0 launcher (`bin/theway`, `bin/theway.js`, then `bin/` when empty) from `~/.theway` and `home`. */
+/** True when `path` is a regular file whose text passes `match`; false when absent, unreadable or not a regular file. */
+function legacyText(path: string, match: (text: string) => boolean): boolean {
+  try {
+    return lstatSync(path).isFile() && match(readFileSync(path, "utf-8"));
+  } catch {
+    return false;
+  }
+}
+
+/** Removes the 0.2.0 launcher (`bin/theway`, `bin/theway.js`, then `bin/` when empty) from `~/.theway` and `home`, only the files 0.2.0 wrote. */
 function removeLegacyBin(home: string): void {
   for (const h of new Set([defaultHome(), resolve(home)])) {
     const bin = join(h, "bin");
-    for (const f of ["theway", "theway.js"]) rmSync(join(bin, f), { force: true });
+    if (legacyText(join(bin, "theway"), (t) => t.startsWith('#!/bin/sh\nexec node ') && t.endsWith(`theway.js' "$@"\n`))) {
+      rmSync(join(bin, "theway"), { force: true });
+    }
+    if (legacyText(join(bin, "theway.js"), (t) => t.startsWith("#!/usr/bin/env node\n"))) {
+      rmSync(join(bin, "theway.js"), { force: true });
+    }
     removeIfEmpty(bin);
   }
 }
@@ -197,6 +241,19 @@ function realpathOr(path: string): string {
   }
 }
 
+/** Why install must not write rules for `tHome`, `""` when it may: the rules would cover far more than theway's files. */
+function unsafeHomeReason(tHome: string, custom: boolean): string {
+  const home = resolve(tHome);
+  const real = realpathOr(home);
+  const user = realpathOr(homedir());
+  if (real === user || user.startsWith(real + sep) || real === "/") {
+    return "it is your home folder or one of its parents";
+  }
+  // The default home goes into the rules as the literal ~/.theway, whatever $HOME holds.
+  if (custom && /[*?[\]{}\n\r]/.test(home)) return "it contains a glob character or a line break";
+  return "";
+}
+
 /** Every executable `theway` on `PATH`, in `PATH` order, without the npx copy running this install. */
 function copiesOnPath(): string[] {
   const running = realpathOr(self);
@@ -245,6 +302,11 @@ export function install(): number {
   const custom = tHome !== resolve(defaultHome());
   const dir = installDir();
   const settingsPath = join(cHome, "settings.json");
+
+  const unsafe = unsafeHomeReason(tHome, custom);
+  if (unsafe !== "") {
+    return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME to a dedicated folder`);
+  }
 
   const settings = readSettings(settingsPath);
   if (settings === null) return invalidSettings(settingsPath);

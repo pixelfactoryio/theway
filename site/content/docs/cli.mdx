@@ -37,7 +37,7 @@ Other environment variables:
 npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the three permission rules to `~/.claude/settings.json`, dropping the `Read` and `Edit` rules of the previous home when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the three permission rules to `~/.claude/settings.json`, dropping the `Read` and `Edit` rules of the previous home when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 ## uninstall
 
@@ -55,6 +55,8 @@ theway list <project>
 
 Prints the active changes of `<project>`, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
 
+`<project>` must be a single folder name, as for [`path`](#path); otherwise it exits 1 with one reason on stderr.
+
 ## archive
 
 ```bash
@@ -65,6 +67,7 @@ Moves `<home>/<project>/changes/<change-id>` to `<home>/<project>/changes/archiv
 
 It exits 1 and moves nothing when:
 
+- `<project>` or `<change-id>` is not a single folder name (same check as [`path`](#path));
 - the change folder does not exist;
 - the archive folder already exists;
 - `tasks.md` has unticked numbered tasks. It prints each one with its line number.

@@ -9,21 +9,29 @@ export function segmentReason(name: string): string {
   return "";
 }
 
-/** `theway path [<project> [<change-id>]] [--verbose]`: the data home, a project folder or a change folder. */
-export function cmdPath(project: string | undefined, changeId: string | undefined, verbose: boolean): number {
-  const segments: [string, string | undefined][] = [
-    ["project", project],
-    ["change id", changeId],
-  ];
+/** Writes the reason line for the first segment that is not a single path segment and returns true; false when all are valid. */
+export function invalidSegments(segments: [string, string | undefined][]): boolean {
   for (const [label, value] of segments) {
     if (value === undefined) continue;
     const reason = segmentReason(value);
     if (reason !== "") {
       const shown = value.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
       process.stderr.write(`theway: invalid ${label} '${shown}': ${reason}\n`);
-      return 1;
+      return true;
     }
   }
+  return false;
+}
+
+/** `theway path [<project> [<change-id>]] [--verbose]`: the data home, a project folder or a change folder. */
+export function cmdPath(project: string | undefined, changeId: string | undefined, verbose: boolean): number {
+  if (
+    invalidSegments([
+      ["project", project],
+      ["change id", changeId],
+    ])
+  )
+    return 1;
 
   const { home, source } = resolveHome();
   if (verbose) process.stderr.write(`theway: home ${home} (from ${source})\n`);
