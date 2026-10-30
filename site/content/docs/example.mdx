@@ -1,0 +1,256 @@
+---
+title: Worked example
+description: "One change from request to passing tests: rate limiting for a small API."
+---
+
+## The request
+
+`my-api` is a small JSON API: a single Node server with no dependencies. This is the change recorded in the [demo](https://pixelfactoryio.github.io/theway/).
+
+```text
+/theway:engineering add rate limiting, 60 requests per minute per IP, /health exempt
+```
+
+## The spec
+
+`/theway:engineering` read the code first, then wrote this file to `~/.theway/my-api/changes/add-rate-limiting/spec.md`. Three things to notice:
+
+- The findings: it read the README and found "single instance, no proxy", so in-memory state and the socket address are the correct choices.
+- The decisions and their accepted trade-offs: a fixed window allows up to 120 requests across a window boundary, and `X-Forwarded-For` is never read.
+- The TAMM table: two medium Machine risks, each with countermeasures.
+
+```md
+# Spec Analysis: Add Rate Limiting
+
+## Solution
+
+**Problem:** The API accepts unbounded requests per client. Cap each client IP at 60 requests per minute, with `/health` exempt so probes never get throttled.
+
+**Proposed Solution:**
+
+An in-process fixed-window counter keyed by client IP, applied in `createApp` request handler before routing. A request to `/health` bypasses it. Any other request increments the counter for its IP; the 61st request within the window gets `429` with a `Retry-After` header until the window ends.
+
+**Key Components:**
+- **Limiter (`src/rate-limit.js`):** `createRateLimiter({ limit, windowMs, now })` returning `{ check(key) -> { allowed, retryAfterSec }, sweep(), }`. Holds a `Map<ip, { count, resetAt }>`.
+- **Wiring (`src/app.js`):** calls the limiter first, after the `/health` check; starts an unref'd sweep timer, cleared when the server closes.
+
+## Technical Approach
+
+**Findings (question, method, result):**
+- Is there a proxy / multiple instances? Read `README.md`: "single instance, no proxy in front" → in-memory state is correct; `req.socket.remoteAddress` is the real client IP.
+- How are routes matched? Read `src/app.js`: exact `req.method`/`req.url` comparison, no framework, no middleware chain; `/health` is `GET` and `req.url === "/health"`.
+- Runtime / deps? `package.json`: ESM, no dependencies, `node --test`; Node v26 locally. No dependency will be added.
+
+**Technical Decisions:**
+- **Fixed window, not sliding:** simplest, O(1) memory per IP. Accepted trade-off: up to 120 requests can pass across a window boundary.
+- **Key = `req.socket.remoteAddress` as-is:** `X-Forwarded-For` is never read (spoofable, and there is no proxy). IPv6 is keyed per full address; no /64 grouping; no IPv4-mapped normalization.
+- **Exemption:** `req.url === "/health"` exactly, any method, mirroring the existing route match. `/health?x=1` is not exempt.
+- **Scope of counting:** every non-exempt request counts, including those answering 404.
+- **Rejection response:** status `429`, header `Retry-After: <seconds>` where seconds = `max(1, ceil((resetAt - now) / 1000))`, JSON body `{"error":"rate limit exceeded"}` (same shape as the existing 404). No `X-RateLimit-*` headers.
+- **Config:** constants `limit = 60`, `windowMs = 60000` as defaults of `createApp`'s options; no env vars. `createApp({ rateLimit: { limit, windowMs, now } })` allows tests to inject small limits and a fake clock.
+- **Memory bound:** a sweep every `windowMs` deletes entries whose `resetAt <= now`; the timer is `unref()`ed and cleared on server `close`. Lazy reset on access handles expired entries for returning IPs.
+
+**Architecture Changes:** one new module; handler gains a guard at its start.
+
+**Data Model Changes:** none (state is in memory, lost on restart; acceptable).
+
+**API Changes:** any endpoint except `/health` may now return `429` as specified above.
+
+## Scope
+
+**In Scope:**
+- Per-IP limiter, `/health` exemption, `429` + `Retry-After`, tests, README note.
+
+**Out of Scope:**
+- Shared/distributed state, proxy/`X-Forwarded-For` support, per-route or per-user limits, `X-RateLimit-*` headers, env configuration, metrics/logging of rejections.
+
+## Hardpoints (TAMM Analysis)
+
+| Category | Risk | Impact | Countermeasures |
+|----------|------|--------|-----------------|
+| Machine (M) | Med | In-memory state breaks silently if the service is later scaled out or put behind a proxy (limit multiplied per instance; all clients share the proxy IP) | 1. README states the single-instance/no-proxy assumption the limiter relies on<br>2. Out-of-scope list records both cases |
+| Machine (M) | Med | Unbounded map growth from many distinct IPs | 1. Periodic sweep of expired entries<br>2. Test asserts expired entries are removed |
+
+## Implementation
+
+**Phases:**
+
+**Phase 1: Limiter**
+- Module with injectable clock, window reset, sweep.
+
+**Phase 2: Wiring**
+- Guard in `createApp`, `/health` bypass, timer lifecycle.
+
+**Phase 3: Tests and docs**
+- Deterministic tests, README note.
+
+**Success Criteria:**
+- [ ] 60 requests from one IP in a window succeed; the 61st returns 429 with integer `Retry-After` ≥ 1
+- [ ] After the window elapses, the IP is served again
+- [ ] `/health` returns 200 after the IP is limited, and never consumes quota
+- [ ] Counters are per IP (two addresses are independent)
+- [ ] Expired entries are removed by the sweep; the timer does not keep the process alive and is cleared on close
+- [ ] `npm test` passes
+
+**Estimated Effort:** 1-2 hours
+```
+
+## The tasks
+
+The spec is broken into numbered tasks, each small enough to finish and tick.
+
+```md
+# Implementation Tasks: Add Rate Limiting
+
+## Overview
+
+**Total Estimated Effort:** 1-2 hours
+**Target Completion:** n/a
+
+## Phase 1: Limiter
+
+**Estimated Time:** 30 min
+
+- [x] 1. Create `src/rate-limit.js` exporting `createRateLimiter({ limit, windowMs, now })`: `check(key)` returns `{ allowed, retryAfterSec }` using a fixed window per key (window starts at the key's first request, resets lazily when `now >= resetAt`); `retryAfterSec = max(1, ceil((resetAt - now) / 1000))`
+- [x] 2. Add `sweep()` deleting entries with `resetAt <= now`
+
+## Phase 2: Wiring
+
+**Estimated Time:** 20 min
+
+- [x] 3. In `src/app.js`, `createApp(options = {})` builds the limiter from `options.rateLimit` with defaults `limit: 60`, `windowMs: 60000`, `now: Date.now`
+- [x] 4. At the start of the handler: skip the limiter when `req.url === "/health"`; otherwise `check(req.socket.remoteAddress)` and on `allowed === false` respond `429` with `Retry-After` and body `{"error":"rate limit exceeded"}`
+- [x] 5. Start a `setInterval(sweep, windowMs)` with `unref()`; clear it on the server's `close` event
+
+## Phase 3: Testing
+
+**Estimated Time:** 30 min
+
+- [x] 6. Limiter unit tests with a fake clock: limit boundary (60 ok, 61st denied), `Retry-After` value, window reset, independent keys, sweep removes expired entries
+- [x] 7. HTTP tests via `createApp({ rateLimit: { limit: 2, ... } })`: third request gets 429 + header + body; `/health` still 200 while limited and does not consume quota; a 404 path counts toward the limit
+- [x] 8. Run `npm test`
+
+## Phase 4: Documentation
+
+**Estimated Time:** 10 min
+
+- [x] 9. README: document the 60 req/min/IP limit, `/health` exemption, 429 response, and that it assumes a single instance with no proxy
+
+## Notes
+
+**Blockers:**
+- None.
+
+**Discoveries:**
+- None.
+
+**Adjustments:**
+- None.
+```
+
+## The implementation
+
+`/theway:develop` implemented the tasks in the session and ticked them. First `src/rate-limit.js`:
+
+```js
+export function createRateLimiter({ limit, windowMs, now }) {
+  const entries = new Map();
+
+  return {
+    check(key) {
+      const t = now();
+      let entry = entries.get(key);
+      if (!entry || t >= entry.resetAt) {
+        entry = { count: 0, resetAt: t + windowMs };
+        entries.set(key, entry);
+      }
+      entry.count++;
+      if (entry.count <= limit) return { allowed: true, retryAfterSec: 0 };
+      return { allowed: false, retryAfterSec: Math.max(1, Math.ceil((entry.resetAt - t) / 1000)) };
+    },
+    sweep() {
+      const t = now();
+      for (const [key, entry] of entries) {
+        if (entry.resetAt <= t) entries.delete(key);
+      }
+    },
+    size: () => entries.size,
+  };
+}
+```
+
+Then `src/app.js`:
+
+```diff
+@@ -1,15 +1,30 @@
+ import { createServer } from "node:http";
++import { createRateLimiter } from "./rate-limit.js";
+ 
+ const users = [{ id: 1, name: "Ada" }, { id: 2, name: "Linus" }];
+ 
+-export function createApp() {
+-  return createServer((req, res) => {
+-    const send = (status, body) => {
+-      res.writeHead(status, { "content-type": "application/json" });
++export function createApp({ rateLimit = {} } = {}) {
++  const { limit = 60, windowMs = 60000, now = Date.now } = rateLimit;
++  const limiter = createRateLimiter({ limit, windowMs, now });
++
++  const server = createServer((req, res) => {
++    const send = (status, body, headers = {}) => {
++      res.writeHead(status, { "content-type": "application/json", ...headers });
+       res.end(JSON.stringify(body));
+     };
++    if (req.url !== "/health") {
++      const { allowed, retryAfterSec } = limiter.check(req.socket.remoteAddress);
++      if (!allowed) {
++        return send(429, { error: "rate limit exceeded" }, { "retry-after": String(retryAfterSec) });
++      }
++    }
+     if (req.method === "GET" && req.url === "/health") return send(200, { ok: true });
+     if (req.method === "GET" && req.url === "/users") return send(200, users);
+     send(404, { error: "not found" });
+   });
++
++  const sweeper = setInterval(limiter.sweep, windowMs);
++  sweeper.unref();
++  server.on("close", () => clearInterval(sweeper));
++  return server;
+ }
+```
+
+And one line added to the README:
+
+> Rate limit: 60 requests per minute per client IP (fixed window), except `/health`. Excess requests get `429` with a `Retry-After` header. State is in memory and keyed on the socket address, so it assumes a single instance with no proxy in front.
+
+The tests:
+
+- GET /users returns the users
+- allows 60 requests, denies the 61st with retryAfterSec
+- retryAfterSec is at least 1
+- window resets after windowMs
+- keys are independent
+- sweep removes expired entries only
+- HTTP: third request is 429 with Retry-After and body; /health exempt
+- HTTP: /health does not consume quota
+- HTTP: 404 responses count toward the limit
+- close clears the sweep timer
+
+10 tests, 10 pass, 0 fail.
+
+## The check
+
+The run ends by checking each Success Criterion against how it was verified.
+
+```text
+Success Criteria:
+- 60 requests pass, the 61st gets 429 with integer Retry-After ≥ 1: covered by two limiter tests, one checking the 60/61 boundary and the other the minimum of 1. The HTTP test checks the 429 status, a positive-integer Retry-After and the JSON body.
+- IP is served again after the window: the limiter window-reset test.
+- /health returns 200 once limited and never consumes quota: two HTTP tests, one hitting /health after the limit is reached and one hitting it 5 times before the quota is used.
+- Counters are per IP: the independent-keys test. This is at limiter level only; there is no HTTP test with two source addresses.
+- Expired entries are removed: the sweep test.
+- Sweep timer is unref()ed and cleared on close: only partly verified. The unref and clearInterval calls are in the code, and the test runner exits cleanly. The close test only checks that close completes, not that the timer is cleared.
+- npm test passes: yes.
+```
+
+The sweep-timer criterion is reported as only partly verified rather than claimed, and nothing was committed.
