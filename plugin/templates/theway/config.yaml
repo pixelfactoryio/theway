@@ -6,7 +6,7 @@ standards:
   interaction:
     enabled: true
     file: "<home>/data/standards/interaction.md"
-    description: "Cross-cutting interaction conventions (exploration, reporting) for all commands"
+    description: "Cross-cutting interaction conventions (exploration, reporting, authority) for all commands"
 
   develop:
     enabled: true

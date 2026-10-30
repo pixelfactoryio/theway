@@ -154,3 +154,13 @@ test("plugin/templates/theway holds only what install reads", () => {
     .filter((f) => !/^(config\.yaml|data\/standards\/[^/]+\.md|templates\/[^/]+\.md)$/.test(f));
   expect(unused).toEqual([]);
 });
+
+test("every spawned agent gets the Authority rule", () => {
+  expect(read(join(PLUGIN, "templates", "theway", "data", "standards", "interaction.md"))).toContain("\n## Authority\n");
+  for (const f of ["develop-workflow.md", "engineering.md"]) {
+    expect(read(join(COMMANDS, f))).toContain("`## Authority` section of `<home>/data/standards/interaction.md`");
+  }
+  for (const f of ["archive.md", "develop.md", "develop-workflow.md", "document.md", "engineering.md"]) {
+    expect(read(join(COMMANDS, f))).toContain("(exploration, reporting and authority)");
+  }
+});

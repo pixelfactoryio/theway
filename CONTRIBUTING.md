@@ -46,4 +46,4 @@ release-please opens a release PR from the commits on `main`. Maintainers merge 
 ## Code of conduct and security
 
 - Follow the [Code of Conduct](CODE_OF_CONDUCT.md).
-- Report vulnerabilities as described in [SECURITY.md](SECURITY.md), never in a public issue.
+- Report vulnerabilities as described in [SECURITY.md](SECURITY.md), never in a public issue. It also holds the threat model.
