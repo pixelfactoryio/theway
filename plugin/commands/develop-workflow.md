@@ -18,12 +18,11 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 ## Invocation
 
 ```
-/theway:develop-workflow <change-id> [<change-id> ...] [--merge]
+/theway:develop-workflow <change-id> [<change-id> ...]
 ```
 
-- **One change ID:** develop the change and stop when its PR is ready for validation. Do not merge unless `--merge` is given.
+- **One change ID:** develop the change and stop when its PR is ready for validation. Never merge it.
 - **Multiple change IDs (series):** develop each change strictly in the given order. Merging is implied: each change's PR must be merged before the next change starts, since later changes build on earlier ones.
-- **`--merge`:** merge the PR once it is review-clean and CI-green (implied in series mode).
 
 **Authorization boundary:** invoking this command authorizes pushing branches, opening PRs, and merging exactly as the syntax above grants — nothing more. This invocation is also the explicit opt-in for the Workflow tool. Do not ask for permission mid-run for actions the syntax already grants; do not perform outward actions it doesn't.
 
@@ -93,8 +92,8 @@ Each round:
 ### Step 6: Gate
 
 **Change succeeded** (every confirmed finding resolved by the fix check, and CI green):
-- Single change without `--merge`: stop and report the PR ready for validation.
-- Series or `--merge`: squash-merge the PR, sync main, then continue with the next change ID.
+- Single change: stop and report the PR ready for validation.
+- Series: squash-merge the PR, sync main, then continue with the next change ID.
 
 **Change blocked** (the implementer returned a blocker): never merge; stop the run, and bring the blocker to the user with its options. In series mode, do not start later changes.
 

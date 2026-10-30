@@ -8,12 +8,11 @@ It is the agent-driven counterpart of [`/theway:develop`](./develop.mdx): your s
 ## Usage
 
 ```text
-/theway:develop-workflow <change-id> [<change-id> ...] [--merge]
+/theway:develop-workflow <change-id> [<change-id> ...]
 ```
 
-- **One change ID:** develops the change and stops when its PR is ready for your validation. It does not merge without `--merge`.
+- **One change ID:** develops the change and stops when its PR is ready for your validation. It never merges it.
 - **Several change IDs (a series):** develops each change in the given order. Merging is implied: each PR is merged before the next change starts.
-- **`--merge`:** merges the PR once it is review-clean and CI-green.
 
 Running the command authorizes pushing branches, opening PRs and merging exactly as this syntax grants, and nothing more.
 
@@ -34,7 +33,7 @@ The steps run once per change ID, in order.
 
    After the last round, CI is driven alone until it is green or `ci_attempts` is used up. With `review_rounds: 0`, only CI runs.
 6. **Gate:**
-   - **Succeeded:** a single change without `--merge` stops with the PR ready for validation. With a series or `--merge`, the PR is squash-merged and the next change starts.
+   - **Succeeded:** a single change stops with the PR ready for validation. In a series, the PR is squash-merged and the next change starts.
    - **Blocked:** an implementer returned a blocker. Nothing is merged, the run stops and the blocker comes back to you with its options.
    - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 
