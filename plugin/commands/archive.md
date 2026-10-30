@@ -25,7 +25,7 @@ This command archives a completed change after it has been:
 
 ## Steps
 
-> Follow the conventions in `<home>/data/standards/interaction.md` (exploration and reporting).
+> Follow the conventions in `<home>/data/standards/interaction.md` (exploration, reporting and authority).
 
 ### 1. Require an Explicit Instruction (STOP gate)
 

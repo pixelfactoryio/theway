@@ -30,7 +30,7 @@ docs/architecture/
 
 ## Workflow
 
-> Follow the conventions in `<home>/data/standards/interaction.md` (exploration and reporting).
+> Follow the conventions in `<home>/data/standards/interaction.md` (exploration, reporting and authority).
 
 ### Step 1: Generate Documents from Templates
 
