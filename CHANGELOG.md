@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/pixelfactoryio/theway/compare/v0.4.0...v0.5.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* install theway from npm ([#22](https://github.com/pixelfactoryio/theway/issues/22))
+
+### Features
+
+* install theway from npm ([#22](https://github.com/pixelfactoryio/theway/issues/22)) ([06d7356](https://github.com/pixelfactoryio/theway/commit/06d7356b7252bf92c5227f07fdfab1c4945b0bce))
+
 ## [0.4.0](https://github.com/pixelfactoryio/theway/compare/v0.3.1...v0.4.0) (2026-10-30)
 
 
