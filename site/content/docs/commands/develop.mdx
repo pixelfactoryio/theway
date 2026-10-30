@@ -23,6 +23,7 @@ The change ID can also come from the request, for example "develop the add-redis
    - `~/.theway/<project>/changes/<change-id>/design.md`, when present
    - `docs/architecture/coding-standards.md`, when present
 2. **Implement and verify**, following `develop.md`:
+   - Read only this change's folder: never other changes or `changes/archive/`, so no task from another change ends up in this one.
    - Work through the numbered tasks in order, following the codebase's patterns, and write the tests with the code they cover.
    - Tick each task (`- [x] N.`) once it is done, and record what the next person needs in the Notes section of `tasks.md`.
    - When the code contradicts the spec, a task cannot be done as written, or a decision is missing, stop and bring back what was found and the options. Once decided, `spec.md` and `tasks.md` are updated, then the work continues.
