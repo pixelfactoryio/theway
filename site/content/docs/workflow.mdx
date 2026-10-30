@@ -14,7 +14,7 @@ A change goes through three commands.
 
 ## 1. Engineering
 
-[`/theway:engineering`](./commands/engineering.mdx) reads the config and the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`. It investigates the code and the open questions, then writes `spec.md` and `tasks.md` from the templates, and `design.md` when the change needs API contracts, data models or diagrams.
+[`/theway:engineering`](./commands/engineering.mdx) reads the config and the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`. It investigates the code and the open questions, then writes `spec.md` and `tasks.md` from the templates, and `design.md` when the change needs API contracts, data models or diagrams. Two critic agents then review the spec and tasks for gaps; it verifies each finding, fixes the confirmed gaps in the change files, or stops on a question only you can answer.
 
 It writes only under `~/.theway/<project>/changes/<change-id>/`. If a question is still open, it reports the question and stops: the spec is not ready until it is answered.
 
