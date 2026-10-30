@@ -7,9 +7,16 @@ on:
 jobs:
   release-please:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+    permissions: {}
     steps:
+      - id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: Iv23lirMdJBQaHJqEiZr
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
       - uses: googleapis/release-please-action@v5
+        with:
+          token: ${{ steps.app.outputs.token }}
