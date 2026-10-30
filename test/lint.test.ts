@@ -145,6 +145,11 @@ test("the shipped defaults are neutral and the four architecture standards are o
 test("the shipped config has no dead sections", () => {
   const config = Bun.YAML.parse(read(join(PLUGIN, "templates", "theway", "config.yaml"))) as Record<string, unknown>;
   expect(Object.keys(config).sort()).toEqual(["engineering", "standards", "workflow"]);
+  const standards = config.standards as Record<string, Record<string, unknown>>;
+  expect(Object.keys(standards).sort()).toEqual(["core_principles", "quality", "sre", "web_development"]);
+  for (const entry of Object.values(standards)) {
+    expect(Object.keys(entry)).toEqual(["enabled"]);
+  }
 });
 
 test("plugin/templates/theway holds only what install reads", () => {
