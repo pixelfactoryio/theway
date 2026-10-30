@@ -21,7 +21,7 @@ Running the command authorizes pushing branches, opening PRs and merging exactly
 
 The steps run once per change ID, in order.
 
-1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1) and `workflow.ci_attempts` (default 2). See [Configuration](../configuration.mdx#workflow).
+1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1), `workflow.ci_attempts` (default 2) and the agent models in `workflow.models`. See [Configuration](../configuration.mdx#workflow).
 2. **Branch:** syncs the main branch, then creates or checks out the change's feature branch.
 3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md`, commits with Conventional Commits, verifies its work, pushes and opens the PR. When the spec does not fit the code, it returns a blocker instead of redesigning.
 4. **Open the PR** with `gh pr create`. The PR text describes only what the change does.
@@ -38,7 +38,7 @@ The steps run once per change ID, in order.
    - **Blocked:** an implementer returned a blocker. Nothing is merged, the run stops and the blocker comes back to you with its options.
    - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 
-Implementers, reviewers, fix agents and the fix check run on `opus`; `sonnet` is allowed for implementers on mechanical tasks. CI polling and log fetching run on `sonnet`. `haiku` is never used.
+Each agent role runs on the model set in [`workflow.models`](../configuration.mdx#workflowmodels): by default implementers, reviewers, fix agents and the fix check on `opus`, CI polling and log fetching on `sonnet`. When implementers are on `opus`, `sonnet` is allowed for them on mechanical tasks. `haiku` is never used.
 
 ## Output
 
