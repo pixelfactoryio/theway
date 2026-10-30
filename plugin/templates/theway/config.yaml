@@ -49,6 +49,15 @@ workflow:
   review_rounds: 1
   # CI attempts per change to reach green, re-runs included
   ci_attempts: 2
+  # Model per agent role: opus or sonnet (absent or invalid means the default)
+  # Lower cost: implementer, fix and ci on sonnet, reviewer on opus
+  models:
+    implementer: opus
+    # Adversarial reviewers and the fix check
+    reviewer: opus
+    fix: opus
+    # CI polling and log fetching
+    ci: sonnet
 
 # Template Registry
 # Templates are self-contained with frontmatter containing usage instructions,

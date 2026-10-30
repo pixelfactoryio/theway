@@ -41,6 +41,8 @@ Read these exact paths directly — do not search the filesystem to locate them:
 
 From `~/.theway/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
 
+Also take the agent models from `workflow.models`: `implementer` (default `opus`), `reviewer` (default `opus`), `fix` (default `opus`) and `ci` (default `sonnet`). Each must be `opus` or `sonnet`; a key that is absent or holds any other value takes its default.
+
 ### Step 2: Branch
 
 Sync the main branch, then create (or check out) the change's feature branch from it.
@@ -50,8 +52,10 @@ Sync the main branch, then create (or check out) the change's feature branch fro
 Orchestrate with the **Workflow tool**. If it is unavailable in this session, fall back to Agent-tool fan-out with the same stage structure.
 
 **Model policy** (applies to every agent spawned in Steps 3-5, Workflow `agent()` and Agent-tool fallback alike):
-- Implementers, adversarial reviewers, fix agents and the fix check: `opus`. `sonnet` is acceptable for implementers on mechanical tasks.
-- CI polling and log-fetch agents: `sonnet`.
+- Implementers: `workflow.models.implementer`. When it is `opus`, `sonnet` is acceptable for implementers on mechanical tasks.
+- Adversarial reviewers and the fix check: `workflow.models.reviewer`.
+- Fix agents: `workflow.models.fix`.
+- CI polling and log-fetch agents: `workflow.models.ci`.
 - Never `haiku`. Always set `model` explicitly — do not rely on inheriting the session model.
 
 **Implementers.** One implementer per change by default: the tasks of a change usually build on each other and touch the same files, so splitting them adds handoffs and merges without saving time. Split into parallel agents, each in its own worktree, only for large parts that are independent and touch different files; chain dependent parts, never run them in parallel. Each implementer gets `~/.theway/data/standards/develop.md`, the change's `spec.md`, `tasks.md` and `design.md`, and its part of the work. When the spec does not fit the code, it stops and returns a blocker (what it found, the options) instead of redesigning. It commits locally on the feature branch with Conventional Commits (`type(scope): description`, imperative, lowercase), verifies its work as the standard says (including the CI's commands that can run locally), then pushes the branch and opens the PR (Step 4) and returns the PR URL, its verification and any blocker. The orchestrator — not the agents — checks off completed tasks in `tasks.md` and records discoveries in its Notes section.

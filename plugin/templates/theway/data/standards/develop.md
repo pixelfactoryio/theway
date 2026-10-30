@@ -6,6 +6,10 @@ How a change is implemented, whoever implements it: `/theway:develop` follows th
 
 `spec.md` says what the change must do and why; `tasks.md` breaks it into work; `design.md`, when present, fixes contracts and data. Implement what they describe. The spec was written to be implemented without guessing, so a gap between it and the code is information, not something to smooth over.
 
+## Stay inside this change
+
+Read only this change's folder (`changes/<change-id>/`). Do not open other change folders or `changes/archive/`: their tasks belong to other changes, and acting on them would put work in this change that its spec does not ask for. If you need something about the system, read the code and the project's docs.
+
 ## Implement
 
 - Work through the numbered tasks of `tasks.md`. Keep their order unless the spec shows a task does not depend on the ones before it: later tasks usually build on earlier ones.

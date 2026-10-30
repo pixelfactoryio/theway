@@ -42,6 +42,19 @@ Caps for [`/theway:develop-workflow`](./commands/develop-workflow.mdx). A key th
 | `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the reviewers and the fix check, and only CI runs. |
 | `workflow.ci_attempts` | `2` | CI attempts per change to reach green, re-runs included. A positive integer. |
 
+### workflow.models
+
+The model each agent role of `/theway:develop-workflow` runs on. Each value is `opus` or `sonnet`; a key that is absent or holds any other value takes its default. `haiku` is never used.
+
+| Key | Default | Agents |
+|-----|---------|--------|
+| `workflow.models.implementer` | `opus` | Implementers. When `opus`, `sonnet` is still allowed for mechanical tasks. |
+| `workflow.models.reviewer` | `opus` | Adversarial reviewers and the fix check |
+| `workflow.models.fix` | `opus` | Fix agents |
+| `workflow.models.ci` | `sonnet` | CI polling and log fetching |
+
+To lower the cost of a run, put `implementer`, `fix` and `ci` on `sonnet` and keep `reviewer` on `opus`, so the review still catches what a cheaper implementer misses. `review_rounds: 0` lowers it further by skipping the reviewers and the fix check.
+
 ## templates
 
 These keys describe fixed behavior: `validate-id`, `archive` and the commands hard-code it, so editing them has no effect.
