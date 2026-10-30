@@ -34,7 +34,13 @@ docs/architecture/
 
 ### Step 1: Generate Documents from Templates
 
-First read `<home>/config.yaml` (and `<home>/data/standards/architecture-principles.md` if enabled in config).
+First read `<home>/config.yaml`, then these opt-in standards:
+- `<home>/data/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
+- `<home>/data/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
+- `<home>/data/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
+- `<home>/data/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
+
+An opt-in standard is read only when its `enabled` is the boolean `true`; an absent entry or any other value means off.
 
 Then, for each template below, read the template file, follow its frontmatter instructions (required_context, agent_role, workflow_steps, quality_standards, best_practices), and create/update the output file in `docs/architecture/` (overwrite if it already exists). Keep outputs concise — code examples, not verbose explanations.
 
