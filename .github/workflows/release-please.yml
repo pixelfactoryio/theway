@@ -8,6 +8,8 @@ jobs:
   release-please:
     runs-on: ubuntu-24.04
     permissions: {}
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
     steps:
       - id: app
         uses: actions/create-github-app-token@v3
@@ -17,6 +19,28 @@ jobs:
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ steps.app.outputs.token }}
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: npm publish
