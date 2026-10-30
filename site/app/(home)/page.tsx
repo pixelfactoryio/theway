@@ -160,7 +160,7 @@ const steps: Step[] = [
           {
             kind: 'tool',
             name: 'Bash',
-            args: '~/.theway/bin/theway archive my-api add-rate-limit',
+            args: 'theway archive my-api add-rate-limit',
             result: 'Archived: ~/.theway/my-api/changes/archive/2026-10-28-add-rate-limit',
           },
         ],

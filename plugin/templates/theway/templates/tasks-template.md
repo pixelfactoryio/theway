@@ -3,8 +3,8 @@ template_type: "implementation_tasks"
 usage: "Create numbered implementation checklist when scaffolding a change with /theway:engineering"
 agent_role: "Full-stack developer who breaks down spec analysis into concrete, sequential implementation tasks"
 required_context:
-  - "~/.theway/<project>/changes/[change-id]/spec.md - Understand solution, scope, and hardpoints"
-  - "~/.theway/config.yaml - Global config and conventions"
+  - "<change-dir>/spec.md - Understand solution, scope, and hardpoints"
+  - "<home>/config.yaml - Global config and conventions"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "Tasks are numbered sequentially for easy tracking"

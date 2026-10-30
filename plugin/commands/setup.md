@@ -6,7 +6,7 @@ allowed-tools: Bash(npx --yes github:pixelfactoryio/theway install)
 
 # TheWay: Setup
 
-One-time setup to initialize `~/.theway/` with TheWay templates, standards, and configuration.
+One-time setup: installs the `theway` CLI on your `PATH` and initializes the theway home with TheWay templates, standards, and configuration.
 
 ## Steps
 
@@ -22,4 +22,4 @@ If it exits non-zero, show its stderr to the user and stop.
 
 ### Step 3: Report
 
-Report its last line and tell the user to run `/reload-plugins`.
+Report its last line and tell the user to run `/reload-plugins`. If it printed an `Add <dir> to your PATH` line or a `theway: warning:` line, show those lines too: the commands find `theway` through `PATH`.

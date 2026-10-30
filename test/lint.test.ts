@@ -14,14 +14,51 @@ test("every command except setup.md points to /theway:setup when the config is m
   expect(missing).toEqual([]);
 });
 
+/** The `theway <subcommand>` calls of a text: in inline code or at the start of a code line. */
+const calls = (text: string) => [...text.matchAll(/(?:`|^)theway ([a-z][a-z-]*)/gm)].map((m) => m[1]);
+
+/** Every file under `dir`, recursively. */
+function files(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)],
+  );
+}
+
+/** The `## Locate the home` section of a command, up to the next heading. */
+const locateStep = (text: string) => /^## Locate the home\n[\s\S]*?(?=^#)/m.exec(text)?.[0];
+
 test("every theway subcommand the commands call is dispatched by the CLI", () => {
-  const called = new Set<string>();
-  for (const f of commands) {
-    for (const m of read(join(COMMANDS, f)).matchAll(/~\/\.theway\/bin\/theway ([a-z-]+)/g)) called.add(m[1]);
-  }
+  const called = new Set(commands.flatMap((f) => calls(read(join(COMMANDS, f)))));
   expect(called.size).toBeGreaterThan(0);
   const subcommands = buildProgram().commands.map((c) => c.name());
   expect([...called].filter((sub) => !subcommands.includes(sub))).toEqual([]);
+});
+
+test("no file in plugin/ names ~/.theway", () => {
+  const offending = files(PLUGIN).filter((f) => read(f).includes("~/.theway"));
+  expect(offending).toEqual([]);
+});
+
+test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () => {
+  const calling = commands.filter((f) => calls(read(join(COMMANDS, f))).length > 0);
+  expect(calling.length).toBeGreaterThan(0);
+  const missing = calling.filter((f) => !/^---\n[\s\S]*?^allowed-tools: Bash\(theway:\*\)$[\s\S]*?^---$/m.test(read(join(COMMANDS, f))));
+  expect(missing).toEqual([]);
+});
+
+test("every command that reads theway data has the same Locate the home step", () => {
+  const readers = ["archive.md", "develop-workflow.md", "develop.md", "document.md", "engineering.md", "list.md"];
+  const reference = locateStep(read(join(COMMANDS, "engineering.md")));
+  expect(reference).toContain("Run `theway path`");
+  expect(reference).toContain("`<home>/config.yaml`");
+  expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
+});
+
+test("engineering, develop and develop-workflow get the change folder from theway path", () => {
+  const missing = ["engineering.md", "develop.md", "develop-workflow.md"].filter(
+    (f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`"),
+  );
+  expect(missing).toEqual([]);
 });
 
 test("plugin.json and package.json carry the same semver version", () => {

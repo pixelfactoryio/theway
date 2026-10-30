@@ -14,13 +14,13 @@ Use it once the change is implemented, tested, deployed when that applies, and c
 ## Steps
 
 1. **Require an explicit instruction.** Archiving moves the folder, so it runs only when you name the change and say to archive it. Signals such as "it's merged" or "ship it" are not enough: it stops and asks.
-2. **Verify completion.** It runs `~/.theway/bin/theway list <project>` and shows the task count. If the change is not at `N/N tasks done`, it shows the open numbered tasks and asks you to fix them or accept an override.
+2. **Verify completion.** It runs `theway list <project>` and shows the task count. If the change is not at `N/N tasks done`, it shows the open numbered tasks and asks you to fix them or accept an override.
 3. **Move to the archive:**
 
    ```bash
-   ~/.theway/bin/theway archive <project> <change-id>
+   theway archive <project> <change-id>
    # only when you accept the remaining open numbered tasks:
-   ~/.theway/bin/theway archive <project> <change-id> --force
+   theway archive <project> <change-id> --force
    ```
 
    The CLI also refuses while a numbered task is open, unless `--force` is given.

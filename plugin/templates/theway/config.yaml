@@ -1,25 +1,26 @@
 # theway configuration
+# <home> is the theway home, the folder `theway path` prints
 
 # Standards read by the commands; only `architecture` honors `enabled`
 standards:
   interaction:
     enabled: true
-    file: "~/.theway/data/standards/interaction.md"
+    file: "<home>/data/standards/interaction.md"
     description: "Cross-cutting interaction conventions (exploration, reporting) for all commands"
 
   develop:
     enabled: true
-    file: "~/.theway/data/standards/develop.md"
+    file: "<home>/data/standards/develop.md"
     description: "How a change is implemented and verified, shared by /theway:develop and /theway:develop-workflow"
 
   architecture:
     enabled: true
-    file: "~/.theway/data/standards/architecture-principles.md"
+    file: "<home>/data/standards/architecture-principles.md"
     description: "SRE-EE architecture principles and web development standards"
 
   tamm_framework:
     enabled: true
-    file: "~/.theway/data/standards/tamm-framework.md"
+    file: "<home>/data/standards/tamm-framework.md"
     description: "Time/Autonomy/Mastery/Machine hardpoint analysis framework"
 
 # Change Management Conventions
@@ -64,26 +65,26 @@ workflow:
 # agent roles, required context, and quality standards
 templates:
   value_engineering:
-    file: "~/.theway/templates/spec-template.md"
+    file: "<home>/templates/spec-template.md"
     description: "TAMM-based Spec analysis for medium-to-large changes"
     used_by: ["engineering"]
 
   implementation_tasks:
-    file: "~/.theway/templates/tasks-template.md"
+    file: "<home>/templates/tasks-template.md"
     description: "Phase-based implementation checklist with numbered tasks"
     used_by: ["engineering"]
 
   coding_standards:
-    file: "~/.theway/templates/coding-standards-template.md"
+    file: "<home>/templates/coding-standards-template.md"
     description: "Project-specific coding conventions and quality standards"
     used_by: ["document"]
 
   source_tree:
-    file: "~/.theway/templates/source-tree-template.md"
+    file: "<home>/templates/source-tree-template.md"
     description: "Repository structure and organization documentation"
     used_by: ["document"]
 
   tech_stack:
-    file: "~/.theway/templates/tech-stack-template.md"
+    file: "<home>/templates/tech-stack-template.md"
     description: "Technology choices, dependencies, and rationale"
     used_by: ["document"]

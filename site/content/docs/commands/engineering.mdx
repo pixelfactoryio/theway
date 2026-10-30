@@ -16,7 +16,7 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 ## Steps
 
 1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and, when enabled in the config, `data/standards/architecture-principles.md`.
-2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `~/.theway/bin/theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
+2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
 3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
 4. **Generate the documents** from the templates, following each template's frontmatter instructions:
    - `~/.theway/templates/spec-template.md` produces `spec.md`.

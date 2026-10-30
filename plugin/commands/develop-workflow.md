@@ -1,15 +1,19 @@
 ---
 description: Implement changes through agents that open a PR, then review it and drive CI to green
 author: Amine
-allowed-tools: Bash(~/.theway/bin/theway:*)
+allowed-tools: Bash(theway:*)
 ---
 
 # TheWay: Develop Workflow Mode
 
 You are now in **Develop Workflow Mode** - developing changes through orchestrated agents instead of implementing inline.
 
-> **Note:** TheWay files are stored in `~/.theway/<project>/` where `<project>` is your project directory name.
-> If `~/.theway/config.yaml` doesn't exist, tell the user to run `/theway:setup` first and stop.
+## Locate the home
+
+Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
+- If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `/theway:setup`, and stop.
+- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop.
+- If `<home>/config.yaml` doesn't exist, tell the user to run `/theway:setup` first and stop.
 
 ## Invocation
 
@@ -25,21 +29,21 @@ You are now in **Develop Workflow Mode** - developing changes through orchestrat
 
 ## Workflow Steps
 
-> Follow the conventions in `~/.theway/data/standards/interaction.md` (exploration and reporting).
+> Follow the conventions in `<home>/data/standards/interaction.md` (exploration and reporting).
 
 Run Steps 1-6 as a loop, once per change ID, in order.
 
 ### Step 1: Load Context
 
-Read these exact paths directly — do not search the filesystem to locate them:
-- `~/.theway/config.yaml` - Global config and conventions
-- `~/.theway/data/standards/develop.md` - How a change is implemented and verified (given to every implementer)
-- `~/.theway/<project>/changes/<change-id>/spec.md` - Why, what, risks and Success Criteria
-- `~/.theway/<project>/changes/<change-id>/tasks.md` - The work, as numbered tasks
-- `~/.theway/<project>/changes/<change-id>/design.md` - Technical specs (if present)
+Run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>` for this change. Then read these exact paths directly — do not search the filesystem to locate them:
+- `<home>/config.yaml` - Global config and conventions
+- `<home>/data/standards/develop.md` - How a change is implemented and verified (given to every implementer)
+- `<change-dir>/spec.md` - Why, what, risks and Success Criteria
+- `<change-dir>/tasks.md` - The work, as numbered tasks
+- `<change-dir>/design.md` - Technical specs (if present)
 - `docs/architecture/coding-standards.md` - Project coding standards (if exists)
 
-From `~/.theway/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
+From `<home>/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
 
 Also take the agent models from `workflow.models`: `implementer` (default `opus`), `reviewer` (default `opus`), `fix` (default `opus`) and `ci` (default `sonnet`). Each must be `opus` or `sonnet`; a key that is absent or holds any other value takes its default.
 
@@ -58,7 +62,7 @@ Orchestrate with the **Workflow tool**. If it is unavailable in this session, fa
 - CI polling and log-fetch agents: `workflow.models.ci`.
 - Never `haiku`. Always set `model` explicitly — do not rely on inheriting the session model.
 
-**Implementers.** One implementer per change by default: the tasks of a change usually build on each other and touch the same files, so splitting them adds handoffs and merges without saving time. Split into parallel agents, each in its own worktree, only for large parts that are independent and touch different files; chain dependent parts, never run them in parallel. Each implementer gets `~/.theway/data/standards/develop.md`, the change's `spec.md`, `tasks.md` and `design.md`, and its part of the work. When the spec does not fit the code, it stops and returns a blocker (what it found, the options) instead of redesigning. It commits locally on the feature branch with Conventional Commits (`type(scope): description`, imperative, lowercase), verifies its work as the standard says (including the CI's commands that can run locally), then pushes the branch and opens the PR (Step 4) and returns the PR URL, its verification and any blocker. The orchestrator — not the agents — checks off completed tasks in `tasks.md` and records discoveries in its Notes section.
+**Implementers.** One implementer per change by default: the tasks of a change usually build on each other and touch the same files, so splitting them adds handoffs and merges without saving time. Split into parallel agents, each in its own worktree, only for large parts that are independent and touch different files; chain dependent parts, never run them in parallel. Each implementer gets `<home>/data/standards/develop.md`, the change's `<change-dir>/spec.md`, `<change-dir>/tasks.md` and `<change-dir>/design.md`, and its part of the work. When the spec does not fit the code, it stops and returns a blocker (what it found, the options) instead of redesigning. It commits locally on the feature branch with Conventional Commits (`type(scope): description`, imperative, lowercase), verifies its work as the standard says (including the CI's commands that can run locally), then pushes the branch and opens the PR (Step 4) and returns the PR URL, its verification and any blocker. The orchestrator — not the agents — checks off completed tasks in `<change-dir>/tasks.md` and records discoveries in its Notes section.
 
 ### Step 4: Open PR
 
