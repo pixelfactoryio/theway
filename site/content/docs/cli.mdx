@@ -55,7 +55,7 @@ theway list <project>
 
 Prints the active changes of `<project>`, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
 
-`<project>` must be a single folder name, as for [`path`](#path); otherwise it exits 1 with one reason on stderr.
+`<project>` must follow the same rule as for [`path`](#path); otherwise it exits 1 with one reason on stderr.
 
 ## archive
 
@@ -67,7 +67,7 @@ Moves `<home>/<project>/changes/<change-id>` to `<home>/<project>/changes/archiv
 
 It exits 1 and moves nothing when:
 
-- `<project>` or `<change-id>` is not a single folder name (same check as [`path`](#path));
+- `<project>` or `<change-id>` does not follow the rules of [`path`](#path);
 - the change folder does not exist;
 - the archive folder already exists;
 - `tasks.md` has unticked numbered tasks. It prints each one with its line number.
