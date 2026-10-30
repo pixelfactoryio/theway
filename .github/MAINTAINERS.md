@@ -28,6 +28,8 @@ Run these steps once, after the `pixelfactoryio/theway` repository is created. T
    gh api -X POST repos/pixelfactoryio/theway/rulesets --input .github/rulesets/main.json
    ```
 
+   To update the ruleset after editing `.github/rulesets/main.json`: `gh api -X PUT repos/pixelfactoryio/theway/rulesets/$(gh api repos/pixelfactoryio/theway/rulesets --jq '.[] | select(.name=="main") | .id') --input .github/rulesets/main.json`
+
 4. Give the repository access to the org secret `RELEASE_APP_PRIVATE_KEY`. release-please opens release PRs with a token of the `pixelfactoryio-release` GitHub App, so the PR checks run on them. It needs the `admin:org` scope:
 
    ```bash
@@ -36,14 +38,25 @@ Run these steps once, after the `pixelfactoryio/theway` repository is created. T
 
 5. In Settings → Pages, set the source to "GitHub Actions".
 
-6. Publish to npm once by hand, then let the release workflow publish through npm trusted publishing (needs npm 11.15 or later and 2FA on your npm account):
+6. Create the `npm` environment the publish job runs in, limited to `main`:
+
+   ```bash
+   gh api -X PUT repos/pixelfactoryio/theway/environments/npm --input - <<'EOF'
+   {"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+   EOF
+   gh api -X POST repos/pixelfactoryio/theway/environments/npm/deployment-branch-policies -f name=main -f type=branch
+   ```
+
+7. Publish to npm once by hand, then let the release workflow publish through npm trusted publishing (needs npm 11.15 or later and 2FA on your npm account):
 
    ```bash
    npx --yes bun@1.3.14 install --frozen-lockfile
    npx --yes bun@1.3.14 run build
    npm login
    npm publish
-   npm trust github @pixelfactoryio/theway --file release-please.yml --repo pixelfactoryio/theway --allow-publish
+   npm trust github @pixelfactoryio/theway --file release-please.yml --repo pixelfactoryio/theway --allow-publish --env npm
    ```
+
+   To change an existing configuration, run `npm trust list @pixelfactoryio/theway`, then `npm trust revoke @pixelfactoryio/theway --id <id>`, then the `npm trust github …` line again.
 
    The next release must publish within 2 days of `npm trust`, or the trusted publisher configuration expires and `npm trust` must be run again.

@@ -83,3 +83,17 @@ test("every npx reference installs @pixelfactoryio/theway from npm", () => {
   });
   expect(offending).toEqual([]);
 });
+
+test("every workflow action is pinned to a commit SHA", () => {
+  const WORKFLOWS = join(REPO, ".github", "workflows");
+  const unpinned = readdirSync(WORKFLOWS)
+    .filter((f) => f.endsWith(".yml"))
+    .flatMap((f) =>
+      read(join(WORKFLOWS, f))
+        .split("\n")
+        .filter((line) => /^\s*-?\s*uses:/.test(line))
+        .filter((line) => !/uses: [\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/.test(line))
+        .map((line) => `${f}: ${line.trim()}`),
+    );
+  expect(unpinned).toEqual([]);
+});

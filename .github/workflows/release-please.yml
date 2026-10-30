@@ -12,7 +12,7 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
     steps:
       - id: app
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: Iv23lirMdJBQaHJqEiZr
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
@@ -20,7 +20,7 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - id: release
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app.outputs.token }}
 
@@ -28,19 +28,17 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-24.04
+    environment: npm
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      - run: bun install --frozen-lockfile
-      - run: bun run build
+      - run: npx --yes bun@1.3.14 install --frozen-lockfile
+      - run: npx --yes bun@1.3.14 run build
       - run: npm publish
