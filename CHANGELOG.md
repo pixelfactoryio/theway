@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/pixelfactoryio/theway/compare/v0.5.3...v0.6.0) (2026-10-30)
+
+
+### Features
+
+* **engineering:** review the spec for gaps before it is ready ([#33](https://github.com/pixelfactoryio/theway/issues/33)) ([0e8bdb3](https://github.com/pixelfactoryio/theway/commit/0e8bdb36c64494fada66b8632fa09c96aaa53c21))
+* make opinionated standards opt-in and templates neutral ([#35](https://github.com/pixelfactoryio/theway/issues/35)) ([68f997f](https://github.com/pixelfactoryio/theway/commit/68f997fa18ef29a4112cb69b2da221bd61849d64))
+
 ## [0.5.3](https://github.com/pixelfactoryio/theway/compare/v0.5.2...v0.5.3) (2026-10-30)
 
 
