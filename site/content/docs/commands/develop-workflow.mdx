@@ -1,6 +1,6 @@
 ---
 title: /theway:develop-workflow
-description: Implement changes through agents that open a PR, then review it and drive CI to green
+description: Implement changes through agents, review them locally, then open a PR and drive CI to green
 ---
 
 It is the agent-driven counterpart of [`/theway:develop`](./develop.mdx): your session orchestrates, and agents write, review and fix the code.
@@ -12,28 +12,27 @@ It is the agent-driven counterpart of [`/theway:develop`](./develop.mdx): your s
 ```
 
 - **One change ID:** develops the change and stops when its PR is ready for your validation. It never merges it.
-- **Several change IDs (a series):** develops each change in the given order. Merging is implied: each PR is merged before the next change starts.
+- **Several change IDs (a series):** develops each change in the given order. Each PR is merged, after you confirm it, before the next change starts.
 
-Running the command authorizes pushing branches, opening PRs and merging exactly as this syntax grants, and nothing more.
+Running the command authorizes pushing each change's own branch (never force-pushing) and opening its PR. Each merge in a series needs your yes, and uses a normal squash merge, never `--admin`.
 
 ## Steps
 
 The steps run once per change ID, in order.
 
-1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1), `workflow.ci_attempts` (default 2) and the agent models in `workflow.models`. See [Configuration](../configuration.mdx#workflow).
+1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1), `workflow.ci_attempts` (default 2), `workflow.open_pr` (default `true`) and the agent models in `workflow.models`. See [Configuration](../configuration.mdx#workflow).
 2. **Branch:** syncs the main branch, then creates or checks out the change's feature branch.
-3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md`, commits with Conventional Commits, verifies its work, pushes and opens the PR. When the spec does not fit the code, it returns a blocker instead of redesigning.
-4. **Open the PR** with `gh pr create`. The PR text describes only what the change does.
-5. **Review and CI**, for up to `review_rounds` rounds:
-   1. Reviewer agents try to refute the diff against `spec.md` (each Success Criterion, the scope) and for correctness, edge cases and conventions, while CI is polled.
+3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md`, commits locally with Conventional Commits and verifies its work, including the CI's commands that can run locally. It does not push. When the spec does not fit the code, it returns a blocker instead of redesigning.
+4. **Review locally**, for up to `review_rounds` rounds, before anything is pushed:
+   1. Reviewer agents try to refute the branch diff against `spec.md` (each Success Criterion, the scope) and for correctness, edge cases and conventions.
    2. Each finding is triaged as `confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`. Only confirmed findings are fixed.
-   3. A failed CI run is triaged from its log, with the real error line quoted. A failure of the PR goes to the fix agent. A red base branch or flaky infrastructure gets one re-run of the failed jobs.
-   4. One fix agent fixes the confirmed findings and the CI failure, and pushes once.
-   5. A fix-check agent answers `resolved` or `not resolved` for each confirmed finding.
+   3. One fix agent fixes the confirmed findings locally.
+   4. A fix-check agent answers `resolved` or `not resolved` for each confirmed finding.
 
-   After the last round, CI is driven alone until it is green or `ci_attempts` is used up. With `review_rounds: 0`, only CI runs.
+   With `review_rounds: 0`, this step is skipped.
+5. **Open the PR and drive CI** (skipped with [`workflow.open_pr: false`](../configuration.mdx#workflow)): pushes the branch once and opens the PR with `gh pr create`; the PR text describes only what the change does. A failed CI run is triaged from its log, with the real error line quoted. A failure of the PR goes to a fix agent, which pushes once; a red base branch or flaky infrastructure gets one re-run of the failed jobs. CI is driven until it is green or `ci_attempts` is used up.
 6. **Gate:**
-   - **Succeeded:** a single change stops with the PR ready for validation. In a series, the PR is squash-merged and the next change starts.
+   - **Succeeded:** a single change stops with the PR ready for validation. In a series, you are shown the PR, its diffstat and CI status and asked whether to merge it; on yes it is squash-merged and the next change starts, otherwise the run stops.
    - **Blocked:** an implementer returned a blocker. Nothing is merged, the run stops and the blocker comes back to you with its options.
    - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 

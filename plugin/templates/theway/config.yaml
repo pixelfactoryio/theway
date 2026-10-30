@@ -50,6 +50,8 @@ workflow:
   review_rounds: 1
   # CI attempts per change to reach green, re-runs included
   ci_attempts: 2
+  # Push the branch, open the PR and drive CI after the local review; false stops at the reviewed local branch
+  open_pr: true
   # Model per agent role: opus or sonnet (absent or invalid means the default)
   # Lower cost: implementer, fix and ci on sonnet, reviewer on opus
   models:

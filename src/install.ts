@@ -45,14 +45,23 @@ function shownHome(home: string): string {
   return resolve(home) === resolve(defaultHome()) ? "~/.theway" : resolve(home);
 }
 
-/** The rules that name a data home: reading it and editing its change folders. */
-function homeRules(home: string): string[] {
+/** `<home>` as a permission-rule root: `~/.theway`, or `//<abs>` for a custom home. */
+function ruleRoot(home: string): string {
   const at = shownHome(home);
-  const root = at.startsWith("~/") ? at : `/${at}`;
-  return [`Read(${root}/**)`, `Edit(${root}/*/changes/**)`];
+  return at.startsWith("~/") ? at : `/${at}`;
 }
 
-/** The allow rules for a data home: the CLI on `PATH`, reading the home, editing its change folders. */
+/** The rules that name a data home: reading it. */
+function homeRules(home: string): string[] {
+  return [`Read(${ruleRoot(home)}/**)`];
+}
+
+/** The rule earlier versions wrote to edit a home's change folders. Never written; install and uninstall remove it. */
+function editRule(home: string): string {
+  return `Edit(${ruleRoot(home)}/*/changes/**)`;
+}
+
+/** The allow rules for a data home: the CLI on `PATH` and reading the home. */
 function rules(home: string): string[] {
   return ["Bash(theway:*)", ...homeRules(home)];
 }
@@ -352,9 +361,14 @@ export function install(): number {
 
   const perms = settings.permissions ?? {};
   const allow = perms.allow ?? [];
-  // The 0.2.0 rules, and the rules of the previous home when the home changed.
+  // The 0.2.0 rules, the Edit rule of earlier versions, and the rules of the previous home when the home changed.
   const current = rules(tHome);
-  const stale = [...legacyRules(tHome), ...homeRules(previous).filter((r) => !current.includes(r))];
+  const stale = [
+    ...legacyRules(tHome),
+    editRule(tHome),
+    editRule(previous),
+    ...homeRules(previous).filter((r) => !current.includes(r)),
+  ];
   const kept = allow.filter((r) => !(typeof r === "string" && stale.includes(r)));
   const missing = current.filter((r) => !kept.includes(r));
   if (missing.length > 0 || kept.length !== allow.length) {
@@ -399,7 +413,7 @@ export function uninstall(): number {
     if (settings === null) return invalidSettings(settingsPath);
     const allow = settings.permissions?.allow;
     if (Array.isArray(allow)) {
-      const drop = homes.flatMap((h) => [...rules(h), ...legacyRules(h)]);
+      const drop = homes.flatMap((h) => [...rules(h), ...legacyRules(h), editRule(h)]);
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };

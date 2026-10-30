@@ -1,5 +1,5 @@
 ---
-description: Implement changes through agents that open a PR, then review it and drive CI to green
+description: Implement changes through agents, review them locally, then open a PR and drive CI to green
 author: Amine
 allowed-tools: Bash(theway:*)
 ---
@@ -22,9 +22,9 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 ```
 
 - **One change ID:** develop the change and stop when its PR is ready for validation. Never merge it.
-- **Multiple change IDs (series):** develop each change strictly in the given order. Merging is implied: each change's PR must be merged before the next change starts, since later changes build on earlier ones.
+- **Multiple change IDs (series):** develop each change strictly in the given order. Each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 6).
 
-**Authorization boundary:** invoking this command authorizes pushing branches, opening PRs, and merging exactly as the syntax above grants — nothing more. This invocation is also the explicit opt-in for the Workflow tool. Do not ask for permission mid-run for actions the syntax already grants; do not perform outward actions it doesn't.
+**Authorization boundary:** invoking this command authorizes, when `workflow.open_pr` is true (the default), pushing each change's own feature branch (never force-push, never the default branch) once its local review is done, and opening its PR — nothing more. With `workflow.open_pr: false` it pushes nothing and opens no PR. Merging always needs the user's explicit yes, asked at Step 6, and uses `gh pr merge <number> --squash`, never `--admin`. This invocation is also the explicit opt-in for the Workflow tool. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't.
 
 ## Workflow Steps
 
@@ -44,11 +44,13 @@ Run `theway path <project> <change-id>` and use the folder it prints as `<change
 
 From `<home>/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
 
+Also take `workflow.open_pr` (default `true`): when it is `false`, Step 5 is skipped and nothing is pushed. A value that is not a boolean takes the default.
+
 Also take the agent models from `workflow.models`: `implementer` (default `opus`), `reviewer` (default `opus`), `fix` (default `opus`) and `ci` (default `sonnet`). Each must be `opus` or `sonnet`; a key that is absent or holds any other value takes its default.
 
 ### Step 2: Branch
 
-Sync the main branch, then create (or check out) the change's feature branch from it.
+Sync the main branch, then create (or check out) the change's feature branch from it. In a series with `workflow.open_pr: false`, create each later change's branch from the previous change's branch instead, so the changes stack locally.
 
 ### Step 3: Implement via Orchestrated Agents
 
@@ -61,39 +63,47 @@ Orchestrate with the **Workflow tool**. If it is unavailable in this session, fa
 - CI polling and log-fetch agents: `workflow.models.ci`.
 - Never `haiku`. Always set `model` explicitly — do not rely on inheriting the session model.
 
-**Implementers.** One implementer per change by default: the tasks of a change usually build on each other and touch the same files, so splitting them adds handoffs and merges without saving time. Split into parallel agents, each in its own worktree, only for large parts that are independent and touch different files; chain dependent parts, never run them in parallel. Each implementer gets `<home>/data/standards/develop.md`, the change's `<change-dir>/spec.md`, `<change-dir>/tasks.md` and `<change-dir>/design.md`, and its part of the work. When the spec does not fit the code, it stops and returns a blocker (what it found, the options) instead of redesigning. It commits locally on the feature branch with Conventional Commits (`type(scope): description`, imperative, lowercase), verifies its work as the standard says (including the CI's commands that can run locally), then pushes the branch and opens the PR (Step 4) and returns the PR URL, its verification and any blocker. The orchestrator — not the agents — checks off completed tasks in `<change-dir>/tasks.md` and records discoveries in its Notes section.
+**Implementers.** One implementer per change by default: the tasks of a change usually build on each other and touch the same files, so splitting them adds handoffs and merges without saving time. Split into parallel agents, each in its own worktree, only for large parts that are independent and touch different files; chain dependent parts, never run them in parallel. Each implementer gets `<home>/data/standards/develop.md`, the change's `<change-dir>/spec.md`, `<change-dir>/tasks.md` and `<change-dir>/design.md`, and its part of the work. When the spec does not fit the code, it stops and returns a blocker (what it found, the options) instead of redesigning. It commits locally on the feature branch with Conventional Commits (`type(scope): description`, imperative, lowercase), verifies its work as the standard says (including the CI's commands that can run locally), and returns its verification and any blocker. It does not push. The orchestrator — not the agents — checks off completed tasks in `<change-dir>/tasks.md` and records discoveries in its Notes section.
 
-### Step 4: Open PR
+### Step 4: Local Review
 
-The implementer opens the PR with `gh pr create`; the orchestrator only collects its URL.
+Run up to `review_rounds` review rounds on the local branch, before anything is pushed. With `review_rounds: 0`, skip this step.
+
+Each round:
+
+1. **Review.** Spawn independent reviewer agents prompted to refute or break the branch diff (`git diff <main>...<branch>` on the round's head): against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. Each finding's `file` is a path relative to the repository root, without a leading `./`.
+2. **Triage findings**, once per round:
+   1. Number the round's findings `0..N-1` in the order reported and verify each one. Each gets one verdict: `confirmed` (real), `false_positive` (refuted), `duplicate` (the same problem as an earlier finding of the round, which it names), `nit` (real, cosmetic) or `out_of_scope` (not this change's).
+   2. Only `confirmed` findings go to the fix agent. List the `false_positive`, `nit` and `out_of_scope` findings (index, verdict, title) in the Exit report.
+3. **Fix once.** When the round has confirmed findings, spawn one fix agent with them. It commits the fixes locally on the branch and re-runs the CI's commands that can run locally. It does not push.
+4. **Fix check:** spawn one agent that reads the fix commits (`git log` / `git diff` from the round's reviewed head to the new head) and the round's confirmed findings, and answers, per finding, `resolved` or `not resolved` with a one-line reason. It does not look for new problems. Any `not resolved` finding fails the change (Step 6).
+
+A round with no confirmed findings ends the step. Otherwise start the next round only while rounds remain under `review_rounds`; the next round reviews the new head.
+
+### Step 5: Open PR and CI
+
+Skipped with `workflow.open_pr: false`.
+
+Push the branch once and open the PR with `gh pr create`.
 
 - Commit and PR text describe only what the change does — never the process or tooling that produced it.
 - Keep the PR body minimal: one-line subject, bullets only when the change isn't self-evident.
 
-### Step 5: Review and CI
+Then drive CI on the PR:
 
-Once the PR is open, run up to `review_rounds` review rounds while CI runs. With `review_rounds: 0`, skip the reviewers, the triage and the fix check: only CI runs, and the round below reduces to its CI part.
-
-Each round:
-
-1. **Review while CI runs.** Start the reviewers and the CI polling together, on the PR's current head.
-   - Spawn independent reviewer agents prompted to refute or break the PR diff: against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. Each finding's `file` is a path relative to the repository root, without a leading `./`.
-   - Poll the PR checks.
-2. **Triage findings**, once per round:
-   1. Number the round's findings `0..N-1` in the order reported and verify each one. Each gets one verdict: `confirmed` (real), `false_positive` (refuted), `duplicate` (the same problem as an earlier finding of the round, which it names), `nit` (real, cosmetic) or `out_of_scope` (not this PR's).
-   2. Only `confirmed` findings go to the fix agent. List the `false_positive`, `nit` and `out_of_scope` findings (index, verdict, title) in the Exit report.
-3. **Triage CI.** On a failed run, fetch the log (`gh run view <run-id> --log-failed`, then the full `--log` if that is empty) and quote the real error line before attempting any fix; never diagnose from memory or plausibility. Classify the failure as `code_bug`, `test_failure`, `lint_format`, `typecheck`, `dependency_install`, `flaky_infra`, `base_branch_red` or `unknown`. A failure of this PR (any class but `flaky_infra` and `base_branch_red`) goes to the fix agent; `flaky_infra` and `base_branch_red` follow the not-this-PR path below.
+1. **Poll the PR checks** on its current head.
+2. **Triage CI.** On a failed run, fetch the log (`gh run view <run-id> --log-failed`, then the full `--log` if that is empty) and quote the real error line before attempting any fix; never diagnose from memory or plausibility. Classify the failure as `code_bug`, `test_failure`, `lint_format`, `typecheck`, `dependency_install`, `flaky_infra`, `base_branch_red` or `unknown`. A failure of this PR (any class but `flaky_infra` and `base_branch_red`) goes to the fix agent; `flaky_infra` and `base_branch_red` follow the not-this-PR path below.
    - **Not this PR's failure** (base branch red or flaky infra): when the base branch is red, port its fix onto the branch if one exists there, otherwise report it; then re-run the failed jobs once (`gh run rerun <run-id> --failed`).
-4. **Fix once.** When the round has confirmed findings or CI failed for this PR, spawn one fix agent with both: the confirmed findings and the quoted CI error. It commits the fixes on the branch and pushes once.
-5. **Fix check** (skipped with `review_rounds: 0`), on that push while CI reruns: spawn one agent that reads the fix commits (`git log` / `git diff` from the round's reviewed head to the new head) and the round's confirmed findings, and answers, per finding, `resolved` or `not resolved` with a one-line reason. It does not look for new problems. Any `not resolved` finding fails the change (Step 6).
+3. **Fix.** For a failure of this PR, spawn one fix agent with the quoted CI error. It commits the fix on the branch and pushes once.
 
-**Caps.** Each CI run of the PR (the first one, every run after a fix push and every re-run) counts as one CI attempt. A round with no confirmed findings and CI green ends the step. Otherwise start the next round only while rounds remain under `review_rounds`; the next round reviews the new head. After the last round, keep driving CI alone (triage, fix agent with the CI failure only, re-runs) until it is green or `ci_attempts` attempts are used. If CI is still red after attempt `ci_attempts`, the change failed (Step 6).
+**Caps.** Each CI run of the PR (the first one, every run after a fix push and every re-run) counts as one CI attempt. Drive CI until it is green or `ci_attempts` attempts are used. If CI is still red after attempt `ci_attempts`, the change failed (Step 6).
 
 ### Step 6: Gate
 
-**Change succeeded** (every confirmed finding resolved by the fix check, and CI green):
-- Single change: stop and report the PR ready for validation.
-- Series: squash-merge the PR, sync main, then continue with the next change ID.
+**Change succeeded** (every confirmed finding resolved by the fix check, and, with `workflow.open_pr` true, CI green):
+- Single change: stop and report the PR ready for validation (with `workflow.open_pr: false`: the reviewed local branch, not pushed).
+- Series with `workflow.open_pr` true: report the PR URL, its diffstat (`gh pr diff <number> --stat`) and CI status, and ask the user whether to merge it. On an explicit yes, merge with `gh pr merge <number> --squash` (never `--admin`), sync main, then continue with the next change ID. On any other answer, stop the run and report where the series stopped.
+- Series with `workflow.open_pr: false`: nothing is merged; continue with the next change ID, whose branch Step 2 creates from this change's branch.
 
 **Change blocked** (the implementer returned a blocker): never merge; stop the run, and bring the blocker to the user with its options. In series mode, do not start later changes.
 
@@ -103,4 +113,4 @@ Each round:
 
 ## Exit
 
-Report per change: branch, PR URL, review outcome (review rounds used, the findings not fixed with their verdicts, and the fix-check result per confirmed finding), CI status (CI attempts used), whether it was merged or awaits validation, and any blocker waiting on the user. In series mode, also state where the series stopped and why if it did not complete.
+Report per change: branch, PR URL, review outcome (review rounds used, the findings not fixed with their verdicts, and the fix-check result per confirmed finding), CI status (CI attempts used; "not run" with `workflow.open_pr: false`), whether it was merged or awaits validation (with `workflow.open_pr: false`, the local branch), and any blocker waiting on the user. In series mode, also state where the series stopped and why if it did not complete.

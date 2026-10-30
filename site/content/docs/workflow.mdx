@@ -23,7 +23,7 @@ It writes only under `~/.theway/<project>/changes/<change-id>/`. If a question i
 Both develop commands read the same files: the config, `data/standards/develop.md`, the change's `spec.md`, `tasks.md` and `design.md`, and `docs/architecture/coding-standards.md` when it exists. Both treat the spec as the contract. When the code contradicts the spec, the work stops and comes back to you with the options.
 
 - [`/theway:develop`](./commands/develop.mdx) implements the tasks inline in the current session, ticks each one in `tasks.md` and reports how each Success Criterion was verified.
-- [`/theway:develop-workflow`](./commands/develop-workflow.mdx) hands the change to implementer agents. They commit on a feature branch and open a PR. The orchestrator runs review rounds and CI attempts, up to the caps in the [configuration](./configuration.mdx), and merges only when developing a series.
+- [`/theway:develop-workflow`](./commands/develop-workflow.mdx) hands the change to implementer agents. They commit on a feature branch and open a PR. The orchestrator runs review rounds and CI attempts, up to the caps in the [configuration](./configuration.mdx), and, in a series, merges each PR after you confirm it.
 
 ### Choosing between them
 
