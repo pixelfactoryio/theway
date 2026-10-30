@@ -117,7 +117,7 @@ class Help {
     this.helpWidth = this.helpWidth ?? contextOptions.helpWidth ?? 80;
   }
   visibleCommands(cmd) {
-    const visibleCommands = cmd.commands.filter((cmd) => !cmd._hidden);
+    const visibleCommands = cmd.commands.filter((cmd2) => !cmd2._hidden);
     const helpCommand = cmd._getHelpCommand();
     if (helpCommand && !helpCommand._hidden) {
       visibleCommands.push(helpCommand);
@@ -587,8 +587,8 @@ class DualOptions {
   }
 }
 function camelcase(str) {
-  return str.split("-").reduce((str, word) => {
-    return str + word[0].toUpperCase() + word.slice(1);
+  return str.split("-").reduce((str2, word) => {
+    return str2 + word[0].toUpperCase() + word.slice(1);
   });
 }
 function splitOptionFlags(flags) {
@@ -1701,18 +1701,18 @@ Expecting one of '${allowedValues.join("', '")}'`);
     this.error(message, { code: "commander.missingMandatoryOptionValue" });
   }
   _conflictingOption(option, conflictingOption) {
-    const findBestOptionFromValue = (option) => {
-      const optionKey = option.attributeName();
+    const findBestOptionFromValue = (option2) => {
+      const optionKey = option2.attributeName();
       const optionValue = this.getOptionValue(optionKey);
       const negativeOption = this.options.find((target) => target.negate && optionKey === target.attributeName());
       const positiveOption = this.options.find((target) => !target.negate && optionKey === target.attributeName());
       if (negativeOption && (negativeOption.presetArg === undefined && optionValue === false || negativeOption.presetArg !== undefined && optionValue === negativeOption.presetArg)) {
         return negativeOption;
       }
-      return positiveOption || option;
+      return positiveOption || option2;
     };
-    const getErrorMessage = (option) => {
-      const bestOption = findBestOptionFromValue(option);
+    const getErrorMessage = (option2) => {
+      const bestOption = findBestOptionFromValue(option2);
       const optionKey = bestOption.attributeName();
       const source = this.getOptionValueSource(optionKey);
       if (source === "env") {
@@ -2077,16 +2077,16 @@ function resolveHome() {
 function thewayHome() {
   return resolveHome().home;
 }
-function isDir(path) {
+function isDir(path2) {
   try {
-    return statSync(path).isDirectory();
+    return statSync(path2).isDirectory();
   } catch {
     return false;
   }
 }
-function isFile(path) {
+function isFile(path2) {
   try {
-    return statSync(path).isFile();
+    return statSync(path2).isFile();
   } catch {
     return false;
   }
@@ -2177,8 +2177,8 @@ function localDate() {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-function uncheckedLines(path) {
-  return readFileSync3(path, "utf-8").split(`
+function uncheckedLines(path2) {
+  return readFileSync3(path2, "utf-8").split(`
 `).flatMap((line, i) => UNCHECKED.test(line) ? [`${i + 1}:${line}`] : []);
 }
 function cmdArchive(project, changeId, force) {
@@ -2418,12 +2418,12 @@ function fail(line) {
 function isObject(v) {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
-function readSettings(path) {
-  if (!existsSync3(path))
+function readSettings(path2) {
+  if (!existsSync3(path2))
     return {};
   let data;
   try {
-    data = JSON.parse(readFileSync4(path, "utf-8"));
+    data = JSON.parse(readFileSync4(path2, "utf-8"));
   } catch {
     return null;
   }
@@ -2438,14 +2438,14 @@ function readSettings(path) {
   }
   return data;
 }
-function writeSettings(path, settings) {
-  const tmp = `${path}.tmp-${process.pid}`;
+function writeSettings(path2, settings) {
+  const tmp = `${path2}.tmp-${process.pid}`;
   writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}
 `);
-  renameSync2(tmp, path);
+  renameSync2(tmp, path2);
 }
-function invalidSettings(path) {
-  return fail(`theway: ${path} is not valid settings JSON; nothing was changed`);
+function invalidSettings(path2) {
+  return fail(`theway: ${path2} is not valid settings JSON; nothing was changed`);
 }
 function copyPlugin(home) {
   const tmp = join3(home, `.theway-install-${process.pid}`);
@@ -2492,39 +2492,39 @@ function writeBinary(dir) {
   }
   return dest;
 }
-function occupied(path) {
+function occupied(path2) {
   try {
-    lstatSync(path);
+    lstatSync(path2);
     return true;
   } catch {
     return false;
   }
 }
-function isThewayBinary(path) {
-  if (!isFile(path))
+function isThewayBinary(path2) {
+  if (!isFile(path2))
     return false;
   try {
-    const text = readFileSync4(path, "utf-8");
+    const text = readFileSync4(path2, "utf-8");
     return text.startsWith("#!/usr/bin/env node") && text.includes(BINARY_MARKER);
   } catch {
     return false;
   }
 }
 function writePointer(home, custom) {
-  const path = pointerPath();
+  const path2 = pointerPath();
   if (custom) {
-    mkdirSync3(dirname(path), { recursive: true });
-    writeFileSync(path, `${home}
+    mkdirSync3(dirname(path2), { recursive: true });
+    writeFileSync(path2, `${home}
 `);
   } else {
-    rmSync(path, { force: true });
+    rmSync(path2, { force: true });
   }
 }
-function realpathOr(path) {
+function realpathOr(path2) {
   try {
-    return realpathSync(path);
+    return realpathSync(path2);
   } catch {
-    return resolve3(path);
+    return resolve3(path2);
   }
 }
 function copiesOnPath() {
@@ -2654,14 +2654,14 @@ var exit = (code) => {
   process.exitCode = code;
 };
 function buildProgram() {
-  const program = new Command("theway");
-  program.command("install").action(() => exit(install()));
-  program.command("uninstall").action(() => exit(uninstall()));
-  program.command("list").argument("<project>", "", nonEmpty).action((project) => exit(cmdList(project)));
-  program.command("archive").argument("<project>", "", nonEmpty).argument("<change-id>", "", nonEmpty).option("--force").action((project, change, o) => exit(cmdArchive(project, change, o.force === true)));
-  program.command("path").argument("[project]").argument("[change-id]").option("--verbose").action((project, change, o) => exit(cmdPath(project, change, o.verbose === true)));
-  program.command("validate-id").argument("<id>").option("--series").action((id, o) => exit(cmdValidateId(id, o.series === true)));
-  return program;
+  const program2 = new Command("theway");
+  program2.command("install").action(() => exit(install()));
+  program2.command("uninstall").action(() => exit(uninstall()));
+  program2.command("list").argument("<project>", "", nonEmpty).action((project) => exit(cmdList(project)));
+  program2.command("archive").argument("<project>", "", nonEmpty).argument("<change-id>", "", nonEmpty).option("--force").action((project, change, o) => exit(cmdArchive(project, change, o.force === true)));
+  program2.command("path").argument("[project]").argument("[change-id]").option("--verbose").action((project, change, o) => exit(cmdPath(project, change, o.verbose === true)));
+  program2.command("validate-id").argument("<id>").option("--series").action((id, o) => exit(cmdValidateId(id, o.series === true)));
+  return program2;
 }
 
 // src/cli.ts
