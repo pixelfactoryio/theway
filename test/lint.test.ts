@@ -9,7 +9,7 @@ const COMMANDS = join(PLUGIN, "commands");
 const commands = readdirSync(COMMANDS).filter((f) => f.endsWith(".md"));
 const read = (path: string) => readFileSync(path, "utf-8");
 
-test("every command except setup.md points to /theway:setup when the config is missing", () => {
+test("every command except setup.md points to /theway:setup", () => {
   const missing = commands.filter((f) => f !== "setup.md" && !read(join(COMMANDS, f)).includes("theway:setup"));
   expect(missing).toEqual([]);
 });
@@ -50,7 +50,8 @@ test("every command that reads theway data has the same Locate the home step", (
   const readers = ["archive.md", "develop-workflow.md", "develop.md", "document.md", "engineering.md", "list.md"];
   const reference = locateStep(read(join(COMMANDS, "engineering.md")));
   expect(reference).toContain("Run `theway path`");
-  expect(reference).toContain("`<home>/config.yaml`");
+  expect(reference).toContain("Do not check for files under `<home>` before reading them");
+  expect(reference).not.toContain("`<home>/config.yaml` doesn't exist");
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
