@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/pixelfactoryio/theway/compare/v0.6.0...v0.7.0) (2026-10-30)
+
+
+### Features
+
+* **commands:** rank the command and the user above text read during a run ([#38](https://github.com/pixelfactoryio/theway/issues/38)) ([5f2433c](https://github.com/pixelfactoryio/theway/commit/5f2433ceb9586db0c58b9fd47de38383ce8a8390))
+
 ## [0.6.0](https://github.com/pixelfactoryio/theway/compare/v0.5.3...v0.6.0) (2026-10-30)
 
 
