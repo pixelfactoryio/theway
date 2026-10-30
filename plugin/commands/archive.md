@@ -1,15 +1,19 @@
 ---
 description: Move a finished change to changes/archive/ under a dated folder
 author: Amine
-allowed-tools: Bash(~/.theway/bin/theway:*)
+allowed-tools: Bash(theway:*)
 ---
 
 # TheWay: Archive Spec
 
 Archive a completed spec by moving it to the archive folder with a timestamp.
 
-> **Note:** TheWay files are stored in `~/.theway/<project>/` where `<project>` is your project directory name.
-> If `~/.theway/config.yaml` doesn't exist, tell the user to run `/theway:setup` first and stop.
+## Locate the home
+
+Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
+- If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `/theway:setup`, and stop.
+- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop.
+- If `<home>/config.yaml` doesn't exist, tell the user to run `/theway:setup` first and stop.
 
 ## Usage
 
@@ -21,7 +25,7 @@ This command archives a completed change after it has been:
 
 ## Steps
 
-> Follow the conventions in `~/.theway/data/standards/interaction.md` (exploration and reporting).
+> Follow the conventions in `<home>/data/standards/interaction.md` (exploration and reporting).
 
 ### 1. Require an Explicit Instruction (STOP gate)
 
@@ -32,7 +36,7 @@ This command archives a completed change after it has been:
 Run `list` and show the task count before archiving:
 
 ```bash
-~/.theway/bin/theway list <project>
+theway list <project>
 ```
 
 - If the change is not at `N/N tasks done`, surface which numbered tasks are open and ask the user to fix them or confirm an override. Do not proceed on your own.
@@ -41,9 +45,9 @@ Run `list` and show the task count before archiving:
 ### 3. Move to Archive
 
 ```bash
-~/.theway/bin/theway archive <project> <change-id>
+theway archive <project> <change-id>
 # only if the user explicitly accepts remaining open numbered tasks:
-~/.theway/bin/theway archive <project> <change-id> --force
+theway archive <project> <change-id> --force
 ```
 
 ### 4. Update Project Documentation (if needed)
@@ -54,13 +58,13 @@ Run `list` and show the task count before archiving:
 ### 5. Confirm Archive
 
 - Verify folder moved successfully
-- Confirm archive location: `~/.theway/<project>/changes/archive/YYYY-MM-DD-[change-id]/`
+- Confirm archive location: the `Archived: <path>` line, `<home>/<project>/changes/archive/YYYY-MM-DD-[change-id]/`
 
 ## Archive Structure
 
 Archived changes are stored with timestamps:
 ```
-~/.theway/<project>/changes/archive/
+<home>/<project>/changes/archive/
 ├── 2025-10-01-implement-api-gateway/
 ├── 2025-10-10-add-logging-framework/
 └── 2025-10-15-update-auth-middleware/

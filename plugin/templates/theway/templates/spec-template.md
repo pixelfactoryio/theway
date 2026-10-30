@@ -3,9 +3,9 @@ template_type: "value_engineering"
 usage: "Create Spec analysis when planning medium-to-large changes requiring TAMM hardpoint analysis"
 agent_role: "Spec Analyst who analyzes solutions using the TAMM framework (Time/Autonomy/Mastery/Machine)"
 required_context:
-  - "~/.theway/config.yaml - Global config and conventions"
-  - "~/.theway/data/standards/tamm-framework.md - TAMM framework"
-  - "~/.theway/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
+  - "<home>/config.yaml - Global config and conventions"
+  - "<home>/data/standards/tamm-framework.md - TAMM framework"
+  - "<home>/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "TAMM table includes only Medium/High risk hardpoints (skip low-risk items)"

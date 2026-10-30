@@ -1,6 +1,6 @@
 # TheWay Agent Instructions
 
-> **Note:** TheWay files are stored in `~/.theway/<project>/` where `<project>` is your project directory name.
+> **Note:** TheWay files are stored in `<home>/<project>/`, where `<home>` is the folder `theway path` prints and `<project>` is your project directory name. `theway path <project> <change-id>` prints a change folder, `<change-dir>`.
 
 ## TL;DR
 
@@ -24,7 +24,7 @@
 
 All TheWay workflows are **template-driven**:
 
-1. **Slash commands** load templates from `~/.theway/<project>/config.yaml`
+1. **Slash commands** load templates from `<home>/config.yaml`
 2. **Templates** contain complete instructions in YAML frontmatter:
    - `usage` - When to use this template
    - `agent_role` - Role/mindset to adopt
@@ -81,7 +81,7 @@ docs/architecture/
 - `implementation_tasks` - Numbered task checklist
 
 **Process:**
-1. Create change folder: `~/.theway/<project>/changes/[change-id]`
+1. Create change folder: `<change-dir>`, from `theway path <project> <change-id>`
 2. Load templates from plugin's config.yaml
 3. For each template: Read frontmatter → Follow instructions → Create document with correct filename
 4. Output: `spec.md` (from value_engineering template) and `tasks.md` (from implementation_tasks template) in change folder
@@ -95,8 +95,8 @@ docs/architecture/
 **Purpose:** Implement tasks from change folder
 
 **Process:**
-1. Read `~/.theway/<project>/changes/[change-id]/spec.md` for context
-2. Read `~/.theway/<project>/changes/[change-id]/tasks.md` for checklist
+1. Read `<change-dir>/spec.md` for context
+2. Read `<change-dir>/tasks.md` for checklist
 3. Implement tasks sequentially
 4. Check off tasks as completed: `- [x]`
 5. Update Notes section with discoveries
@@ -111,7 +111,7 @@ docs/architecture/
 
 **Process:**
 1. Verify all tasks checked off
-2. Move to archive: `~/.theway/<project>/changes/archive/YYYY-MM-DD-[change-id]/`
+2. Move to archive: `<home>/<project>/changes/archive/YYYY-MM-DD-[change-id]/`
 3. Confirm completion
 
 **See:** `.claude/commands/theway/archispec.md` for complete workflow
@@ -130,7 +130,7 @@ docs/architecture/
 ## Change Folder Structure
 
 ```
-~/.theway/<project>/changes/[change-id]/
+<home>/<project>/changes/[change-id]/
 ├── spec.md          # Spec analysis (required)
 ├── tasks.md       # Implementation checklist (required)
 └── design.md      # Technical design (optional)
@@ -150,11 +150,11 @@ docs/architecture/
 ## File Locations
 
 **User's Project Files (created by commands):**
-- `~/.theway/<project>/changes/` - Active change proposals
-- `~/.theway/<project>/changes/archive/` - Completed changes with timestamps
-- `~/.theway/<project>/changes/[change-id]/spec.md` - Spec analysis
-- `~/.theway/<project>/changes/[change-id]/tasks.md` - Implementation checklist
-- `~/.theway/<project>/changes/[change-id]/design.md` - Technical design (optional)
+- `<home>/<project>/changes/` - Active change proposals
+- `<home>/<project>/changes/archive/` - Completed changes with timestamps
+- `<change-dir>/spec.md` - Spec analysis
+- `<change-dir>/tasks.md` - Implementation checklist
+- `<change-dir>/design.md` - Technical design (optional)
 - `docs/architecture/` - Project architecture documentation
 
 **Plugin Files (read-only reference):**

@@ -92,3 +92,97 @@ test("validate-id reasons", () => {
   ];
   for (const [actual, expected] of cases) expect(actual).toBe(expected);
 });
+
+/** Runs the CLI with only HOME, PATH, XDG_CONFIG_HOME and the given THEWAY_HOME set. */
+function runPath(root: string, opts: { env?: string; pointer?: string }, ...args: string[]) {
+  const config = join(root, "config");
+  if (opts.pointer !== undefined) put(join(config, "theway", "home"), `${opts.pointer}\n`);
+  return spawnSync("node", [CLI, "path", ...args], {
+    encoding: "utf-8",
+    env: {
+      HOME: join(root, "home"),
+      PATH: process.env.PATH,
+      XDG_CONFIG_HOME: config,
+      ...(opts.env !== undefined ? { THEWAY_HOME: opts.env } : {}),
+    },
+  });
+}
+
+test("path resolves the home from env, then the pointer, then ~/.theway", () => {
+  const root = home();
+  const cases: [{ env?: string; pointer?: string }, string, string][] = [
+    [{ env: "/env/home" }, "/env/home", "env"],
+    [{ pointer: "/pointer/home" }, "/pointer/home", "pointer"],
+    [{ env: "/same", pointer: "/same" }, "/same", "env"],
+    [{}, join(root, "home", ".theway"), "default"],
+  ];
+  for (const [opts, expected, source] of cases) {
+    rmSync(join(root, "config"), { recursive: true, force: true });
+    const res = runPath(root, opts, "--verbose");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe(`${expected}\n`);
+    expect(res.stderr).toBe(`theway: home ${expected} (from ${source})\n`);
+  }
+});
+
+test("path ignores an empty THEWAY_HOME and an empty pointer", () => {
+  const root = home();
+  const res = runPath(root, { env: "", pointer: "  " });
+  expect(res.stdout).toBe(`${join(root, "home", ".theway")}\n`);
+  expect(res.stderr).toBe("");
+});
+
+test("path warns when THEWAY_HOME and the pointer differ, naming both sources, and prints the env value", () => {
+  const root = home();
+  const res = runPath(root, { env: "/env/home", pointer: "/pointer/home" });
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe("/env/home\n");
+  const lines = res.stderr.trimEnd().split("\n");
+  expect(lines.length).toBe(1);
+  expect(lines[0]).toContain("/env/home (from env)");
+  expect(lines[0]).toContain("/pointer/home (from pointer)");
+});
+
+test("path prints the project and change folders on one stdout line", () => {
+  const root = home();
+  expect(runPath(root, { env: "/h" }, "proj").stdout).toBe("/h/proj\n");
+  const res = runPath(root, { env: "/h" }, "proj", "add-x");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe("/h/proj/changes/add-x\n");
+  expect(res.stderr).toBe("");
+  const verbose = runPath(root, { pointer: "/p" }, "proj", "add-x", "--verbose");
+  expect(verbose.stdout).toBe("/p/proj/changes/add-x\n");
+  expect(verbose.stderr).toBe("theway: home /p (from pointer)\n");
+});
+
+test("path exits 1 with one reason for an invalid project or change id", () => {
+  const root = home();
+  const cases: [string[], string][] = [
+    [[""], "theway: invalid project '': must not be empty\n"],
+    [["a/b"], "theway: invalid project 'a/b': must not contain /\n"],
+    [["."], "theway: invalid project '.': must not be .\n"],
+    [[".."], "theway: invalid project '..': must not be ..\n"],
+    [["p", ""], "theway: invalid change id '': must not be empty\n"],
+    [["p", "x/y"], "theway: invalid change id 'x/y': must not contain /\n"],
+    [["p", "."], "theway: invalid change id '.': must not be .\n"],
+    [["p", ".."], "theway: invalid change id '..': must not be ..\n"],
+  ];
+  for (const [args, stderr] of cases) {
+    const res = runPath(root, { env: "/h" }, ...args);
+    expect(res.status).toBe(1);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toBe(stderr);
+  }
+});
+
+test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
+  const root = home();
+  const data = join(root, "data");
+  put(join(data, "p", "changes", "add-x", "tasks.md"), "- [x] 1. a\n");
+  put(join(root, "config", "theway", "home"), `${data}\n`);
+  const res = spawnSync("node", [CLI, "list", "p"], {
+    encoding: "utf-8",
+    env: { HOME: join(root, "home"), PATH: process.env.PATH, XDG_CONFIG_HOME: join(root, "config") },
+  });
+  expect(res.stdout).toContain("add-x                1 files   1/1 tasks done");
+});

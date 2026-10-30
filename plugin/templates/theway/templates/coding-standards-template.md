@@ -3,8 +3,8 @@ template_type: "coding_standards"
 usage: "Document project-specific coding conventions when using /theway:document to fill documentation gaps"
 agent_role: "System Architect documenting coding standards following SRE-EE operational excellence principles"
 required_context:
-  - "~/.theway/config.yaml - Global config and conventions"
-  - "~/.theway/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
+  - "<home>/config.yaml - Global config and conventions"
+  - "<home>/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
   - "Existing codebase - Review actual patterns and conventions in use"
 quality_standards:
   - "Conventions reflect actual codebase patterns (not aspirational)"

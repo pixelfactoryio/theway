@@ -2045,15 +2045,37 @@ function useColor() {
 var program = new Command;
 
 // src/core/archive.ts
-import { existsSync, mkdirSync, readFileSync as readFileSync2, renameSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync as readFileSync3, renameSync } from "node:fs";
 
 // src/core/io.ts
-import { statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+function defaultHome() {
+  return join(homedir(), ".theway");
+}
+function pointerPath() {
+  const xdg = process.env.XDG_CONFIG_HOME ?? "";
+  return join(xdg !== "" ? xdg : join(homedir(), ".config"), "theway", "home");
+}
+function readPointer() {
+  try {
+    return readFileSync(pointerPath(), "utf-8").trim();
+  } catch {
+    return "";
+  }
+}
+function resolveHome() {
+  const env = process.env.THEWAY_HOME ?? "";
+  if (env !== "")
+    return { home: resolve(env), source: "env" };
+  const pointer = readPointer();
+  if (pointer !== "")
+    return { home: resolve(pointer), source: "pointer" };
+  return { home: defaultHome(), source: "default" };
+}
 function thewayHome() {
-  const dir = process.env.THEWAY_HOME ?? "";
-  return dir !== "" ? dir : join(homedir(), ".theway");
+  return resolveHome().home;
 }
 function isDir(path2) {
   try {
@@ -2071,7 +2093,7 @@ function isFile(path2) {
 }
 
 // src/core/list.ts
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync as readFileSync2 } from "node:fs";
 var CHECKED = /^\s*-\s*\[x\]\s+[0-9]+[a-z]?\./;
 var UNCHECKED = /^\s*-\s*\[ \]\s+[0-9]+[a-z]?\./;
 function visibleNames(dir) {
@@ -2098,7 +2120,7 @@ function taskCounts(dir) {
   let total = 0;
   if (!isFile(`${dir}/tasks.md`))
     return [0, 0];
-  for (const line of readFileSync(`${dir}/tasks.md`, "utf-8").split(`
+  for (const line of readFileSync2(`${dir}/tasks.md`, "utf-8").split(`
 `)) {
     if (CHECKED.test(line)) {
       checked++;
@@ -2156,7 +2178,7 @@ function localDate() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 function uncheckedLines(path2) {
-  return readFileSync2(path2, "utf-8").split(`
+  return readFileSync3(path2, "utf-8").split(`
 `).flatMap((line, i) => UNCHECKED.test(line) ? [`${i + 1}:${line}`] : []);
 }
 function cmdArchive(project, changeId, force) {
@@ -2200,6 +2222,55 @@ ${list}`);
     return 1;
   }
   process.stdout.write(`Archived: ${dst}
+`);
+  return 0;
+}
+
+// src/core/path.ts
+import { join as join2, resolve as resolve2 } from "node:path";
+function segmentReason(name) {
+  if (name === "")
+    return "must not be empty";
+  if (name.includes("/"))
+    return "must not contain /";
+  if (name === "." || name === "..")
+    return `must not be ${name}`;
+  return "";
+}
+function cmdPath(project, changeId, verbose) {
+  const segments = [
+    ["project", project],
+    ["change id", changeId]
+  ];
+  for (const [label, value] of segments) {
+    if (value === undefined)
+      continue;
+    const reason = segmentReason(value);
+    if (reason !== "") {
+      const shown = value.replaceAll(`
+`, "\\n").replaceAll("\r", "\\r");
+      process.stderr.write(`theway: invalid ${label} '${shown}': ${reason}
+`);
+      return 1;
+    }
+  }
+  const { home, source } = resolveHome();
+  if (verbose)
+    process.stderr.write(`theway: home ${home} (from ${source})
+`);
+  if (source === "env") {
+    const pointer = readPointer();
+    if (pointer !== "" && resolve2(pointer) !== home) {
+      process.stderr.write(`theway: warning: THEWAY_HOME is ${home} (from env) but ${pointerPath()} holds ${resolve2(pointer)} (from pointer); using ${home}
+`);
+    }
+  }
+  let out = home;
+  if (project !== undefined)
+    out = join2(home, project);
+  if (project !== undefined && changeId !== undefined)
+    out = join2(home, project, "changes", changeId);
+  process.stdout.write(`${out}
 `);
   return 0;
 }
@@ -2264,18 +2335,22 @@ function cmdValidateId(id, series) {
 
 // src/install.ts
 import {
+  accessSync,
   chmodSync,
+  constants,
   copyFileSync as copyFileSync2,
   cpSync as cpSync2,
   existsSync as existsSync3,
   mkdirSync as mkdirSync3,
-  readFileSync as readFileSync3,
+  readFileSync as readFileSync4,
+  realpathSync,
   renameSync as renameSync2,
+  rmdirSync,
   rmSync,
   writeFileSync
 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
-import { dirname, join as join2 } from "node:path";
+import { delimiter, dirname, join as join3, resolve as resolve3 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // src/core/init.ts
@@ -2303,17 +2378,29 @@ function init(src, home) {
 }
 
 // src/install.ts
-var pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-var plugin = join2(pkgRoot, "plugin");
+var self = fileURLToPath(import.meta.url);
+var pkgRoot = dirname(dirname(self));
+var plugin = join3(pkgRoot, "plugin");
 var PLUGIN_DIRS = [".claude-plugin", "commands"];
+var BINARY_MARKER = "theway-cli-binary:pixelfactoryio/theway";
 function claudeHome() {
   const dir = (process.env.CLAUDE_CONFIG_DIR ?? "").trim();
-  return dir !== "" ? dir : join2(homedir2(), ".claude");
+  return dir !== "" ? dir : join3(homedir2(), ".claude");
+}
+function installDir() {
+  const dir = process.env.THEWAY_INSTALL_DIR ?? "";
+  return dir !== "" ? resolve3(dir) : join3(homedir2(), ".local", "bin");
+}
+function shownHome(home) {
+  return resolve3(home) === resolve3(defaultHome()) ? "~/.theway" : resolve3(home);
 }
 function rules(home) {
-  const at = home === join2(homedir2(), ".theway") ? "~/.theway" : home;
-  const read = at.startsWith("~/") ? `${at}/**` : `/${at}/**`;
-  return [`Read(${read})`, `Bash(${at}/bin/theway:*)`];
+  const at = shownHome(home);
+  const root = at.startsWith("~/") ? at : `/${at}`;
+  return ["Bash(theway:*)", `Read(${root}/**)`, `Edit(${root}/*/changes/**)`];
+}
+function legacyRules(home) {
+  return [...new Set(["Bash(~/.theway/bin/theway:*)", `Bash(${shownHome(home)}/bin/theway:*)`])];
 }
 function fail(line) {
   process.stderr.write(`${line}
@@ -2328,7 +2415,7 @@ function readSettings(path2) {
     return {};
   let data;
   try {
-    data = JSON.parse(readFileSync3(path2, "utf-8"));
+    data = JSON.parse(readFileSync4(path2, "utf-8"));
   } catch {
     return null;
   }
@@ -2353,15 +2440,15 @@ function invalidSettings(path2) {
   return fail(`theway: ${path2} is not valid settings JSON; nothing was changed`);
 }
 function copyPlugin(home) {
-  const tmp = join2(home, `.theway-install-${process.pid}`);
-  const old = join2(home, `.theway-old-${process.pid}`);
-  const dest = join2(home, "skills", "theway");
+  const tmp = join3(home, `.theway-install-${process.pid}`);
+  const old = join3(home, `.theway-old-${process.pid}`);
+  const dest = join3(home, "skills", "theway");
   rmSync(tmp, { recursive: true, force: true });
   try {
     for (const dir of PLUGIN_DIRS) {
-      cpSync2(join2(plugin, dir), join2(tmp, dir), { recursive: true });
+      cpSync2(join3(plugin, dir), join3(tmp, dir), { recursive: true });
     }
-    mkdirSync3(join2(home, "skills"), { recursive: true });
+    mkdirSync3(join3(home, "skills"), { recursive: true });
     if (existsSync3(dest))
       renameSync2(dest, old);
     renameSync2(tmp, dest);
@@ -2371,63 +2458,157 @@ function copyPlugin(home) {
   rmSync(old, { recursive: true, force: true });
   return dest;
 }
-function shQuote(s) {
-  return `'${s.replaceAll("'", "'\\''")}'`;
-}
-function initHome(home) {
-  const bin = join2(home, "bin");
+function removeIfEmpty(dir) {
   try {
-    mkdirSync3(bin, { recursive: true });
-    copyFileSync2(fileURLToPath(import.meta.url), join2(bin, "theway.js"));
-    writeFileSync(join2(bin, "theway"), `#!/bin/sh
-exec node ${shQuote(join2(bin, "theway.js"))} "$@"
-`);
-    for (const f of ["theway.js", "theway"])
-      chmodSync(join2(bin, f), 493);
-  } catch (e) {
-    return fail(`theway: ${e.message}`);
+    rmdirSync(dir);
+  } catch {}
+}
+function removeLegacyBin(home) {
+  for (const h of new Set([defaultHome(), resolve3(home)])) {
+    const bin = join3(h, "bin");
+    for (const f of ["theway", "theway.js"])
+      rmSync(join3(bin, f), { force: true });
+    removeIfEmpty(bin);
   }
-  return init(join2(plugin, "templates", "theway"), home);
+}
+function writeBinary(dir) {
+  const dest = join3(dir, "theway");
+  const tmp = join3(dir, `.theway-${process.pid}`);
+  mkdirSync3(dir, { recursive: true });
+  try {
+    copyFileSync2(self, tmp);
+    chmodSync(tmp, 493);
+    renameSync2(tmp, dest);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+  return dest;
+}
+function isThewayBinary(path2) {
+  if (!isFile(path2))
+    return false;
+  try {
+    const text = readFileSync4(path2, "utf-8");
+    return text.startsWith("#!/usr/bin/env node") && text.includes(BINARY_MARKER);
+  } catch {
+    return false;
+  }
+}
+function writePointer(home, custom) {
+  const path2 = pointerPath();
+  if (custom) {
+    mkdirSync3(dirname(path2), { recursive: true });
+    writeFileSync(path2, `${home}
+`);
+  } else {
+    rmSync(path2, { force: true });
+  }
+}
+function realpathOr(path2) {
+  try {
+    return realpathSync(path2);
+  } catch {
+    return resolve3(path2);
+  }
+}
+function copiesOnPath() {
+  const running = realpathOr(self);
+  const seen = new Set;
+  const copies = [];
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (dir === "")
+      continue;
+    const candidate = join3(dir, "theway");
+    if (!isFile(candidate))
+      continue;
+    try {
+      accessSync(candidate, constants.X_OK);
+    } catch {
+      continue;
+    }
+    const real = realpathOr(candidate);
+    if (real === running || seen.has(real))
+      continue;
+    seen.add(real);
+    copies.push(candidate);
+  }
+  return copies;
+}
+function checkPath(dir, binary) {
+  const dirs = (process.env.PATH ?? "").split(delimiter).filter((d) => d !== "");
+  if (!dirs.some((d) => resolve3(d) === dir)) {
+    process.stdout.write(`Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"
+`);
+  }
+  const copies = copiesOnPath();
+  if (copies.length > 0 && realpathOr(copies[0]) !== realpathOr(binary)) {
+    process.stderr.write(`theway: warning: ${copies[0]} comes before ${binary} on PATH, so the commands run it; theway copies on PATH: ${copies.join(", ")}
+`);
+  }
 }
 function install() {
-  if (!existsSync3(join2(plugin, ".claude-plugin"))) {
+  if (!existsSync3(join3(plugin, ".claude-plugin"))) {
     return fail("theway: run `npx --yes github:pixelfactoryio/theway install` to install or update theway");
   }
   const cHome = claudeHome();
-  const tHome = thewayHome();
-  const settingsPath = join2(cHome, "settings.json");
+  const env = process.env.THEWAY_HOME ?? "";
+  const tHome = env !== "" ? resolve3(env) : defaultHome();
+  const custom = tHome !== resolve3(defaultHome());
+  const dir = installDir();
+  const settingsPath = join3(cHome, "settings.json");
   const settings = readSettings(settingsPath);
   if (settings === null)
     return invalidSettings(settingsPath);
   const dest = copyPlugin(cHome);
-  const status = initHome(tHome);
+  let binary;
+  try {
+    removeLegacyBin(tHome);
+    binary = writeBinary(dir);
+  } catch (e) {
+    return fail(`theway: ${e.message}`);
+  }
+  const status = init(join3(plugin, "templates", "theway"), tHome);
   if (status !== 0)
     return status;
+  try {
+    writePointer(tHome, custom);
+  } catch (e) {
+    return fail(`theway: ${e.message}`);
+  }
   const perms = settings.permissions ?? {};
   const allow = perms.allow ?? [];
-  const missing = rules(tHome).filter((r) => !allow.includes(r));
-  if (missing.length > 0) {
-    settings.permissions = { ...perms, allow: [...allow, ...missing] };
+  const legacy = legacyRules(tHome);
+  const kept = allow.filter((r) => !(typeof r === "string" && legacy.includes(r)));
+  const missing = rules(tHome).filter((r) => !kept.includes(r));
+  if (missing.length > 0 || kept.length !== allow.length) {
+    settings.permissions = { ...perms, allow: [...kept, ...missing] };
     mkdirSync3(cHome, { recursive: true });
     writeSettings(settingsPath, settings);
   }
-  const version = JSON.parse(readFileSync3(join2(pkgRoot, "package.json"), "utf-8")).version;
-  process.stdout.write(`Installed theway ${version} to ${dest} (theway@skills-dir) and ${tHome}. Start a new Claude Code session or run /reload-plugins.
+  checkPath(dir, binary);
+  const version = JSON.parse(readFileSync4(join3(pkgRoot, "package.json"), "utf-8")).version;
+  process.stdout.write(`Installed theway ${version} to ${dest} (theway@skills-dir), ${binary} and ${tHome}. Start a new Claude Code session or run /reload-plugins.
 `);
   return 0;
 }
 function uninstall() {
   const cHome = claudeHome();
-  const tHome = thewayHome();
-  const settingsPath = join2(cHome, "settings.json");
-  rmSync(join2(cHome, "skills", "theway"), { recursive: true, force: true });
+  const tHome = resolveHome().home;
+  const settingsPath = join3(cHome, "settings.json");
+  rmSync(join3(cHome, "skills", "theway"), { recursive: true, force: true });
+  const binary = join3(installDir(), "theway");
+  const removed = isThewayBinary(binary);
+  if (removed)
+    rmSync(binary, { force: true });
+  rmSync(pointerPath(), { force: true });
+  removeIfEmpty(dirname(pointerPath()));
   if (existsSync3(settingsPath)) {
     const settings = readSettings(settingsPath);
     if (settings === null)
       return invalidSettings(settingsPath);
     const allow = settings.permissions?.allow;
     if (Array.isArray(allow)) {
-      const drop = rules(tHome);
+      const drop = [...rules(tHome), ...legacyRules(tHome)];
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };
@@ -2435,7 +2616,8 @@ function uninstall() {
       }
     }
   }
-  process.stdout.write(`Removed theway from ${cHome}. ${tHome} was kept.
+  const bin = removed ? ` and ${binary}` : "";
+  process.stdout.write(`Removed theway from ${cHome}${bin}. ${tHome} was kept.
 `);
   return 0;
 }
@@ -2455,6 +2637,7 @@ function buildProgram() {
   program2.command("uninstall").action(() => exit(uninstall()));
   program2.command("list").argument("<project>", "", nonEmpty).action((project) => exit(cmdList(project)));
   program2.command("archive").argument("<project>", "", nonEmpty).argument("<change-id>", "", nonEmpty).option("--force").action((project, change, o) => exit(cmdArchive(project, change, o.force === true)));
+  program2.command("path").argument("[project]").argument("[change-id]").option("--verbose").action((project, change, o) => exit(cmdPath(project, change, o.verbose === true)));
   program2.command("validate-id").argument("<id>").option("--series").action((id, o) => exit(cmdValidateId(id, o.series === true)));
   return program2;
 }
