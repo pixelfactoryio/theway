@@ -3,7 +3,7 @@ template_type: "source_tree"
 usage: "Document repository structure and organization when using /theway:document to fill documentation gaps"
 agent_role: "System Architect documenting codebase structure for team onboarding and navigation"
 required_context:
-  - "<home>/config.yaml - Global config and conventions"
+  - "<home>/config.yaml - Global config"
   - "Repository root - Review actual directory structure"
   - "Build configuration files - Understand build artifacts"
 quality_standards:

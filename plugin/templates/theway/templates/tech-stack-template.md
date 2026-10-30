@@ -3,7 +3,7 @@ template_type: "tech_stack"
 usage: "Document technology choices, dependencies, and rationale when using /theway:document to fill documentation gaps"
 agent_role: "System Architect documenting technology stack decisions"
 required_context:
-  - "<home>/config.yaml - Global config and conventions"
+  - "<home>/config.yaml - Global config"
   - "<home>/data/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "Package files (package.json, requirements.txt, go.mod, etc.) - Actual dependencies"
   - "Infrastructure configs (terraform, k8s manifests), if any - Deployment tech"

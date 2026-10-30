@@ -28,7 +28,7 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 ### Step 1: Load Config and Standards
 
 Read these files from `<home>`:
-- `<home>/config.yaml` - Global config and conventions
+- `<home>/config.yaml` - Global config
 - `<home>/data/standards/tamm-framework.md` - TAMM framework
 - `<home>/data/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
 - `<home>/data/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)

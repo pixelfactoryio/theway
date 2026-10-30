@@ -4,7 +4,7 @@ usage: "Create numbered implementation checklist when scaffolding a change with 
 agent_role: "Developer who breaks down spec analysis into concrete, sequential implementation tasks"
 required_context:
   - "<change-dir>/spec.md - Understand solution, scope, and hardpoints"
-  - "<home>/config.yaml - Global config and conventions"
+  - "<home>/config.yaml - Global config"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "Tasks are numbered sequentially for easy tracking"

@@ -35,7 +35,7 @@ Run Steps 1-6 as a loop, once per change ID, in order.
 ### Step 1: Load Context
 
 Run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>` for this change. Then read these exact paths directly — do not search the filesystem to locate them:
-- `<home>/config.yaml` - Global config and conventions
+- `<home>/config.yaml` - Global config
 - `<home>/data/standards/develop.md` - How a change is implemented and verified (given to every implementer)
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria
 - `<change-dir>/tasks.md` - The work, as numbered tasks

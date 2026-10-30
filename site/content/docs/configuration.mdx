@@ -7,6 +7,8 @@ The configuration lives in `<home>/config.yaml`, where `<home>` is the data home
 
 `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document` read this file; when it is missing, they tell you to run [`/theway:setup`](./commands/setup.mdx). `/theway:archive` and `/theway:list` only check that it exists and give the same instruction.
 
+A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections. Nothing reads them, and you can delete them.
+
 ## standards
 
 Each standard has three keys: `enabled`, `file` and `description`. In the shipped file, `file` values start with `<home>/`; the commands find the home with `theway path`, never from these values, so a copy that still says `~/.theway/` works with a custom home too. Only the four opt-in standards honor `enabled`: `standards.core_principles`, `standards.sre`, `standards.web_development` and `standards.quality`. `/theway:engineering` and `/theway:document` read each one only when its `enabled` is `true`. The other standards are always read.
@@ -22,21 +24,6 @@ Each standard has three keys: `enabled`, `file` and `description`. In the shippe
 | `standards.tamm_framework` | `true` | `<home>/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
 
 A `config.yaml` written by an earlier install has `standards.architecture` instead of these four entries, so they stay off until you copy them from `config.default.yaml` and set `enabled: true` on the ones you want.
-
-## changes
-
-These keys describe fixed behavior: `validate-id`, `archive` and the commands hard-code it, so editing them has no effect.
-
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `changes.naming_convention` | `"[verb]-[description]"` | Format of a change ID. |
-| `changes.series_convention` | `"[change-id]-NN"` | Format of a series member: a zero-padded two-digit ordinal starting at `01`. |
-| `changes.allowed_verbs` | `add`, `update`, `refactor`, `remove` | Verbs a change ID can start with. |
-| `changes.archive_format` | `"YYYY-MM-DD-[change-id]"` | Name of an archived change folder. |
-| `changes.required_files` | `spec.md`, `tasks.md` | Files every change folder has. |
-| `changes.optional_files` | `design.md` | Files created when needed. |
-
-The format of a change ID is enforced by [`theway validate-id`](./cli.mdx#validate-id). See [Changes](./concepts/changes.mdx).
 
 ## engineering
 
@@ -71,19 +58,3 @@ The model each agent role of `/theway:develop-workflow` runs on. Each value is `
 | `workflow.models.ci` | `sonnet` | CI polling and log fetching |
 
 To lower the cost of a run, put `implementer`, `fix` and `ci` on `sonnet` and keep `reviewer` on `opus`, so the review still catches what a cheaper implementer misses. `review_rounds: 0` lowers it further by skipping the local review.
-
-## templates
-
-These keys describe fixed behavior: `validate-id`, `archive` and the commands hard-code it, so editing them has no effect.
-
-Each template has three keys: `file`, `description` and `used_by`.
-
-| Template | `file` | `used_by` | Produces |
-|----------|--------|-----------|----------|
-| `templates.value_engineering` | `<home>/templates/spec-template.md` | `engineering` | `spec.md`, the TAMM-based spec analysis |
-| `templates.implementation_tasks` | `<home>/templates/tasks-template.md` | `engineering` | `tasks.md`, the phase-based numbered task list |
-| `templates.coding_standards` | `<home>/templates/coding-standards-template.md` | `document` | `docs/architecture/coding-standards.md` |
-| `templates.source_tree` | `<home>/templates/source-tree-template.md` | `document` | `docs/architecture/source-tree.md` |
-| `templates.tech_stack` | `<home>/templates/tech-stack-template.md` | `document` | `docs/architecture/tech-stack.md` |
-
-Each template carries its own instructions in its frontmatter: the context to read, the role, the steps and the quality standards.
