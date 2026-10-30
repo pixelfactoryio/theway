@@ -5,6 +5,7 @@ import {
   copyFileSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   realpathSync,
@@ -17,7 +18,7 @@ import { homedir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { init } from "./core/init";
-import { defaultHome, isFile, pointerPath, resolveHome } from "./core/io";
+import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./core/io";
 
 const self = fileURLToPath(import.meta.url);
 const pkgRoot = dirname(dirname(self));
@@ -42,11 +43,22 @@ function shownHome(home: string): string {
   return resolve(home) === resolve(defaultHome()) ? "~/.theway" : resolve(home);
 }
 
-/** The allow rules for a data home: the CLI on `PATH`, reading the home, editing its change folders. */
-function rules(home: string): string[] {
+/** The rules that name a data home: reading it and editing its change folders. */
+function homeRules(home: string): string[] {
   const at = shownHome(home);
   const root = at.startsWith("~/") ? at : `/${at}`;
-  return ["Bash(theway:*)", `Read(${root}/**)`, `Edit(${root}/*/changes/**)`];
+  return [`Read(${root}/**)`, `Edit(${root}/*/changes/**)`];
+}
+
+/** The allow rules for a data home: the CLI on `PATH`, reading the home, editing its change folders. */
+function rules(home: string): string[] {
+  return ["Bash(theway:*)", ...homeRules(home)];
+}
+
+/** The home the pointer names, `~/.theway` when there is no pointer: the home of the last install. */
+function recordedHome(): string {
+  const pointer = readPointer();
+  return pointer !== "" ? resolve(pointer) : defaultHome();
 }
 
 /** The 0.2.0 rules for the launcher in `<home>/bin`, for `~/.theway` and for `home`. */
@@ -145,6 +157,16 @@ function writeBinary(dir: string): string {
   return dest;
 }
 
+/** True when something (a file, a folder, a link, even a broken one) is at `path`. */
+function occupied(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** True when `path` is a theway CLI binary, as install writes it. */
 function isThewayBinary(path: string): boolean {
   if (!isFile(path)) return false;
@@ -217,14 +239,23 @@ export function install(): number {
     return fail("theway: run `npx --yes github:pixelfactoryio/theway install` to install or update theway");
   }
   const cHome = claudeHome();
-  const env = process.env.THEWAY_HOME ?? "";
-  const tHome = env !== "" ? resolve(env) : defaultHome();
+  // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as /theway:setup usually is) keeps the recorded home.
+  const tHome = resolveHome().home;
+  const previous = recordedHome();
   const custom = tHome !== resolve(defaultHome());
   const dir = installDir();
   const settingsPath = join(cHome, "settings.json");
 
   const settings = readSettings(settingsPath);
   if (settings === null) return invalidSettings(settingsPath);
+
+  // Never replace another program that happens to be called theway: uninstall would not remove it either.
+  const target = join(dir, "theway");
+  if (occupied(target) && !isThewayBinary(target)) {
+    return fail(
+      `theway: ${target} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder`,
+    );
+  }
 
   const dest = copyPlugin(cHome);
 
@@ -245,9 +276,11 @@ export function install(): number {
 
   const perms = settings.permissions ?? {};
   const allow = perms.allow ?? [];
-  const legacy = legacyRules(tHome);
-  const kept = allow.filter((r) => !(typeof r === "string" && legacy.includes(r)));
-  const missing = rules(tHome).filter((r) => !kept.includes(r));
+  // The 0.2.0 rules, and the rules of the previous home when the home changed.
+  const current = rules(tHome);
+  const stale = [...legacyRules(tHome), ...homeRules(previous).filter((r) => !current.includes(r))];
+  const kept = allow.filter((r) => !(typeof r === "string" && stale.includes(r)));
+  const missing = current.filter((r) => !kept.includes(r));
   if (missing.length > 0 || kept.length !== allow.length) {
     settings.permissions = { ...perms, allow: [...kept, ...missing] };
     mkdirSync(cHome, { recursive: true });
@@ -266,6 +299,8 @@ export function install(): number {
 export function uninstall(): number {
   const cHome = claudeHome();
   const tHome = resolveHome().home;
+  // Every home theway may have rules for: the resolved one, the one the pointer names, and ~/.theway.
+  const homes = [...new Set([tHome, recordedHome(), defaultHome()])];
   const settingsPath = join(cHome, "settings.json");
 
   rmSync(join(cHome, "skills", "theway"), { recursive: true, force: true });
@@ -282,7 +317,7 @@ export function uninstall(): number {
     if (settings === null) return invalidSettings(settingsPath);
     const allow = settings.permissions?.allow;
     if (Array.isArray(allow)) {
-      const drop = [...rules(tHome), ...legacyRules(tHome)];
+      const drop = homes.flatMap((h) => [...rules(h), ...legacyRules(h)]);
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };

@@ -133,6 +133,69 @@ test("install with THEWAY_HOME set to ~/.theway removes a pointer left by a cust
   expect(existsSync(pointer(env))).toBe(false);
 });
 
+test("install without THEWAY_HOME keeps the home the pointer names, as /theway:setup runs it", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  env.thewayHome = undefined;
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain(join(env.home, ".theway"));
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`);
+  expect(existsSync(join(env.home, ".theway"))).toBe(false);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`, `Edit(/${env.theway}/*/changes/**)`]);
+  const path = runInstalled(env, "path", "--verbose");
+  expect(path.stdout).toBe(`${env.theway}\n`);
+  expect(path.stderr).toBe(`theway: home ${env.theway} (from pointer)\n`);
+});
+
+test("install with a new THEWAY_HOME drops the Read and Edit rules of the previous home", () => {
+  const env = setup();
+  put(join(env.claude, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }));
+  const first = env.theway;
+  expect(run(env, "install").status).toBe(0);
+  env.thewayHome = join(env.root, "other");
+  expect(run(env, "install").status).toBe(0);
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.thewayHome}\n`);
+  expect(allow(env)).toEqual([
+    "Bash(ls:*)",
+    "Bash(theway:*)",
+    `Read(/${env.thewayHome}/**)`,
+    `Edit(/${env.thewayHome}/*/changes/**)`,
+  ]);
+  expect(existsSync(join(first, "config.yaml"))).toBe(true);
+});
+
+test("install from the default home to a custom one drops the ~/.theway rules", () => {
+  const env = setup({ defaultHome: true });
+  expect(run(env, "install").status).toBe(0);
+  env.thewayHome = join(env.root, "custom");
+  expect(run(env, "install").status).toBe(0);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`, `Edit(/${env.thewayHome}/*/changes/**)`]);
+});
+
+test("install refuses to replace a theway in the install dir that it did not write, and changes nothing", () => {
+  const env = setup({ defaultHome: true });
+  put(bin(env), "#!/bin/sh\necho another tool\n");
+  chmodSync(bin(env), 0o755);
+  const res = run(env, "install");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    `theway: ${bin(env)} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder\n`,
+  );
+  expect(readFileSync(bin(env), "utf-8")).toBe("#!/bin/sh\necho another tool\n");
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+  expect(existsSync(join(env.claude, "settings.json"))).toBe(false);
+  expect(existsSync(env.theway)).toBe(false);
+});
+
+test("install replaces the theway binary a previous install wrote", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  writeFileSync(bin(env), `${readFileSync(bin(env), "utf-8")}\n// older copy\n`);
+  expect(run(env, "install").status).toBe(0);
+  expect(readFileSync(bin(env), "utf-8")).toBe(readFileSync(CLI, "utf-8"));
+});
+
 test("install writes the binary to THEWAY_INSTALL_DIR", () => {
   const env = setup();
   env.installDir = join(env.root, "tools");
@@ -260,4 +323,15 @@ test("uninstall keeps a theway in the install dir that install did not write", (
   expect(readFileSync(bin(env), "utf-8")).toBe("#!/bin/sh\necho another tool\n");
   expect(allow(env)).toEqual([]);
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
+});
+
+test("uninstall drops the rules of the pointer's home and ~/.theway as well as THEWAY_HOME's", () => {
+  const env = setup();
+  put(join(env.claude, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(ls:*)", "Read(~/.theway/**)"] } }));
+  expect(run(env, "install").status).toBe(0);
+  env.thewayHome = join(env.root, "elsewhere");
+  const res = run(env, "uninstall");
+  expect(res.status).toBe(0);
+  expect(existsSync(pointer(env))).toBe(false);
+  expect(allow(env)).toEqual(["Bash(ls:*)"]);
 });

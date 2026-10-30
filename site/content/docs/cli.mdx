@@ -37,7 +37,7 @@ Other environment variables:
 npx --yes github:pixelfactoryio/theway install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home, writes or removes the pointer file and adds the three permission rules to `~/.claude/settings.json`. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the three permission rules to `~/.claude/settings.json`, dropping the `Read` and `Edit` rules of the previous home when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 ## uninstall
 
@@ -45,7 +45,7 @@ Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`
 npx --yes github:pixelfactoryio/theway uninstall
 ```
 
-Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary, the pointer file and the permission rules. The data home is kept.
+Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary, the pointer file and the permission rules of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`. The data home is kept.
 
 ## list
 
