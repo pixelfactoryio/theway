@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { buildProgram } from "../src/program";
 
 const REPO = join(import.meta.dirname, "..");
@@ -70,7 +70,7 @@ test("plugin.json and package.json carry the same semver version", () => {
 });
 
 test("every npx reference installs @pixelfactoryio/theway from npm", () => {
-  const files = ["README.md", "plugin/commands/setup.md", "plugin/templates/theway/CLAUDE.md"];
+  const files = ["README.md", "plugin/commands/setup.md"];
   const offending = files.filter((f) => {
     const text = read(join(REPO, f));
     return (
@@ -140,4 +140,12 @@ test("the shipped defaults are neutral and the four architecture standards are o
     expect(config.standards?.[key]?.enabled).toBe(false);
   }
   expect(config.standards?.architecture).toBeUndefined();
+});
+
+test("plugin/templates/theway holds only what install reads", () => {
+  const THEWAY = join(PLUGIN, "templates", "theway");
+  const unused = files(THEWAY)
+    .map((f) => relative(THEWAY, f))
+    .filter((f) => !/^(config\.yaml|data\/standards\/[^/]+\.md|templates\/[^/]+\.md)$/.test(f));
+  expect(unused).toEqual([]);
 });
