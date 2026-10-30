@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/pixelfactoryio/theway/compare/v0.3.0...v0.3.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **commands:** read theway files instead of checking for config.yaml first ([#16](https://github.com/pixelfactoryio/theway/issues/16)) ([439d33a](https://github.com/pixelfactoryio/theway/commit/439d33aa72b9be8c8a6d8b2535311b5be0bef6e0))
+
 ## [0.3.0](https://github.com/pixelfactoryio/theway/compare/v0.2.0...v0.3.0) (2026-10-30)
 
 
