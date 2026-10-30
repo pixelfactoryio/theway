@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/pixelfactoryio/theway/compare/v0.1.0...v0.2.0) (2026-10-30)
+
+
+### Features
+
+* configurable develop-workflow models and a change-scoped read rule ([#12](https://github.com/pixelfactoryio/theway/issues/12)) ([e848a1a](https://github.com/pixelfactoryio/theway/commit/e848a1a81d40cca4243301a86a7e1d4172195ef9))
+
 ## 0.1.0 (2026-10-29)
 
 
