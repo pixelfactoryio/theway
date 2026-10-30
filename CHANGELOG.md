@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/pixelfactoryio/theway/compare/v0.2.0...v0.3.0) (2026-10-30)
+
+
+### Features
+
+* **cli:** install theway on path and resolve the data home through a pointer ([#14](https://github.com/pixelfactoryio/theway/issues/14)) ([42e81c0](https://github.com/pixelfactoryio/theway/commit/42e81c0836b07f4aae191b648479dc04906f440f))
+
 ## [0.2.0](https://github.com/pixelfactoryio/theway/compare/v0.1.0...v0.2.0) (2026-10-30)
 
 
