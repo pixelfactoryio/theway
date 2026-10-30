@@ -98,10 +98,10 @@ theway: home /data/tw (from pointer)
 
 The source is `env`, `pointer` or `default`. When `THEWAY_HOME` is set and differs from the pointer file, it prints the `THEWAY_HOME` value and one warning on stderr that names both values and their sources. Run install again with the new `THEWAY_HOME` to update the pointer.
 
-`<project>` and `<change-id>` must each be a single folder name. An empty value, a value that contains `/`, `.` and `..` exit 1 with one reason on stderr:
+A change id must be lowercase letters and digits in words separated by single hyphens (as `validate-id` produces); a project must be letters, digits, `.`, `_` or `-`, not starting with `.` or `-`; both at most 200 characters. Any other value exits 1 with one reason on stderr:
 
 ```text
-theway: invalid change id '..': must not be ..
+theway: invalid change id '..': must be lowercase letters and digits in words separated by single hyphens
 ```
 
 ## validate-id
