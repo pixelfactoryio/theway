@@ -26,7 +26,7 @@ add-user-auth-03
 - A series member is validated with `validate-id --series`.
 - Each member's `spec.md` has a line under its title: `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`. The `01` member states no dependency.
 
-`/theway:develop-workflow` takes the members in order and merges each PR before it starts the next change.
+`/theway:develop-workflow` takes the members in order. With `workflow.open_pr` true, it asks you before merging each PR and starts the next change once it is merged; with `false`, it stacks each change on a local branch created from the previous one.
 
 ## Folder layout
 

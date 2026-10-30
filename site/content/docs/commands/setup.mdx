@@ -3,7 +3,7 @@ title: /theway:setup
 description: Install or update theway from a Claude Code session
 ---
 
-It runs the same command as [Installation](../installation.mdx#install-and-update).
+It runs the install command pinned to the version of the installed commands (see the note below). [Installation](../installation.mdx#install-and-update) gives the command for the latest release.
 
 ## Usage
 
@@ -16,8 +16,10 @@ It runs the same command as [Installation](../installation.mdx#install-and-updat
 1. Runs the installer:
 
    ```bash
-   npx --yes @pixelfactoryio/theway@latest install
+   npx --yes @pixelfactoryio/theway@X.Y.Z install
    ```
+
+   `X.Y.Z` is the version of the installed commands: `/theway:setup` reinstalls that version. To move to a newer release, run the [install command](../installation.mdx#install-and-update) yourself.
 
 2. If the installer exits non-zero, it shows the installer's stderr and stops.
 3. Otherwise it reports the installer's last line and tells you to run `/reload-plugins`.

@@ -111,14 +111,14 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
 });
 
-test("install with the default home writes no pointer, the binary in ~/.local/bin and the three rules", () => {
+test("install with the default home writes no pointer, the binary in ~/.local/bin and the two rules", () => {
   const env = setup({ defaultHome: true });
   expect(run(env, "install").status).toBe(0);
   expect(existsSync(pointer(env))).toBe(false);
   accessSync(bin(env), constants.X_OK);
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
-  expect(allow(env)).toEqual(["Bash(theway:*)", "Read(~/.theway/**)", "Edit(~/.theway/*/changes/**)"]);
+  expect(allow(env)).toEqual(["Bash(theway:*)", "Read(~/.theway/**)"]);
   const res = runInstalled(env, "path", "--verbose");
   expect(res.status).toBe(0);
   expect(res.stdout).toBe(`${env.theway}\n`);
@@ -130,7 +130,7 @@ test("install with a custom home writes the pointer, leaves no ~/.theway and nam
   expect(run(env, "install").status).toBe(0);
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`);
   expect(existsSync(join(env.home, ".theway"))).toBe(false);
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`, `Edit(/${env.theway}/*/changes/**)`]);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`]);
 
   put(join(env.theway, "proj", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] 2. b\n");
   const path = runInstalled(env, "path", "--verbose");
@@ -159,13 +159,13 @@ test("install without THEWAY_HOME keeps the home the pointer names, as /theway:s
   expect(res.stdout).not.toContain(join(env.home, ".theway"));
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`);
   expect(existsSync(join(env.home, ".theway"))).toBe(false);
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`, `Edit(/${env.theway}/*/changes/**)`]);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`]);
   const path = runInstalled(env, "path", "--verbose");
   expect(path.stdout).toBe(`${env.theway}\n`);
   expect(path.stderr).toBe(`theway: home ${env.theway} (from pointer)\n`);
 });
 
-test("install with a new THEWAY_HOME drops the Read and Edit rules of the previous home", () => {
+test("install with a new THEWAY_HOME drops the Read rule of the previous home", () => {
   const env = setup();
   put(join(env.claude, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }));
   const first = env.theway;
@@ -177,7 +177,6 @@ test("install with a new THEWAY_HOME drops the Read and Edit rules of the previo
     "Bash(ls:*)",
     "Bash(theway:*)",
     `Read(/${env.thewayHome}/**)`,
-    `Edit(/${env.thewayHome}/*/changes/**)`,
   ]);
   expect(existsSync(join(first, "config.yaml"))).toBe(true);
 });
@@ -187,7 +186,7 @@ test("install from the default home to a custom one drops the ~/.theway rules", 
   expect(run(env, "install").status).toBe(0);
   env.thewayHome = join(env.root, "custom");
   expect(run(env, "install").status).toBe(0);
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`, `Edit(/${env.thewayHome}/*/changes/**)`]);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`]);
 });
 
 test("install refuses to replace a theway in the install dir that it did not write, and changes nothing", () => {
@@ -263,14 +262,14 @@ test("install merges the rules once and keeps existing settings", () => {
   expect(run(env, "install").status).toBe(0);
   const settings = JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8"));
   expect(settings.model).toBe("x");
-  expect(allow(env)).toEqual(["Bash(ls:*)", "Bash(theway:*)", "Read(~/.theway/**)", "Edit(~/.theway/*/changes/**)"]);
+  expect(allow(env)).toEqual(["Bash(ls:*)", "Bash(theway:*)", "Read(~/.theway/**)"]);
 });
 
 test("install writes ~/.theway rules when HOME has a trailing slash", () => {
   const env = setup({ defaultHome: true });
   const res = spawnSync("node", [CLI, "install"], { encoding: "utf-8", env: vars(env, `${env.home}/`) });
   expect(res.status).toBe(0);
-  expect(allow(env)).toEqual(["Bash(theway:*)", "Read(~/.theway/**)", "Edit(~/.theway/*/changes/**)"]);
+  expect(allow(env)).toEqual(["Bash(theway:*)", "Read(~/.theway/**)"]);
   expect(existsSync(pointer(env))).toBe(false);
 });
 
@@ -295,7 +294,7 @@ test("install over a 0.2.0 default home removes the old launcher and rule and ke
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
   expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe("# sentinel: keep me\n");
   expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
-  expect(allow(env)).toEqual(["Bash(ls:*)", "Read(~/.theway/**)", "Bash(theway:*)", "Edit(~/.theway/*/changes/**)"]);
+  expect(allow(env)).toEqual(["Bash(ls:*)", "Read(~/.theway/**)", "Bash(theway:*)"]);
 });
 
 for (const [label, name] of [
@@ -318,7 +317,7 @@ for (const [label, name] of [
     expect(existsSync(join(env.theway, "bin", "theway.js"))).toBe(false);
     expect(existsSync(join(env.theway, "bin", "mine.sh"))).toBe(true);
     expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
-    expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)", `Edit(/${env.theway}/*/changes/**)`]);
+    expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)"]);
   });
 }
 
@@ -367,6 +366,49 @@ test("uninstall drops the rules of the pointer's home and ~/.theway as well as T
   expect(allow(env)).toEqual(["Bash(ls:*)"]);
 });
 
+test("install over the Edit rule of an earlier version removes it and keeps unrelated rules (default home)", () => {
+  const env = setup({ defaultHome: true });
+  put(
+    join(env.claude, "settings.json"),
+    JSON.stringify({ permissions: { allow: ["Bash(ls:*)", "Read(~/.theway/**)", "Edit(~/.theway/*/changes/**)", "Edit(src/**)"] } }),
+  );
+  expect(run(env, "install").status).toBe(0);
+  expect(allow(env)).toEqual(["Bash(ls:*)", "Read(~/.theway/**)", "Edit(src/**)", "Bash(theway:*)"]);
+});
+
+test("install over the Edit rule of an earlier version removes it and keeps unrelated rules (custom home)", () => {
+  const env = setup();
+  put(
+    join(env.claude, "settings.json"),
+    JSON.stringify({
+      permissions: { allow: ["Bash(ls:*)", `Read(/${env.theway}/**)`, `Edit(/${env.theway}/*/changes/**)`, "Edit(src/**)"] },
+    }),
+  );
+  expect(run(env, "install").status).toBe(0);
+  expect(allow(env)).toEqual(["Bash(ls:*)", `Read(/${env.theway}/**)`, "Edit(src/**)", "Bash(theway:*)"]);
+});
+
+test("install to a new home removes the Edit rule an earlier version wrote for the previous home", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const settings = JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8"));
+  settings.permissions.allow.push(`Edit(/${env.theway}/*/changes/**)`);
+  put(join(env.claude, "settings.json"), JSON.stringify(settings));
+  env.thewayHome = join(env.root, "other");
+  expect(run(env, "install").status).toBe(0);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`]);
+});
+
+test("uninstall removes the Edit rule of an earlier version", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const settings = JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8"));
+  settings.permissions.allow.push(`Edit(/${env.theway}/*/changes/**)`, "Edit(~/.theway/*/changes/**)", "Bash(ls:*)");
+  put(join(env.claude, "settings.json"), JSON.stringify(settings));
+  expect(run(env, "uninstall").status).toBe(0);
+  expect(allow(env)).toEqual(["Bash(ls:*)"]);
+});
+
 for (const m of [0o600, 0o640]) {
   test(`install and uninstall keep a ${m.toString(8)} settings.json at ${m.toString(8)}`, () => {
     const env = setup();
@@ -400,7 +442,6 @@ test("install and uninstall write through a symlinked settings.json", () => {
     "Bash(ls:*)",
     "Bash(theway:*)",
     `Read(/${env.theway}/**)`,
-    `Edit(/${env.theway}/*/changes/**)`,
   ]);
   expect(run(env, "uninstall").status).toBe(0);
   expect(lstatSync(link).isSymbolicLink()).toBe(true);
@@ -419,7 +460,6 @@ test("install creates the target of a dangling settings.json symlink with mode 6
   expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
     "Bash(theway:*)",
     `Read(/${env.theway}/**)`,
-    `Edit(/${env.theway}/*/changes/**)`,
   ]);
 });
 
@@ -476,7 +516,6 @@ test("install follows a multi-hop dangling settings.json symlink chain to its en
   expect(JSON.parse(readFileSync(final, "utf-8")).permissions.allow).toEqual([
     "Bash(theway:*)",
     `Read(/${env.theway}/**)`,
-    `Edit(/${env.theway}/*/changes/**)`,
   ]);
 });
 

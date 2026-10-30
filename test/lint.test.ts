@@ -84,6 +84,12 @@ test("every npx reference installs @pixelfactoryio/theway from npm", () => {
   expect(offending).toEqual([]);
 });
 
+test("setup.md installs the version in package.json", () => {
+  const pkg = JSON.parse(read(join(REPO, "package.json"))).version;
+  const versions = [...read(join(COMMANDS, "setup.md")).matchAll(/@pixelfactoryio\/theway@(\S+)/g)].map((m) => m[1]);
+  expect(versions).toEqual([pkg, pkg]);
+});
+
 test("every workflow action is pinned to a commit SHA", () => {
   const WORKFLOWS = join(REPO, ".github", "workflows");
   const unpinned = readdirSync(WORKFLOWS)
