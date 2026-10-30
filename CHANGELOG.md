@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/pixelfactoryio/theway/compare/v0.5.2...v0.5.3) (2026-10-30)
+
+
+### Bug Fixes
+
+* **cli:** keep edited standards and templates on install ([#31](https://github.com/pixelfactoryio/theway/issues/31)) ([13f7e66](https://github.com/pixelfactoryio/theway/commit/13f7e666a168cf37a547195bcb62980c905c00fb))
+
 ## [0.5.2](https://github.com/pixelfactoryio/theway/compare/v0.5.1...v0.5.2) (2026-10-30)
 
 
