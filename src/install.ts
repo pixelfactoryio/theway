@@ -97,28 +97,40 @@ function readSettings(path: string): Settings | null {
   return data as Settings;
 }
 
-/** The file `path` names: its link target when it is a symlink (even a dangling one), else `path`. */
-function settingsTarget(path: string): string {
-  let link = false;
-  try {
-    link = lstatSync(path).isSymbolicLink();
-  } catch {
-    // absent
+/** Where writing `path` lands: the end of its symlink chain (even a missing file), or why it cannot be written. */
+function settingsTarget(path: string): { target: string } | { error: string } {
+  let target = path;
+  const seen = new Set<string>();
+  for (;;) {
+    let link: boolean;
+    try {
+      link = lstatSync(target).isSymbolicLink();
+    } catch {
+      break; // missing: the chain ends here
+    }
+    if (!link) break;
+    if (seen.has(target) || seen.size >= 40) return { error: "it is a symlink loop" };
+    seen.add(target);
+    target = resolve(dirname(target), readlinkSync(target));
   }
-  if (!link) return path;
-  let target: string;
+  // writeSettings creates the missing folders, so the nearest existing one must be writable.
+  let dir = dirname(target);
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
   try {
-    target = realpathSync(path);
+    accessSync(dir, constants.W_OK);
   } catch {
-    target = resolve(dirname(path), readlinkSync(path));
+    return { error: `${dir} is not writable` };
   }
-  mkdirSync(dirname(target), { recursive: true });
-  return target;
+  return { target };
 }
 
-/** Writes `settings` to the file `path` names (through a symlink), keeping its mode, `0600` when new. */
-function writeSettings(path: string, settings: Settings): void {
-  const target = settingsTarget(path);
+function unwritableSettings(path: string, reason: string): number {
+  return fail(`theway: cannot write ${path}: ${reason}; nothing was changed`);
+}
+
+/** Writes `settings` to `target` (a resolved settingsTarget), keeping its mode, `0600` when new. */
+function writeSettings(target: string, settings: Settings): void {
+  mkdirSync(dirname(target), { recursive: true });
   const mode = existsSync(target) ? statSync(target).mode & 0o777 : 0o600;
   const tmp = `${target}.tmp-${process.pid}`;
   try {
@@ -308,7 +320,9 @@ export function install(): number {
     return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME to a dedicated folder`);
   }
 
-  const settings = readSettings(settingsPath);
+  const resolved = settingsTarget(settingsPath);
+  if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
+  const settings = readSettings(resolved.target);
   if (settings === null) return invalidSettings(settingsPath);
 
   // Never replace another program that happens to be called theway: uninstall would not remove it either.
@@ -346,7 +360,7 @@ export function install(): number {
   if (missing.length > 0 || kept.length !== allow.length) {
     settings.permissions = { ...perms, allow: [...kept, ...missing] };
     mkdirSync(cHome, { recursive: true });
-    writeSettings(settingsPath, settings);
+    writeSettings(resolved.target, settings);
   }
 
   checkPath(dir, binary);
@@ -364,6 +378,12 @@ export function uninstall(): number {
   // Every home theway may have rules for: the resolved one, the one the pointer names, and ~/.theway.
   const homes = [...new Set([tHome, recordedHome(), defaultHome()])];
   const settingsPath = join(cHome, "settings.json");
+  let settingsFile = settingsPath;
+  if (occupied(settingsPath)) {
+    const resolved = settingsTarget(settingsPath);
+    if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
+    settingsFile = resolved.target;
+  }
 
   rmSync(join(cHome, "skills", "theway"), { recursive: true, force: true });
 
@@ -375,7 +395,7 @@ export function uninstall(): number {
   removeIfEmpty(dirname(pointerPath()));
 
   if (existsSync(settingsPath)) {
-    const settings = readSettings(settingsPath);
+    const settings = readSettings(settingsFile);
     if (settings === null) return invalidSettings(settingsPath);
     const allow = settings.permissions?.allow;
     if (Array.isArray(allow)) {
@@ -383,7 +403,7 @@ export function uninstall(): number {
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };
-        writeSettings(settingsPath, settings);
+        writeSettings(settingsFile, settings);
       }
     }
   }

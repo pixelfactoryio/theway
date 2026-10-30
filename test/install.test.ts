@@ -423,6 +423,81 @@ test("install creates the target of a dangling settings.json symlink with mode 6
   ]);
 });
 
+test("install and uninstall refuse a settings.json symlinked into a read-only folder, and change nothing", () => {
+  const env = setup();
+  const dir = join(env.root, "ro");
+  const target = join(dir, "settings.json");
+  const link = join(env.claude, "settings.json");
+  put(target, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }));
+  mkdirSync(env.claude, { recursive: true });
+  symlinkSync(target, link);
+  const line = `theway: cannot write ${link}: ${dir} is not writable; nothing was changed\n`;
+  chmodSync(target, 0o444);
+  chmodSync(dir, 0o555);
+  try {
+    const res = run(env, "install");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toBe(line);
+    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+    expect(existsSync(bin(env))).toBe(false);
+    expect(existsSync(pointer(env))).toBe(false);
+    expect(existsSync(join(env.theway, "config.yaml"))).toBe(false);
+  } finally {
+    chmodSync(dir, 0o755);
+    chmodSync(target, 0o644);
+  }
+
+  expect(run(env, "install").status).toBe(0);
+  chmodSync(target, 0o444);
+  chmodSync(dir, 0o555);
+  try {
+    const res = run(env, "uninstall");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toBe(line);
+    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(true);
+    expect(existsSync(bin(env))).toBe(true);
+    expect(existsSync(pointer(env))).toBe(true);
+  } finally {
+    chmodSync(dir, 0o755);
+    chmodSync(target, 0o644);
+  }
+});
+
+test("install follows a multi-hop dangling settings.json symlink chain to its end", () => {
+  const env = setup();
+  const mid = join(env.root, "mid");
+  const final = join(env.root, "dot", "final.json");
+  mkdirSync(env.claude, { recursive: true });
+  symlinkSync(mid, join(env.claude, "settings.json"));
+  symlinkSync(final, mid);
+  expect(run(env, "install").status).toBe(0);
+  expect(lstatSync(mid).isSymbolicLink()).toBe(true);
+  expect(mode(final)).toBe(0o600);
+  expect(JSON.parse(readFileSync(final, "utf-8")).permissions.allow).toEqual([
+    "Bash(theway:*)",
+    `Read(/${env.theway}/**)`,
+    `Edit(/${env.theway}/*/changes/**)`,
+  ]);
+});
+
+test("install refuses a settings.json symlink loop and changes nothing", () => {
+  const env = setup();
+  const link = join(env.claude, "settings.json");
+  const b = join(env.root, "b");
+  mkdirSync(env.claude, { recursive: true });
+  symlinkSync(b, link);
+  symlinkSync(link, b);
+  const res = run(env, "install");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(`theway: cannot write ${link}: it is a symlink loop; nothing was changed\n`);
+  expect(lstatSync(b).isSymbolicLink()).toBe(true);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+  expect(existsSync(bin(env))).toBe(false);
+  expect(existsSync(pointer(env))).toBe(false);
+  expect(existsSync(join(env.theway, "config.yaml"))).toBe(false);
+});
+
 test("install refuses a data home that is HOME, a parent of HOME, or holds a glob character", () => {
   for (const pick of [
     (e: Env) => e.home,
