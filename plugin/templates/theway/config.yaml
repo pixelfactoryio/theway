@@ -1,42 +1,19 @@
 # theway configuration
-# <home> is the theway home, the folder `theway path` prints
 
-# Standards read by the commands; core_principles, sre, web_development and quality are opt-in and honor enabled, the others are always read
+# Opt-in standards: read by /theway:engineering and /theway:document only when enabled is true
 standards:
-  interaction:
-    enabled: true
-    file: "<home>/data/standards/interaction.md"
-    description: "Cross-cutting interaction conventions (exploration, reporting, authority) for all commands"
-
-  develop:
-    enabled: true
-    file: "<home>/data/standards/develop.md"
-    description: "How a change is implemented and verified, shared by /theway:develop and /theway:develop-workflow"
-
+  # Architecture philosophy (simplicity, security, pragmatic technology)
   core_principles:
     enabled: false
-    file: "<home>/data/standards/core-principles.md"
-    description: "Opt-in: architecture philosophy (simplicity, security, pragmatic technology)"
-
+  # SRE operational excellence (reliability, observability, automation)
   sre:
     enabled: false
-    file: "<home>/data/standards/sre.md"
-    description: "Opt-in: SRE operational excellence (reliability, observability, automation)"
-
+  # Frontend, API and backend standards with web performance targets
   web_development:
     enabled: false
-    file: "<home>/data/standards/web-development.md"
-    description: "Opt-in: frontend, API and backend standards with web performance targets"
-
+  # Testing, deployment, monitoring and security expectations
   quality:
     enabled: false
-    file: "<home>/data/standards/quality.md"
-    description: "Opt-in: testing, deployment, monitoring and security expectations"
-
-  tamm_framework:
-    enabled: true
-    file: "<home>/data/standards/tamm-framework.md"
-    description: "Time/Autonomy/Mastery/Machine hardpoint analysis framework"
 
 # Engineering - spec review for /theway:engineering (absent or invalid key means the default)
 engineering:

@@ -7,21 +7,18 @@ The configuration lives in `<home>/config.yaml`, where `<home>` is the data home
 
 `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document` read this file; when it is missing, they tell you to run [`/theway:setup`](./commands/setup.mdx). `/theway:archive` and `/theway:list` only check that it exists and give the same instruction.
 
-A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections. Nothing reads them, and you can delete them.
+A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections, `interaction`, `develop` and `tamm_framework` entries under `standards:`, and `file` and `description` keys. Nothing reads them, and you can delete them.
 
 ## standards
 
-Each standard has three keys: `enabled`, `file` and `description`. In the shipped file, `file` values start with `<home>/`; the commands find the home with `theway path`, never from these values, so a copy that still says `~/.theway/` works with a custom home too. Only the four opt-in standards honor `enabled`: `standards.core_principles`, `standards.sre`, `standards.web_development` and `standards.quality`. `/theway:engineering` and `/theway:document` read each one only when its `enabled` is `true`. The other standards are always read.
+Four standards are opt-in, each with a single `enabled` key: `/theway:engineering` and `/theway:document` read a standard's file only when its `enabled` is `true`. The other standards are always read and have no key: `interaction.md` by `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive`; `develop.md` by `/theway:develop` and `/theway:develop-workflow`; `tamm-framework.md` by `/theway:engineering`.
 
-| Standard | `enabled` | `file` | Used for |
+| Standard | `enabled` | File | Used for |
 |----------|-----------|--------|----------|
-| `standards.interaction` | `true` | `<home>/data/standards/interaction.md` | How `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive` explore the codebase, report, and treat what they read as data |
-| `standards.develop` | `true` | `<home>/data/standards/develop.md` | How a change is implemented and verified, shared by `/theway:develop` and `/theway:develop-workflow` |
 | `standards.core_principles` | `false` | `<home>/data/standards/core-principles.md` | Architecture philosophy (simplicity, security, pragmatic technology) |
 | `standards.sre` | `false` | `<home>/data/standards/sre.md` | SRE operational excellence (reliability, observability, automation) |
 | `standards.web_development` | `false` | `<home>/data/standards/web-development.md` | Frontend, API and backend standards with web performance targets |
 | `standards.quality` | `false` | `<home>/data/standards/quality.md` | Testing, deployment, monitoring and security expectations |
-| `standards.tamm_framework` | `true` | `<home>/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
 
 A `config.yaml` written by an earlier install has `standards.architecture` instead of these four entries, so they stay off until you copy them from `config.default.yaml` and set `enabled: true` on the ones you want.
 
