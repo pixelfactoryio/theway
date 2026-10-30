@@ -17,7 +17,9 @@ Every spec includes a [TAMM](./concepts/tamm.mdx) hardpoints table that names th
 
 ## Where things live
 
-Each change is a folder under `~/.theway/<project>/changes/`, where `<project>` is the name of your project directory. The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in `~/.theway`. See [Changes](./concepts/changes.mdx).
+theway keeps its files in a data home, `~/.theway` by default, or the folder `THEWAY_HOME` names at install (see [Installation](./installation.mdx#other-locations)). The config is `<home>/config.yaml`.
+
+Each change is a folder under `<home>/<project>/changes/`, where `<project>` is the name of your project directory. The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
 
 ## Next steps
 

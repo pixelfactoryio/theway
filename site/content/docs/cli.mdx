@@ -1,24 +1,35 @@
 ---
 title: CLI
-description: The theway command line and its five subcommands.
+description: The theway command line and its six subcommands.
 ---
 
-The `theway` program has five subcommands: `install`, `uninstall`, `list`, `archive` and `validate-id`. The slash commands call it as `~/.theway/bin/theway`, which install writes.
+The `theway` program has six subcommands: `install`, `uninstall`, `list`, `archive`, `path` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install
 theway uninstall
 theway list <project>
 theway archive <project> <change-id> [--force]
+theway path [<project> [<change-id>]] [--verbose]
 theway validate-id <id> [--series]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
 
-Two environment variables change its locations:
+## Locations
 
-- `THEWAY_HOME` replaces `~/.theway`.
+The data home holds the config, the standards, the templates and the change folders. The CLI resolves it on every run, in this order:
+
+1. `THEWAY_HOME`, when it is set and not empty.
+2. The pointer file `${XDG_CONFIG_HOME:-~/.config}/theway/home`, when it exists and is not empty. Install writes it for a custom `THEWAY_HOME`.
+3. `~/.theway`.
+
+[`theway path --verbose`](#path) says which one it used.
+
+Other environment variables:
+
 - `CLAUDE_CONFIG_DIR` replaces `~/.claude`.
+- `THEWAY_INSTALL_DIR` replaces `~/.local/bin`, for install and uninstall.
 
 ## install
 
@@ -26,7 +37,7 @@ Two environment variables change its locations:
 npx --yes github:pixelfactoryio/theway install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, sets up `~/.theway` and adds the two permission rules to `~/.claude/settings.json`. Run it through `npx`, which carries the plugin files; `~/.theway/bin/theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home, writes or removes the pointer file and adds the three permission rules to `~/.claude/settings.json`. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 ## uninstall
 
@@ -34,12 +45,12 @@ Copies the plugin to `~/.claude/skills/theway`, sets up `~/.theway` and adds the
 npx --yes github:pixelfactoryio/theway uninstall
 ```
 
-Removes `~/.claude/skills/theway` and the two permission rules. `~/.theway` is kept.
+Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary, the pointer file and the permission rules. The data home is kept.
 
 ## list
 
 ```bash
-~/.theway/bin/theway list <project>
+theway list <project>
 ```
 
 Prints the active changes of `<project>`, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
@@ -47,10 +58,10 @@ Prints the active changes of `<project>`, each with its number of `.md` files an
 ## archive
 
 ```bash
-~/.theway/bin/theway archive <project> <change-id> [--force]
+theway archive <project> <change-id> [--force]
 ```
 
-Moves `~/.theway/<project>/changes/<change-id>` to `~/.theway/<project>/changes/archive/YYYY-MM-DD-<change-id>`, with today's local date, and prints `Archived: <path>`.
+Moves `<home>/<project>/changes/<change-id>` to `<home>/<project>/changes/archive/YYYY-MM-DD-<change-id>`, with today's local date, and prints `Archived: <path>`.
 
 It exits 1 and moves nothing when:
 
@@ -60,11 +71,41 @@ It exits 1 and moves nothing when:
 
 `--force` archives despite unticked numbered tasks and prints them as a warning.
 
+## path
+
+```bash
+theway path
+theway path <project>
+theway path <project> <change-id>
+```
+
+Prints one line on stdout:
+
+- `theway path`: the data home, such as `/home/you/.theway`.
+- `theway path <project>`: `<home>/<project>`.
+- `theway path <project> <change-id>`: `<home>/<project>/changes/<change-id>`, whether or not the folder exists yet.
+
+The slash commands run it to find the home (for the config, standards and templates) and the change folder they read and write.
+
+`--verbose` adds one line on stderr naming where the home came from:
+
+```text
+theway: home /data/tw (from pointer)
+```
+
+The source is `env`, `pointer` or `default`. When `THEWAY_HOME` is set and differs from the pointer file, it prints the `THEWAY_HOME` value and one warning on stderr that names both values and their sources. Run install again with the new `THEWAY_HOME` to update the pointer.
+
+`<project>` and `<change-id>` must each be a single folder name. An empty value, a value that contains `/`, `.` and `..` exit 1 with one reason on stderr:
+
+```text
+theway: invalid change id '..': must not be ..
+```
+
 ## validate-id
 
 ```bash
-~/.theway/bin/theway validate-id <id>
-~/.theway/bin/theway validate-id <id> --series
+theway validate-id <id>
+theway validate-id <id> --series
 ```
 
 Checks a [change ID](./concepts/changes.mdx#change-ids). It exits 0 when the ID is valid. Otherwise it exits 1 and prints one line on stderr:

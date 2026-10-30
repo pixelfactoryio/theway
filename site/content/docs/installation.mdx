@@ -5,6 +5,7 @@ description: Install, update, pin and uninstall theway.
 
 ## Requirements
 
+- `~/.local/bin` on your `PATH`, or another install folder that is (see [Other locations](#other-locations)). The commands call the CLI as plain `theway`, so they fail with `theway: command not found` when its folder is not on `PATH`. On macOS it is not there by default: add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile, then start Claude Code from a new shell.
 - Node.js 22.12 or later.
 - macOS or Linux.
 - Claude Code.
@@ -16,6 +17,12 @@ npx --yes github:pixelfactoryio/theway install
 ```
 
 Every run fetches the tip of `main`, so running the command again updates theway. When it finishes, start a new Claude Code session or run `/reload-plugins`.
+
+When the install folder is not on your `PATH`, install still finishes and exits 0, and prints the line to add:
+
+```text
+Add /home/you/.local/bin to your PATH, e.g.: export PATH="/home/you/.local/bin:$PATH"
+```
 
 From a session where theway is already loaded, `/theway:setup` runs the same command.
 
@@ -35,23 +42,43 @@ The tags are listed on the [GitHub releases page](https://github.com/pixelfactor
 npx --yes github:pixelfactoryio/theway uninstall
 ```
 
-Uninstall removes `~/.claude/skills/theway` and the two permission rules. `~/.theway` is kept, with your changes and your config.
+Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the one install wrote, the pointer file and the permission rules, including the rules of 0.2.0. The data home (`~/.theway`, or your custom home) is kept, with your changes and your config.
 
 ## What install writes
 
 - **`~/.claude/skills/theway`:** the plugin, with its commands. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
-- **`~/.theway`:**
-  - `bin/theway` and `bin/theway.js`: the [CLI](./cli.mdx) the commands call. `bin/theway` runs `bin/theway.js` with the `node` on your `PATH`.
+- **`~/.local/bin/theway`:** the [CLI](./cli.mdx) the commands call, a single executable file run by the `node` on your `PATH`.
+- **The data home, `~/.theway`** by default:
   - `config.yaml`: the [configuration](./configuration.mdx). An existing `config.yaml` is kept.
   - `config.default.yaml`: the shipped configuration, written on every install.
   - `data/standards/` and `templates/`: the standards and templates the commands read.
-- **Two permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:
-  - `Read(~/.theway/**)`
-  - `Bash(~/.theway/bin/theway:*)`
+  - `<project>/changes/`: the change folders, written by the commands.
+- **`~/.config/theway/home`**, only for a custom `THEWAY_HOME`: the pointer file that holds the absolute data home, so the CLI finds it when `THEWAY_HOME` is not set. With the default home, install writes no pointer and removes an existing one.
+- **Three permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:
+  - `Bash(theway:*)`: runs the CLI without a prompt.
+  - `Read(~/.theway/**)`: reads the data home.
+  - `Edit(~/.theway/*/changes/**)`: creates and edits files in change folders (an `Edit` rule also covers `Write`), so writing `spec.md` and `tasks.md` and ticking tasks no longer asks. `config.yaml`, the standards and the templates are outside it: editing them still asks.
+
+  For a custom home, the `Read` and `Edit` rules name its absolute path, such as `Read(//data/tw/**)` and `Edit(//data/tw/*/changes/**)`.
 
 If `~/.claude/settings.json` is not valid settings JSON, install stops and changes nothing.
+
+`Bash(theway:*)` approves whichever `theway` comes first on your `PATH`, not only the copy install wrote. Install lists every `theway` on `PATH` and warns, naming it, when the first one is not its copy:
+
+```text
+theway: warning: /usr/local/bin/theway comes before /home/you/.local/bin/theway on PATH, so the commands run it; theway copies on PATH: …
+```
 
 ### Other locations
 
 - `CLAUDE_CONFIG_DIR` replaces `~/.claude` when it is set.
-- `THEWAY_HOME` replaces `~/.theway` when it is set. The permission rules then name that absolute path.
+- `THEWAY_INSTALL_DIR` replaces `~/.local/bin` when it is set. Pick a folder already on your `PATH`, such as `/opt/homebrew/bin`. Set it again when you uninstall.
+- `THEWAY_HOME` replaces `~/.theway` as the data home when it is set at install. Install records it in the pointer file, so nothing is written to `~/.theway` and the commands find the home without `THEWAY_HOME` in Claude Code's environment. `XDG_CONFIG_HOME` replaces `~/.config` for the pointer file.
+
+The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in its environment, then the pointer file, then `~/.theway`. After changing `THEWAY_HOME`, run install again with the new value: it rewrites the pointer and adds the rules of the new home. Until then, `theway path` warns that `THEWAY_HOME` and the pointer differ.
+
+Install reads only `THEWAY_HOME`, not the pointer: to update a custom-home install, run it with `THEWAY_HOME` set. Without it, install sets up `~/.theway` and removes the pointer. The same holds for `/theway:setup`, which sees `THEWAY_HOME` only when it is exported in the shell that started Claude Code.
+
+## Upgrading from 0.2.0
+
+theway 0.2.0 installed the CLI in the data home, as `bin/theway` and `bin/theway.js`, with the rule `Bash(~/.theway/bin/theway:*)` (or the absolute path for a custom home). Installing this version over it removes those two files, the `bin/` folder when nothing else is in it, and the old rule. Your config and change folders stay where they are.

@@ -1,22 +1,22 @@
 ---
 title: Configuration
-description: Every key of ~/.theway/config.yaml, with its default and meaning.
+description: Every key of <home>/config.yaml, with its default and meaning.
 ---
 
-The configuration lives in `~/.theway/config.yaml`. Install writes it once and keeps your copy on later installs; the shipped version is always written to `~/.theway/config.default.yaml`, so you can compare the two.
+The configuration lives in `<home>/config.yaml`, where `<home>` is the data home: `~/.theway` by default, or the folder `THEWAY_HOME` named at install (see [Locations](./cli.mdx#locations); `theway path` prints it). Install writes it once and keeps your copy on later installs; the shipped version is always written to `<home>/config.default.yaml`, so you can compare the two.
 
-`/theway:engineering`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document` read this file; when it is missing, they tell you to run [`/theway:setup`](./commands/setup.mdx). `/theway:archive` only checks that it exists and gives the same instruction.
+`/theway:engineering`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document` read this file; when it is missing, they tell you to run [`/theway:setup`](./commands/setup.mdx). `/theway:archive` and `/theway:list` only check that it exists and give the same instruction.
 
 ## standards
 
-Each standard has three keys: `enabled`, `file` and `description`. Only `standards.architecture` honors `enabled`: `/theway:engineering` and `/theway:document` skip the architecture principles when it is `false`. The other standards are always read.
+Each standard has three keys: `enabled`, `file` and `description`. In the shipped file, `file` values start with `<home>/`; the commands find the home with `theway path`, never from these values, so a copy that still says `~/.theway/` works with a custom home too. Only `standards.architecture` honors `enabled`: `/theway:engineering` and `/theway:document` skip the architecture principles when it is `false`. The other standards are always read.
 
 | Standard | `enabled` | `file` | Used for |
 |----------|-----------|--------|----------|
-| `standards.interaction` | `true` | `~/.theway/data/standards/interaction.md` | How `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive` explore the codebase and report |
-| `standards.develop` | `true` | `~/.theway/data/standards/develop.md` | How a change is implemented and verified, shared by `/theway:develop` and `/theway:develop-workflow` |
-| `standards.architecture` | `true` | `~/.theway/data/standards/architecture-principles.md` | Architecture principles, web development conventions and quality targets |
-| `standards.tamm_framework` | `true` | `~/.theway/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
+| `standards.interaction` | `true` | `<home>/data/standards/interaction.md` | How `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive` explore the codebase and report |
+| `standards.develop` | `true` | `<home>/data/standards/develop.md` | How a change is implemented and verified, shared by `/theway:develop` and `/theway:develop-workflow` |
+| `standards.architecture` | `true` | `<home>/data/standards/architecture-principles.md` | Architecture principles, web development conventions and quality targets |
+| `standards.tamm_framework` | `true` | `<home>/data/standards/tamm-framework.md` | The [TAMM](./concepts/tamm.mdx) hardpoint analysis |
 
 ## changes
 
@@ -63,10 +63,10 @@ Each template has three keys: `file`, `description` and `used_by`.
 
 | Template | `file` | `used_by` | Produces |
 |----------|--------|-----------|----------|
-| `templates.value_engineering` | `~/.theway/templates/spec-template.md` | `engineering` | `spec.md`, the TAMM-based spec analysis |
-| `templates.implementation_tasks` | `~/.theway/templates/tasks-template.md` | `engineering` | `tasks.md`, the phase-based numbered task list |
-| `templates.coding_standards` | `~/.theway/templates/coding-standards-template.md` | `document` | `docs/architecture/coding-standards.md` |
-| `templates.source_tree` | `~/.theway/templates/source-tree-template.md` | `document` | `docs/architecture/source-tree.md` |
-| `templates.tech_stack` | `~/.theway/templates/tech-stack-template.md` | `document` | `docs/architecture/tech-stack.md` |
+| `templates.value_engineering` | `<home>/templates/spec-template.md` | `engineering` | `spec.md`, the TAMM-based spec analysis |
+| `templates.implementation_tasks` | `<home>/templates/tasks-template.md` | `engineering` | `tasks.md`, the phase-based numbered task list |
+| `templates.coding_standards` | `<home>/templates/coding-standards-template.md` | `document` | `docs/architecture/coding-standards.md` |
+| `templates.source_tree` | `<home>/templates/source-tree-template.md` | `document` | `docs/architecture/source-tree.md` |
+| `templates.tech_stack` | `<home>/templates/tech-stack-template.md` | `document` | `docs/architecture/tech-stack.md` |
 
 Each template carries its own instructions in its frontmatter: the context to read, the role, the steps and the quality standards.
