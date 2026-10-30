@@ -28,7 +28,11 @@ Run these steps once, after the `pixelfactoryio/theway` repository is created. T
    gh api -X POST repos/pixelfactoryio/theway/rulesets --input .github/rulesets/main.json
    ```
 
-4. In Settings → Actions → General, enable "Allow GitHub Actions to create and approve pull requests". release-please needs it to open release PRs.
+4. Give the repository access to the org secret `RELEASE_APP_PRIVATE_KEY`. release-please opens release PRs with a token of the `pixelfactoryio-release` GitHub App, so the PR checks run on them. It needs the `admin:org` scope:
+
+   ```bash
+   gh api -X PUT orgs/pixelfactoryio/actions/secrets/RELEASE_APP_PRIVATE_KEY/repositories/$(gh api repos/pixelfactoryio/theway --jq .id)
+   ```
 
 5. In Settings → Pages, set the source to "GitHub Actions".
 
