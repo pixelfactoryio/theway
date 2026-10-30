@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/pixelfactoryio/theway/compare/v0.3.1...v0.4.0) (2026-10-30)
+
+
+### Features
+
+* **release:** publish @pixelfactoryio/theway to npm ([#20](https://github.com/pixelfactoryio/theway/issues/20)) ([d957bc8](https://github.com/pixelfactoryio/theway/commit/d957bc8cf75a0094a0596559b60fb0f05020a40a))
+
 ## [0.3.1](https://github.com/pixelfactoryio/theway/compare/v0.3.0...v0.3.1) (2026-10-30)
 
 
