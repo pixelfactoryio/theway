@@ -3,3 +3,7 @@ declare module "bun:test" {
   export function afterEach(fn: () => void): void;
   export function expect(actual: unknown): any;
 }
+
+declare const Bun: {
+  YAML: { parse(text: string): unknown };
+};
