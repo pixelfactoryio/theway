@@ -21,7 +21,7 @@ claude plugin validate plugin --strict
 
 - `src/`: the CLI source.
 - `plugin/`: the Claude Code plugin (commands, templates).
-- `dist/`: the built CLI. It is committed: rebuild it with `bun run build` and commit it with every `src/` change. CI fails otherwise.
+- `dist/`: the built CLI, from `bun run build`. It is not committed: CI builds it, and the release workflow publishes it to npm as `@pixelfactoryio/theway`.
 - `test/`: the tests.
 
 ## Testing a local build
@@ -41,7 +41,7 @@ Before 1.0, `feat` bumps the minor version and `fix` bumps the patch version. Ma
 
 ## Release process
 
-release-please opens a release PR from the commits on `main`. Maintainers merge it to cut the release.
+release-please opens a release PR from the commits on `main`. Maintainers merge it to cut the release, and the release workflow publishes it to npm.
 
 ## Code of conduct and security
 

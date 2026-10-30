@@ -69,13 +69,16 @@ test("plugin.json and package.json carry the same semver version", () => {
   expect(pkg).toBe(plugin);
 });
 
-test("every npx reference names pixelfactoryio/theway and none names ai-marketplace", () => {
+test("every npx reference installs @pixelfactoryio/theway from npm", () => {
   const files = ["README.md", "plugin/commands/setup.md", "plugin/templates/theway/CLAUDE.md"];
   const offending = files.filter((f) => {
     const text = read(join(REPO, f));
     return (
       text.includes("ai-marketplace") ||
-      [...text.matchAll(/github:pixelfactoryio\//g)].some((m) => !/^theway(#|\s|\)|`)/.test(text.slice(m.index + m[0].length)))
+      text.includes("github:pixelfactoryio") ||
+      [...text.matchAll(/npx --yes /g)].some(
+        (m) => !/^@pixelfactoryio\/theway@(latest|X\.Y\.Z|\d+\.\d+\.\d+)\s/.test(text.slice(m.index + m[0].length)),
+      )
     );
   });
   expect(offending).toEqual([]);

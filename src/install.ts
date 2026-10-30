@@ -236,7 +236,7 @@ function checkPath(dir: string, binary: string): void {
 export function install(): number {
   // An installed copy has no plugin next to it: installs and updates go through npx.
   if (!existsSync(join(plugin, ".claude-plugin"))) {
-    return fail("theway: run `npx --yes github:pixelfactoryio/theway install` to install or update theway");
+    return fail("theway: run `npx --yes @pixelfactoryio/theway@latest install` to install or update theway");
   }
   const cHome = claudeHome();
   // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as /theway:setup usually is) keeps the recorded home.
