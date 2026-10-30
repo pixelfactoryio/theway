@@ -33,6 +33,17 @@ These keys describe fixed behavior: `validate-id`, `archive` and the commands ha
 
 The format of a change ID is enforced by [`theway validate-id`](./cli.mdx#validate-id). See [Changes](./concepts/changes.mdx).
 
+## engineering
+
+The spec review of [`/theway:engineering`](./commands/engineering.mdx#steps) (step 6). A key that is absent or invalid takes its default.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `engineering.review_rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
+| `engineering.models.critic` | `opus` | Model of the two critic agents: `opus` or `sonnet`. Any other value takes the default; `haiku` is never used. |
+
+Each round spawns two critics. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
+
 ## workflow
 
 Caps for [`/theway:develop-workflow`](./commands/develop-workflow.mdx). A key that is absent or invalid takes its default.

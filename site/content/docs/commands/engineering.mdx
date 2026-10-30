@@ -15,13 +15,18 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 
 ## Steps
 
-1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and, when enabled in the config, `data/standards/architecture-principles.md`.
+1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and, when enabled in the config, `data/standards/architecture-principles.md`. From the config it takes `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)).
 2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
 3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
 4. **Generate the documents** from the templates, following each template's frontmatter instructions:
    - `~/.theway/templates/spec-template.md` produces `spec.md`.
    - `~/.theway/templates/tasks-template.md` produces `tasks.md`.
 5. **Optional technical design:** `design.md`, for API contracts and data models, architecture decisions, and diagrams.
+6. **Review:** only when no question is open, up to `engineering.review_rounds` rounds (`0` skips it). Each round spawns two critic agents in parallel on `engineering.models.critic`, covering every member of a series together:
+   - a **grounding critic** checks the spec's claims about the code, tools, providers and libraries against the code and official docs;
+   - an **implementability critic** checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, and contradictions.
+
+   Critics never edit anything; their probes answer one question each and write only to a temporary directory. Each finding carries its evidence and a `kind`: `fixable` or `decision`. The command verifies each finding and gives it a verdict (`confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`), fixes the confirmed `fixable` ones in the change files, and stops on a confirmed `decision` as an open question. A round with no confirmed findings ends the review. Without the Agent tool, it runs both lenses itself.
 
 Action words in the request, such as "rename X" or "try the fix", describe what the spec should plan, not something to do now. It does not suggest plan mode, whose approval step starts implementation.
 
@@ -34,3 +39,5 @@ Everything is written under `~/.theway/<project>/changes/<change-id>/`:
 - `design.md`, when needed.
 
 It reports the change folder, the findings that shaped the spec, and any open question. If a question is open, it stops: the spec is not ready until the question is answered.
+
+It also reports the review outcome: how the review ran (the rounds used, off, not run because a question was open, or inline), then every finding in one table with the columns `#` (`R<round>-<index>`), `Finding`, `Verdict` and `Fix`. A `decision` the command settled from the code, the docs or the spec's own decisions reads `confirmed, settled`, and is listed again under the table with the choice made, so you can overturn it.

@@ -103,3 +103,15 @@ test("every workflow action is pinned to a commit SHA", () => {
     );
   expect(unpinned).toEqual([]);
 });
+
+test("engineering.md runs the spec review the shipped config.yaml sets up", () => {
+  const engineering = read(join(COMMANDS, "engineering.md"));
+  expect(engineering).toMatch(/^### Step 6: Review$/m);
+  expect(engineering).toContain("engineering.review_rounds");
+  expect(engineering).toContain("engineering.models.critic");
+  const config = Bun.YAML.parse(read(join(PLUGIN, "templates", "theway", "config.yaml"))) as {
+    engineering?: { review_rounds?: unknown; models?: { critic?: unknown } };
+  };
+  expect(config.engineering?.review_rounds).toBe(1);
+  expect(config.engineering?.models?.critic).toBe("opus");
+});

@@ -44,6 +44,15 @@ changes:
   optional_files:
     - design.md
 
+# Engineering - spec review for /theway:engineering (absent or invalid key means the default)
+engineering:
+  # Maximum review rounds per scaffold; 0 skips the review
+  review_rounds: 1
+  # Model of the two critic agents: opus or sonnet (absent or invalid means the default)
+  # Lower cost: sonnet
+  models:
+    critic: opus
+
 # Develop Workflow - caps for /theway:develop-workflow (absent or invalid key means the default)
 workflow:
   # Review rounds per change; 0 skips review and the fix check
