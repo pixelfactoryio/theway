@@ -2,3 +2,5 @@
 out/
 .source/
 node_modules/
+next-env.d.ts
+AGENTS.md
