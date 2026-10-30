@@ -91,8 +91,6 @@ An in-process fixed-window counter keyed by client IP, applied in `createApp` re
 - [ ] Counters are per IP (two addresses are independent)
 - [ ] Expired entries are removed by the sweep; the timer does not keep the process alive and is cleared on close
 - [ ] `npm test` passes
-
-**Estimated Effort:** 1-2 hours
 ```
 
 ## The tasks
@@ -102,21 +100,12 @@ An in-process fixed-window counter keyed by client IP, applied in `createApp` re
 ```md
 # Implementation Tasks: Add Rate Limiting
 
-## Overview
-
-**Total Estimated Effort:** 1-2 hours
-**Target Completion:** n/a
-
 ## Phase 1: Limiter
-
-**Estimated Time:** 30 min
 
 - [x] 1. Create `src/rate-limit.js` exporting `createRateLimiter({ limit, windowMs, now })`: `check(key)` returns `{ allowed, retryAfterSec }` using a fixed window per key (window starts at the key's first request, resets lazily when `now >= resetAt`); `retryAfterSec = max(1, ceil((resetAt - now) / 1000))`
 - [x] 2. Add `sweep()` deleting entries with `resetAt <= now`
 
 ## Phase 2: Wiring
-
-**Estimated Time:** 20 min
 
 - [x] 3. In `src/app.js`, `createApp(options = {})` builds the limiter from `options.rateLimit` with defaults `limit: 60`, `windowMs: 60000`, `now: Date.now`
 - [x] 4. At the start of the handler: skip the limiter when `req.url === "/health"`; otherwise `check(req.socket.remoteAddress)` and on `allowed === false` respond `429` with `Retry-After` and body `{"error":"rate limit exceeded"}`
@@ -124,15 +113,11 @@ An in-process fixed-window counter keyed by client IP, applied in `createApp` re
 
 ## Phase 3: Testing
 
-**Estimated Time:** 30 min
-
 - [x] 6. Limiter unit tests with a fake clock: limit boundary (60 ok, 61st denied), `Retry-After` value, window reset, independent keys, sweep removes expired entries
 - [x] 7. HTTP tests via `createApp({ rateLimit: { limit: 2, ... } })`: third request gets 429 + header + body; `/health` still 200 while limited and does not consume quota; a 404 path counts toward the limit
 - [x] 8. Run `npm test`
 
 ## Phase 4: Documentation
-
-**Estimated Time:** 10 min
 
 - [x] 9. README: document the 60 req/min/IP limit, `/health` exemption, 429 response, and that it assumes a single instance with no proxy
 

@@ -1,26 +1,26 @@
 ---
 template_type: "tech_stack"
 usage: "Document technology choices, dependencies, and rationale when using /theway:document to fill documentation gaps"
-agent_role: "System Architect documenting technology stack decisions following SRE-EE principles"
+agent_role: "System Architect documenting technology stack decisions"
 required_context:
   - "<home>/config.yaml - Global config and conventions"
-  - "<home>/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
+  - "<home>/data/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "Package files (package.json, requirements.txt, go.mod, etc.) - Actual dependencies"
-  - "Infrastructure configs (terraform, k8s manifests) - Deployment tech"
+  - "Infrastructure configs (terraform, k8s manifests), if any - Deployment tech"
 quality_standards:
-  - "Technology stack table includes version, purpose, and rationale"
+  - "Technology stack table includes version, purpose, and rationale, with a row only for each category the repository uses"
   - "Core dependencies list is accurate from package files"
   - "Technical decisions explain trade-offs and alternatives considered"
-  - "Infrastructure and deployment tools are documented"
+  - "Infrastructure and deployment tools are documented when the repository has them"
   - "Version constraints reflect actual compatibility requirements"
   - "Migration notes capture historical context"
   - "Rationales explain WHY choices were made, not just WHAT"
 workflow_steps:
   - "1. Review package files to identify all dependencies"
-  - "2. Document cloud provider and key services in use"
+  - "2. Document cloud provider and key services in use, if any"
   - "3. Create technology stack table with versions and rationales"
   - "4. List core dependencies with their purposes"
-  - "5. Document development tools and infrastructure setup"
+  - "5. Document development tools, and the infrastructure setup if any"
   - "6. Capture technical decisions with trade-offs"
   - "7. Add version constraints and update policies"
 best_practices:
@@ -30,6 +30,7 @@ best_practices:
   - "Update when major dependencies change"
   - "Reference ADRs (Architecture Decision Records) if they exist"
   - "Keep rationales concise but informative"
+  - "Write only the sections and table rows the repository shows evidence for (package files, IaC, deploy configs); omit the others"
 ---
 
 # Tech Stack
@@ -39,6 +40,7 @@ best_practices:
 Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 
 ## Cloud Infrastructure
+[Omit this section if the repository has none.]
 
 - **Provider:** {{CLOUD_PROVIDER}}
 - **Key Services:** {{CORE_SERVICES}}
@@ -82,6 +84,7 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 - **Local Development:** {{LOCAL_DEV_TOOLS}}
 
 ## Infrastructure & Deployment
+[Omit this section if the repository has none.]
 
 ### Deployment Tools
 - **Container Runtime:** {{CONTAINER_RUNTIME}} {{VERSION}}
@@ -94,6 +97,7 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 - **Module Structure:** {{MODULE_STRUCTURE}}
 
 ## Database & Storage
+[Omit this section if the repository has none.]
 
 ### Primary Database
 - **Type:** {{DB_TYPE}}
@@ -107,6 +111,7 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 - **Cache:** {{CACHE_SOLUTION}} {{VERSION}}
 
 ## Monitoring & Observability
+[Omit this section if the repository has none.]
 
 - **Metrics:** {{METRICS_PLATFORM}}
 - **Logging:** {{LOGGING_PLATFORM}}
@@ -114,6 +119,7 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 - **Alerting:** {{ALERTING_PLATFORM}}
 
 ## Security Tools
+[Omit this section if the repository has none.]
 
 - **Secrets Management:** {{SECRETS_TOOL}}
 - **Authentication:** {{AUTH_METHOD}}

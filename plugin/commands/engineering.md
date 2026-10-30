@@ -30,7 +30,12 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 Read these files from `<home>`:
 - `<home>/config.yaml` - Global config and conventions
 - `<home>/data/standards/tamm-framework.md` - TAMM framework
-- `<home>/data/standards/architecture-principles.md` - SRE-EE principles (if enabled in config)
+- `<home>/data/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
+- `<home>/data/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
+- `<home>/data/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
+- `<home>/data/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
+
+An opt-in standard is read only when its `enabled` is the boolean `true`; an absent entry or any other value means off.
 
 From `<home>/config.yaml`, take `engineering.review_rounds` (maximum review rounds in Step 6, default `1`). A key that is absent or not a non-negative integer takes the default.
 

@@ -600,10 +600,26 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(9);
+  expect(SHIPPED_FILES).toHaveLength(12);
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
   expect(manifest(env)).toEqual(Object.fromEntries(SHIPPED_FILES.map((rel) => [rel, sha256(shipped(rel))])));
   expect(walk(env.theway).filter((f) => f.endsWith(".default.md") || f.endsWith(".bak"))).toEqual([]);
+});
+
+test("install over a home with a file no longer shipped keeps it and the user's config.yaml", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const OLD = "data/standards/architecture-principles.md";
+  const old = "# my architecture principles\n";
+  const config = "# my config\nstandards:\n  architecture:\n    enabled: true\n";
+  put(join(env.theway, OLD), old);
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), [OLD]: sha256(old) }));
+  put(join(env.theway, "config.yaml"), config);
+  expect(run(env, "install").status).toBe(0);
+  expect(readFileSync(join(env.theway, OLD), "utf-8")).toBe(old);
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(config);
+  expect(manifest(env)[OLD]).toBeUndefined();
+  expect(readFileSync(join(env.theway, "config.default.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
 });
 
 test("install updates an unedited file whose shipped version changed", () => {

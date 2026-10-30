@@ -5,7 +5,7 @@ agent_role: "Spec Analyst who analyzes solutions using the TAMM framework (Time/
 required_context:
   - "<home>/config.yaml - Global config and conventions"
   - "<home>/data/standards/tamm-framework.md - TAMM framework"
-  - "<home>/data/standards/architecture-principles.md - SRE-EE principles (if enabled)"
+  - "<home>/data/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "TAMM table includes only Medium/High risk hardpoints (skip low-risk items)"
@@ -23,7 +23,7 @@ workflow_steps:
   - "6. Create measurable success criteria"
 best_practices:
   - "Challenge assumptions: 'What would we need for this to work?'"
-  - "Ensure complete solution coverage: frontend, backend, API, migrations, monitoring"
+  - "Cover every part of the system the change touches"
   - "Consider edge cases, error scenarios, and operational concerns"
   - "Focus on medium/high-risk hardpoints only - skip low-risk items"
   - "Keep analysis practical and actionable, not verbose"
@@ -110,5 +110,3 @@ best_practices:
 - [ ] [Criterion 2]
 - [ ] [Criterion 3]
 - [ ] [Criterion 4]
-
-**Estimated Effort:** [Duration estimate]

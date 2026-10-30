@@ -161,7 +161,6 @@ docs/architecture/
 - Plugin's `config.yaml` - Template registry and configuration
 - Plugin's `project.md` - TheWay methodology conventions
 - Plugin's `data/standards/tamm-framework.md` - TAMM framework details
-- Plugin's `data/standards/architecture-principles.md` - SRE-EE principles
 - Plugin's `templates/*.md` - Template files with frontmatter instructions
 - Plugin's `commands/*.md` - Slash command definitions
 

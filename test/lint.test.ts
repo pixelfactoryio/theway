@@ -115,3 +115,29 @@ test("engineering.md runs the spec review the shipped config.yaml sets up", () =
   expect(config.engineering?.review_rounds).toBe(1);
   expect(config.engineering?.models?.critic).toBe("opus");
 });
+
+test("the shipped defaults are neutral and the four architecture standards are opt-in", () => {
+  const THEWAY = join(PLUGIN, "templates", "theway");
+  const TEMPLATES = join(THEWAY, "templates");
+  const all = files(PLUGIN);
+  expect(all.filter((f) => read(f).includes("SRE-EE"))).toEqual([join(THEWAY, "data", "standards", "sre.md")]);
+  expect(all.filter((f) => read(f).includes("architecture-principles"))).toEqual([]);
+  for (const name of ["spec-template.md", "tasks-template.md"]) {
+    const template = read(join(TEMPLATES, name));
+    expect(template).not.toContain("Estimated");
+    expect(template).not.toContain("Target Completion");
+  }
+  const techStack = read(join(TEMPLATES, "tech-stack-template.md"));
+  const infra = ["Cloud Infrastructure", "Infrastructure & Deployment", "Database & Storage", "Monitoring & Observability", "Security Tools"];
+  for (const heading of infra) {
+    expect(techStack).toContain(`\n## ${heading}\n[Omit this section if the repository has none.]\n\n`);
+    expect(techStack).toMatch(new RegExp(`^## ${heading}\\n\\[Omit this section if the repository has none\\.\\]\\n\\n\\S`, "m"));
+  }
+  const config = Bun.YAML.parse(read(join(THEWAY, "config.yaml"))) as {
+    standards?: Record<string, { enabled?: unknown } | undefined>;
+  };
+  for (const key of ["core_principles", "sre", "web_development", "quality"]) {
+    expect(config.standards?.[key]?.enabled).toBe(false);
+  }
+  expect(config.standards?.architecture).toBeUndefined();
+});
