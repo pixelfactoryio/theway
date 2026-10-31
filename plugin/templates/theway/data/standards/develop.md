@@ -31,12 +31,13 @@ Done means the change does what the spec says, not that every task is ticked. Ru
 
 A `fix-` change also proves that its regression test catches the bug, and that the bug is gone:
 
-1. **Base commit:** `HEAD` for `/theway:develop`, where the change is uncommitted; `git merge-base <base> HEAD` for `/theway:develop-workflow`, with `<base>` as defined there.
+1. **Base commit:** `HEAD` for `/theway:develop`, where the change is uncommitted; `git merge-base <base> HEAD` for `/theway:develop-workflow`, with the `<base>` your prompt gives (the branch the change's branch was created from).
 2. Create a worktree of it with `git worktree add --detach <dir> <base-commit>`, where `<dir>` comes from `mktemp -d`. `--detach` is needed when the branch is checked out elsewhere.
 3. In the worktree, run the project's setup and build commands that CI runs before its tests (read them from the CI configuration): a fresh worktree has no gitignored files, such as dependencies and build output.
 4. Copy in only the regression test files, and run only the regression test.
 5. Record its output. It must fail **for the reason the spec's Root Cause gives**.
-6. Run it on the change and record that it passes, then remove the worktree with `git worktree remove --force <dir>`.
+6. Run it on the change and record that it passes.
+7. Remove the worktree with `git worktree remove --force <dir>`. Do this whatever happened before, including when you stopped at an earlier step because the setup or the test could not run, or because the test did not fail for the Root Cause's reason.
 
 A regression test that does not fail on the base commit, or fails there for another reason (a compile error, or a symbol only the fix adds), does not prove the fix: bring it back as a spec gap, as "When the spec does not fit" says. When the setup or the test cannot run locally, report the criterion as not verified.
 
