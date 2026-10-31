@@ -7,6 +7,7 @@ A change goes through three commands.
 
 ```text
 /theway:engineering <request>        writes spec.md and tasks.md
+  or /theway:engineering-light <request>   writes a short spec for a small change
 /theway:develop <change-id>          implements the tasks inline
   or /theway:develop-workflow <change-id>   implements them through agents and a PR
 /theway:archive <change-id>          moves the finished change to the archive
@@ -17,6 +18,8 @@ A change goes through three commands.
 [`/theway:engineering`](./commands/engineering.mdx) reads the config and the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`. It investigates the code and the open questions, then writes `spec.md` and `tasks.md` from the templates, and `design.md` when the change needs API contracts, data models or diagrams. Two critic agents then review the spec and tasks for gaps, unless `review_rounds` is `0` or a question is already open; without the Agent tool, it runs both reviews itself. It verifies each finding and fixes every confirmed gap it can settle from facts, then stops if a finding needs your decision.
 
 A `fix-` change uses the fix template for `spec.md`, and the command reproduces the bug before it writes anything. When the bug cannot be reproduced, may already be covered by another active change, or turns out to be intended behavior, it stops and asks you, and writes no change folder.
+
+For a small change with nothing to decide, [`/theway:engineering-light`](./commands/engineering-light.mdx) writes a short spec (`**Mode:** light`) and 1 to 3 tasks, and one grounding critic reviews them. When it finds a decision, a contract change, a Medium or High risk or a series, it sends you to `/theway:engineering`.
 
 It writes the change files only under `~/.theway/<project>/changes/<change-id>/`; throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
 

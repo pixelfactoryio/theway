@@ -47,7 +47,7 @@ test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () =>
 });
 
 test("every command that reads theway data has the same Locate the home step", () => {
-  const readers = ["archive.md", "develop-workflow.md", "develop.md", "document.md", "engineering.md", "list.md"];
+  const readers = ["archive.md", "develop-workflow.md", "develop.md", "document.md", "engineering-light.md", "engineering.md", "list.md"];
   const reference = locateStep(read(join(COMMANDS, "engineering.md")));
   expect(reference).toContain("Run `theway path`");
   expect(reference).toContain("Do not check for files under `<home>` before reading them");
@@ -56,7 +56,7 @@ test("every command that reads theway data has the same Locate the home step", (
 });
 
 test("engineering, develop and develop-workflow get the change folder from theway path", () => {
-  const missing = ["engineering.md", "develop.md", "develop-workflow.md"].filter(
+  const missing = ["engineering.md", "engineering-light.md", "develop.md", "develop-workflow.md"].filter(
     (f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`"),
   );
   expect(missing).toEqual([]);
@@ -122,7 +122,7 @@ test("the shipped defaults are neutral and the four architecture standards are o
   const all = files(PLUGIN);
   expect(all.filter((f) => read(f).includes("SRE-EE"))).toEqual([join(THEWAY, "data", "standards", "sre.md")]);
   expect(all.filter((f) => read(f).includes("architecture-principles"))).toEqual([]);
-  for (const name of ["spec-template.md", "fix-spec-template.md", "tasks-template.md"]) {
+  for (const name of ["spec-template.md", "fix-spec-template.md", "light-spec-template.md", "tasks-template.md"]) {
     const template = read(join(TEMPLATES, name));
     expect(template).not.toContain("Estimated");
     expect(template).not.toContain("Target Completion");
@@ -162,10 +162,10 @@ test("plugin/templates/theway holds only what install reads", () => {
 
 test("every spawned agent gets the Authority rule", () => {
   expect(read(join(PLUGIN, "templates", "theway", "data", "standards", "interaction.md"))).toContain("\n## Authority\n");
-  for (const f of ["develop-workflow.md", "engineering.md"]) {
+  for (const f of ["develop-workflow.md", "engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`## Authority` section of `<home>/data/standards/interaction.md`");
   }
-  for (const f of ["archive.md", "develop.md", "develop-workflow.md", "document.md", "engineering.md"]) {
+  for (const f of ["archive.md", "develop.md", "develop-workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("(exploration, reporting and authority)");
   }
 });
@@ -293,4 +293,78 @@ test("develop-workflow.md takes the commit type from the change verb and reviews
   const step5 = /^### Step 5: [\s\S]*?(?=^### )/m.exec(workflow)?.[0] ?? "";
   expect(step5).toContain("Its title is a Conventional Commit (`type(scope): description`) of the change's commit type (Step 3).");
   expect(step5).toContain("spawn one fix agent with the quoted CI error and the change's commit type (Step 3)");
+});
+
+test("the light spec template has the spec template's frontmatter keys, the Mode line, its fixed headings and the two fix- criteria", () => {
+  const light = read(join(TEMPLATES, "light-spec-template.md"));
+  const spec = read(join(TEMPLATES, "spec-template.md"));
+  expect(Object.keys(frontmatter(light))).toEqual(Object.keys(frontmatter(spec)));
+  expect(frontmatter(light).template_type).toBe("light");
+  const standards = (frontmatter(light).quality_standards as string[]).join("\n");
+  for (const word of ["Scope", "TAMM", "phase"]) expect(standards).not.toContain(word);
+  expect(light).toContain("\n# Spec Analysis: [Change Name]\n**Mode:** light\n");
+  expect([...light.matchAll(/^## (.+)$/gm)].map((m) => m[1])).toEqual(["Problem", "Evidence", "Change", "Success Criteria"]);
+  const evidence = section(light, "Evidence");
+  expect(evidence).toContain("Reasoning about the code is not a reproduction.");
+  for (const field of ["**Command:**", "**Observed output:**", "**Expected result:**"]) expect(evidence).toContain(field);
+  expect(section(light, "Change").trimEnd().endsWith("Nothing else changes.")).toBe(true);
+  const criteria = section(light, "Success Criteria").split("\n").filter((l) => l.startsWith("- [ ] "));
+  expect(criteria.slice(0, 2)).toEqual([
+    "- [ ] The regression test `[test name]` fails before the fix and passes with it",
+    "- [ ] The reproduction no longer reproduces: `[reproduction command]` now shows [expected result]",
+  ]);
+});
+
+test("engineering-light.md validates a standalone ID, escalates, writes the light spec and runs one grounding critic", () => {
+  const light = read(join(COMMANDS, "engineering-light.md"));
+  for (const sentence of [
+    "Run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member.",
+    "Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series.",
+    "Escalating writes no change file: report what was found, and tell the user to run `/theway:engineering` with the original request.",
+    "Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding critic.",
+    "A confirmed `decision` finding is an escalation, not an open question.",
+    "Escalating after the review keeps the light files: tell the user to run `/theway:engineering <change-id>: <original request>`, which writes over them.",
+  ]) {
+    expect(light).toContain(sentence);
+  }
+  expect(light).not.toContain("validate-id <change-id> --series");
+  expect(light).not.toContain("Implementability critic");
+  expect(light).toContain("`<home>/templates/light-spec-template.md` | `spec.md`");
+  expect(light).toContain("`<home>/templates/tasks-template.md` | `tasks.md`");
+  expect(light).toContain("it has no `## Phase` headings. It has 1 to 3 numbered tasks directly under the H1");
+  expect(light).toContain("A light change has no `design.md`.");
+  expect(light).toContain("**For a `fix-` change, reproduce the bug first**");
+  expect(light).toContain("they go into the spec's Evidence, quoted");
+  expect(light).toContain("the user re-runs `/theway:engineering-light` with the new information");
+  expect(light).toContain("engineering.models.critic");
+  expect(light).toContain("re-runs the recorded reproduction as a single-question probe");
+});
+
+test("engineering.md does not stop on the change ID it picked itself", () => {
+  const step3 = /^### Step 3: Investigate\n[\s\S]*?(?=^### )/m.exec(read(join(COMMANDS, "engineering.md")))?.[0] ?? "";
+  expect(step3).toContain(
+    "The members of the series this run continues (Step 2) do not count: they share its name by construction. The change ID this run picked in Step 2 does not count either: its folder is written over.",
+  );
+});
+
+test("develop.md proves a light fix- change without the base worktree and escalates its unforeseen risks", () => {
+  const develop = read(join(STANDARDS, "develop.md"));
+  expect(section(develop, "Verify")).toContain(
+    "When `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in the Discoveries of `tasks.md` Notes, then run it after the fix and record that it passes.",
+  );
+  expect(section(develop, "When the spec does not fit")).toContain(
+    "A light spec has no Hardpoints table: a risk at Medium or High that it did not foresee is brought back as a blocker.",
+  );
+});
+
+test("develop-workflow.md caps a light change's review at one round and checks its fix- test on the new head", () => {
+  const step4 = /^### Step 4: [\s\S]*?(?=^### )/m.exec(read(join(COMMANDS, "develop-workflow.md")))?.[0] ?? "";
+  for (const sentence of [
+    "For a spec with `**Mode:** light` under its title, run up to `min(workflow.review_rounds, 1)` rounds.",
+    "For a light spec, the reviewers check the diff against its Change section in place of Scope and Out of Scope.",
+    "For a light `fix-` change whose fixes touch the regression test or the fix, the fix agent re-runs the regression test on the new head instead of the base-commit check, and returns its output.",
+    "For a light `fix-` change, such a finding is `resolved` only when that output shows the regression test passing.",
+  ]) {
+    expect(step4).toContain(sentence);
+  }
 });

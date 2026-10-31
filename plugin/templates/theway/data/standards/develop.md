@@ -21,7 +21,7 @@ Write only under `<change-dir>` too: never in other change folders or `changes/a
 
 ## When the spec does not fit
 
-If the code contradicts the spec, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop and bring it back: what you found, and the options you see. Carrying on with your own fix would leave a spec that no longer describes the code, and the decision would be made without the person who owns the change. Once it is decided, update `spec.md` (the decision and why) and `tasks.md`, then continue. A risk the spec did not foresee goes into its Hardpoints table.
+If the code contradicts the spec, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop and bring it back: what you found, and the options you see. Carrying on with your own fix would leave a spec that no longer describes the code, and the decision would be made without the person who owns the change. Once it is decided, update `spec.md` (the decision and why) and `tasks.md`, then continue. A risk the spec did not foresee goes into its Hardpoints table. A light spec has no Hardpoints table: a risk at Medium or High that it did not foresee is brought back as a blocker.
 
 ## Verify
 
@@ -38,6 +38,8 @@ A `fix-` change also proves that its regression test catches the bug, and that t
 5. Record its output. It must fail **for the reason the spec's Root Cause gives**.
 6. Run it on the change and record that it passes.
 7. Remove the worktree with `git worktree remove --force <dir>`. Do this whatever happened before, including when you stopped at an earlier step because the setup or the test could not run, or because the test did not fail for the Root Cause's reason.
+
+When `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in the Discoveries of `tasks.md` Notes, then run it after the fix and record that it passes. Its failure must follow from the cause the spec's Problem states. Writing and running the test before the fix overrides "Write the tests with the code they cover" for that test.
 
 A regression test that does not fail on the base commit, or fails there for another reason (a compile error, or a symbol only the fix adds), does not prove the fix: bring it back as a spec gap, as "When the spec does not fit" says. When the setup or the test cannot run locally, report the criterion as not verified.
 

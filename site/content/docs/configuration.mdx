@@ -31,7 +31,7 @@ The spec review of [`/theway:engineering`](./commands/engineering.mdx#steps) (st
 | `engineering.review_rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
 | `engineering.models.critic` | `opus` | Model of the two critic agents: `opus` or `sonnet`. Any other value takes the default; `haiku` is never used. |
 
-Each round spawns two critics. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
+Each round spawns two critics. [`/theway:engineering-light`](./commands/engineering-light.mdx) reads the same keys but runs at most one round, with one grounding critic. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
 
 ## workflow
 
@@ -39,7 +39,7 @@ Caps for [`/theway:develop-workflow`](./commands/develop-workflow.mdx). A key th
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the local review. |
+| `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the local review. A light change (`**Mode:** light`) runs at most one round. |
 | `workflow.ci_attempts` | `2` | CI attempts per change to reach green, re-runs included. A positive integer. |
 | `workflow.open_pr` | `true` | After the local review, push the branch, open the PR and drive CI. `false` stops at the reviewed local branch: nothing is pushed, and a series stacks each change on a local branch created from the previous one. |
 
