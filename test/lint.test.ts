@@ -231,6 +231,7 @@ test("engineering.md handles a fix- change: the verb, reproduce first, the stop 
   expect(step3).toContain("listing each attempt (its command and output) and what would help");
   expect(step3).toContain("- **Possibly already covered:** an active change ID listed by `theway list <project>`");
   expect(step3).toContain("Judge from the IDs only: never open other change folders.");
+  expect(step3).toContain("The members of the series this run continues (Step 2) do not count");
   expect(step3).toContain("- **Works as intended:**");
   const step4 = /^### Step 4: [\s\S]*?(?=^### )/m.exec(engineering)?.[0] ?? "";
   expect(step4).toContain("`<home>/templates/fix-spec-template.md` for a `fix-` ID");
@@ -257,6 +258,8 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
   expect(verify).toContain("Copy in only the regression test files, and run only the regression test.");
   expect(verify).toContain("It must fail **for the reason the spec's Root Cause gives**.");
   expect(verify).toContain("`git worktree remove --force <dir>`");
+  expect(verify).toContain("with the `<base>` your prompt gives");
+  expect(verify).toContain("Do this whatever happened before, including when you stopped at an earlier step");
   expect(verify).toContain("bring it back as a spec gap");
   expect(verify).toContain("When the setup or the test cannot run locally, report the criterion as not verified.");
   expect(verify).toContain("re-run the reproduction recorded in the spec and record its output: it must no longer reproduce");
@@ -272,11 +275,21 @@ test("develop-workflow.md takes the commit type from the change verb and reviews
   expect(step3).toContain("except commits that change only tests (`test`) or only docs (`docs`)");
   expect(step3).toContain("`!` after it and the commit a `BREAKING CHANGE:` footer");
   expect(step3).toContain("for an `update-` or `remove-` change, the commit type it chose");
+  expect(step3).toContain("the change's `<base>` (Step 2), which `develop.md` uses for a `fix-` change");
+  expect(step3).toContain(
+    "the orchestrator runs one implementer first (the first of a chain, or one of the parallel parts) and gives the type it returns to every other implementer",
+  );
+  const step2 = /^### Step 2: [\s\S]*?(?=^### )/m.exec(workflow)?.[0] ?? "";
+  expect(step2).toContain("The branch the feature branch is created from is the change's `<base>`");
   const step4 = /^### Step 4: [\s\S]*?(?=^### )/m.exec(workflow)?.[0] ?? "";
   expect(step4).toContain(
     "For a `fix-` change, the reviewers also check the root cause: the diff fixes the root cause the spec names, not only the symptom, and the regression test would fail without the fix.",
   );
   expect(step4).toContain("spawn one fix agent with them and the change's commit type (Step 3)");
+  expect(step4).toContain(
+    "re-runs the base-commit check of `develop.md`'s Verify on the new head, and returns both recorded outputs",
+  );
+  expect(step4).toContain("only when they show the test failing on the base commit for the Root Cause's reason and passing on the new head");
   const step5 = /^### Step 5: [\s\S]*?(?=^### )/m.exec(workflow)?.[0] ?? "";
   expect(step5).toContain("Its title is a Conventional Commit (`type(scope): description`) of the change's commit type (Step 3).");
   expect(step5).toContain("spawn one fix agent with the quoted CI error and the change's commit type (Step 3)");
