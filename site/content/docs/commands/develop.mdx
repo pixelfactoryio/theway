@@ -29,6 +29,17 @@ The change ID can also come from the request, for example "develop the add-redis
    - When the code contradicts the spec, a task cannot be done as written, or a decision is missing, stop and bring back what was found and the options. Once decided, `spec.md` and `tasks.md` are updated, then the work continues.
    - Run the project's tests and build, and the commands its CI runs where they can run locally. Then check each Success Criterion.
 
+## Fix checks
+
+A `fix-` change also proves its regression test and re-runs the reproduction, as `develop.md` Verify says:
+
+1. The base commit is `HEAD`, since the change is uncommitted. (`/theway:develop-workflow` uses `git merge-base <base> HEAD`.)
+2. It creates a worktree of it with `git worktree add --detach` in a `mktemp -d` directory, and runs there the setup and build commands CI runs before its tests.
+3. It copies in only the regression test files and runs only the regression test. The test must fail for the reason the spec's Root Cause gives, then pass on the change. The worktree is then removed.
+4. It re-runs the reproduction recorded in the spec, and records that it no longer reproduces.
+
+A regression test that does not fail on the base, or fails there for another reason (a compile error, a symbol only the fix adds), comes back to you as a spec gap. When the setup or the test cannot run locally, the criterion is reported as not verified.
+
 ## Output
 
 The code changes in your working tree, an updated `tasks.md`, and a report: the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided, and anything still open.
