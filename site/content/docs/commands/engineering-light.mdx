@@ -16,8 +16,8 @@ Use it when you already know what changes and why. When the change needs a decis
 ## Steps
 
 1. **Load config and standards:** the same files and keys as `/theway:engineering`: `~/.theway/config.yaml`, `data/standards/tamm-framework.md`, the opt-in standards that are enabled, `engineering.review_rounds` and `engineering.models.critic`.
-2. **Pick the change ID** from the request, with the same [verbs](../concepts/changes.mdx#change-ids), and validate it with `theway validate-id <change-id>`. A light change is never a series member.
-3. **Investigate:** read the code involved and check how it behaves today. For a `fix-` change, it reproduces the bug first and has the same three stop outcomes as `/theway:engineering` (not reproduced, possibly already covered, works as intended); after a stop, run `/theway:engineering-light` again with the new information.
+2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`. It must exit 0 before any folder is written. A light change is never a series member.
+3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns. What it learns goes into the spec's Evidence as findings (question, method, result), not as code or diffs. For a `fix-` change, it reproduces the bug first and has the same three stop outcomes as `/theway:engineering` (not reproduced, possibly already covered, works as intended); after a stop, run `/theway:engineering-light` again with the new information.
 4. **Escalate** when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series: it writes no change file and tells you to run `/theway:engineering` with the original request.
 5. **Generate the documents:**
    - `~/.theway/templates/light-spec-template.md` produces `spec.md`, with `**Mode:** light` under its title;

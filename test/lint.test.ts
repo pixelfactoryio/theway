@@ -318,7 +318,7 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
 test("engineering-light.md validates a standalone ID, escalates, writes the light spec and runs one grounding critic", () => {
   const light = read(join(COMMANDS, "engineering-light.md"));
   for (const sentence of [
-    "Run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member.",
+    "run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member.",
     "Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series.",
     "Escalating writes no change file: report what was found, and tell the user to run `/theway:engineering` with the original request.",
     "Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding critic.",
