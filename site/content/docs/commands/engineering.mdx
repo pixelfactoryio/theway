@@ -21,7 +21,7 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 
    For a `fix-` change, it reproduces the bug first, with a throwaway probe in a `mktemp -d` directory or the project's existing commands and tests, without changing the repository. The command and its output go into the spec, quoted: reasoning about the code is not a reproduction. Three outcomes stop the command before any change file is written:
    - **Not reproduced:** it asks you, listing each attempt with its command and output, and what would help (an environment, a log, exact steps).
-   - **Possibly already covered:** an active change ID from `theway list` plausibly names the same bug; it asks you whether that change covers it. It judges from the IDs only and never opens other change folders.
+   - **Possibly already covered:** an active change ID from `theway list` plausibly names the same bug; it asks you whether that change covers it. The members of the series being continued do not count. It judges from the IDs only and never opens other change folders.
    - **Works as intended:** it reports the code and docs that show the behavior is intended.
 
    After a stop, run the command again with the new information: it keeps no state between runs.
