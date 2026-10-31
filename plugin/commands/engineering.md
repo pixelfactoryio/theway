@@ -75,7 +75,7 @@ What you learn goes into the spec as findings (question, method, result), not as
 
 Then decide the outcome, before any change file is written. Three outcomes stop the command, with no change folder:
 - **Not reproduced:** no attempt reproduced the symptom, including a bug that needs production or is intermittent. Stop and ask the user, listing each attempt (its command and output) and what would help: an environment, a log, exact steps.
-- **Possibly already covered:** an active change ID listed by `theway list <project>` plausibly names the same bug. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
+- **Possibly already covered:** an active change ID listed by `theway list <project>` plausibly names the same bug. The members of the series this run continues (Step 2) do not count: they share its name by construction. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
 - **Works as intended:** the code and docs show the reported behavior is intended. Report them, and write no change folder.
 
 Otherwise the bug is reproduced: continue to Step 4.
