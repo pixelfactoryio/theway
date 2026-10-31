@@ -50,9 +50,7 @@ Also take the agent models from `workflow.models`: `implementer` (default `opus`
 
 ### Step 2: Branch
 
-Sync the main branch, then create (or check out) the change's feature branch from it. In a series with `workflow.open_pr: false`, create each later change's branch from the previous change's branch instead, so the changes stack locally.
-
-The branch the feature branch is created from is the change's `<base>`: the main branch, or the previous change's branch in that series case.
+Sync the main branch, then create (or check out) the change's feature branch from it. In a series with `workflow.open_pr: false`, create each later change's branch from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from is the change's `<base>`.
 
 ### Step 3: Implement via Orchestrated Agents
 
@@ -84,7 +82,7 @@ Run up to `review_rounds` review rounds on the local branch, before anything is 
 
 Each round:
 
-1. **Review.** Spawn independent reviewer agents prompted to refute or break the branch diff (`git diff <base>...<branch>` on the round's head, where `<base>` is the change's base (Step 2): the main branch, or, in a series with `workflow.open_pr: false`, the previous change's branch): against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. For a `fix-` change, the reviewers also check the root cause: the diff fixes the root cause the spec names, not only the symptom, and the regression test would fail without the fix. For a light spec, the reviewers check the diff against its Change section in place of Scope and Out of Scope. Each finding's `file` is a path relative to the repository root, without a leading `./`.
+1. **Review.** Spawn independent reviewer agents prompted to refute or break the branch diff (`git diff <base>...<branch>` on the round's head, with `<base>` from Step 2): against `spec.md` (each Success Criterion met, nothing outside Scope, nothing it lists as Out of Scope), and for correctness, edge cases and convention violations. A correct diff that does something the spec did not ask for is a finding. For a `fix-` change, the reviewers also check the root cause: the diff fixes the root cause the spec names, not only the symptom, and the regression test would fail without the fix. For a light spec, the reviewers check the diff against its Change section in place of Scope and Out of Scope. Each finding's `file` is a path relative to the repository root, without a leading `./`.
 2. **Triage findings**, once per round:
    1. Number the round's findings `0..N-1` in the order reported and verify each one. Each gets one verdict: `confirmed` (real), `false_positive` (refuted), `duplicate` (the same problem as an earlier finding of the round, which it names), `nit` (real, cosmetic) or `out_of_scope` (not this change's).
    2. Only `confirmed` findings go to the fix agent. List the `false_positive`, `nit` and `out_of_scope` findings (index, verdict, title) in the Exit report.
