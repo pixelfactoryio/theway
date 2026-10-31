@@ -1,6 +1,6 @@
-const VERB = /^(add|update|refactor|remove)-/;
-const KEBAB = /^(add|update|refactor|remove)-[a-z0-9]+(-[a-z0-9]+)*$/;
-const SERIES = /^(add|update|refactor|remove)-[a-z0-9]+(-[a-z0-9]+)*-[0-9]{2}$/;
+const VERB = /^(add|update|refactor|remove|fix)-/;
+const KEBAB = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*$/;
+const SERIES = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*-[0-9]{2}$/;
 
 /** The text after the last hyphen (the whole id without one). */
 const last = (id: string) => id.slice(id.lastIndexOf("-") + 1);
@@ -10,7 +10,7 @@ function formatReason(id: string): string {
   if (id === "") return "empty change id";
   if (/[A-Z]/.test(id)) return "uppercase letters are not allowed; use lowercase kebab-case";
   if (id.includes("_")) return "underscores are not allowed; use kebab-case (-)";
-  if (!VERB.test(id)) return "must start with a verb prefix: add-, update-, refactor- or remove-";
+  if (!VERB.test(id)) return "must start with a verb prefix: add-, update-, refactor-, remove- or fix-";
   if (!KEBAB.test(id)) return "must be kebab-case: lowercase [a-z0-9] segments joined by single hyphens";
   return "";
 }
