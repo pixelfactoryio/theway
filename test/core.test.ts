@@ -87,8 +87,10 @@ test("validate-id reasons", () => {
     [seriesReason("add-x-01-02"), "double ordinal (-01-02); a series member carries exactly one -NN"],
     [seriesReason("add-x-001"), "series member must end in a zero-padded two-digit ordinal (-NN, e.g. -01)"],
     [standaloneReason("add_x"), "underscores are not allowed; use kebab-case (-)"],
-    [standaloneReason("fix-x"), "must start with a verb prefix: add-, update-, refactor- or remove-"],
+    [standaloneReason("fixes-x"), "must start with a verb prefix: add-, update-, refactor-, remove- or fix-"],
     [standaloneReason("add-x"), ""],
+    [standaloneReason("fix-login-crash"), ""],
+    [seriesReason("fix-login-crash-01"), ""],
     [seriesReason("refactor-next-cleanup-01"), ""],
   ];
   for (const [actual, expected] of cases) expect(actual).toBe(expected);

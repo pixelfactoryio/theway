@@ -43,14 +43,16 @@ Also take the critic model from `engineering.models.critic` (default `opus`). It
 
 ### Step 2: Create Change Folder
 
-Use naming convention: `add-*`, `update-*`, `refactor-*`, `remove-*`
+Use naming convention: `add-*`, `update-*`, `refactor-*`, `remove-*`, `fix-*`
 
-Example change IDs: `add-user-authentication`, `update-payment-api`
+Example change IDs: `add-user-authentication`, `update-payment-api`, `fix-login-crash`
+
+A `fix-` change fixes a bug: Steps 3, 4 and 6 have rules of their own for it.
 
 **Series naming**
 
 - **Trigger:** the request is a series when the user asks for a series, for multiple sequential changes, or to "split into N changes", or when the argument passed already ends in `-NN`. In series mode the argument given to `/theway:engineering` is the `<series-id>`, not a change ID; if it already ends in `-NN`, strip that ordinal to get the `<series-id>` (never append a second one).
-- **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-` rule) plus a zero-padded two-digit ordinal starting at `01`, assigned in dependency order.
+- **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule) plus a zero-padded two-digit ordinal starting at `01`, assigned in dependency order.
 - **Continuation:** before assigning ordinals, run `theway path <project>` and use the folder it prints as `<project-dir>`, then `Glob` `<project-dir>/changes/<series-id>-[0-9][0-9]` and `<project-dir>/changes/archive/*-<series-id>-[0-9][0-9]` (archived folders are named `YYYY-MM-DD-<change-id>`; match only the exact `<series-id>`, not sibling series that merely end with it). Continue from the next free ordinal — never restart at `01`, never rename or renumber existing folders.
 - **Forbidden:** topic-word suffixes (`add-user-auth-login`), letter suffixes in place of the ordinal (`-a`, `-b`; a standalone ID may still end in a one-letter word that is part of its name, e.g. `add-vitamin-c`, so a member of a series is always validated with `--series`), unpadded numbers (`-1`), mixing standalone IDs and series IDs within one series, and putting an ordinal on a single (non-series) change.
 - **Example:** `add-user-auth-01`, `add-user-auth-02`, `add-user-auth-03`.
@@ -69,14 +71,25 @@ Keep each investigation to its question. If you notice you are building the chan
 
 What you learn goes into the spec as findings (question, method, result), not as code or diffs.
 
+**For a `fix-` change, reproduce the bug first**, before anything else is settled. Use a throwaway probe in a directory created with `mktemp -d`, or run the project's existing commands and tests without changing the repository. Record the command you ran and the output it printed: they go into the spec's Reproduction, quoted. Reasoning about the code is not a reproduction.
+
+Then decide the outcome, before any change file is written. Three outcomes stop the command, with no change folder:
+- **Not reproduced:** no attempt reproduced the symptom, including a bug that needs production or is intermittent. Stop and ask the user, listing each attempt (its command and output) and what would help: an environment, a log, exact steps.
+- **Possibly already covered:** an active change ID listed by `theway list <project>` plausibly names the same bug. The members of the series this run continues (Step 2) do not count: they share its name by construction. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
+- **Works as intended:** the code and docs show the reported behavior is intended. Report them, and write no change folder.
+
+Otherwise the bug is reproduced: continue to Step 4.
+
 ### Step 4: Generate Documents from Templates
 
 For each template below, read the template file, follow its frontmatter instructions (required_context, agent_role, workflow_steps, quality_standards, best_practices), and create the output file in `<change-dir>`:
 
 | Template | Output |
 |----------|--------|
-| `<home>/templates/spec-template.md` | `spec.md` |
+| `<home>/templates/spec-template.md`, or `<home>/templates/fix-spec-template.md` for a `fix-` ID | `spec.md` |
 | `<home>/templates/tasks-template.md` | `tasks.md` |
+
+A `fix-` ID uses `fix-spec-template.md`; every other verb uses `spec-template.md`. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
 
 For a series, each member's `spec.md` carries one line directly under its H1 title:
 `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)` — the `01` member states no dependency.
@@ -97,7 +110,7 @@ Run up to `review_rounds` review rounds. In a series, each round covers every me
 Each round:
 
 1. **Review.** Spawn two critic agents in parallel, in a single message, with the Agent tool and `model` set to `engineering.models.critic` (never `haiku`). Neither sees the other's findings.
-   - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code.
+   - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code. For a `fix-` change, it also re-runs the recorded reproduction as a single-question probe and reports it when its output differs from the spec's.
    - **Implementability critic:** checks whether a cold-start implementer could carry out the change without guessing. It reports:
      - choices left open ("probe X then decide", "A or B", "if needed");
      - Success Criteria that cannot be checked, or whose check passes whatever the code does;
@@ -125,6 +138,8 @@ If the Agent tool is not available in the session, run both lenses yourself, one
 ## Exit
 
 Report the change folder, the findings that shaped the spec, the review outcome below, and any question still open. A confirmed `decision` finding of Step 6 is an open question. If a question is open, stop after this report; the spec is not ready until it is answered.
+
+When a `fix-` change stopped in Step 3 (not reproduced, possibly already covered, or works as intended), report instead, in place of the change folder and the review outcome (no folder was written and Step 6 did not run): the outcome, the attempts (each command and its output) or the evidence, and the question for the user. Then stop. The command keeps no state between runs: after a stop, the user re-runs `/theway:engineering` with the new information, and it starts again from Step 1.
 
 The review outcome:
 - how it ran: the rounds used, off (`review_rounds: 0`), not run because a question was already open, or inline;

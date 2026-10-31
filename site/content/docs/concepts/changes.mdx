@@ -7,7 +7,9 @@ A change is one unit of work: a folder with its spec and its tasks.
 
 ## Change IDs
 
-A change ID is lowercase kebab-case and starts with one of four verbs: `add-`, `update-`, `refactor-` or `remove-`. For example `add-user-authentication` or `update-payment-api`.
+A change ID is lowercase kebab-case and starts with one of five verbs: `add-`, `update-`, `refactor-`, `remove-` or `fix-`. For example `add-user-authentication`, `update-payment-api` or `fix-login-crash`.
+
+A `fix-` change fixes a bug. `/theway:engineering` reproduces the bug before it writes anything and writes its spec from the fix template, which records the symptom, the reproduction, the root cause and the regression test. See [`/theway:engineering`](../commands/engineering.mdx).
 
 [`theway validate-id`](../cli.mdx#validate-id) checks the format, and `/theway:engineering` runs it before it writes a change folder. A standalone ID must not end in a one- or two-digit number, since `-NN` is kept for series members.
 

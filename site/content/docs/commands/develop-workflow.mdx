@@ -21,13 +21,13 @@ Running the command authorizes pushing each change's own branch (never force-pus
 The steps run once per change ID, in order.
 
 1. **Load context:** the same files as [`/theway:develop`](./develop.mdx). From the config, it takes `workflow.review_rounds` (default 1), `workflow.ci_attempts` (default 2), `workflow.open_pr` (default `true`) and the agent models in `workflow.models`. See [Configuration](../configuration.mdx#workflow).
-2. **Branch:** syncs the main branch, then creates or checks out the change's feature branch. In a series with `workflow.open_pr: false`, each later change's branch is created from the previous change's branch.
-3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md`, commits locally with Conventional Commits and verifies its work, including the CI's commands that can run locally. It does not push. When the spec does not fit the code, it returns a blocker instead of redesigning.
+2. **Branch:** syncs the main branch, then creates or checks out the change's feature branch. In a series with `workflow.open_pr: false`, each later change's branch is created from the previous change's branch. The branch it is created from is the change's `<base>`.
+3. **Implement:** orchestrates agents with the Workflow tool, or with Agent-tool fan-out when that is unavailable. One implementer per change by default; parallel implementers, each in its own worktree, only for large independent parts that touch different files. The implementer follows `develop.md` (including its [fix checks](./develop.mdx#fix-checks) for a `fix-` change, against `git merge-base <base> HEAD`, with the `<base>` its prompt gives), commits locally with Conventional Commits of the change's [commit type](#commit-type) and verifies its work, including the CI's commands that can run locally. It does not push. When the spec does not fit the code, it returns a blocker instead of redesigning.
 4. **Review locally**, for up to `review_rounds` rounds, before anything is pushed:
-   1. Reviewer agents try to refute the branch diff against `spec.md` (each Success Criterion, the scope) and for correctness, edge cases and conventions.
+   1. Reviewer agents try to refute the branch diff against `spec.md` (each Success Criterion, the scope) and for correctness, edge cases and conventions. For a `fix-` change, they also check that the diff fixes the root cause the spec names, not only the symptom, and that the regression test would fail without the fix.
    2. Each finding is triaged as `confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`. Only confirmed findings are fixed.
-   3. One fix agent fixes the confirmed findings locally.
-   4. A fix-check agent answers `resolved` or `not resolved` for each confirmed finding.
+   3. One fix agent fixes the confirmed findings locally. For a `fix-` change, when its fixes touch the regression test or the fix, it re-runs the [base-commit check](./develop.mdx#fix-checks) and returns its outputs.
+   4. A fix-check agent answers `resolved` or `not resolved` for each confirmed finding. For a `fix-` change whose regression test or fix was touched, a finding is resolved only when the re-run shows the test failing on the base commit for the Root Cause's reason and passing on the new head.
 
    With `review_rounds: 0`, this step is skipped.
 5. **Open the PR and drive CI** (skipped with [`workflow.open_pr: false`](../configuration.mdx#workflow)): pushes the branch once and opens the PR with `gh pr create`; the PR text describes only what the change does. A failed CI run is triaged from its log, with the real error line quoted. A failure of the PR goes to a fix agent, which pushes once; a red base branch or flaky infrastructure gets one re-run of the failed jobs. CI is driven until it is green or `ci_attempts` is used up.
@@ -37,6 +37,19 @@ The steps run once per change ID, in order.
    - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 
 Each agent role runs on the model set in [`workflow.models`](../configuration.mdx#workflowmodels): by default implementers, reviewers, fix agents and the fix check on `opus`, CI polling and log fetching on `sonnet`. When implementers are on `opus`, `sonnet` is allowed for them on mechanical tasks. `haiku` is never used.
+
+## Commit type
+
+The change verb sets the Conventional Commit type of every commit the implementers and fix agents make for the change, and of the PR title:
+
+| Verb | Type |
+|---|---|
+| `add-` | `feat` |
+| `fix-` | `fix` |
+| `refactor-` | `refactor` |
+| `update-`, `remove-` | chosen by the implementer and returned in its result; the orchestrator gives it to every fix agent and uses it in the PR title. When the change has several implementers, one runs first and chooses, and the others start with its type |
+
+Commits that change only tests use `test`, and commits that change only docs use `docs`. When the spec says the change breaks, the type gets `!` and the commit a `BREAKING CHANGE:` footer. With `workflow.open_pr: false`, the local history carries the same types as a squash-merged PR would.
 
 ## Output
 

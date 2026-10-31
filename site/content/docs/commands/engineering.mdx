@@ -18,12 +18,19 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and the opt-in standards that are enabled. From the config it takes `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)).
 2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
 3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
+
+   For a `fix-` change, it reproduces the bug first, with a throwaway probe in a `mktemp -d` directory or the project's existing commands and tests, without changing the repository. The command and its output go into the spec, quoted: reasoning about the code is not a reproduction. Three outcomes stop the command before any change file is written:
+   - **Not reproduced:** it asks you, listing each attempt with its command and output, and what would help (an environment, a log, exact steps).
+   - **Possibly already covered:** an active change ID from `theway list` plausibly names the same bug; it asks you whether that change covers it. The members of the series being continued do not count. It judges from the IDs only and never opens other change folders.
+   - **Works as intended:** it reports the code and docs that show the behavior is intended.
+
+   After a stop, run the command again with the new information: it keeps no state between runs.
 4. **Generate the documents** from the templates, following each template's frontmatter instructions:
-   - `~/.theway/templates/spec-template.md` produces `spec.md`.
-   - `~/.theway/templates/tasks-template.md` produces `tasks.md`.
+   - `~/.theway/templates/spec-template.md` produces `spec.md`; for a `fix-` change, `~/.theway/templates/fix-spec-template.md` does.
+   - `~/.theway/templates/tasks-template.md` produces `tasks.md`. In a `fix-` change, task 1 writes the regression test.
 5. **Optional technical design:** `design.md`, for API contracts and data models, architecture decisions, and diagrams.
 6. **Review:** only when no question is open, up to `engineering.review_rounds` rounds (`0` skips it). Each round spawns two critic agents in parallel on `engineering.models.critic`, covering every member of a series together:
-   - a **grounding critic** checks the spec's claims about the code, tools, providers and libraries against the code and official docs;
+   - a **grounding critic** checks the spec's claims about the code, tools, providers and libraries against the code and official docs; for a `fix-` change, it also re-runs the recorded reproduction and reports it when the output differs;
    - an **implementability critic** checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, and contradictions.
 
    Critics never edit anything; their probes answer one question each and write only to a temporary directory. Each finding carries its evidence and a `kind`: `fixable` or `decision`. The command verifies each finding and gives it a verdict (`confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`), fixes the confirmed `fixable` ones in the change files, and stops on a confirmed `decision` as an open question. A round with no confirmed findings ends the review. Without the Agent tool, it runs both lenses itself.
@@ -35,9 +42,12 @@ Action words in the request, such as "rename X" or "try the fix", describe what 
 Everything is written under `~/.theway/<project>/changes/<change-id>/`:
 
 - `spec.md`: problem and solution, technical decisions, scope, the [TAMM hardpoints table](../concepts/tamm.mdx#the-hardpoints-table), phases and Success Criteria.
+  - For a `fix-` change, the fix spec instead: the problem, the symptom, the reproduction (command and observed output), the root cause with file and line evidence, the fix, the regression test, scope, hardpoints (often "None at Medium or High.") and Success Criteria. Its first two criteria are always the same: the regression test fails on the base commit for the reason in Root Cause and passes with the fix, and the reproduction no longer reproduces.
 - `tasks.md`: numbered tasks grouped in phases, with a Notes section for blockers, discoveries and adjustments.
 - `design.md`, when needed.
 
 It reports the change folder, the findings that shaped the spec, and any open question. If a question is open, it stops: the spec is not ready until the question is answered.
+
+When a `fix-` change stopped in Step 3, no folder is written and no review runs: it reports the outcome, the attempts or the evidence, and the question for you.
 
 It also reports the review outcome: how the review ran (the rounds used, off, not run because a question was open, or inline), then every finding in one table with the columns `#` (`R<round>-<index>`), `Finding`, `Verdict` and `Fix`. A `decision` the command settled from the code, the docs or the spec's own decisions reads `confirmed, settled`, and is listed again under the table with the choice made, so you can overturn it.

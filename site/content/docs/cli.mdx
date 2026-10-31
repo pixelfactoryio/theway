@@ -117,7 +117,11 @@ Checks a [change ID](./concepts/changes.mdx#change-ids). It exits 0 when the ID 
 invalid change id '<id>': <reason>
 ```
 
-Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-` or `remove-`.
+Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-`, `remove-` or `fix-`. Any other start is rejected with:
+
+```text
+invalid change id '<id>': must start with a verb prefix: add-, update-, refactor-, remove- or fix-
+```
 
 - **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
 - **With `--series`** (a series member): the ID must end in a two-digit ordinal from `01`, such as `add-user-auth-01`. Letter suffixes, `-00` and double ordinals are rejected.
