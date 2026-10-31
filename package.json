@@ -1,6 +1,6 @@
 {
   "name": "@pixelfactoryio/theway",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A spec-first workflow for Claude Code",
   "license": "MIT",
   "repository": {
