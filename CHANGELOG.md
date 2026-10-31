@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/pixelfactoryio/theway/compare/v0.7.0...v0.8.0) (2026-10-31)
+
+
+### Features
+
+* **develop-workflow:** add the fix- change type ([#41](https://github.com/pixelfactoryio/theway/issues/41)) ([e624f2e](https://github.com/pixelfactoryio/theway/commit/e624f2ef2207dc10bf69592e2db086996e63fa5e))
+
 ## [0.7.0](https://github.com/pixelfactoryio/theway/compare/v0.6.0...v0.7.0) (2026-10-30)
 
 
