@@ -793,3 +793,17 @@ test("standards named like Object.prototype keys are listed and switched like an
   const res = run(dir, "standards", "p", "engineering");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "constructor.md")}\n${join(g, "toString.md")}\n`, ""]);
 });
+
+test("a user standard sharing an opt-in key defaults to false with it", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "web-development.md"), "x\n");
+  const own = join(g, "web_development.md");
+  put(own, "x\n");
+  put(join(dir, "config.yaml"), "");
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, effective(), ""]);
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe("");
+  put(join(dir, "config.yaml"), "standards:\n  web_development:\n    enabled: true\n");
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe(`${join(g, "web-development.md")}\n${own}\n`);
+});
