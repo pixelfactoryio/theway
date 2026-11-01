@@ -31,14 +31,8 @@ Run `theway config <project>` and take the keys below from what it prints: it me
 
 Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
-- `<home>/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
-- `<home>/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
-- `<home>/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
-- `<home>/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
 
-An opt-in standard is read only when `theway config` prints its `enabled` as `true`.
-
-Then run `theway standards <project> engineering` and read every file it prints: these are the user standards, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
+Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
 
 Take `engineering.review_rounds` (maximum review rounds in Step 6) and `engineering.models.critic`.
 
@@ -68,7 +62,7 @@ A `fix-` change fixes a bug: Steps 3, 4 and 6 have rules of their own for it.
 
 Before drafting, find out what the spec depends on: read the code involved, check how it behaves today, and settle the unknowns. You can clone repositories, run small throwaway scripts, call a service or measure something — whatever answers a specific question the spec has to settle.
 
-A request that contradicts a user standard is an open question for the user.
+A request that contradicts a standard is an open question for the user.
 
 Keep each investigation to its question. If you notice you are building the change itself to see whether it works, stop: a spec written after the code describes that code instead of the problem, and the blockers and alternatives it should have weighed are never examined. Turn what you were trying to learn into a question for the user, or record it in the spec as an open point.
 
@@ -121,13 +115,13 @@ Each round:
      - tasks outside the Scope or listed as Out of Scope;
      - tasks that cannot be done as written (a missing file, a command that does not exist, an environment the task assumes);
      - contradictions between the spec and its tasks, or with the existing command, config or doc text the change touches;
-     - a spec or task that contradicts a user standard;
+     - a spec or task that contradicts a standard;
      - in a series, gaps and overlaps between members.
 
    Each critic's prompt states:
    - its lens and the finding format below;
-   - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the user standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
-   - the absolute paths of the user standards read in Step 1, which the spec must follow;
+   - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
+   - the absolute paths of the standards read in Step 1, which the spec must follow;
    - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
 
    Each finding names the file (`spec.md`, `tasks.md` or `design.md`, plus the change ID in a series), the section or task number, a short quote, the problem, its evidence (a file and line, a doc URL, or a probe with its result) and a `kind`: `fixable` (the spec can be corrected from facts) or `decision` (only the user can settle it). The critic's `kind` is a proposal; you set the final `kind` when you verify the finding.
@@ -142,7 +136,7 @@ If the Agent tool is not available in the session, run both lenses yourself, one
 
 ## Exit
 
-Report the change folder, the findings that shaped the spec, the review outcome below, and any question still open. A confirmed `decision` finding of Step 6 is an open question. If a question is open, stop after this report; the spec is not ready until it is answered. Every report, including a stop or an escalation, names the user standards read in Step 1, by file name, or "none".
+Report the change folder, the findings that shaped the spec, the review outcome below, and any question still open. A confirmed `decision` finding of Step 6 is an open question. If a question is open, stop after this report; the spec is not ready until it is answered. Every report, including a stop or an escalation, names the standards read in Step 1, by file name, or "none".
 
 When a `fix-` change stopped in Step 3 (not reproduced, possibly already covered, or works as intended), report instead, in place of the change folder and the review outcome (no folder was written and Step 6 did not run): the outcome, the attempts (each command and its output) or the evidence, and the question for the user. Then stop. The command keeps no state between runs: after a stop, the user re-runs `/theway:engineering` with the new information, and it starts again from Step 1.
 

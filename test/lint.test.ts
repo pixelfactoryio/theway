@@ -390,41 +390,50 @@ test("develop-workflow.md caps a light change's review at one round and checks i
 const step = (text: string, prefix: string) =>
   new RegExp(`^### ${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?(?=^##)`, "m").exec(text)?.[0] ?? "";
 
-const USER_STANDARDS_CRITIC =
-  "except the user standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`";
-const USER_STANDARDS_ITEM = "   - the absolute paths of the user standards read in Step 1, which the spec must follow;\n";
-const STANDARDS_FAILURE =
-  "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.";
+const STANDARDS_CRITIC =
+  "except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`";
+const STANDARDS_ITEM = "   - the absolute paths of the standards read in Step 1, which the spec must follow;\n";
+const STANDARDS_UNKNOWN =
+  "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report";
+const STANDARDS_FAILURE = `${STANDARDS_UNKNOWN} and continue with no standards.`;
+const USER_STANDARDS_FAILURE = `${STANDARDS_UNKNOWN} and continue with no user standards.`;
 const ENGINEERING_EXIT =
-  'Every report, including a stop or an escalation, names the user standards read in Step 1, by file name, or "none".';
+  'Every report, including a stop or an escalation, names the standards read in Step 1, by file name, or "none".';
+const ENGINEERING_STANDARDS = `Then run \`theway standards <project> engineering\` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}`;
+const DOCUMENT_STANDARDS = `Then run \`theway standards <project> document\` and read every file it prints: these are the shipped opt-in standards that are enabled. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_UNKNOWN} and continue with no opt-in standards.`;
+const OPT_IN_PATHS = ["core-principles.md", "sre.md", "web-development.md", "quality.md"].map((n) => `<home>/standards/${n}`);
+const OPT_IN = "An opt-in standard is read only when";
 
-test("engineering and engineering-light read the user standards, follow them, give them to the critics and report them", () => {
+test("engineering and engineering-light read the standards, follow them, give them to the critics and report them", () => {
   for (const f of ["engineering.md", "engineering-light.md"]) {
     const text = read(join(COMMANDS, f));
     expect(step(text, "Step 1:")).toContain(
-      `An opt-in standard is read only when \`theway config\` prints its \`enabled\` as \`true\`.\n\nThen run \`theway standards <project> engineering\` and read every file it prints: these are the user standards, and the spec follows them. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`,
+      `Read these files from \`<home>\`:\n- \`<home>/standards/tamm-framework.md\` - TAMM framework\n\n${ENGINEERING_STANDARDS}\n`,
     );
-    expect(text).toContain(USER_STANDARDS_CRITIC);
-    expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`/theway:setup\` and stop\\);\\n${USER_STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
+    expect(text).not.toContain(OPT_IN);
+    expect(text).not.toContain("user standard");
+    expect(text).toContain(STANDARDS_CRITIC);
+    expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`/theway:setup\` and stop\\);\\n${STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
     expect(section(text, "Exit").split("\n\n")[1]).toContain(ENGINEERING_EXIT);
   }
   const engineering = read(join(COMMANDS, "engineering.md"));
   const step3 = step(engineering, "Step 3: Investigate");
-  expect(step3.split("\n\n")[2]).toBe("A request that contradicts a user standard is an open question for the user.");
+  expect(step3.split("\n\n")[2]).toBe("A request that contradicts a standard is an open question for the user.");
   const lens = /\*\*Implementability critic:\*\*[\s\S]*?(?=\n\n)/.exec(step(engineering, "Step 6: Review"))?.[0] ?? "";
-  expect(lens).toContain("\n     - a spec or task that contradicts a user standard;\n");
+  expect(lens).toContain("\n     - a spec or task that contradicts a standard;\n");
 
   const light = read(join(COMMANDS, "engineering-light.md"));
   expect(step(light, "Step 3: Investigate")).toContain(
-    "Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series. A request that contradicts a user standard is a decision to make.",
+    "Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series. A request that contradicts a standard is a decision to make.",
   );
   const grounding = /\*\*Grounding critic:\*\*.*$/m.exec(step(light, "Step 5: Review"))?.[0] ?? "";
-  expect(grounding).toContain("It also reports a spec or task that contradicts a user standard.");
+  expect(grounding).toContain("It also reports a spec or task that contradicts a standard.");
 });
 
 test("develop and develop-workflow read the user standards, give them to the agents, enforce and report them", () => {
   const STEP1 =
-    `- \`docs/architecture/coding-standards.md\` - Project coding standards (if exists)\n\nThen run \`theway standards <project> develop\` and read every file it prints: these are the user standards. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`;
+    `- \`docs/architecture/coding-standards.md\` - Project coding standards (if exists)\n\nThen run \`theway standards <project> develop\` and read every file it prints: these are the user standards. Quote any \`theway: warning:\` line it writes in your report. ${USER_STANDARDS_FAILURE}\n`;
   const develop = read(join(COMMANDS, "develop.md"));
   expect(step(develop, "Step 1:")).toContain(STEP1);
   expect(step(develop, "Step 1:")).toContain("do not search the filesystem to locate them:\n- `<home>/standards/develop.md` - How a change is implemented and verified\n");
@@ -463,9 +472,8 @@ test("the develop standard follows the user standards and the Authority rule nam
 
 const CONFIG_RUN =
   "Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.";
-const OPT_IN = "An opt-in standard is read only when `theway config` prints its `enabled` as `true`.";
 
-test("engineering, engineering-light, develop-workflow and document take their keys from theway config", () => {
+test("engineering, engineering-light and develop-workflow take their keys from theway config", () => {
   for (const [f, n] of [
     ["engineering.md", 6],
     ["engineering-light.md", 5],
@@ -473,18 +481,13 @@ test("engineering, engineering-light, develop-workflow and document take their k
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1.split("\n\n")[1]).toBe(CONFIG_RUN);
     expect(step1.split("\n\n")[2]).toStartWith("Read these files from `<home>`:\n");
-    expect(step1).toContain(`\n\n${OPT_IN}\n\n`);
     expect(step1).toContain(`\n\nTake \`engineering.review_rounds\` (maximum review rounds in Step ${n}) and \`engineering.models.critic\`.\n`);
   }
   const workflow = step(read(join(COMMANDS, "develop-workflow.md")), "Step 1:");
   expect(workflow).toContain(
     `continue with no user standards.\n\n${CONFIG_RUN}\n\nTake \`workflow.review_rounds\`, \`workflow.ci_attempts\`, \`workflow.open_pr\` (when it is \`false\`, Step 5 is skipped and nothing is pushed) and the agent models \`workflow.models.implementer\`, \`reviewer\`, \`fix\` and \`ci\`.\n`,
   );
-  const document = step(read(join(COMMANDS, "document.md")), "Step 1:");
-  expect(document.split("\n\n")[1]).toBe(CONFIG_RUN);
-  expect(document.split("\n\n")[2]).toStartWith("Then read these opt-in standards:\n");
-  expect(document).toContain(`\n\n${OPT_IN}\n\n`);
-  for (const f of ["engineering.md", "engineering-light.md", "develop-workflow.md", "document.md"]) {
+  for (const f of ["engineering.md", "engineering-light.md", "develop-workflow.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("config");
     for (const old of [
@@ -495,6 +498,16 @@ test("engineering, engineering-light, develop-workflow and document take their k
       expect(text).not.toContain(old);
     }
   }
+});
+
+test("document reads the enabled opt-in standards from theway standards, not from theway config", () => {
+  const text = read(join(COMMANDS, "document.md"));
+  expect(step(text, "Step 1:").split("\n\n")[1]).toBe(DOCUMENT_STANDARDS);
+  expect(calls(text)).not.toContain("config");
+  expect(text).not.toContain(CONFIG_RUN);
+  expect(text).not.toContain("Then read these opt-in standards:");
+  for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
+  expect(text).not.toContain(OPT_IN);
 });
 
 test("no command names <home>/config.yaml outside its Locate the home section", () => {
@@ -508,5 +521,8 @@ test("no command names <home>/config.yaml outside its Locate the home section", 
 test("the shipped config.yaml says a project can override any key", () => {
   expect(read(join(PLUGIN, "home", "config.yaml"))).toStartWith(
     "# theway configuration\n# A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.\n",
+  );
+  expect(read(join(PLUGIN, "home", "config.yaml"))).toContain(
+    "\n# Standards: standards.<key>.enabled switches any standard, key = file stem with - as _ (shipped opt-in ones default false, your own standards true)\nstandards:\n",
   );
 });

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { changeIdReason, projectReason } from "../src/core/path";
@@ -365,26 +365,14 @@ test("standards ignores subfolders and non-.md files", () => {
   expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(dir, "p", "standards", "keep.md")}\n`, ""]);
 });
 
-test("standards exits 1 for an invalid project, a shared folder or an invalid phase", () => {
+test("standards exits 1 for an invalid project or an invalid phase", () => {
   const dir = home();
   put(join(dir, "standards", "g.md"), "x\n");
   const cases: [string[], string][] = [
     [["a/b", "develop"], `theway: invalid project 'a/b': ${PROJECT_REASON}\n`],
     [["..", "develop"], `theway: invalid project '..': ${PROJECT_REASON}\n`],
     [["", "develop"], "theway: invalid project '': must not be empty\n"],
-    [
-      ["data", "develop"],
-      "theway: project 'data' shares its folder with theway's own files; no user standards are read for it\n",
-    ],
-    [
-      ["templates", "engineering"],
-      "theway: project 'templates' shares its folder with theway's own files; no user standards are read for it\n",
-    ],
-    [
-      ["standards", "develop"],
-      "theway: project 'standards' shares its folder with theway's own files; no user standards are read for it\n",
-    ],
-    [["p", "review"], "theway: invalid phase 'review': must be engineering or develop\n"],
+    [["p", "review"], "theway: invalid phase 'review': must be engineering, develop or document\n"],
   ];
   for (const [args, stderr] of cases) {
     const res = run(dir, "standards", ...args);
@@ -394,8 +382,105 @@ test("standards exits 1 for an invalid project, a shared folder or an invalid ph
   }
 });
 
+test("standards lists only the global standards for the projects data, templates and standards", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "g.md"), "x\n");
+  put(join(g, "sre.md"), "# sre\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  for (const project of ["data", "templates", "standards"]) {
+    put(join(dir, project, "standards", "own.md"), "x\n");
+    const eng = run(dir, "standards", project, "engineering");
+    expect([eng.status, eng.stdout, eng.stderr]).toEqual([0, `${join(g, "g.md")}\n${join(g, "sre.md")}\n`, ""]);
+    const doc = run(dir, "standards", project, "document");
+    expect([doc.status, doc.stdout, doc.stderr]).toEqual([0, `${join(g, "sre.md")}\n`, ""]);
+  }
+});
+
+test("standards lists the enabled opt-in and user standards per phase, from the global and the project config", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  const p = join(dir, "p", "standards");
+  for (const name of ["interaction.md", "develop.md", "tamm-framework.md", "core-principles.md", "sre.md", "quality.md"]) {
+    put(join(g, name), "---\napplies_to: [develop]\n---\n");
+  }
+  put(join(g, "alpha.md"), "---\napplies_to: [engineering]\n---\n");
+  put(join(g, "dev.md"), "---\napplies_to: [develop]\n---\n");
+  put(join(g, "off.md"), "x\n");
+  put(join(p, "beta.md"), "x\n");
+  put(join(p, "gamma.md"), "x\n");
+  put(
+    join(dir, "config.yaml"),
+    "standards:\n  core_principles:\n    enabled: true\n  web_development:\n    enabled: true\n  quality:\n    enabled: true\n  off:\n    enabled: false\n",
+  );
+  put(join(dir, "p", "config.yaml"), "standards:\n  quality:\n    enabled: false\n  sre:\n    enabled: true\n  gamma:\n    enabled: false\n");
+  const lines = (...paths: string[]) => paths.map((l) => `${l}\n`).join("");
+  const cases: [string, string, string][] = [
+    ["p", "engineering", lines(join(g, "alpha.md"), join(g, "core-principles.md"), join(g, "sre.md"), join(p, "beta.md"))],
+    ["p", "develop", lines(join(g, "dev.md"), join(p, "beta.md"))],
+    ["p", "document", lines(join(g, "core-principles.md"), join(g, "sre.md"))],
+    ["other", "engineering", lines(join(g, "alpha.md"), join(g, "core-principles.md"), join(g, "quality.md"))],
+    ["other", "develop", lines(join(g, "dev.md"))],
+    ["other", "document", lines(join(g, "core-principles.md"), join(g, "quality.md"))],
+  ];
+  for (const [project, phase, stdout] of cases) {
+    const res = run(dir, "standards", project, phase);
+    expect([project, phase, res.status, res.stdout, res.stderr]).toEqual([project, phase, 0, stdout, ""]);
+  }
+});
+
+test("standards takes a project sre.md as a user standard that the sre switch turns on", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), readFileSync(join(import.meta.dirname, "..", "plugin", "home", "config.yaml"), "utf-8"));
+  put(join(dir, "standards", "sre.md"), "# global sre\n");
+  const own = join(dir, "p", "standards", "sre.md");
+  put(own, "---\napplies_to: [develop]\n---\n");
+  for (const phase of ["engineering", "develop", "document"]) {
+    expect(run(dir, "standards", "p", phase).stdout).toBe("");
+  }
+  put(join(dir, "p", "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  expect(run(dir, "standards", "p", "develop").stdout).toBe(`${own}\n`);
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe("");
+  expect(run(dir, "standards", "p", "document").stdout).toBe("");
+  expect(run(dir, "standards", "other", "document").stdout).toBe("");
+});
+
+test("standards applies the defaults with no config.yaml: opt-in off, user on", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "sre.md"), "x\n");
+  put(join(g, "tdd.md"), "x\n");
+  for (const [phase, stdout] of [
+    ["engineering", `${join(g, "tdd.md")}\n`],
+    ["develop", `${join(g, "tdd.md")}\n`],
+    ["document", ""],
+  ] as const) {
+    const res = run(dir, "standards", "p", phase);
+    expect([res.status, res.stdout, res.stderr]).toEqual([0, stdout, ""]);
+  }
+});
+
+test("standards exits 1 with config's message for invalid YAML in either config", () => {
+  const dir = home();
+  put(join(dir, "standards", "tdd.md"), "x\n");
+  put(join(dir, "p", "config.yaml"), "engineering:\n  review_rounds: 1\n  review_rounds: 2\n");
+  const res = run(dir, "standards", "p", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([
+    1,
+    "",
+    "theway: p/config.yaml: invalid YAML: Map keys must be unique at line 3, column 3\n",
+  ]);
+  put(join(dir, "config.yaml"), "a: [1\n");
+  const bad = run(dir, "standards", "other", "develop");
+  expect([bad.status, bad.stdout, bad.stderr]).toEqual([
+    1,
+    "",
+    "theway: config.yaml: invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1\n",
+  ]);
+});
+
 /** The effective config `theway config` prints, from the defaults with `over` replacing leaves. */
-function effective(over: Record<string, string> = {}): string {
+function effective(over: Record<string, string> = {}, user: [string, boolean][] = []): string {
   const v = (key: string, d: string): string => over[key] ?? d;
   return [
     "standards:",
@@ -407,6 +492,7 @@ function effective(over: Record<string, string> = {}): string {
     `    enabled: ${v("standards.web_development.enabled", "false")}`,
     "  quality:",
     `    enabled: ${v("standards.quality.enabled", "false")}`,
+    ...user.flatMap(([key, on]) => [`  ${key}:`, `    enabled: ${on}`]),
     "engineering:",
     `  review_rounds: ${v("engineering.review_rounds", "1")}`,
     "  models:",
@@ -583,4 +669,141 @@ test("config rejects a non-integer number for an integer key", () => {
       "",
     ].join("\n"),
   );
+});
+
+test("config lists every switchable standard after the opt-in keys, with its effective value and its warnings", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/shipped.md": "x" })}\n`);
+  for (const name of ["interaction.md", "develop.md", "tamm-framework.md", "sre.md", "shipped.md", "tdd.default.md"]) {
+    put(join(g, name), "x\n");
+  }
+  for (const name of ["zeta.md", "alpha.md", "tdd.md", "a-b.md", "a_b.md"]) put(join(g, name), "x\n");
+  put(join(g, "bad.md"), "---\napplies_to: [review]\n---\n");
+  put(join(dir, "p", "standards", "beta.md"), "x\n");
+  put(
+    join(dir, "config.yaml"),
+    "standards:\n  zeta:\n    enabled: false\n  nofile:\n    enabled: true\n  develop:\n    enabled: true\n",
+  );
+  put(
+    join(dir, "p", "config.yaml"),
+    "standards:\n  tdd:\n    enabled: false\n  sre:\n    enabled: true\n  interaction:\n    enabled: false\n  missing:\n    enabled: false\n",
+  );
+  const res = run(dir, "config", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(
+    effective({ "standards.sre.enabled": "true" }, [
+      ["a_b", true],
+      ["alpha", true],
+      ["bad", true],
+      ["beta", true],
+      ["tdd", false],
+      ["zeta", false],
+    ]),
+  );
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: standards.nofile has no standard file; ignored",
+      "theway: warning: config.yaml: standards.develop cannot be switched; ignored",
+      "theway: warning: p/config.yaml: standards.interaction cannot be switched; ignored",
+      "theway: warning: p/config.yaml: standards.missing has no standard file; ignored",
+      "",
+    ].join("\n"),
+  );
+  const other = run(dir, "config", "other");
+  expect(other.status).toBe(0);
+  expect(other.stdout).toBe(
+    effective({}, [
+      ["a_b", true],
+      ["alpha", true],
+      ["bad", true],
+      ["tdd", true],
+      ["zeta", false],
+    ]),
+  );
+});
+
+test("config lists no project standards for the projects data, templates and standards", () => {
+  const dir = home();
+  put(join(dir, "standards", "g.md"), "x\n");
+  put(join(dir, "config.yaml"), "");
+  for (const project of ["data", "templates", "standards"]) {
+    put(join(dir, project, "standards", "own.md"), "x\n");
+    put(join(dir, project, "config.yaml"), "standards:\n  g:\n    enabled: false\n  own:\n    enabled: true\n");
+    const res = run(dir, "config", project);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe(effective({}, [["g", false]]));
+    expect(res.stderr).toBe(`theway: warning: ${join(project, "config.yaml")}: standards.own has no standard file; ignored\n`);
+  }
+});
+
+test("a project file with a core name is a user standard that the project config switches", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  for (const name of ["interaction.md", "develop.md", "tamm-framework.md"]) put(join(g, name), "x\n");
+  const own = join(dir, "p", "standards", "develop.md");
+  put(own, "---\napplies_to: [develop]\n---\n");
+  put(join(dir, "config.yaml"), "");
+  const on = run(dir, "config", "p");
+  expect([on.status, on.stdout, on.stderr]).toEqual([0, effective({}, [["develop", true]]), ""]);
+  expect(run(dir, "standards", "p", "develop").stdout).toBe(`${own}\n`);
+  put(join(dir, "p", "config.yaml"), "standards:\n  develop:\n    enabled: false\n");
+  const off = run(dir, "config", "p");
+  expect([off.status, off.stdout, off.stderr]).toEqual([0, effective({}, [["develop", false]]), ""]);
+  const res = run(dir, "standards", "p", "develop");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "", ""]);
+  put(join(dir, "q", "config.yaml"), "standards:\n  develop:\n    enabled: false\n");
+  const other = run(dir, "config", "q");
+  expect([other.status, other.stdout, other.stderr]).toEqual([
+    0,
+    effective(),
+    "theway: warning: q/config.yaml: standards.develop cannot be switched; ignored\n",
+  ]);
+});
+
+test("standards named like Object.prototype keys are listed and switched like any other", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  const names = ["__proto__.md", "constructor.md", "toString.md"];
+  for (const name of names) put(join(g, name), "x\n");
+  put(join(dir, "config.yaml"), "");
+  const on = run(dir, "config", "p");
+  expect([on.status, on.stdout, on.stderr]).toEqual([
+    0,
+    effective({}, [
+      ["__proto__", true],
+      ["constructor", true],
+      ["toString", true],
+    ]),
+    "",
+  ]);
+  const all = run(dir, "standards", "p", "engineering");
+  expect([all.status, all.stdout, all.stderr]).toEqual([0, names.map((n) => `${join(g, n)}\n`).join(""), ""]);
+  put(join(dir, "config.yaml"), "standards:\n  __proto__:\n    enabled: false\n");
+  const off = run(dir, "config", "p");
+  expect([off.status, off.stdout, off.stderr]).toEqual([
+    0,
+    effective({}, [
+      ["__proto__", false],
+      ["constructor", true],
+      ["toString", true],
+    ]),
+    "",
+  ]);
+  const res = run(dir, "standards", "p", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "constructor.md")}\n${join(g, "toString.md")}\n`, ""]);
+});
+
+test("a user standard sharing an opt-in key defaults to false with it", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "web-development.md"), "x\n");
+  const own = join(g, "web_development.md");
+  put(own, "x\n");
+  put(join(dir, "config.yaml"), "");
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, effective(), ""]);
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe("");
+  put(join(dir, "config.yaml"), "standards:\n  web_development:\n    enabled: true\n");
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe(`${join(g, "web-development.md")}\n${own}\n`);
 });

@@ -34,15 +34,7 @@ docs/architecture/
 
 ### Step 1: Generate Documents from Templates
 
-Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
-
-Then read these opt-in standards:
-- `<home>/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
-- `<home>/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
-- `<home>/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
-- `<home>/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
-
-An opt-in standard is read only when `theway config` prints its `enabled` as `true`.
+Then run `theway standards <project> document` and read every file it prints: these are the shipped opt-in standards that are enabled. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no opt-in standards.
 
 Then, for each template below, read the template file, follow its frontmatter instructions (required_context, agent_role, workflow_steps, quality_standards, best_practices), and create/update the output file in `docs/architecture/` (overwrite if it already exists). Keep outputs concise — code examples, not verbose explanations.
 
