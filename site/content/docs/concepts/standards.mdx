@@ -23,7 +23,7 @@ A user standard is a Markdown file of your own rules, such as test-first, that t
 
 Both folders are optional. Install never touches your files in them.
 
-`<home>/standards/` can also hold files theway ships: a file `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
+`<home>/standards/` also holds the standards theway ships, such as `develop.md` and `sre.md`: a file `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard. When theway starts shipping a name you already use there, install keeps your file and warns (see [What install writes](../installation.mdx#what-install-writes)).
 
 **Order:** the global files come first, then the project files, each group sorted by name.
 
@@ -70,9 +70,9 @@ theway: warning: <path>: applies_to must list engineering and/or develop; applie
 
 The command quotes that warning in its report, so you can fix the file.
 
-## Projects named data or templates
+## Projects named data, templates or standards
 
-`<home>/data/` and `<home>/templates/` hold theway's own files, so a project named `data` or `templates` reads no user standards, global ones included: `theway standards` exits 1 for it.
+`<home>/templates/` and `<home>/standards/` hold theway's own files, and `<home>/data/` can still hold the standards of an older layout, so a project named `data`, `templates` or `standards` reads no user standards, global ones included: `theway standards` exits 1 for it.
 
 ## Who reads them
 

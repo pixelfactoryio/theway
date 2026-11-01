@@ -51,7 +51,10 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
 - **The data home, `~/.theway`** by default:
   - `config.yaml`: the [configuration](./configuration.mdx). An existing `config.yaml` is kept.
   - `config.default.yaml`: the shipped configuration, written on every install.
-  - `data/standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped. A file theway no longer ships is left in the home untouched, and stays there as your own.
+  - `standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped.
+    - `standards/` also holds your [global user standards](./concepts/standards.mdx). When theway starts shipping a name you already use there, install keeps your file, writes its version as `<name>.default.md`, leaves the name out of `.shipped.json` so the file stays yours, and prints `Kept your standards/<name>: theway now ships a file with that name (its version: standards/<base>.default.md)` on every install while the clash lasts. When you have no `.shipped.json`, a differing file with a shipped name is treated as an edited shipped file instead.
+    - A standard theway stops shipping is removed when you have not edited it (`Removed standards/<name>: theway no longer ships it`) and kept as one of your standards when you have (`Kept your edited standards/<name>: theway no longer ships it, so it is now one of your standards`). Install also removes a `standards/<name>.default.md` whose `<name>.md` it no longer ships.
+    - A template theway no longer ships is left in `templates/` untouched. A differing template that `.shipped.json` does not list is backed up to `<name>.md.bak` and replaced.
   - `<project>/changes/`: the change folders, written by the commands.
 - **`~/.config/theway/home`**, only for a custom `THEWAY_HOME`: the pointer file that holds the absolute data home, so the CLI finds it when `THEWAY_HOME` is not set. With the default home (`THEWAY_HOME` set to `~/.theway`, or neither `THEWAY_HOME` nor a pointer), install writes no pointer and removes an existing one.
 - **Two permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:
@@ -69,6 +72,10 @@ If `~/.claude/settings.json` is not valid settings JSON, install stops and chang
 ```text
 theway: warning: /usr/local/bin/theway comes before /home/you/.local/bin/theway on PATH, so the commands run it; theway copies on PATH: …
 ```
+
+### From the old layout
+
+Earlier versions installed the standards in `data/standards/`. On its first run over such a home, install moves each standard `.shipped.json` lists from `data/standards/` to `standards/` as it is, edited or not, with its `.default.md` copy, and renames its `.shipped.json` key with the same hash. It leaves a file in place, with a line, when `standards/` already holds that name (`Left data/standards/<name>: standards/<name> already exists`) or theway no longer ships it (`Left data/standards/<name>: theway no longer ships it`); files `.shipped.json` does not list are never moved. It then removes `data/standards/` and `data/` when they are empty, and otherwise prints `Left data/: it still holds files theway does not ship`. An interrupted migration finishes on the next install.
 
 ### Other locations
 

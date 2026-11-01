@@ -136,10 +136,10 @@ theway: warning: <path>: cannot be read; skipped
 It exits 1 and prints nothing on stdout when:
 
 - `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;
-- `<project>` is `data` or `templates`, whose folders hold theway's own files:
+- `<project>` is `data`, `templates` or `standards`: `templates/` and `standards/` hold theway's own files, and `data/` can still hold the standards of an [older layout](./installation.mdx#from-the-old-layout):
 
   ```text
-  theway: project 'data' shares its folder with theway's own files; no user standards are read for it
+  theway: project 'standards' shares its folder with theway's own files; no user standards are read for it
   ```
 
 - the phase is neither `engineering` nor `develop`:
