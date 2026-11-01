@@ -34,7 +34,6 @@ Only the latest release is supported.
 - `archive`: moves a change folder only when you name the change and say to archive it; may then update architecture docs in `docs/` and clean up temporary notes.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
 - `list`: reads only; runs `theway path` and `theway list`.
-- `setup`: runs `npx --yes @pixelfactoryio/theway@<pinned version> install`, which makes the install changes above.
 
 ### Input checks
 
