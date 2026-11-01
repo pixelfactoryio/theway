@@ -17,9 +17,9 @@ You are now scaffolding a light Spec analysis using templates: the short spec of
 ## Locate the home
 
 Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
-- If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `/theway:setup`, and stop.
-- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop.
-- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `/theway:setup` and stop.
+- If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
+- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 
 ## Workflow
 
@@ -27,12 +27,12 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 
 ### Step 1: Load Config and Standards
 
-Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
+Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
 
 Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
-Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
+Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
 
 Take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
 
@@ -44,7 +44,7 @@ Example change IDs: `add-user-authentication`, `update-payment-api`, `fix-login-
 
 When the request names a change ID, use it.
 
-**Validate the ID before writing:** run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member. It must exit 0 before any change folder is written. On exit 1 with an `invalid change id '<id>': <reason>` line on stderr, fix the ID from that reason and run it again. If it instead fails with `error: unknown command 'validate-id'`, the installed `theway` is stale: do not change the ID; stop and tell the user to run `/theway:setup`, then validate again. `validate-id` is the source of truth for the ID format.
+**Validate the ID before writing:** run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member. It must exit 0 before any change folder is written. On exit 1 with an `invalid change id '<id>': <reason>` line on stderr, fix the ID from that reason and run it again. If it instead fails with `error: unknown command 'validate-id'`, the installed `theway` is stale: do not change the ID; stop and tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, then validate again. `validate-id` is the source of truth for the ID format.
 
 **Locate the change folder:** once the ID is valid, run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>`. Every file of the change is written there.
 
@@ -91,7 +91,7 @@ Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding c
 
    The critic's prompt states:
    - its lens and the finding format below;
-   - the absolute paths of `<change-dir>` and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
+   - the absolute paths of `<change-dir>` and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop);
    - the absolute paths of the standards read in Step 1, which the spec must follow;
    - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
 

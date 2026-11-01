@@ -7,6 +7,7 @@ import {
   BookOpen,
   CircleCheck,
   Code,
+  Feather,
   FileText,
   FolderClock,
   GitPullRequest,
@@ -16,7 +17,6 @@ import {
   ListTodo,
   type LucideIcon,
   Search,
-  Settings,
   ShieldAlert,
 } from 'lucide-react';
 import { InstallPill } from '@/components/install-pill';
@@ -192,8 +192,8 @@ const steps: Step[] = [
 ];
 
 const commandIcons: [string, LucideIcon][] = [
-  ['setup', Settings],
   ['engineering', FileText],
+  ['engineering-light', Feather],
   ['develop', Code],
   ['develop-workflow', GitPullRequest],
   ['document', BookOpen],

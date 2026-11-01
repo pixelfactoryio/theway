@@ -159,7 +159,7 @@ test("install with THEWAY_HOME set to ~/.theway removes a pointer left by a cust
   expect(existsSync(pointer(env))).toBe(false);
 });
 
-test("install without THEWAY_HOME keeps the home the pointer names, as /theway:setup runs it", () => {
+test("install without THEWAY_HOME keeps the home the pointer names, as a reinstall runs it", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
   env.thewayHome = undefined;

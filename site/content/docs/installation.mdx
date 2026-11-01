@@ -24,8 +24,6 @@ When the install folder is not on your `PATH`, install still finishes and exits 
 Add /home/you/.local/bin to your PATH, e.g.: export PATH="/home/you/.local/bin:$PATH"
 ```
 
-From a session where theway is already loaded, `/theway:setup` runs the same command.
-
 ## Pin to a release
 
 To install a specific release, add its version:
@@ -87,7 +85,7 @@ The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in i
 
 Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
 
-Install finds the data home the same way. Without `THEWAY_HOME`, it updates the home the pointer names, so `/theway:setup`, which sees `THEWAY_HOME` only when it is exported in the shell that started Claude Code, keeps a custom home. To go back to `~/.theway`, run install with `THEWAY_HOME=~/.theway`.
+Install finds the data home the same way. Without `THEWAY_HOME`, it updates the home the pointer names, so a reinstall from a shell that does not export `THEWAY_HOME` keeps a custom home. To go back to `~/.theway`, run install with `THEWAY_HOME=~/.theway`.
 
 ## Upgrading from 0.2.0
 
