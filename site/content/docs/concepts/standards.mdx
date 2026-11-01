@@ -1,0 +1,83 @@
+---
+title: User standards
+description: Your own rules, for every project or for one, that the engineering and develop commands follow.
+---
+
+A user standard is a Markdown file of your own rules, such as test-first, that the engineering and develop commands follow on top of theway's shipped standards. You write it once, outside any repository, and it survives every install.
+
+## The two folders
+
+```text
+~/.theway/
+├── standards/          every project
+│   └── tdd.md
+└── <project>/
+    ├── changes/
+    └── standards/      this project only
+        ├── tdd.md      replaces the global tdd.md for this project
+        └── review.md
+```
+
+- `<home>/standards/` holds the standards of every project.
+- `<home>/<project>/standards/` holds the standards of one project, beside its `changes/` folder.
+
+Both folders are optional. Install never touches them.
+
+**Order:** the global files come first, then the project files, each group sorted by name.
+
+**Same name:** when both folders hold a file with the same name, the project file replaces the global one for that project. The global file is skipped, whatever its `applies_to`, even when the project file does not apply to the phase.
+
+## The convention
+
+Every `.md` file directly in either folder is a user standard. No config key declares it. Subfolders and other files are ignored.
+
+For example, `<home>/standards/tdd.md`:
+
+```markdown
+# Test first
+
+Write the failing test before the code that makes it pass.
+```
+
+Without frontmatter, it applies to both the engineering and the develop commands.
+
+## applies_to
+
+An optional `applies_to` in the file's frontmatter limits it to one phase. The values are `engineering` (`/theway:engineering`, `/theway:engineering-light`) and `develop` (`/theway:develop`, `/theway:develop-workflow`). It takes a flow list or a block list:
+
+```markdown
+---
+applies_to: [develop]
+---
+```
+
+```markdown
+---
+applies_to:
+  - engineering
+  - develop
+---
+```
+
+- A file without frontmatter, or whose frontmatter has no `applies_to:` line, applies to both.
+- Any other value or form also applies to both, and [`theway standards`](../cli.mdx#standards) warns on stderr:
+
+```text
+theway: warning: <path>: applies_to must list engineering and/or develop; applied to both
+```
+
+The command quotes that warning in its report, so you can fix the file.
+
+## Projects named data or templates
+
+`<home>/data/` and `<home>/templates/` hold theway's own files, so a project named `data` or `templates` reads no user standards, global ones included: `theway standards` exits 1 for it.
+
+## Who reads them
+
+The commands list them with [`theway standards <project> <engineering|develop>`](../cli.mdx#standards) and read every file it prints. User standards are binding, not guidance:
+
+- [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
+- [`/theway:develop`](../commands/develop.mdx) and the implementers of [`/theway:develop-workflow`](../commands/develop-workflow.mdx) follow them. When one contradicts the spec, the implementer stops and brings it back.
+- In `/theway:develop-workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
+
+Every report of these commands names the user standards used, by file name, or "none". `/theway:document` does not read them.

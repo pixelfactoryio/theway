@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its six subcommands.
+description: The theway command line and its seven subcommands.
 ---
 
-The `theway` program has six subcommands: `install`, `uninstall`, `list`, `archive`, `path` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has seven subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `standards` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install
@@ -11,6 +11,7 @@ theway uninstall
 theway list <project>
 theway archive <project> <change-id> [--force]
 theway path [<project> [<change-id>]] [--verbose]
+theway standards <project> <engineering|develop>
 theway validate-id <id> [--series]
 ```
 
@@ -25,6 +26,8 @@ The data home holds the config, the standards, the templates and the change fold
 3. `~/.theway`.
 
 [`theway path --verbose`](#path) says which one it used.
+
+[User standards](./concepts/standards.mdx) live in `<home>/standards/` (every project) and `<home>/<project>/standards/` (one project). Install never touches them.
 
 Other environment variables:
 
@@ -103,6 +106,43 @@ A change id must be lowercase letters and digits in words separated by single hy
 ```text
 theway: invalid change id '..': must be lowercase letters and digits in words separated by single hyphens
 ```
+
+## standards
+
+```bash
+theway standards <project> engineering
+theway standards <project> develop
+```
+
+Prints the absolute path of every [user standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. A project file with the same name as a global one replaces it. A file applies to the phases its `applies_to` frontmatter lists, or to both without one. With nothing to print, it prints nothing and exits 0.
+
+```text
+/home/you/.theway/standards/tdd.md
+/home/you/.theway/my-repo/standards/review.md
+```
+
+An `applies_to` with any other value or form applies to both phases, with a warning on stderr; the exit code stays 0:
+
+```text
+theway: warning: <path>: applies_to must list engineering and/or develop; applied to both
+```
+
+It exits 1 and prints nothing on stdout when:
+
+- `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;
+- `<project>` is `data` or `templates`, whose folders hold theway's own files:
+
+  ```text
+  theway: project 'data' shares its folder with theway's own files; no user standards are read for it
+  ```
+
+- the phase is neither `engineering` nor `develop`:
+
+  ```text
+  theway: invalid phase '<value>': must be engineering or develop
+  ```
+
+The engineering commands run it with `engineering`, the develop commands with `develop`.
 
 ## validate-id
 
