@@ -393,3 +393,194 @@ test("standards exits 1 for an invalid project, a shared folder or an invalid ph
     expect(res.stderr).toBe(stderr);
   }
 });
+
+/** The effective config `theway config` prints, from the defaults with `over` replacing leaves. */
+function effective(over: Record<string, string> = {}): string {
+  const v = (key: string, d: string): string => over[key] ?? d;
+  return [
+    "standards:",
+    "  core_principles:",
+    `    enabled: ${v("standards.core_principles.enabled", "false")}`,
+    "  sre:",
+    `    enabled: ${v("standards.sre.enabled", "false")}`,
+    "  web_development:",
+    `    enabled: ${v("standards.web_development.enabled", "false")}`,
+    "  quality:",
+    `    enabled: ${v("standards.quality.enabled", "false")}`,
+    "engineering:",
+    `  review_rounds: ${v("engineering.review_rounds", "1")}`,
+    "  models:",
+    `    critic: ${v("engineering.models.critic", "opus")}`,
+    "workflow:",
+    `  review_rounds: ${v("workflow.review_rounds", "1")}`,
+    `  ci_attempts: ${v("workflow.ci_attempts", "2")}`,
+    `  open_pr: ${v("workflow.open_pr", "true")}`,
+    "  models:",
+    `    implementer: ${v("workflow.models.implementer", "opus")}`,
+    `    reviewer: ${v("workflow.models.reviewer", "opus")}`,
+    `    fix: ${v("workflow.models.fix", "opus")}`,
+    `    ci: ${v("workflow.models.ci", "sonnet")}`,
+    "",
+  ].join("\n");
+}
+
+test("config prints the global values, defaults for the keys it lacks, every key in schema order", () => {
+  const dir = home();
+  put(
+    join(dir, "config.yaml"),
+    "# c\nworkflow:\n  models:\n    ci: opus\n  open_pr: false\nstandards:\n  sre:\n    enabled: true\nengineering:\n  review_rounds: 0\n",
+  );
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(res.stdout).toBe(
+    effective({
+      "workflow.models.ci": "opus",
+      "workflow.open_pr": "false",
+      "standards.sre.enabled": "true",
+      "engineering.review_rounds": "0",
+    }),
+  );
+});
+
+test("config lets a project file override keys of every section, nested models included", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 3\n  models:\n    critic: sonnet\nworkflow:\n  ci_attempts: 5\n");
+  put(
+    join(dir, "p", "config.yaml"),
+    "standards:\n  quality:\n    enabled: true\nengineering:\n  models:\n    critic: opus\nworkflow:\n  ci_attempts: 1\n  models:\n    implementer: sonnet\n",
+  );
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(res.stdout).toBe(
+    effective({
+      "standards.quality.enabled": "true",
+      "engineering.review_rounds": "3",
+      "engineering.models.critic": "opus",
+      "workflow.ci_attempts": "1",
+      "workflow.models.implementer": "sonnet",
+    }),
+  );
+  expect(run(dir, "config", "other").stdout).toBe(
+    effective({ "engineering.review_rounds": "3", "engineering.models.critic": "sonnet", "workflow.ci_attempts": "5" }),
+  );
+});
+
+test("config falls back from an invalid project value to the global one, and from an invalid global value to the default", () => {
+  const dir = home();
+  put(
+    join(dir, "config.yaml"),
+    "engineering:\n  review_rounds: -1\nworkflow:\n  ci_attempts: 4\n  open_pr: false\n  models:\n    reviewer: haiku\n",
+  );
+  put(
+    join(dir, "p", "config.yaml"),
+    "workflow:\n  ci_attempts: 0\n  open_pr: \"no\"\n  review_rounds: [1]\nstandards:\n  sre:\n    enabled: yes\n",
+  );
+  const res = run(dir, "config", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(effective({ "workflow.ci_attempts": "4", "workflow.open_pr": "false" }));
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
+      "theway: warning: config.yaml: workflow.models.reviewer must be opus or sonnet; ignored",
+      "theway: warning: p/config.yaml: workflow.ci_attempts must be a positive integer; ignored",
+      "theway: warning: p/config.yaml: workflow.open_pr must be true or false; ignored",
+      "theway: warning: p/config.yaml: workflow.review_rounds must be a non-negative integer; ignored",
+      "theway: warning: p/config.yaml: standards.sre.enabled must be true or false; ignored",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("config ignores an unknown key once at its highest level, a section that is not a map, and a root that is not a map", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "changes:\n  a: 1\n  b: 2\nengineering:\n  extra: 1\n  models: opus\n");
+  put(join(dir, "p", "config.yaml"), "- workflow\n");
+  const res = run(dir, "config", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(effective());
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: unknown key changes; ignored",
+      "theway: warning: config.yaml: unknown key engineering.extra; ignored",
+      "theway: warning: config.yaml: engineering.models must be a map; ignored",
+      "theway: warning: p/config.yaml: not a map; ignored",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("config takes an empty or comment-only file as contributing nothing", () => {
+  for (const [global, project] of [
+    ["", "# only a comment\n"],
+    ["# only a comment\n", ""],
+  ]) {
+    const dir = home();
+    put(join(dir, "config.yaml"), global as string);
+    put(join(dir, "p", "config.yaml"), project as string);
+    const res = run(dir, "config", "p");
+    expect([res.status, res.stdout, res.stderr]).toEqual([0, effective(), ""]);
+  }
+});
+
+test("config exits 1 with nothing on stdout for an invalid project, a missing global file or invalid YAML", () => {
+  const missing = home();
+  const cases: [string, string, string][] = [
+    [missing, "../x", `theway: invalid project '../x': must be letters, digits, ".", "_" or "-", not starting with "." or "-"\n`],
+    [missing, "p", `theway: config.yaml not found in ${missing}; run /theway:setup\n`],
+  ];
+  const badGlobal = home();
+  put(join(badGlobal, "config.yaml"), "a: [1\n");
+  put(join(badGlobal, "p", "config.yaml"), "workflow:\n  open_pr: false\n");
+  cases.push([
+    badGlobal,
+    "p",
+    "theway: config.yaml: invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1\n",
+  ]);
+  const badProject = home();
+  put(join(badProject, "config.yaml"), "workflow:\n  open_pr: 1\n");
+  put(join(badProject, "p", "config.yaml"), "engineering:\n  review_rounds: 1\n  review_rounds: 2\n");
+  cases.push([
+    badProject,
+    "p",
+    "theway: p/config.yaml: invalid YAML: Map keys must be unique at line 3, column 3\n",
+  ]);
+  for (const [dir, project, stderr] of cases) {
+    const res = run(dir, "config", project);
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", stderr]);
+  }
+});
+
+test.skipIf(process.getuid?.() === 0)("config exits 1 with nothing on stdout for a project file that cannot be read", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
+  put(join(dir, "p", "config.yaml"), "workflow:\n  open_pr: true\n");
+  chmodSync(join(dir, "p", "config.yaml"), 0o000);
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/config.yaml: cannot be read\n"]);
+});
+
+test("config prints only its own warning for a value yaml warns about", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: !foo false\n");
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([
+    0,
+    effective(),
+    "theway: warning: config.yaml: workflow.open_pr must be true or false; ignored\n",
+  ]);
+});
+
+test("config rejects a non-integer number for an integer key", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 1.5\nworkflow:\n  ci_attempts: 2.5\n");
+  const res = run(dir, "config", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(effective());
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
+      "theway: warning: config.yaml: workflow.ci_attempts must be a positive integer; ignored",
+      "",
+    ].join("\n"),
+  );
+});

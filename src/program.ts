@@ -1,6 +1,7 @@
 /** The theway command line: every subcommand with its arguments and flags. */
 import { Command, InvalidArgumentError } from "commander";
 import { cmdArchive } from "./core/archive";
+import { cmdConfig } from "./core/config";
 import { cmdList } from "./core/list";
 import { cmdPath } from "./core/path";
 import { cmdStandards } from "./core/standards";
@@ -37,6 +38,10 @@ export function buildProgram(): Command {
     .action((project: string | undefined, change: string | undefined, o: { verbose?: boolean }) =>
       exit(cmdPath(project, change, o.verbose === true)),
     );
+  program
+    .command("config")
+    .argument("<project>")
+    .action((project: string) => exit(cmdConfig(project)));
   program
     .command("standards")
     .argument("<project>")
