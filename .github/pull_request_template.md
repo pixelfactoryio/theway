@@ -1,13 +1,7 @@
 ## Summary
 
-<!-- What does this change do, and why? -->
+<!-- What does this change do, and why? Name the docs pages it updates. -->
 
 ## How was this tested
 
 <!-- Commands run, manual checks. -->
-
-## Checklist
-
-- [ ] The PR title is a Conventional Commit.
-- [ ] `bun test` passes.
-- [ ] Docs are updated.
