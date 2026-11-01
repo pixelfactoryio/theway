@@ -4,8 +4,8 @@ usage: "Create the spec of a fix- change: a bug reproduced, its root cause found
 agent_role: "Spec Analyst who reproduces a bug, traces it to its root cause and plans a fix the regression test proves, using the TAMM framework (Time/Autonomy/Mastery/Machine) for its risks"
 required_context:
   - "<home>/config.yaml - Global config"
-  - "<home>/data/standards/tamm-framework.md - TAMM framework"
-  - "<home>/data/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
+  - "<home>/standards/tamm-framework.md - TAMM framework"
+  - "<home>/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "The Reproduction quotes a command that was run and the output it printed; reasoning about the code is not a reproduction"

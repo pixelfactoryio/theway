@@ -19,21 +19,21 @@ You are now scaffolding a Spec analysis using templates.
 Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `/theway:setup`, and stop.
 - If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop.
-- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/data/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `/theway:setup` and stop.
+- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `/theway:setup` and stop.
 
 ## Workflow
 
-> Follow the conventions in `<home>/data/standards/interaction.md` (exploration, reporting and authority).
+> Follow the conventions in `<home>/standards/interaction.md` (exploration, reporting and authority).
 
 ### Step 1: Load Config and Standards
 
 Read these files from `<home>`:
 - `<home>/config.yaml` - Global config
-- `<home>/data/standards/tamm-framework.md` - TAMM framework
-- `<home>/data/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
-- `<home>/data/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
-- `<home>/data/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
-- `<home>/data/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
+- `<home>/standards/tamm-framework.md` - TAMM framework
+- `<home>/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
+- `<home>/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
+- `<home>/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
+- `<home>/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
 
 An opt-in standard is read only when its `enabled` is the boolean `true`; an absent entry or any other value means off.
 
@@ -127,7 +127,7 @@ Each round:
 
    Each critic's prompt states:
    - its lens and the finding format below;
-   - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the user standards (next item) and the `## Authority` section of `<home>/data/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
+   - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the user standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
    - the absolute paths of the user standards read in Step 1, which the spec must follow;
    - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
 

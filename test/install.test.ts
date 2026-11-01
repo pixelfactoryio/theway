@@ -11,6 +11,7 @@ import {
   lstatSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -21,9 +22,9 @@ import { dirname, join, resolve } from "node:path";
 
 const REPO = join(import.meta.dirname, "..");
 const CLI = join(REPO, "dist", "theway.js");
-const SHIPPED = join(REPO, "plugin", "templates", "theway");
+const SHIPPED = join(REPO, "plugin", "home");
 const SHIPPED_CONFIG = join(SHIPPED, "config.yaml");
-const SHIPPED_FILES = ["data/standards", "templates"].flatMap((d) =>
+const SHIPPED_FILES = ["standards", "templates"].flatMap((d) =>
   readdirSync(join(SHIPPED, d))
     .filter((n) => n.endsWith(".md"))
     .map((n) => `${d}/${n}`),
@@ -587,8 +588,9 @@ const sha256 = (text: string | Buffer) => createHash("sha256").update(text).dige
 const shipped = (rel: string) => readFileSync(join(SHIPPED, rel), "utf-8");
 const manifest = (env: Env): Record<string, string> =>
   JSON.parse(readFileSync(join(env.theway, ".shipped.json"), "utf-8"));
-const STD = "data/standards/develop.md";
-const STD_DEFAULT = "data/standards/develop.default.md";
+const STD = "standards/develop.md";
+const STD_DEFAULT = "standards/develop.default.md";
+const TPL = "templates/spec-template.md";
 
 /** Every file under `dir`, relative to it. */
 function walk(dir: string, prefix = ""): string[] {
@@ -608,20 +610,48 @@ test("install into a fresh home writes every shipped file and a manifest of thei
   expect(walk(env.theway).filter((f) => f.endsWith(".default.md") || f.endsWith(".bak"))).toEqual([]);
 });
 
-test("install over a home with a file no longer shipped keeps it and the user's config.yaml", () => {
+test("install removes an unedited standard no longer shipped, keeps an edited one, and keeps the user's config.yaml", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const OLD = "data/standards/architecture-principles.md";
-  const old = "# my architecture principles\n";
+  const GONE = "standards/architecture-principles.md";
+  const EDITED = "standards/old-rules.md";
+  const ORPHAN = "standards/old-rules.default.md";
   const config = "# my config\nstandards:\n  architecture:\n    enabled: true\n";
-  put(join(env.theway, OLD), old);
-  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), [OLD]: sha256(old) }));
+  put(join(env.theway, GONE), "# architecture principles\n");
+  put(join(env.theway, EDITED), "# my old rules\n");
+  put(join(env.theway, ORPHAN), "# old rules\n");
+  put(
+    join(env.theway, ".shipped.json"),
+    JSON.stringify({ ...manifest(env), [GONE]: sha256("# architecture principles\n"), [EDITED]: sha256("# old rules\n") }),
+  );
   put(join(env.theway, "config.yaml"), config);
-  expect(run(env, "install").status).toBe(0);
-  expect(readFileSync(join(env.theway, OLD), "utf-8")).toBe(old);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Removed ${GONE}: theway no longer ships it\n`);
+  expect(res.stdout).toContain(`Kept your edited ${EDITED}: theway no longer ships it, so it is now one of your standards\n`);
+  expect(existsSync(join(env.theway, GONE))).toBe(false);
+  expect(readFileSync(join(env.theway, EDITED), "utf-8")).toBe("# my old rules\n");
+  expect(existsSync(join(env.theway, ORPHAN))).toBe(false);
+  expect(manifest(env)[GONE]).toBeUndefined();
+  expect(manifest(env)[EDITED]).toBeUndefined();
   expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(config);
-  expect(manifest(env)[OLD]).toBeUndefined();
   expect(readFileSync(join(env.theway, "config.default.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
+  const again = run(env, "install");
+  expect(again.status).toBe(0);
+  expect(again.stdout).not.toContain("no longer ships");
+});
+
+test("install leaves a template no longer shipped untouched", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const OLD = "templates/old-template.md";
+  put(join(env.theway, OLD), "# old template\n");
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), [OLD]: sha256("# old template\n") }));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("no longer ships");
+  expect(readFileSync(join(env.theway, OLD), "utf-8")).toBe("# old template\n");
+  expect(manifest(env)[OLD]).toBeUndefined();
 });
 
 test("install updates an unedited file whose shipped version changed", () => {
@@ -652,23 +682,24 @@ test("install keeps an edited file and writes the shipped version next to it", (
   expect(manifest(env)[STD]).toBe(sha256(shipped(STD)));
 });
 
-test("install over a home without a manifest backs up a differing file, then follows the manifest", () => {
+test("install over a home without a manifest backs up a differing template, then follows the manifest", () => {
   const env = setup();
-  put(join(env.theway, STD), "# my develop\n");
+  const TPL_DEFAULT = "templates/spec-template.default.md";
+  put(join(env.theway, TPL), "# my spec template\n");
   const res = run(env, "install");
   expect(res.status).toBe(0);
-  expect(res.stdout).toContain(`Replaced ${STD}; your previous version is in ${STD}.bak\n`);
-  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
-  expect(readFileSync(join(env.theway, `${STD}.bak`), "utf-8")).toBe("# my develop\n");
-  expect(manifest(env)[STD]).toBe(sha256(shipped(STD)));
+  expect(res.stdout).toContain(`Replaced ${TPL}; your previous version is in ${TPL}.bak\n`);
+  expect(readFileSync(join(env.theway, TPL), "utf-8")).toBe(shipped(TPL));
+  expect(readFileSync(join(env.theway, `${TPL}.bak`), "utf-8")).toBe("# my spec template\n");
+  expect(manifest(env)[TPL]).toBe(sha256(shipped(TPL)));
 
-  put(join(env.theway, STD), "# my develop again\n");
+  put(join(env.theway, TPL), "# my spec template again\n");
   const again = run(env, "install");
   expect(again.status).toBe(0);
   expect(again.stdout).not.toContain("Replaced");
-  expect(again.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
-  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop again\n");
-  expect(readFileSync(join(env.theway, `${STD}.bak`), "utf-8")).toBe("# my develop\n");
+  expect(again.stdout).toContain(`Kept your edited ${TPL} (shipped version: ${TPL_DEFAULT})\n`);
+  expect(readFileSync(join(env.theway, TPL), "utf-8")).toBe("# my spec template again\n");
+  expect(readFileSync(join(env.theway, `${TPL}.bak`), "utf-8")).toBe("# my spec template\n");
 });
 
 test("install removes the stale shipped copy once an edit is reverted to the shipped content", () => {
@@ -717,7 +748,6 @@ test("install removes the stale shipped copy once an edited file is deleted", ()
 test("install backs up a differing file the manifest has no entry for", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const TPL = "templates/spec-template.md";
   const { [TPL]: _, ...rest } = manifest(env);
   put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
   put(join(env.theway, TPL), "# my spec template\n");
@@ -731,23 +761,226 @@ test("install backs up a differing file the manifest has no entry for", () => {
 
 test("install keeps an existing differing backup and writes the next free one", () => {
   const env = setup();
-  put(join(env.theway, `${STD}.bak`), "# earlier edit\n");
-  put(join(env.theway, STD), "# my develop\n");
+  put(join(env.theway, `${TPL}.bak`), "# earlier edit\n");
+  put(join(env.theway, TPL), "# my spec template\n");
   const res = run(env, "install");
   expect(res.status).toBe(0);
-  expect(res.stdout).toContain(`Replaced ${STD}; your previous version is in ${STD}.bak.1\n`);
-  expect(readFileSync(join(env.theway, `${STD}.bak`), "utf-8")).toBe("# earlier edit\n");
-  expect(readFileSync(join(env.theway, `${STD}.bak.1`), "utf-8")).toBe("# my develop\n");
-  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+  expect(res.stdout).toContain(`Replaced ${TPL}; your previous version is in ${TPL}.bak.1\n`);
+  expect(readFileSync(join(env.theway, `${TPL}.bak`), "utf-8")).toBe("# earlier edit\n");
+  expect(readFileSync(join(env.theway, `${TPL}.bak.1`), "utf-8")).toBe("# my spec template\n");
+  expect(readFileSync(join(env.theway, TPL), "utf-8")).toBe(shipped(TPL));
 });
 
 test("install treats an invalid manifest as absent", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
   put(join(env.theway, ".shipped.json"), "{not json");
+  put(join(env.theway, TPL), "# my spec template\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Replaced ${TPL}; your previous version is in ${TPL}.bak\n`);
+  expect(manifest(env)[TPL]).toBe(sha256(shipped(TPL)));
+});
+
+test("install over a home without a manifest keeps a differing standard as edited", () => {
+  const env = setup();
   put(join(env.theway, STD), "# my develop\n");
   const res = run(env, "install");
   expect(res.status).toBe(0);
-  expect(res.stdout).toContain(`Replaced ${STD}; your previous version is in ${STD}.bak\n`);
+  expect(res.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
+  expect(res.stdout).not.toContain("Replaced");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, `${STD}.bak`))).toBe(false);
   expect(manifest(env)[STD]).toBe(sha256(shipped(STD)));
+});
+
+test("install keeps a user standard with a newly shipped name, on every install while the clash lasts", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const { [STD]: _, ...rest } = manifest(env);
+  put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
+  put(join(env.theway, STD), "# my own develop standard\n");
+  const line = `Kept your ${STD}: theway now ships a file with that name (its version: ${STD_DEFAULT})\n`;
+  for (let i = 0; i < 2; i++) {
+    const res = run(env, "install");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain(line);
+    expect(res.stdout).not.toContain("Replaced");
+    expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my own develop standard\n");
+    expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+    expect(existsSync(join(env.theway, `${STD}.bak`))).toBe(false);
+    expect(manifest(env)[STD]).toBeUndefined();
+  }
+});
+
+test("install records a user standard identical to the newly shipped one, with no line", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const { [STD]: _, ...rest } = manifest(env);
+  put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain(STD);
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(false);
+  expect(manifest(env)[STD]).toBe(sha256(shipped(STD)));
+});
+
+const OLD_STD = "data/standards/develop.md";
+const OLD_STD_DEFAULT = "data/standards/develop.default.md";
+
+/** Turns a freshly installed home into one installed with the old layout: standards in `data/standards/`, keys `data/standards/<name>`. */
+function oldLayout(env: Env): Record<string, string> {
+  expect(run(env, "install").status).toBe(0);
+  mkdirSync(join(env.theway, "data"));
+  renameSync(join(env.theway, "standards"), join(env.theway, "data", "standards"));
+  const old = Object.fromEntries(
+    Object.entries(manifest(env)).map(([k, v]) => [k.startsWith("standards/") ? `data/${k}` : k, v]),
+  );
+  put(join(env.theway, ".shipped.json"), JSON.stringify(old));
+  return old;
+}
+
+test("install moves the standards of an old-layout home as they are, keeps their hashes and removes the empty data/", () => {
+  const env = setup();
+  const old = oldLayout(env);
+  // develop.md edited, with the shipped copy an earlier install kept next to it; sre.md an unedited older shipped version.
+  const SRE = "standards/sre.md";
+  put(join(env.theway, OLD_STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), "# older shipped develop\n");
+  put(join(env.theway, `data/${SRE}`), "# older shipped sre\n");
+  const hashes = { ...old, [OLD_STD]: sha256("# older shipped develop\n"), [`data/${SRE}`]: sha256("# older shipped sre\n") };
+  put(join(env.theway, ".shipped.json"), JSON.stringify(hashes));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(res.stdout).not.toContain("Replaced");
+  expect(res.stdout).not.toContain(`Kept your ${STD}:`);
+  expect(res.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+  // The kept hash marks sre.md unedited, so install updates it.
+  expect(readFileSync(join(env.theway, SRE), "utf-8")).toBe(shipped(SRE));
+  for (const rel of SHIPPED_FILES) {
+    if (rel !== STD) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
+  }
+  expect(Object.keys(manifest(env)).sort()).toEqual([...SHIPPED_FILES].sort());
+});
+
+test("install moves an old .default.md copy only when standards/ has none", () => {
+  const env = setup();
+  oldLayout(env);
+  put(join(env.theway, OLD_STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), shipped(STD));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+});
+
+test("install leaves an old .default.md copy when standards/ already has one, and keeps data/", () => {
+  const env = setup();
+  oldLayout(env);
+  put(join(env.theway, OLD_STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), "# old shipped copy\n");
+  put(join(env.theway, STD_DEFAULT), "# existing copy\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("Left data/: it still holds files theway does not ship\n");
+  expect(readFileSync(join(env.theway, OLD_STD_DEFAULT), "utf-8")).toBe("# old shipped copy\n");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+});
+
+test("install finishes a migration interrupted between moving a standard and its .default.md copy", () => {
+  const env = setup();
+  oldLayout(env);
+  mkdirSync(join(env.theway, "standards"));
+  renameSync(join(env.theway, OLD_STD), join(env.theway, STD));
+  put(join(env.theway, STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), "# old shipped copy\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(res.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+});
+
+test("install removes an empty data/standards/ and data/ left by an earlier migration, with no line", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  mkdirSync(join(env.theway, "data", "standards"), { recursive: true });
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+});
+
+test("install keeps a folder in standards/ whose name ends in .default.md", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  mkdirSync(join(env.theway, "standards", "x.default.md"));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(statSync(join(env.theway, "standards", "x.default.md")).isDirectory()).toBe(true);
+});
+
+test("install keeps data/ with its line when data/standards/ holds a file the manifest does not list", () => {
+  const env = setup();
+  oldLayout(env);
+  put(join(env.theway, "data", "standards", "mine.md"), "# mine\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("Left data/: it still holds files theway does not ship\n");
+  expect(readFileSync(join(env.theway, "data", "standards", "mine.md"), "utf-8")).toBe("# mine\n");
+  expect(existsSync(join(env.theway, "standards", "mine.md"))).toBe(false);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+});
+
+test("install leaves an old standard whose new path already exists, and one theway no longer ships", () => {
+  const env = setup();
+  const old = oldLayout(env);
+  const GONE = "data/standards/architecture-principles.md";
+  put(join(env.theway, GONE), "# architecture principles\n");
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...old, [GONE]: sha256("# architecture principles\n") }));
+  put(join(env.theway, STD), "# my own develop standard\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Left ${OLD_STD}: ${STD} already exists\n`);
+  expect(res.stdout).toContain(`Left ${GONE}: theway no longer ships it\n`);
+  expect(res.stdout).toContain("Left data/: it still holds files theway does not ship\n");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my own develop standard\n");
+  expect(readFileSync(join(env.theway, OLD_STD), "utf-8")).toBe(shipped(STD));
+  expect(readFileSync(join(env.theway, GONE), "utf-8")).toBe("# architecture principles\n");
+  expect(Object.keys(manifest(env)).filter((k) => k.startsWith("data/"))).toEqual([]);
+  expect(manifest(env)["standards/architecture-principles.md"]).toBeUndefined();
+});
+
+test("install finishes a partial migration and drops a key whose files are both gone", () => {
+  const env = setup();
+  const old = oldLayout(env);
+  // develop.md was moved before a crash, its key still data/standards/develop.md; it holds an unedited older version.
+  mkdirSync(join(env.theway, "standards"));
+  renameSync(join(env.theway, OLD_STD), join(env.theway, STD));
+  put(join(env.theway, STD), "# older shipped develop\n");
+  const SRE = "data/standards/sre.md";
+  rmSync(join(env.theway, SRE));
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...old, [OLD_STD]: sha256("# older shipped develop\n") }));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(res.stdout).not.toContain("Kept your");
+  expect(existsSync(join(env.theway, STD_DEFAULT))).toBe(false);
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+  // The renamed key keeps the hash of the older version, so install updates the file as unedited.
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe(shipped(STD));
+  expect(manifest(env)[STD]).toBe(sha256(shipped(STD)));
+  expect(manifest(env)[SRE]).toBeUndefined();
+  // With the key dropped, sre.md is a missing shipped file: written from the release.
+  expect(readFileSync(join(env.theway, "standards", "sre.md"), "utf-8")).toBe(shipped("standards/sre.md"));
 });
