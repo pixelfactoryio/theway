@@ -78,7 +78,7 @@ The command quotes that warning in its report, so you can fix the file. `applies
 
 ## Switching a standard
 
-`standards.<key>.enabled` in [`config.yaml`](../configuration.mdx#standards) switches any standard, the opt-in ones and yours. The key is the file stem with `-` turned into `_`: `tdd.md` is `standards.tdd`, `code-review.md` is `standards.code_review`. Two files whose stems give the same key, such as `a-b.md` and `a_b.md`, share it.
+`standards.<key>.enabled` in [`config.yaml`](../configuration.mdx#standards) switches any standard, the opt-in ones and yours. The key is the file stem with `-` turned into `_`: `tdd.md` is `standards.tdd`, `code-review.md` is `standards.code_review`. Two files whose stems give the same key, such as `a-b.md` and `a_b.md`, share it. When one of them is a shipped opt-in standard, such as `web-development.md` beside your `web_development.md`, the key defaults to `false`.
 
 - **Defaults:** the four shipped opt-in standards are off, user standards are on.
 - **Project override:** the project's `<home>/<project>/config.yaml` overrides the global one key by key (see [Layering](../configuration.mdx#layering)), so a project can switch a global standard off, or an opt-in one on, for itself only.
