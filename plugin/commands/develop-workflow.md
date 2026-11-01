@@ -35,7 +35,6 @@ Run Steps 1-6 as a loop, once per change ID, in order.
 ### Step 1: Load Context
 
 Run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>` for this change. Then read these exact paths directly — do not search the filesystem to locate them:
-- `<home>/config.yaml` - Global config
 - `<home>/standards/develop.md` - How a change is implemented and verified (given to every implementer)
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria
 - `<change-dir>/tasks.md` - The work, as numbered tasks
@@ -44,11 +43,9 @@ Run `theway path <project> <change-id>` and use the folder it prints as `<change
 
 Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
 
-From `<home>/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
+Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
 
-Also take `workflow.open_pr` (default `true`): when it is `false`, Step 5 is skipped and nothing is pushed. A value that is not a boolean takes the default.
-
-Also take the agent models from `workflow.models`: `implementer` (default `opus`), `reviewer` (default `opus`), `fix` (default `opus`) and `ci` (default `sonnet`). Each must be `opus` or `sonnet`; a key that is absent or holds any other value takes its default.
+Take `workflow.review_rounds`, `workflow.ci_attempts`, `workflow.open_pr` (when it is `false`, Step 5 is skipped and nothing is pushed) and the agent models `workflow.models.implementer`, `reviewer`, `fix` and `ci`.
 
 ### Step 2: Branch
 

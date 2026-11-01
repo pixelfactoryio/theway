@@ -22,7 +22,6 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 ### Step 1: Load Context
 
 Take the change ID from the user's request (e.g. "develop the add-redis-cache change" → `add-redis-cache`); only ask if none is given. Run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>`. Then read these exact paths directly — do not search the filesystem to locate them:
-- `<home>/config.yaml` - Global config
 - `<home>/standards/develop.md` - How a change is implemented and verified
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria
 - `<change-dir>/tasks.md` - The work, as numbered tasks

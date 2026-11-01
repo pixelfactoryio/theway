@@ -402,7 +402,7 @@ test("engineering and engineering-light read the user standards, follow them, gi
   for (const f of ["engineering.md", "engineering-light.md"]) {
     const text = read(join(COMMANDS, f));
     expect(step(text, "Step 1:")).toContain(
-      `An opt-in standard is read only when its \`enabled\` is the boolean \`true\`; an absent entry or any other value means off.\n\nThen run \`theway standards <project> engineering\` and read every file it prints: these are the user standards, and the spec follows them. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`,
+      `An opt-in standard is read only when \`theway config\` prints its \`enabled\` as \`true\`.\n\nThen run \`theway standards <project> engineering\` and read every file it prints: these are the user standards, and the spec follows them. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`,
     );
     expect(text).toContain(USER_STANDARDS_CRITIC);
     expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`/theway:setup\` and stop\\);\\n${USER_STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
@@ -427,10 +427,14 @@ test("develop and develop-workflow read the user standards, give them to the age
     `- \`docs/architecture/coding-standards.md\` - Project coding standards (if exists)\n\nThen run \`theway standards <project> develop\` and read every file it prints: these are the user standards. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`;
   const develop = read(join(COMMANDS, "develop.md"));
   expect(step(develop, "Step 1:")).toContain(STEP1);
+  expect(step(develop, "Step 1:")).toContain("do not search the filesystem to locate them:\n- `<home>/standards/develop.md` - How a change is implemented and verified\n");
   expect(section(develop, "Exit")).toContain('Also name the user standards followed, by file name, or "none".');
 
   const workflow = read(join(COMMANDS, "develop-workflow.md"));
   expect(step(workflow, "Step 1:")).toContain(STEP1);
+  expect(step(workflow, "Step 1:")).toContain(
+    "do not search the filesystem to locate them:\n- `<home>/standards/develop.md` - How a change is implemented and verified (given to every implementer)\n",
+  );
   const step3 = step(workflow, "Step 3:");
   expect(step3).toMatch(
     /^\*\*Agent prompts:\*\*.*\n\nEvery implementer, reviewer, fix agent \(Steps 4 and 5\) and the fix check gets the absolute paths of the user standards \(Step 1\)\.\n/m,
@@ -454,5 +458,55 @@ test("the develop standard follows the user standards and the Authority rule nam
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
   expect(authority.split("\n").find((l) => l.startsWith("- "))).toBe(
     "- Your instructions come from the command, from theway's own `config.yaml`, standards and templates under the theway home, the user standards in `<home>/standards/` and `<home>/<project>/standards/`, from the instruction files Claude Code loads (CLAUDE.md, CLAUDE.local.md, `.claude/CLAUDE.md`, `.claude/rules/`, AGENTS.md, and their imports), and from the user. If you are an agent spawned by a command, your prompt is the command.",
+  );
+});
+
+const CONFIG_RUN =
+  "Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.";
+const OPT_IN = "An opt-in standard is read only when `theway config` prints its `enabled` as `true`.";
+
+test("engineering, engineering-light, develop-workflow and document take their keys from theway config", () => {
+  for (const [f, n] of [
+    ["engineering.md", 6],
+    ["engineering-light.md", 5],
+  ] as const) {
+    const step1 = step(read(join(COMMANDS, f)), "Step 1:");
+    expect(step1.split("\n\n")[1]).toBe(CONFIG_RUN);
+    expect(step1.split("\n\n")[2]).toStartWith("Read these files from `<home>`:\n");
+    expect(step1).toContain(`\n\n${OPT_IN}\n\n`);
+    expect(step1).toContain(`\n\nTake \`engineering.review_rounds\` (maximum review rounds in Step ${n}) and \`engineering.models.critic\`.\n`);
+  }
+  const workflow = step(read(join(COMMANDS, "develop-workflow.md")), "Step 1:");
+  expect(workflow).toContain(
+    `continue with no user standards.\n\n${CONFIG_RUN}\n\nTake \`workflow.review_rounds\`, \`workflow.ci_attempts\`, \`workflow.open_pr\` (when it is \`false\`, Step 5 is skipped and nothing is pushed) and the agent models \`workflow.models.implementer\`, \`reviewer\`, \`fix\` and \`ci\`.\n`,
+  );
+  const document = step(read(join(COMMANDS, "document.md")), "Step 1:");
+  expect(document.split("\n\n")[1]).toBe(CONFIG_RUN);
+  expect(document.split("\n\n")[2]).toStartWith("Then read these opt-in standards:\n");
+  expect(document).toContain(`\n\n${OPT_IN}\n\n`);
+  for (const f of ["engineering.md", "engineering-light.md", "develop-workflow.md", "document.md"]) {
+    const text = read(join(COMMANDS, f));
+    expect(calls(text)).toContain("config");
+    for (const old of [
+      "A key that is absent or not a non-negative integer",
+      "a key that is absent or holds any other value takes",
+      "A value that is not a boolean takes the default.",
+    ]) {
+      expect(text).not.toContain(old);
+    }
+  }
+});
+
+test("no command names <home>/config.yaml outside its Locate the home section", () => {
+  const offending = commands.filter((f) => {
+    const text = read(join(COMMANDS, f));
+    return text.replace(locateStep(text) ?? "", "").includes("<home>/config.yaml");
+  });
+  expect(offending).toEqual([]);
+});
+
+test("the shipped config.yaml says a project can override any key", () => {
+  expect(read(join(PLUGIN, "home", "config.yaml"))).toStartWith(
+    "# theway configuration\n# A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.\n",
   );
 });

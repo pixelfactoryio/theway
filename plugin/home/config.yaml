@@ -1,4 +1,5 @@
 # theway configuration
+# A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.
 
 # Opt-in standards: read by /theway:engineering and /theway:document only when enabled is true
 standards:
