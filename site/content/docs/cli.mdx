@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its seven subcommands.
+description: The theway command line and its eight subcommands.
 ---
 
-The `theway` program has seven subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `standards` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has eight subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install
@@ -11,6 +11,7 @@ theway uninstall
 theway list <project>
 theway archive <project> <change-id> [--force]
 theway path [<project> [<change-id>]] [--verbose]
+theway config <project>
 theway standards <project> <engineering|develop>
 theway validate-id <id> [--series]
 ```
@@ -106,6 +107,52 @@ A change id must be lowercase letters and digits in words separated by single hy
 ```text
 theway: invalid change id '..': must be lowercase letters and digits in words separated by single hyphens
 ```
+
+## config
+
+```bash
+theway config <project>
+```
+
+Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, `/theway:engineering-light`, `/theway:develop-workflow` and `/theway:document` run it and take their keys from its output.
+
+```text
+standards:
+  core_principles:
+    enabled: false
+  ...
+workflow:
+  ...
+  models:
+    implementer: opus
+    reviewer: opus
+    fix: opus
+    ci: sonnet
+```
+
+An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `<project>/config.yaml`:
+
+```text
+theway: warning: <file>: <key> must be <rule>; ignored
+theway: warning: <file>: unknown key <key>; ignored
+theway: warning: <file>: <key> must be a map; ignored
+theway: warning: <file>: not a map; ignored
+```
+
+It exits 1 and prints nothing on stdout when:
+
+- `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;
+- `<home>/config.yaml` is missing:
+
+  ```text
+  theway: config.yaml not found in <home>; run /theway:setup
+  ```
+
+- either file is not valid YAML, duplicate keys included:
+
+  ```text
+  theway: <file>: invalid YAML: Map keys must be unique at line 3, column 3
+  ```
 
 ## standards
 

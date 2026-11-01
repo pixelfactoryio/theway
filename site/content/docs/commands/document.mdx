@@ -13,7 +13,7 @@ Three documents come from templates; others are added as the project needs them.
 
 ## Steps
 
-1. Reads `~/.theway/config.yaml`, and the opt-in standards that are enabled.
+1. Runs [`theway config <project>`](../cli.mdx#config), takes the opt-in flags from what it prints, and reads the opt-in standards that are enabled.
 2. Generates each document from its template, following the template's frontmatter instructions. An existing file is overwritten.
 
    | Template | Output |
