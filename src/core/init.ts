@@ -7,6 +7,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 
@@ -55,9 +56,10 @@ function backupPath(home: string, rel: string, current: Buffer): string {
 
 const baseOf = (name: string) => name.slice(0, -".md".length);
 
-/** Removes `dir` when it exists and is empty; true when it is gone. */
+/** Removes `dir` when it is an empty folder; true when it is gone. */
 function removeIfEmpty(dir: string): boolean {
   if (!existsSync(dir)) return true;
+  if (!statSync(dir).isDirectory()) return false;
   if (readdirSync(dir).length > 0) return false;
   rmSync(dir, { recursive: true });
   return true;
@@ -65,45 +67,46 @@ function removeIfEmpty(dir: string): boolean {
 
 /**
  * Moves the shipped standards of a home installed with the old layout from `data/standards/` to `standards/`,
- * as they are, and renames their manifest keys. Runs only when the previous manifest has `data/standards/` keys.
+ * as they are, and renames their manifest keys. Moves only when the previous manifest has `data/standards/` keys;
+ * on every install, removes `data/standards/` and then `data/` when they are empty.
  */
 function migrateDataStandards(src: string, home: string): void {
   const previous = readManifest(home);
-  if (previous === undefined) return;
   const prefix = "data/standards/";
-  const keys = Object.keys(previous).filter((k) => k.startsWith(prefix));
-  if (keys.length === 0) return;
-  const manifest: Manifest = {};
-  for (const [key, hash] of Object.entries(previous)) if (!key.startsWith(prefix)) manifest[key] = hash;
-  for (const key of keys) {
-    const name = key.slice(prefix.length);
-    const hash = previous[key] as string;
-    const oldPath = `${home}/data/standards/${name}`;
-    const newRel = `standards/${name}`;
-    const newPath = `${home}/${newRel}`;
-    const oldExists = existsSync(oldPath);
-    const newExists = existsSync(newPath);
-    if (!oldExists && newExists) {
-      manifest[newRel] = hash;
-    } else if (!oldExists) {
-      // The user deleted it: drop the key.
-    } else if (!existsSync(`${src}/standards/${name}`)) {
-      process.stdout.write(`Left data/standards/${name}: theway no longer ships it\n`);
-    } else if (newExists) {
-      process.stdout.write(`Left data/standards/${name}: standards/${name} already exists\n`);
-    } else {
-      mkdirSync(`${home}/standards`, { recursive: true });
-      renameSync(oldPath, newPath);
+  const keys = Object.keys(previous ?? {}).filter((k) => k.startsWith(prefix));
+  if (previous !== undefined && keys.length > 0) {
+    const manifest: Manifest = {};
+    for (const [key, hash] of Object.entries(previous)) if (!key.startsWith(prefix)) manifest[key] = hash;
+    for (const key of keys) {
+      const name = key.slice(prefix.length);
+      const hash = previous[key] as string;
+      const oldPath = `${home}/data/standards/${name}`;
+      const newRel = `standards/${name}`;
+      const newPath = `${home}/${newRel}`;
+      const oldExists = existsSync(oldPath);
+      const newExists = existsSync(newPath);
       const oldDefault = `${home}/data/standards/${baseOf(name)}.default.md`;
       const newDefault = `${home}/standards/${baseOf(name)}.default.md`;
-      if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault);
-      manifest[newRel] = hash;
+      if (!oldExists && newExists) {
+        if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault);
+        manifest[newRel] = hash;
+      } else if (!oldExists) {
+        // The user deleted it: drop the key.
+      } else if (!existsSync(`${src}/standards/${name}`)) {
+        process.stdout.write(`Left data/standards/${name}: theway no longer ships it\n`);
+      } else if (newExists) {
+        process.stdout.write(`Left data/standards/${name}: standards/${name} already exists\n`);
+      } else {
+        mkdirSync(`${home}/standards`, { recursive: true });
+        renameSync(oldPath, newPath);
+        if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault);
+        manifest[newRel] = hash;
+      }
     }
+    writeManifest(home, manifest);
   }
-  writeManifest(home, manifest);
-  if (!(removeIfEmpty(`${home}/data/standards`) && removeIfEmpty(`${home}/data`))) {
-    process.stdout.write("Left data/: it still holds files theway does not ship\n");
-  }
+  const dataGone = removeIfEmpty(`${home}/data/standards`) && removeIfEmpty(`${home}/data`);
+  if (keys.length > 0 && !dataGone) process.stdout.write("Left data/: it still holds files theway does not ship\n");
 }
 
 /**
@@ -172,8 +175,9 @@ function copyShipped(src: string, home: string): void {
           process.stdout.write(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your standards\n`);
         }
       }
-      for (const file of readdirSync(`${home}/${dir}`)) {
-        if (!file.endsWith(".default.md")) continue;
+      for (const entry of readdirSync(`${home}/${dir}`, { withFileTypes: true })) {
+        const file = entry.name;
+        if (!entry.isFile() || !file.endsWith(".default.md")) continue;
         if (!names.includes(`${file.slice(0, -".default.md".length)}.md`)) rmSync(`${home}/${dir}/${file}`, { force: true });
       }
     }

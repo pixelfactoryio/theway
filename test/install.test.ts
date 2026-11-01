@@ -881,6 +881,55 @@ test("install moves an old .default.md copy only when standards/ has none", () =
   expect(existsSync(join(env.theway, "data"))).toBe(false);
 });
 
+test("install leaves an old .default.md copy when standards/ already has one, and keeps data/", () => {
+  const env = setup();
+  oldLayout(env);
+  put(join(env.theway, OLD_STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), "# old shipped copy\n");
+  put(join(env.theway, STD_DEFAULT), "# existing copy\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("Left data/: it still holds files theway does not ship\n");
+  expect(readFileSync(join(env.theway, OLD_STD_DEFAULT), "utf-8")).toBe("# old shipped copy\n");
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+});
+
+test("install finishes a migration interrupted between moving a standard and its .default.md copy", () => {
+  const env = setup();
+  oldLayout(env);
+  mkdirSync(join(env.theway, "standards"));
+  renameSync(join(env.theway, OLD_STD), join(env.theway, STD));
+  put(join(env.theway, STD), "# my develop\n");
+  put(join(env.theway, OLD_STD_DEFAULT), "# old shipped copy\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(res.stdout).toContain(`Kept your edited ${STD} (shipped version: ${STD_DEFAULT})\n`);
+  expect(readFileSync(join(env.theway, STD), "utf-8")).toBe("# my develop\n");
+  expect(readFileSync(join(env.theway, STD_DEFAULT), "utf-8")).toBe(shipped(STD));
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+});
+
+test("install removes an empty data/standards/ and data/ left by an earlier migration, with no line", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  mkdirSync(join(env.theway, "data", "standards"), { recursive: true });
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Left");
+  expect(existsSync(join(env.theway, "data"))).toBe(false);
+});
+
+test("install keeps a folder in standards/ whose name ends in .default.md", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  mkdirSync(join(env.theway, "standards", "x.default.md"));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(statSync(join(env.theway, "standards", "x.default.md")).isDirectory()).toBe(true);
+});
+
 test("install keeps data/ with its line when data/standards/ holds a file the manifest does not list", () => {
   const env = setup();
   oldLayout(env);
