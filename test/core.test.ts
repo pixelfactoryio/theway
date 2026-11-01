@@ -292,6 +292,22 @@ test("standards prints global files before project files, each sorted, a project
   );
 });
 
+test("standards skips the files install ships into the global folder and their .default.md copies", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/sre.md": "x", "templates/spec-template.md": "y" })}\n`);
+  put(join(g, "sre.md"), "# shipped\n");
+  put(join(g, "sre.default.md"), "# shipped default\n");
+  put(join(g, "develop.default.md"), "# another default copy\n");
+  put(join(g, "tdd.md"), "# yours\n");
+  for (const phase of ["engineering", "develop"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "tdd.md")}\n`, ""]);
+  }
+  put(join(dir, "p", "standards", "sre.md"), "# project sre\n");
+  expect(run(dir, "standards", "p", "develop").stdout).toBe(`${join(g, "tdd.md")}\n${join(dir, "p", "standards", "sre.md")}\n`);
+});
+
 test("standards applies applies_to: none, both, a flow list of one phase, a block list of one phase", () => {
   const dir = home();
   const p = join(dir, "p", "standards");

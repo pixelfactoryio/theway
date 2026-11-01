@@ -114,7 +114,7 @@ theway standards <project> engineering
 theway standards <project> develop
 ```
 
-Prints the absolute path of every [user standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. A project file with the same name as a global one replaces it. A file applies to the phases its `applies_to` frontmatter lists, or to both without one. With nothing to print, it prints nothing and exits 0.
+Prints the absolute path of every [user standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored, and so are the files of `<home>/standards/` that `.shipped.json` lists as `standards/<name>` and any `*.default.md` copy there, which belong to theway. A project file with the same name as a global one replaces it. A file applies to the phases its `applies_to` frontmatter lists, or to both without one. With nothing to print, it prints nothing and exits 0.
 
 ```text
 /home/you/.theway/standards/tdd.md

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isFile, thewayHome } from "./io";
+import { readManifest } from "./init";
 import { invalidSegments } from "./path";
 
 const PHASES = ["engineering", "develop"] as const;
@@ -65,7 +66,11 @@ function phasesOf(path: string): readonly Phase[] {
   return phases;
 }
 
-/** `theway standards <project> <engineering|develop>`: the user standards that apply, global ones first. */
+/**
+ * `theway standards <project> <engineering|develop>`: the user standards that apply, global ones first.
+ * `<home>/standards/` is shared with the files install ships there: a name `.shipped.json` lists as `standards/<name>`,
+ * and any `*.default.md` copy, is theway's, not a user standard.
+ */
 export function cmdStandards(project: string, phase: string): number {
   if (invalidSegments([["project", project]])) return 1;
   if (SHARED.has(project)) {
@@ -84,8 +89,10 @@ export function cmdStandards(project: string, phase: string): number {
   const globalDir = join(home, "standards");
   const projectDir = join(home, project, "standards");
   const projectNames = mdFiles(projectDir);
+  const shipped = readManifest(home) ?? {};
   const candidates = [
     ...mdFiles(globalDir)
+      .filter((n) => !(`standards/${n}` in shipped) && !n.endsWith(".default.md"))
       .filter((n) => !projectNames.includes(n))
       .map((n) => join(globalDir, n)),
     ...projectNames.map((n) => join(projectDir, n)),

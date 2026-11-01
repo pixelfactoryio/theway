@@ -21,7 +21,9 @@ A user standard is a Markdown file of your own rules, such as test-first, that t
 - `<home>/standards/` holds the standards of every project.
 - `<home>/<project>/standards/` holds the standards of one project, beside its `changes/` folder.
 
-Both folders are optional. Install never touches them.
+Both folders are optional. Install never touches your files in them.
+
+`<home>/standards/` can also hold files theway ships: a file `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
 
 **Order:** the global files come first, then the project files, each group sorted by name.
 
