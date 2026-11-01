@@ -351,7 +351,7 @@ export function install(): number {
   } catch (e) {
     return fail(`theway: ${(e as Error).message}`);
   }
-  const status = init(join(plugin, "templates", "theway"), tHome);
+  const status = init(join(plugin, "home"), tHome);
   if (status !== 0) return status;
   try {
     writePointer(tHome, custom);

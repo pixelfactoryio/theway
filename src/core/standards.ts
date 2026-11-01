@@ -7,8 +7,8 @@ import { invalidSegments } from "./path";
 const PHASES = ["engineering", "develop"] as const;
 type Phase = (typeof PHASES)[number];
 
-/** Project names whose folder under the home holds theway's own files. */
-const SHARED = new Set(["data", "templates"]);
+/** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
+const SHARED = new Set(["data", "templates", "standards"]);
 
 /** The names of the regular `.md` files directly in `dir`, sorted; none when it is missing. */
 function mdFiles(dir: string): string[] {

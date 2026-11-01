@@ -4,7 +4,7 @@ usage: "Document project-specific coding conventions when using /theway:document
 agent_role: "System Architect documenting coding standards"
 required_context:
   - "<home>/config.yaml - Global config"
-  - "<home>/data/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
+  - "<home>/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "Existing codebase - Review actual patterns and conventions in use"
 quality_standards:
   - "Conventions reflect actual codebase patterns (not aspirational)"

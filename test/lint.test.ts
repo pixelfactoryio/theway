@@ -52,6 +52,7 @@ test("every command that reads theway data has the same Locate the home step", (
   expect(reference).toContain("Run `theway path`");
   expect(reference).toContain("Do not check for files under `<home>` before reading them");
   expect(reference).not.toContain("`<home>/config.yaml` doesn't exist");
+  expect(reference).toContain("a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist");
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
@@ -109,7 +110,7 @@ test("engineering.md runs the spec review the shipped config.yaml sets up", () =
   expect(engineering).toMatch(/^### Step 6: Review$/m);
   expect(engineering).toContain("engineering.review_rounds");
   expect(engineering).toContain("engineering.models.critic");
-  const config = Bun.YAML.parse(read(join(PLUGIN, "templates", "theway", "config.yaml"))) as {
+  const config = Bun.YAML.parse(read(join(PLUGIN, "home", "config.yaml"))) as {
     engineering?: { review_rounds?: unknown; models?: { critic?: unknown } };
   };
   expect(config.engineering?.review_rounds).toBe(1);
@@ -117,10 +118,10 @@ test("engineering.md runs the spec review the shipped config.yaml sets up", () =
 });
 
 test("the shipped defaults are neutral and the four architecture standards are opt-in", () => {
-  const THEWAY = join(PLUGIN, "templates", "theway");
-  const TEMPLATES = join(THEWAY, "templates");
+  const HOME = join(PLUGIN, "home");
+  const TEMPLATES = join(HOME, "templates");
   const all = files(PLUGIN);
-  expect(all.filter((f) => read(f).includes("SRE-EE"))).toEqual([join(THEWAY, "data", "standards", "sre.md")]);
+  expect(all.filter((f) => read(f).includes("SRE-EE"))).toEqual([join(HOME, "standards", "sre.md")]);
   expect(all.filter((f) => read(f).includes("architecture-principles"))).toEqual([]);
   for (const name of ["spec-template.md", "fix-spec-template.md", "light-spec-template.md", "tasks-template.md"]) {
     const template = read(join(TEMPLATES, name));
@@ -133,7 +134,7 @@ test("the shipped defaults are neutral and the four architecture standards are o
     expect(techStack).toContain(`\n## ${heading}\n[Omit this section if the repository has none.]\n\n`);
     expect(techStack).toMatch(new RegExp(`^## ${heading}\\n\\[Omit this section if the repository has none\\.\\]\\n\\n\\S`, "m"));
   }
-  const config = Bun.YAML.parse(read(join(THEWAY, "config.yaml"))) as {
+  const config = Bun.YAML.parse(read(join(HOME, "config.yaml"))) as {
     standards?: Record<string, { enabled?: unknown } | undefined>;
   };
   for (const key of ["core_principles", "sre", "web_development", "quality"]) {
@@ -143,7 +144,7 @@ test("the shipped defaults are neutral and the four architecture standards are o
 });
 
 test("the shipped config has no dead sections", () => {
-  const config = Bun.YAML.parse(read(join(PLUGIN, "templates", "theway", "config.yaml"))) as Record<string, unknown>;
+  const config = Bun.YAML.parse(read(join(PLUGIN, "home", "config.yaml"))) as Record<string, unknown>;
   expect(Object.keys(config).sort()).toEqual(["engineering", "standards", "workflow"]);
   const standards = config.standards as Record<string, Record<string, unknown>>;
   expect(Object.keys(standards).sort()).toEqual(["core_principles", "quality", "sre", "web_development"]);
@@ -152,26 +153,42 @@ test("the shipped config has no dead sections", () => {
   }
 });
 
-test("plugin/templates/theway holds only what install reads", () => {
-  const THEWAY = join(PLUGIN, "templates", "theway");
-  const unused = files(THEWAY)
-    .map((f) => relative(THEWAY, f))
-    .filter((f) => !/^(config\.yaml|data\/standards\/[^/]+\.md|templates\/[^/]+\.md)$/.test(f));
+test("plugin/home holds only what install reads", () => {
+  const HOME = join(PLUGIN, "home");
+  const unused = files(HOME)
+    .map((f) => relative(HOME, f))
+    .filter((f) => !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md)$/.test(f));
   expect(unused).toEqual([]);
 });
 
+/** The text of `src/core/init.ts` without its migration from the old layout, the one place that names it. */
+const initWithoutMigration = (text: string) => text.replace(/^\/\*\*\n(?:(?! \*\/).*\n)* \*\/\nfunction migrateDataStandards\([\s\S]*?^\}\n/m, "");
+
+test("plugin/ and src/ name no path of the old layout, except the migration in src/core/init.ts", () => {
+  const OLD = /data\/standards|"data", "standards"|templates\/theway|"templates", "theway"/;
+  const INIT = join(REPO, "src", "core", "init.ts");
+  expect(initWithoutMigration(read(INIT))).not.toBe(read(INIT));
+  const hits = [...files(PLUGIN), ...files(join(REPO, "src"))].flatMap((f) =>
+    (f === INIT ? initWithoutMigration(read(f)) : read(f))
+      .split("\n")
+      .filter((line) => OLD.test(line))
+      .map((line) => `${relative(REPO, f)}: ${line.trim()}`),
+  );
+  expect(hits).toEqual([]);
+});
+
 test("every spawned agent gets the Authority rule", () => {
-  expect(read(join(PLUGIN, "templates", "theway", "data", "standards", "interaction.md"))).toContain("\n## Authority\n");
+  expect(read(join(PLUGIN, "home", "standards", "interaction.md"))).toContain("\n## Authority\n");
   for (const f of ["develop-workflow.md", "engineering-light.md", "engineering.md"]) {
-    expect(read(join(COMMANDS, f))).toContain("`## Authority` section of `<home>/data/standards/interaction.md`");
+    expect(read(join(COMMANDS, f))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
   }
   for (const f of ["archive.md", "develop.md", "develop-workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("(exploration, reporting and authority)");
   }
 });
 
-const TEMPLATES = join(PLUGIN, "templates", "theway", "templates");
-const STANDARDS = join(PLUGIN, "templates", "theway", "data", "standards");
+const TEMPLATES = join(PLUGIN, "home", "templates");
+const STANDARDS = join(PLUGIN, "home", "standards");
 
 /** The YAML frontmatter of a template. */
 const frontmatter = (text: string) => Bun.YAML.parse(/^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? "") as Record<string, unknown>;
@@ -374,7 +391,7 @@ const step = (text: string, prefix: string) =>
   new RegExp(`^### ${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[\\s\\S]*?(?=^##)`, "m").exec(text)?.[0] ?? "";
 
 const USER_STANDARDS_CRITIC =
-  "except the user standards (next item) and the `## Authority` section of `<home>/data/standards/interaction.md`";
+  "except the user standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`";
 const USER_STANDARDS_ITEM = "   - the absolute paths of the user standards read in Step 1, which the spec must follow;\n";
 const STANDARDS_FAILURE =
   "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.";

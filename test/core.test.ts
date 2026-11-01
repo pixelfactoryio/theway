@@ -380,6 +380,10 @@ test("standards exits 1 for an invalid project, a shared folder or an invalid ph
       ["templates", "engineering"],
       "theway: project 'templates' shares its folder with theway's own files; no user standards are read for it\n",
     ],
+    [
+      ["standards", "develop"],
+      "theway: project 'standards' shares its folder with theway's own files; no user standards are read for it\n",
+    ],
     [["p", "review"], "theway: invalid phase 'review': must be engineering or develop\n"],
   ];
   for (const [args, stderr] of cases) {

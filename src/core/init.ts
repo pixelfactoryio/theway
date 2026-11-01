@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 
 /** The folders whose `.md` files install ships, relative to the source and the home. */
-const SHIPPED_DIRS = ["data/standards", "templates"];
+const SHIPPED_DIRS = ["standards", "templates"];
 const MANIFEST = ".shipped.json";
 
 type Manifest = Record<string, string>;
@@ -53,14 +53,70 @@ function backupPath(home: string, rel: string, current: Buffer): string {
   }
 }
 
+const baseOf = (name: string) => name.slice(0, -".md".length);
+
+/** Removes `dir` when it exists and is empty; true when it is gone. */
+function removeIfEmpty(dir: string): boolean {
+  if (!existsSync(dir)) return true;
+  if (readdirSync(dir).length > 0) return false;
+  rmSync(dir, { recursive: true });
+  return true;
+}
+
+/**
+ * Moves the shipped standards of a home installed with the old layout from `data/standards/` to `standards/`,
+ * as they are, and renames their manifest keys. Runs only when the previous manifest has `data/standards/` keys.
+ */
+function migrateDataStandards(src: string, home: string): void {
+  const previous = readManifest(home);
+  if (previous === undefined) return;
+  const prefix = "data/standards/";
+  const keys = Object.keys(previous).filter((k) => k.startsWith(prefix));
+  if (keys.length === 0) return;
+  const manifest: Manifest = {};
+  for (const [key, hash] of Object.entries(previous)) if (!key.startsWith(prefix)) manifest[key] = hash;
+  for (const key of keys) {
+    const name = key.slice(prefix.length);
+    const hash = previous[key] as string;
+    const oldPath = `${home}/data/standards/${name}`;
+    const newRel = `standards/${name}`;
+    const newPath = `${home}/${newRel}`;
+    const oldExists = existsSync(oldPath);
+    const newExists = existsSync(newPath);
+    if (!oldExists && newExists) {
+      manifest[newRel] = hash;
+    } else if (!oldExists) {
+      // The user deleted it: drop the key.
+    } else if (!existsSync(`${src}/standards/${name}`)) {
+      process.stdout.write(`Left data/standards/${name}: theway no longer ships it\n`);
+    } else if (newExists) {
+      process.stdout.write(`Left data/standards/${name}: standards/${name} already exists\n`);
+    } else {
+      mkdirSync(`${home}/standards`, { recursive: true });
+      renameSync(oldPath, newPath);
+      const oldDefault = `${home}/data/standards/${baseOf(name)}.default.md`;
+      const newDefault = `${home}/standards/${baseOf(name)}.default.md`;
+      if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault);
+      manifest[newRel] = hash;
+    }
+  }
+  writeManifest(home, manifest);
+  if (!(removeIfEmpty(`${home}/data/standards`) && removeIfEmpty(`${home}/data`))) {
+    process.stdout.write("Left data/: it still holds files theway does not ship\n");
+  }
+}
+
 /**
  * Writes the shipped standards and templates into `home`: a file the user has not edited is updated,
  * an edited one is kept and the shipped version goes next to it as `<base>.default.md`.
+ * `standards/` is shared with the user's global standards: a user file with a shipped name is kept,
+ * a standard theway stops shipping is removed when unedited, and an orphan `.default.md` copy is removed.
  */
 function copyShipped(src: string, home: string): void {
   const previous = readManifest(home);
   const manifest: Manifest = {};
   for (const dir of SHIPPED_DIRS) {
+    const isStandards = dir === "standards";
     mkdirSync(`${home}/${dir}`, { recursive: true });
     const names = readdirSync(`${src}/${dir}`, { withFileTypes: true })
       .filter((e) => e.isFile() && e.name.endsWith(".md"))
@@ -71,21 +127,27 @@ function copyShipped(src: string, home: string): void {
       const dst = `${home}/${rel}`;
       const shipped = readFileSync(`${src}/${rel}`);
       const old = previous?.[rel];
-      const sibling = `${dir}/${name.slice(0, -".md".length)}.default.md`;
+      const sibling = `${dir}/${baseOf(name)}.default.md`;
       let removeSibling = true;
+      let record = true;
       if (!existsSync(dst)) {
         writeAtomic(dst, shipped);
       } else {
         const current = readFileSync(dst);
         if (!current.equals(shipped)) {
-          if (typeof old === "string") {
-            if (sha256(current) === old) {
-              writeAtomic(dst, shipped);
-            } else {
-              removeSibling = false;
-              writeAtomic(`${home}/${sibling}`, shipped);
-              process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
-            }
+          if (typeof old === "string" && sha256(current) === old) {
+            writeAtomic(dst, shipped);
+          } else if (typeof old === "string" || (isStandards && previous === undefined)) {
+            removeSibling = false;
+            writeAtomic(`${home}/${sibling}`, shipped);
+            process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
+          } else if (isStandards) {
+            removeSibling = false;
+            record = false;
+            writeAtomic(`${home}/${sibling}`, shipped);
+            process.stdout.write(
+              `Kept your ${rel}: theway now ships a file with that name (its version: ${sibling})\n`,
+            );
           } else {
             removeSibling = false;
             const bak = backupPath(home, rel, current);
@@ -96,7 +158,24 @@ function copyShipped(src: string, home: string): void {
         }
       }
       if (removeSibling) rmSync(`${home}/${sibling}`, { force: true });
-      manifest[rel] = sha256(shipped);
+      if (record) manifest[rel] = sha256(shipped);
+    }
+    if (isStandards) {
+      for (const [rel, hash] of Object.entries(previous ?? {})) {
+        if (!rel.startsWith("standards/") || names.includes(rel.slice("standards/".length))) continue;
+        const path = `${home}/${rel}`;
+        if (!existsSync(path)) continue;
+        if (sha256(readFileSync(path)) === hash) {
+          rmSync(path);
+          process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+        } else {
+          process.stdout.write(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your standards\n`);
+        }
+      }
+      for (const file of readdirSync(`${home}/${dir}`)) {
+        if (!file.endsWith(".default.md")) continue;
+        if (!names.includes(`${file.slice(0, -".default.md".length)}.md`)) rmSync(`${home}/${dir}/${file}`, { force: true });
+      }
     }
   }
   writeManifest(home, manifest);
@@ -112,6 +191,7 @@ export function init(src: string, home: string): number {
     } else {
       copyFileSync(`${src}/config.yaml`, `${home}/config.yaml`);
     }
+    migrateDataStandards(src, home);
     copyShipped(src, home);
   } catch (e) {
     process.stderr.write(`theway: ${(e as Error).message}\n`);
