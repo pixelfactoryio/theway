@@ -317,7 +317,7 @@ export function install(): number {
     return fail("theway: run `npx --yes @pixelfactoryio/theway@latest install` to install or update theway");
   }
   const cHome = claudeHome();
-  // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as /theway:setup usually is) keeps the recorded home.
+  // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as a reinstall usually is) keeps the recorded home.
   const tHome = resolveHome().home;
   const previous = recordedHome();
   const custom = tHome !== resolve(defaultHome());

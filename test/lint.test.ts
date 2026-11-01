@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { buildProgram } from "../src/program";
 
@@ -9,8 +9,10 @@ const COMMANDS = join(PLUGIN, "commands");
 const commands = readdirSync(COMMANDS).filter((f) => f.endsWith(".md"));
 const read = (path: string) => readFileSync(path, "utf-8");
 
-test("every command except setup.md points to /theway:setup", () => {
-  const missing = commands.filter((f) => f !== "setup.md" && !read(join(COMMANDS, f)).includes("theway:setup"));
+test("every command points to the npx install", () => {
+  const missing = commands.filter(
+    (f) => !read(join(COMMANDS, f)).includes("`npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`"),
+  );
   expect(missing).toEqual([]);
 });
 
@@ -32,6 +34,20 @@ test("every theway subcommand the commands call is dispatched by the CLI", () =>
   expect(called.size).toBeGreaterThan(0);
   const subcommands = buildProgram().commands.map((c) => c.name());
   expect([...called].filter((sub) => !subcommands.includes(sub))).toEqual([]);
+});
+
+test("no file in plugin/, src/, site/ or test/ names the removed setup command", () => {
+  const removed = "theway:" + "setup";
+  const site = readdirSync(join(REPO, "site"))
+    .filter((e) => !["node_modules", ".next", "out"].includes(e))
+    .map((e) => join("site", e));
+  const searched = ["plugin", "src", "test", ...site].flatMap((p) => {
+    const path = join(REPO, p);
+    return statSync(path).isDirectory() ? files(path) : [path];
+  });
+  const offending = searched.filter((f) => read(f).includes(removed));
+  expect(searched).toContain(join(REPO, "test", "lint.test.ts"));
+  expect(offending.map((f) => relative(REPO, f))).toEqual([]);
 });
 
 test("no file in plugin/ names ~/.theway", () => {
@@ -71,7 +87,7 @@ test("plugin.json and package.json carry the same semver version", () => {
 });
 
 test("every npx reference installs @pixelfactoryio/theway from npm", () => {
-  const files = ["README.md", "plugin/commands/setup.md"];
+  const files = ["README.md", ...commands.map((f) => `plugin/commands/${f}`)];
   const offending = files.filter((f) => {
     const text = read(join(REPO, f));
     return (
@@ -83,12 +99,6 @@ test("every npx reference installs @pixelfactoryio/theway from npm", () => {
     );
   });
   expect(offending).toEqual([]);
-});
-
-test("setup.md installs the version in package.json", () => {
-  const pkg = JSON.parse(read(join(REPO, "package.json"))).version;
-  const versions = [...read(join(COMMANDS, "setup.md")).matchAll(/@pixelfactoryio\/theway@(\S+)/g)].map((m) => m[1]);
-  expect(versions).toEqual([pkg, pkg]);
 });
 
 test("every workflow action is pinned to a commit SHA", () => {
@@ -394,7 +404,7 @@ const STANDARDS_CRITIC =
   "except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`";
 const STANDARDS_ITEM = "   - the absolute paths of the standards read in Step 1, which the spec must follow;\n";
 const STANDARDS_UNKNOWN =
-  "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report";
+  "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line in your report";
 const STANDARDS_FAILURE = `${STANDARDS_UNKNOWN} and continue with no standards.`;
 const USER_STANDARDS_FAILURE = `${STANDARDS_UNKNOWN} and continue with no user standards.`;
 const ENGINEERING_EXIT =
@@ -414,7 +424,7 @@ test("engineering and engineering-light read the standards, follow them, give th
     expect(text).not.toContain(OPT_IN);
     expect(text).not.toContain("user standard");
     expect(text).toContain(STANDARDS_CRITIC);
-    expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`/theway:setup\` and stop\\);\\n${STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`npx --yes @pixelfactoryio/theway@latest install\` then \`/reload-plugins\` and stop\\);\\n${STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
     expect(section(text, "Exit").split("\n\n")[1]).toContain(ENGINEERING_EXIT);
   }
   const engineering = read(join(COMMANDS, "engineering.md"));
@@ -471,7 +481,7 @@ test("the develop standard follows the user standards and the Authority rule nam
 });
 
 const CONFIG_RUN =
-  "Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.";
+  "Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.";
 
 test("engineering, engineering-light and develop-workflow take their keys from theway config", () => {
   for (const [f, n] of [

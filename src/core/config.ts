@@ -211,7 +211,7 @@ export function cmdConfig(project: string): number {
   if (invalidSegments([["project", project]])) return 1;
   const home = thewayHome();
   if (!isFile(join(home, "config.yaml"))) {
-    process.stderr.write(`theway: config.yaml not found in ${home}; run /theway:setup\n`);
+    process.stderr.write(`theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
     return 1;
   }
   const result = effectiveConfig(home, project, true);

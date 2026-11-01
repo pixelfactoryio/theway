@@ -1,4 +1,4 @@
 {
   "title": "Commands",
-  "pages": ["setup", "engineering", "engineering-light", "develop", "develop-workflow", "document", "list", "archive"]
+  "pages": ["engineering", "engineering-light", "develop", "develop-workflow", "document", "list", "archive"]
 }

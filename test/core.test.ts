@@ -612,7 +612,7 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
   const missing = home();
   const cases: [string, string, string][] = [
     [missing, "../x", `theway: invalid project '../x': must be letters, digits, ".", "_" or "-", not starting with "." or "-"\n`],
-    [missing, "p", `theway: config.yaml not found in ${missing}; run /theway:setup\n`],
+    [missing, "p", `theway: config.yaml not found in ${missing}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`],
   ];
   const badGlobal = home();
   put(join(badGlobal, "config.yaml"), "a: [1\n");
