@@ -29,7 +29,7 @@ Take the change ID from the user's request (e.g. "develop the add-redis-cache ch
 - `<change-dir>/design.md` - Technical specs (if present)
 - `docs/architecture/coding-standards.md` - Project coding standards (if exists)
 
-Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report.
+Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
 
 ### Step 2: Implement and Verify
 

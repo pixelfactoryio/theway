@@ -37,7 +37,7 @@ Read these files from `<home>`:
 
 An opt-in standard is read only when its `enabled` is the boolean `true`; an absent entry or any other value means off.
 
-Then run `theway standards <project> engineering` and read every file it prints: these are the user standards, and the spec follows them. Quote any `theway: warning:` line it writes in your report.
+Then run `theway standards <project> engineering` and read every file it prints: these are the user standards, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
 
 From `<home>/config.yaml`, take `engineering.review_rounds` (maximum review rounds in Step 6, default `1`). A key that is absent or not a non-negative integer takes the default.
 

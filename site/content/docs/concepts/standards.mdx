@@ -74,7 +74,7 @@ The command quotes that warning in its report, so you can fix the file.
 
 ## Who reads them
 
-The commands list them with [`theway standards <project> <engineering|develop>`](../cli.mdx#standards) and read every file it prints. User standards are binding, not guidance:
+The commands list them with [`theway standards <project> <engineering|develop>`](../cli.mdx#standards) and read every file it prints. When the installed `theway` is too old to know `standards`, the command tells you to run `/theway:setup` and stops; when `theway standards` exits 1 for another reason, it quotes the error in its report and continues with no user standards. User standards are binding, not guidance:
 
 - [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
 - [`/theway:develop`](../commands/develop.mdx) and the implementers of [`/theway:develop-workflow`](../commands/develop-workflow.mdx) follow them. When one contradicts the spec, the implementer stops and brings it back.

@@ -42,7 +42,7 @@ Run `theway path <project> <change-id>` and use the folder it prints as `<change
 - `<change-dir>/design.md` - Technical specs (if present)
 - `docs/architecture/coding-standards.md` - Project coding standards (if exists)
 
-Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report.
+Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
 
 From `<home>/config.yaml`, take `workflow.review_rounds` (review rounds per change, default 1) and `workflow.ci_attempts` (CI attempts per change, default 2). A key that is absent or not a non-negative integer (`ci_attempts`: a positive integer) takes its default.
 

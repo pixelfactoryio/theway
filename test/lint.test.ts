@@ -376,6 +376,8 @@ const step = (text: string, prefix: string) =>
 const USER_STANDARDS_CRITIC =
   "except the user standards (next item) and the `## Authority` section of `<home>/data/standards/interaction.md`";
 const USER_STANDARDS_ITEM = "   - the absolute paths of the user standards read in Step 1, which the spec must follow;\n";
+const STANDARDS_FAILURE =
+  "If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.";
 const ENGINEERING_EXIT =
   'Every report, including a stop or an escalation, names the user standards read in Step 1, by file name, or "none".';
 
@@ -383,7 +385,7 @@ test("engineering and engineering-light read the user standards, follow them, gi
   for (const f of ["engineering.md", "engineering-light.md"]) {
     const text = read(join(COMMANDS, f));
     expect(step(text, "Step 1:")).toContain(
-      "An opt-in standard is read only when its `enabled` is the boolean `true`; an absent entry or any other value means off.\n\nThen run `theway standards <project> engineering` and read every file it prints: these are the user standards, and the spec follows them. Quote any `theway: warning:` line it writes in your report.\n",
+      `An opt-in standard is read only when its \`enabled\` is the boolean \`true\`; an absent entry or any other value means off.\n\nThen run \`theway standards <project> engineering\` and read every file it prints: these are the user standards, and the spec follows them. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`,
     );
     expect(text).toContain(USER_STANDARDS_CRITIC);
     expect(text).toMatch(new RegExp(`when neither has it, tell the user to run \`/theway:setup\` and stop\\);\\n${USER_STANDARDS_ITEM.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
@@ -405,7 +407,7 @@ test("engineering and engineering-light read the user standards, follow them, gi
 
 test("develop and develop-workflow read the user standards, give them to the agents, enforce and report them", () => {
   const STEP1 =
-    "- `docs/architecture/coding-standards.md` - Project coding standards (if exists)\n\nThen run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report.\n";
+    `- \`docs/architecture/coding-standards.md\` - Project coding standards (if exists)\n\nThen run \`theway standards <project> develop\` and read every file it prints: these are the user standards. Quote any \`theway: warning:\` line it writes in your report. ${STANDARDS_FAILURE}\n`;
   const develop = read(join(COMMANDS, "develop.md"));
   expect(step(develop, "Step 1:")).toContain(STEP1);
   expect(section(develop, "Exit")).toContain('Also name the user standards followed, by file name, or "none".');
