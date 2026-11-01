@@ -1,7 +1,7 @@
 # theway configuration
 # A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.
 
-# Opt-in standards: read by /theway:engineering and /theway:document only when enabled is true
+# Standards: standards.<key>.enabled switches any standard, key = file stem with - as _ (shipped opt-in ones default false, your own standards true)
 standards:
   # Architecture philosophy (simplicity, security, pragmatic technology)
   core_principles:

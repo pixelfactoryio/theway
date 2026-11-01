@@ -31,14 +31,8 @@ Run `theway config <project>` and take the keys below from what it prints: it me
 
 Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
-- `<home>/standards/core-principles.md` - Architecture philosophy (only when `standards.core_principles.enabled` is `true`)
-- `<home>/standards/sre.md` - SRE operational excellence (only when `standards.sre.enabled` is `true`)
-- `<home>/standards/web-development.md` - Web development standards (only when `standards.web_development.enabled` is `true`)
-- `<home>/standards/quality.md` - Quality expectations (only when `standards.quality.enabled` is `true`)
 
-An opt-in standard is read only when `theway config` prints its `enabled` as `true`.
-
-Then run `theway standards <project> engineering` and read every file it prints: these are the user standards, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no user standards.
+Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `/theway:setup` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
 
 Take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
 
@@ -71,7 +65,7 @@ Then decide the outcome, before any change file is written. Three outcomes stop 
 - **Possibly already covered:** an active change ID listed by `theway list <project>` plausibly names the same bug. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
 - **Works as intended:** the code and docs show the reported behavior is intended. Report them, and write no change folder.
 
-**Escalation check**, for every change, at the end of the investigation and before any change file is written. Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series. A request that contradicts a user standard is a decision to make. A decision is a choice the code, the docs and the request do not settle; a public contract change is a change to a command, CLI, API, config key or file format that others rely on. Escalating writes no change file: report what was found, and tell the user to run `/theway:engineering` with the original request.
+**Escalation check**, for every change, at the end of the investigation and before any change file is written. Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series. A request that contradicts a standard is a decision to make. A decision is a choice the code, the docs and the request do not settle; a public contract change is a change to a command, CLI, API, config key or file format that others rely on. Escalating writes no change file: report what was found, and tell the user to run `/theway:engineering` with the original request.
 
 ### Step 4: Generate Documents from Templates
 
@@ -93,12 +87,12 @@ A light change has no `design.md`.
 Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
 
 1. **Review.** Spawn one critic agent with the Agent tool and `model` set to `engineering.models.critic` (never `haiku`).
-   - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code. For a `fix-` change, it also re-runs the recorded reproduction as a single-question probe and reports it when its output differs from the spec's Evidence. It also reports a spec or task that contradicts a user standard.
+   - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code. For a `fix-` change, it also re-runs the recorded reproduction as a single-question probe and reports it when its output differs from the spec's Evidence. It also reports a spec or task that contradicts a standard.
 
    The critic's prompt states:
    - its lens and the finding format below;
-   - the absolute paths of `<change-dir>` and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the user standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
-   - the absolute paths of the user standards read in Step 1, which the spec must follow;
+   - the absolute paths of `<change-dir>` and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `/theway:setup` and stop);
+   - the absolute paths of the standards read in Step 1, which the spec must follow;
    - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
 
    Each finding names the file (`spec.md` or `tasks.md`), the section or task number, a short quote, the problem, its evidence (a file and line, a doc URL, or a probe with its result) and a `kind`: `fixable` (the spec can be corrected from facts) or `decision` (only the user can settle it). The critic's `kind` is a proposal; you set the final `kind` when you verify the finding.
@@ -111,7 +105,7 @@ If the Agent tool is not available in the session, run the grounding lens yourse
 
 ## Exit
 
-Report the change folder, the findings that shaped the spec, and the review outcome below. Every report, including a stop or an escalation, names the user standards read in Step 1, by file name, or "none".
+Report the change folder, the findings that shaped the spec, and the review outcome below. Every report, including a stop or an escalation, names the standards read in Step 1, by file name, or "none".
 
 When a `fix-` change stopped in Step 3 (not reproduced, possibly already covered, or works as intended), report instead, in place of the change folder and the review outcome (no folder was written and Step 5 did not run): the outcome, the attempts (each command and its output) or the evidence, and the question for the user. Then stop. The command keeps no state between runs: after a stop, the user re-runs `/theway:engineering-light` with the new information, and it starts again from Step 1.
 
