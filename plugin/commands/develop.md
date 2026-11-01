@@ -29,10 +29,12 @@ Take the change ID from the user's request (e.g. "develop the add-redis-cache ch
 - `<change-dir>/design.md` - Technical specs (if present)
 - `docs/architecture/coding-standards.md` - Project coding standards (if exists)
 
+Then run `theway standards <project> develop` and read every file it prints: these are the user standards. Quote any `theway: warning:` line it writes in your report.
+
 ### Step 2: Implement and Verify
 
 Follow `<home>/data/standards/develop.md`: implement the tasks, stop and ask when the spec does not fit, then verify against the spec's Success Criteria. The change files you tick and update are the ones in `<change-dir>`.
 
 ## Exit
 
-Report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, and anything still open.
+Report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, and anything still open. Also name the user standards followed, by file name, or "none".
