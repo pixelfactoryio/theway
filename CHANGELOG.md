@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.0](https://github.com/pixelfactoryio/theway/compare/v0.8.0...v0.9.0) (2026-11-01)
+
+
+### Features
+
+* **cli:** add per-project config and theway config ([#47](https://github.com/pixelfactoryio/theway/issues/47)) ([5d7863b](https://github.com/pixelfactoryio/theway/commit/5d7863b1c69dd583140b9ba18ed604bdecff5ea4))
+* **cli:** switch every standard with standards.&lt;key&gt;.enabled ([#48](https://github.com/pixelfactoryio/theway/issues/48)) ([5e4496c](https://github.com/pixelfactoryio/theway/commit/5e4496c91802b183ccfd3fbcc14e84b827916c33))
+* **commands:** add global and per-project user standards ([#43](https://github.com/pixelfactoryio/theway/issues/43)) ([8dc36c5](https://github.com/pixelfactoryio/theway/commit/8dc36c5162d961b4658f9d879a6713c2b7f540bb))
+* **commands:** remove the setup command ([#49](https://github.com/pixelfactoryio/theway/issues/49)) ([7bc411f](https://github.com/pixelfactoryio/theway/commit/7bc411f5f161d6b0449cce9726f4dfea4e5b9c17))
+
 ## [0.8.0](https://github.com/pixelfactoryio/theway/compare/v0.7.0...v0.8.0) (2026-10-31)
 
 
