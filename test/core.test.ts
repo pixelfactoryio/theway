@@ -549,3 +549,38 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
     expect([res.status, res.stdout, res.stderr]).toEqual([1, "", stderr]);
   }
 });
+
+test.skipIf(process.getuid?.() === 0)("config exits 1 with nothing on stdout for a project file that cannot be read", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
+  put(join(dir, "p", "config.yaml"), "workflow:\n  open_pr: true\n");
+  chmodSync(join(dir, "p", "config.yaml"), 0o000);
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/config.yaml: cannot be read\n"]);
+});
+
+test("config prints only its own warning for a value yaml warns about", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: !foo false\n");
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([
+    0,
+    effective(),
+    "theway: warning: config.yaml: workflow.open_pr must be true or false; ignored\n",
+  ]);
+});
+
+test("config rejects a non-integer number for an integer key", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 1.5\nworkflow:\n  ci_attempts: 2.5\n");
+  const res = run(dir, "config", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(effective());
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
+      "theway: warning: config.yaml: workflow.ci_attempts must be a positive integer; ignored",
+      "",
+    ].join("\n"),
+  );
+});
