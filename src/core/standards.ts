@@ -41,9 +41,16 @@ function parseList(first: string, rest: string[]): Phase[] | null {
   return values as Phase[];
 }
 
-/** The phases a user standard applies to: its `applies_to`, both without one, both with a warning when it is invalid. */
+/** The phases a user standard applies to: its `applies_to`, both without one, both with a warning when it is invalid, none with a warning when it cannot be read. */
 function phasesOf(path: string): readonly Phase[] {
-  const lines = readFileSync(path, "utf-8").split("\n").map((l) => l.replace(/\s+$/, ""));
+  let text: string;
+  try {
+    text = readFileSync(path, "utf-8");
+  } catch {
+    process.stderr.write(`theway: warning: ${path}: cannot be read; skipped\n`);
+    return [];
+  }
+  const lines = text.split("\n").map((l) => l.replace(/\s+$/, ""));
   if (lines[0] !== "---") return PHASES;
   const close = lines.indexOf("---", 1);
   if (close === -1) return PHASES;

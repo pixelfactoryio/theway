@@ -127,6 +127,12 @@ An `applies_to` with any other value or form applies to both phases, with a warn
 theway: warning: <path>: applies_to must list engineering and/or develop; applied to both
 ```
 
+A file that cannot be read is skipped, with a warning on stderr; the others are still listed and the exit code stays 0:
+
+```text
+theway: warning: <path>: cannot be read; skipped
+```
+
 It exits 1 and prints nothing on stdout when:
 
 - `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { changeIdReason, projectReason } from "../src/core/path";
@@ -320,6 +320,21 @@ test("standards applies an invalid applies_to to both phases with a warning", ()
     expect(res.stderr).toBe(
       `theway: warning: ${file}: applies_to must list engineering and/or develop; applied to both\n`,
     );
+  }
+});
+
+test.skipIf(process.getuid?.() === 0)("standards skips an unreadable file with a warning and lists the others", () => {
+  const dir = home();
+  const p = join(dir, "p", "standards");
+  put(join(p, "a.md"), "x\n");
+  put(join(p, "b.md"), "x\n");
+  put(join(p, "c.md"), "x\n");
+  chmodSync(join(p, "b.md"), 0o000);
+  for (const phase of ["engineering", "develop"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe(`${join(p, "a.md")}\n${join(p, "c.md")}\n`);
+    expect(res.stderr).toBe(`theway: warning: ${join(p, "b.md")}: cannot be read; skipped\n`);
   }
 });
 
