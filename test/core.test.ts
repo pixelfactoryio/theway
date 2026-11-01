@@ -249,3 +249,112 @@ test("archive cannot move a folder outside the data home", () => {
   expect(res.status).toBe(1);
   expect(existsSync(victim)).toBe(true);
 });
+
+test("standards prints nothing and exits 0 for missing and empty folders", () => {
+  const dir = home();
+  for (const phase of ["engineering", "develop"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect([res.status, res.stdout, res.stderr]).toEqual([0, "", ""]);
+  }
+  mkdirSync(join(dir, "standards"), { recursive: true });
+  mkdirSync(join(dir, "p", "standards"), { recursive: true });
+  for (const phase of ["engineering", "develop"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect([res.status, res.stdout, res.stderr]).toEqual([0, "", ""]);
+  }
+});
+
+test("standards prints global files before project files, each sorted, a project file replacing a global one", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  const p = join(dir, "p", "standards");
+  put(join(g, "zeta.md"), "# z\n");
+  put(join(g, "alpha.md"), "# a\n");
+  put(join(g, "tdd.md"), "# global tdd\n");
+  put(join(g, "review.md"), "# global review\n");
+  put(join(p, "tdd.md"), "# project tdd\n");
+  put(join(p, "review.md"), "---\napplies_to: [develop]\n---\n# project review\n");
+  put(join(p, "beta.md"), "# b\n");
+  const eng = run(dir, "standards", "p", "engineering");
+  expect(eng.status).toBe(0);
+  expect(eng.stderr).toBe("");
+  expect(eng.stdout).toBe(
+    [join(g, "alpha.md"), join(g, "zeta.md"), join(p, "beta.md"), join(p, "tdd.md")].map((l) => `${l}\n`).join(""),
+  );
+  const dev = run(dir, "standards", "p", "develop");
+  expect(dev.stdout).toBe(
+    [join(g, "alpha.md"), join(g, "zeta.md"), join(p, "beta.md"), join(p, "review.md"), join(p, "tdd.md")]
+      .map((l) => `${l}\n`)
+      .join(""),
+  );
+  expect(run(dir, "standards", "other", "engineering").stdout).toBe(
+    [join(g, "alpha.md"), join(g, "review.md"), join(g, "tdd.md"), join(g, "zeta.md")].map((l) => `${l}\n`).join(""),
+  );
+});
+
+test("standards applies applies_to: none, both, a flow list of one phase, a block list of one phase", () => {
+  const dir = home();
+  const p = join(dir, "p", "standards");
+  put(join(p, "a-none.md"), "# no frontmatter\n");
+  put(join(p, "b-both.md"), "---\napplies_to: [engineering, develop]\n---\n");
+  put(join(p, "c-flow-eng.md"), "---\ntitle: x\napplies_to: [engineering]\n---\n");
+  put(join(p, "d-block-dev.md"), "---\napplies_to:\n  - develop\nother: y\n---\n");
+  put(join(p, "e-nokey.md"), "---\ntitle: x\n---\n");
+  const lines = (...names: string[]) => names.map((n) => `${join(p, n)}\n`).join("");
+  const eng = run(dir, "standards", "p", "engineering");
+  expect([eng.status, eng.stderr]).toEqual([0, ""]);
+  expect(eng.stdout).toBe(lines("a-none.md", "b-both.md", "c-flow-eng.md", "e-nokey.md"));
+  const dev = run(dir, "standards", "p", "develop");
+  expect([dev.status, dev.stderr]).toEqual([0, ""]);
+  expect(dev.stdout).toBe(lines("a-none.md", "b-both.md", "d-block-dev.md", "e-nokey.md"));
+});
+
+test("standards applies an invalid applies_to to both phases with a warning", () => {
+  const dir = home();
+  const file = join(dir, "p", "standards", "x.md");
+  put(file, "---\napplies_to: [review]\n---\n");
+  for (const phase of ["engineering", "develop"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toBe(`${file}\n`);
+    expect(res.stderr).toBe(
+      `theway: warning: ${file}: applies_to must list engineering and/or develop; applied to both\n`,
+    );
+  }
+});
+
+test("standards ignores subfolders and non-.md files", () => {
+  const dir = home();
+  put(join(dir, "standards", "notes.txt"), "x\n");
+  put(join(dir, "standards", "sub", "nested.md"), "x\n");
+  mkdirSync(join(dir, "standards", "dir.md"), { recursive: true });
+  put(join(dir, "p", "standards", "sub", "nested.md"), "x\n");
+  put(join(dir, "p", "standards", "keep.md"), "x\n");
+  const res = run(dir, "standards", "p", "develop");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(dir, "p", "standards", "keep.md")}\n`, ""]);
+});
+
+test("standards exits 1 for an invalid project, a shared folder or an invalid phase", () => {
+  const dir = home();
+  put(join(dir, "standards", "g.md"), "x\n");
+  const cases: [string[], string][] = [
+    [["a/b", "develop"], `theway: invalid project 'a/b': ${PROJECT_REASON}\n`],
+    [["..", "develop"], `theway: invalid project '..': ${PROJECT_REASON}\n`],
+    [["", "develop"], "theway: invalid project '': must not be empty\n"],
+    [
+      ["data", "develop"],
+      "theway: project 'data' shares its folder with theway's own files; no user standards are read for it\n",
+    ],
+    [
+      ["templates", "engineering"],
+      "theway: project 'templates' shares its folder with theway's own files; no user standards are read for it\n",
+    ],
+    [["p", "review"], "theway: invalid phase 'review': must be engineering or develop\n"],
+  ];
+  for (const [args, stderr] of cases) {
+    const res = run(dir, "standards", ...args);
+    expect(res.status).toBe(1);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toBe(stderr);
+  }
+});

@@ -3,6 +3,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { cmdArchive } from "./core/archive";
 import { cmdList } from "./core/list";
 import { cmdPath } from "./core/path";
+import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
 import { install, uninstall } from "./install";
 
@@ -36,6 +37,11 @@ export function buildProgram(): Command {
     .action((project: string | undefined, change: string | undefined, o: { verbose?: boolean }) =>
       exit(cmdPath(project, change, o.verbose === true)),
     );
+  program
+    .command("standards")
+    .argument("<project>")
+    .argument("<phase>")
+    .action((project: string, phase: string) => exit(cmdStandards(project, phase)));
   program
     .command("validate-id")
     .argument("<id>")
