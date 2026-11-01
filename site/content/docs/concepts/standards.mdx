@@ -1,6 +1,6 @@
 ---
 title: User standards
-description: Your own rules, for every project or for one, that the engineering and develop commands follow.
+description: Your own rules, for every project or for one, and the switch that turns any standard on or off.
 ---
 
 A user standard is a Markdown file of your own rules, such as test-first, that the engineering and develop commands follow on top of theway's shipped standards. You write it once, outside any repository, and it survives every install.
@@ -23,15 +23,21 @@ A user standard is a Markdown file of your own rules, such as test-first, that t
 
 Both folders are optional. Install never touches your files in them.
 
-`<home>/standards/` also holds the standards theway ships, such as `develop.md` and `sre.md`: a file `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard. When theway starts shipping a name you already use there, install keeps your file and warns (see [What install writes](../installation.mdx#what-install-writes)).
+`<home>/standards/` also holds the standards theway ships. Their names decide what they are, whatever `.shipped.json` says:
 
-**Order:** the global files come first, then the project files, each group sorted by name.
+- `interaction.md`, `develop.md` and `tamm-framework.md` are always read by the commands that need them, never listed and never switchable.
+- `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards: off by default, read by the engineering commands and `/theway:document` when switched on. A file of yours kept at one of these names counts as that opt-in standard.
+- Any other name `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
 
-**Same name:** when both folders hold a file with the same name, the project file replaces the global one for that project. The global file is skipped, whatever its `applies_to`, even when the project file does not apply to the phase.
+When theway starts shipping a name you already use there, install keeps your file and warns (see [What install writes](../installation.mdx#what-install-writes)).
+
+**Order:** the global files come first, opt-in and user standards together, then the project files, each group sorted by name.
+
+**Same name:** when both folders hold a file with the same name, the project file replaces the global one, user or opt-in, for that project. The global file is skipped, whatever its `applies_to` or switch, even when the project file does not apply to the phase. The project file is a user standard, but it keeps the key of its name, so the switches of both config files apply to it: with the shipped `config.yaml`, which sets `standards.sre.enabled: false`, a project `sre.md` stays off until the project's `config.yaml` sets `standards.sre.enabled: true`.
 
 ## The convention
 
-Every `.md` file directly in either folder is a user standard. No config key declares it. Subfolders and other files are ignored.
+Every other `.md` file directly in either folder is a user standard. No config key declares it, and it is on until you switch it off (see [Switching a standard](#switching-a-standard)). Subfolders and other files are ignored.
 
 For example, `<home>/standards/tdd.md`:
 
@@ -68,18 +74,43 @@ applies_to:
 theway: warning: <path>: applies_to must list engineering and/or develop; applied to both
 ```
 
-The command quotes that warning in its report, so you can fix the file.
+The command quotes that warning in its report, so you can fix the file. `applies_to` does not apply to the opt-in standards: they always apply to the engineering commands and `/theway:document`, never to the develop commands.
+
+## Switching a standard
+
+`standards.<key>.enabled` in [`config.yaml`](../configuration.mdx#standards) switches any standard, the opt-in ones and yours. The key is the file stem with `-` turned into `_`: `tdd.md` is `standards.tdd`, `code-review.md` is `standards.code_review`. Two files whose stems give the same key, such as `a-b.md` and `a_b.md`, share it.
+
+- **Defaults:** the four shipped opt-in standards are off, user standards are on.
+- **Project override:** the project's `<home>/<project>/config.yaml` overrides the global one key by key (see [Layering](../configuration.mdx#layering)), so a project can switch a global standard off, or an opt-in one on, for itself only.
+- A switched-off standard is not listed by `theway standards`, so no command reads it.
+- A key with no standard file behind it is ignored with a warning, so a misspelled key does not pass silently:
+
+```text
+theway: warning: <file>: standards.<key> has no standard file; ignored
+```
+
+[`theway config <project>`](../cli.mdx#config) prints every switchable standard of the project with its effective value.
+
+For example, to keep a global `<home>/standards/tdd.md` for every project but `legacy-app`, write `<home>/legacy-app/config.yaml`:
+
+```yaml
+standards:
+  tdd:
+    enabled: false
+```
+
+`theway config legacy-app` then prints `tdd` with `enabled: false`, and `theway standards legacy-app engineering` no longer lists `tdd.md`. Every other project still reads it.
 
 ## Projects named data, templates or standards
 
-`<home>/templates/` and `<home>/standards/` hold theway's own files, and `<home>/data/` can still hold the standards of an older layout, so a project named `data`, `templates` or `standards` reads no user standards, global ones included: `theway standards` exits 1 for it.
+`<home>/templates/` and `<home>/standards/` hold theway's own files, and `<home>/data/` can still hold the standards of an older layout, so the `standards/` folder of a project named `data`, `templates` or `standards` is never read. Such a project still gets the global standards, and its `config.yaml` still switches them.
 
 ## Who reads them
 
-The commands list them with [`theway standards <project> <engineering|develop>`](../cli.mdx#standards) and read every file it prints. When the installed `theway` is too old to know `standards`, the command tells you to run `/theway:setup` and stops; when `theway standards` exits 1 for another reason, it quotes the error in its report and continues with no user standards. User standards are binding, not guidance:
+The commands list them with [`theway standards <project> <engineering|develop|document>`](../cli.mdx#standards) and read every file it prints: `engineering` lists the enabled opt-in standards and your enabled standards that apply to it, `develop` your enabled standards that apply to it, `document` the enabled opt-in standards only. When the installed `theway` is too old to know `standards`, the command tells you to run `/theway:setup` and stops; when `theway standards` exits 1 for another reason, it quotes the error in its report and continues without them. Standards are binding, not guidance:
 
-- [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
+- [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
 - [`/theway:develop`](../commands/develop.mdx) and the implementers of [`/theway:develop-workflow`](../commands/develop-workflow.mdx) follow them. When one contradicts the spec, the implementer stops and brings it back.
 - In `/theway:develop-workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
 
-Every report of these commands names the user standards used, by file name, or "none". `/theway:document` does not read them.
+Every report of these commands names the standards used, by file name, or "none". [`/theway:document`](../commands/document.mdx) reads only the enabled opt-in standards, never yours.

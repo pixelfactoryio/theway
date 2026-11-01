@@ -13,7 +13,7 @@ Three documents come from templates; others are added as the project needs them.
 
 ## Steps
 
-1. Runs [`theway config <project>`](../cli.mdx#config), takes the opt-in flags from what it prints, and reads the opt-in standards that are enabled.
+1. Reads the standards from [`theway standards <project> document`](../cli.mdx#standards): the opt-in standards that are enabled (see [Configuration](../configuration.mdx#standards)).
 2. Generates each document from its template, following the template's frontmatter instructions. An existing file is overwritten.
 
    | Template | Output |
