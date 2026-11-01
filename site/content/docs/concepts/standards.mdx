@@ -33,7 +33,7 @@ When theway starts shipping a name you already use there, install keeps your fil
 
 **Order:** the global files come first, opt-in and user standards together, then the project files, each group sorted by name.
 
-**Same name:** when both folders hold a file with the same name, the project file replaces the global one, user or opt-in, for that project. The global file is skipped, whatever its `applies_to` or switch, even when the project file does not apply to the phase. The project file is a user standard, but it keeps the key of its name, so the switches of both config files apply to it: with the shipped `config.yaml`, which sets `standards.sre.enabled: false`, a project `sre.md` stays off until the project's `config.yaml` sets `standards.sre.enabled: true`.
+**Same name:** when both folders hold a file with the same name, the project file replaces the global one, user or opt-in, for that project. The global file is skipped, whatever its `applies_to` or switch, even when the project file does not apply to the phase. The project file is a user standard, but it keeps the key of its name, so the switches of both config files apply to it: with the shipped `config.yaml`, which sets `standards.sre.enabled: false`, a project `sre.md` stays off until the project's `config.yaml` sets `standards.sre.enabled: true`. A project file named like an always-read standard, such as `develop.md`, is a user standard too: on by default, listed by `theway config` and switched by `standards.develop.enabled`; the commands still read the shipped `develop.md`.
 
 ## The convention
 

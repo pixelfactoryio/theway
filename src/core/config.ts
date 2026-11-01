@@ -10,12 +10,15 @@ type Rule = "boolean" | "non-negative" | "positive" | "model";
 type Leaf = { rule: Rule; default: boolean | number | string };
 type Schema = { [key: string]: Leaf | Schema };
 
+/** An empty map with no prototype, so every key, `__proto__` included, is an own property. */
+const dict = <T>(): T => Object.create(null) as T;
+
 const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
 const model = (d: "opus" | "sonnet"): Leaf => ({ rule: "model", default: d });
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
-/** The shipped standards of `<home>/standards/` the commands always read by path: never listed nor switchable. */
+/** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
 const CORE = ["interaction.md", "develop.md", "tamm-framework.md"];
 
 /** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
@@ -65,13 +68,11 @@ export function standardsOf(home: string, project: string): Standard[] {
 /**
  * The `standards` section of the schema for a project: the four opt-in keys in order, then the user keys sorted.
  * A key defaults to `true` when only user standards hold it, `false` otherwise (an opt-in key with no file included).
- * A core key is never switchable, even when a project file holds it.
+ * A core key is switchable only when a project file holds it: `standardsOf` leaves the global core files out.
  */
 function standardsSchema(standards: Standard[]): Schema {
-  const userKeys = [...new Set(standards.map((s) => s.key))]
-    .filter((k) => !OPT_IN_KEYS.includes(k) && !CORE_KEYS.has(k))
-    .sort();
-  const schema: Schema = {};
+  const userKeys = [...new Set(standards.map((s) => s.key))].filter((k) => !OPT_IN_KEYS.includes(k)).sort();
+  const schema = dict<Schema>();
   for (const key of [...OPT_IN_KEYS, ...userKeys]) {
     const holders = standards.filter((s) => s.key === key);
     schema[key] = { enabled: bool(holders.length > 0 && holders.every((s) => !s.optIn)) };
@@ -119,7 +120,7 @@ function valid(rule: Rule, v: unknown): boolean {
 type Config = { [key: string]: Config | boolean | number | string };
 
 function defaults(schema: Schema): Config {
-  const out: Config = {};
+  const out = dict<Config>();
   for (const [key, node] of Object.entries(schema)) out[key] = isLeaf(node) ? node.default : defaults(node);
   return out;
 }
@@ -188,7 +189,7 @@ export function effectiveConfig(home: string, project: string, loud: boolean): E
   }
 
   const standards = standardsOf(home, project);
-  const schema: Schema = { ...SCHEMA, standards: standardsSchema(standards) };
+  const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) });
   const warn = loud ? warnLoud : warnQuiet;
   const config = defaults(schema);
   for (const [file, root] of roots) {
@@ -199,10 +200,10 @@ export function effectiveConfig(home: string, project: string, loud: boolean): E
   return { config, standards };
 }
 
-/** Whether a standard is on in an effective config; a core key, which has no switch, is always on. */
+/** Whether a standard is on in an effective config; a key with no switch is always on. */
 export function enabled(config: Config, key: string): boolean {
-  const entry = (config.standards as Config)[key];
-  return entry === undefined || (entry as Config).enabled === true;
+  const all = config.standards as Config;
+  return !Object.hasOwn(all, key) || (all[key] as Config).enabled === true;
 }
 
 /** `theway config <project>`: the effective config of a project, as YAML on stdout. */

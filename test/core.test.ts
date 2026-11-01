@@ -736,3 +736,60 @@ test("config lists no project standards for the projects data, templates and sta
     expect(res.stderr).toBe(`theway: warning: ${join(project, "config.yaml")}: standards.own has no standard file; ignored\n`);
   }
 });
+
+test("a project file with a core name is a user standard that the project config switches", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  for (const name of ["interaction.md", "develop.md", "tamm-framework.md"]) put(join(g, name), "x\n");
+  const own = join(dir, "p", "standards", "develop.md");
+  put(own, "---\napplies_to: [develop]\n---\n");
+  put(join(dir, "config.yaml"), "");
+  const on = run(dir, "config", "p");
+  expect([on.status, on.stdout, on.stderr]).toEqual([0, effective({}, [["develop", true]]), ""]);
+  expect(run(dir, "standards", "p", "develop").stdout).toBe(`${own}\n`);
+  put(join(dir, "p", "config.yaml"), "standards:\n  develop:\n    enabled: false\n");
+  const off = run(dir, "config", "p");
+  expect([off.status, off.stdout, off.stderr]).toEqual([0, effective({}, [["develop", false]]), ""]);
+  const res = run(dir, "standards", "p", "develop");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "", ""]);
+  put(join(dir, "q", "config.yaml"), "standards:\n  develop:\n    enabled: false\n");
+  const other = run(dir, "config", "q");
+  expect([other.status, other.stdout, other.stderr]).toEqual([
+    0,
+    effective(),
+    "theway: warning: q/config.yaml: standards.develop cannot be switched; ignored\n",
+  ]);
+});
+
+test("standards named like Object.prototype keys are listed and switched like any other", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  const names = ["__proto__.md", "constructor.md", "toString.md"];
+  for (const name of names) put(join(g, name), "x\n");
+  put(join(dir, "config.yaml"), "");
+  const on = run(dir, "config", "p");
+  expect([on.status, on.stdout, on.stderr]).toEqual([
+    0,
+    effective({}, [
+      ["__proto__", true],
+      ["constructor", true],
+      ["toString", true],
+    ]),
+    "",
+  ]);
+  const all = run(dir, "standards", "p", "engineering");
+  expect([all.status, all.stdout, all.stderr]).toEqual([0, names.map((n) => `${join(g, n)}\n`).join(""), ""]);
+  put(join(dir, "config.yaml"), "standards:\n  __proto__:\n    enabled: false\n");
+  const off = run(dir, "config", "p");
+  expect([off.status, off.stdout, off.stderr]).toEqual([
+    0,
+    effective({}, [
+      ["__proto__", false],
+      ["constructor", true],
+      ["toString", true],
+    ]),
+    "",
+  ]);
+  const res = run(dir, "standards", "p", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "constructor.md")}\n${join(g, "toString.md")}\n`, ""]);
+});

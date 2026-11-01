@@ -74,7 +74,7 @@ workflow:
 - `theway config <project>` prints the four opt-in keys first, in the order below, then the key of every user standard of the project, sorted, each with its effective `enabled`.
 - A key with no standard file behind it, in either file, is ignored with a `has no standard file` warning.
 
-The other shipped standards are always read and have no switch: `interaction.md` by `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive`; `develop.md` by `/theway:develop` and `/theway:develop-workflow`; `tamm-framework.md` by `/theway:engineering`. Their keys, `interaction`, `develop` and `tamm_framework`, give a `cannot be switched` warning.
+The other shipped standards are always read and have no switch: `interaction.md` by `/theway:engineering`, `/theway:develop`, `/theway:develop-workflow`, `/theway:document` and `/theway:archive`; `develop.md` by `/theway:develop` and `/theway:develop-workflow`; `tamm-framework.md` by `/theway:engineering`. Their keys, `interaction`, `develop` and `tamm_framework`, give a `cannot be switched` warning, unless the project holds a file with that name in `<home>/<project>/standards/`: that file is a user standard with its own switch.
 
 | Standard | `enabled` | File | Used for |
 |----------|-----------|--------|----------|
