@@ -17,7 +17,7 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 
 ## Steps
 
-1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and the opt-in standards that are enabled. From the config it takes `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)).
+1. **Load config and standards:** `~/.theway/config.yaml`, `data/standards/tamm-framework.md` and the opt-in standards that are enabled. From the config it takes `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)). Then it runs `theway standards <project> engineering` and reads the [user standards](../concepts/standards.mdx) it prints: the spec and tasks follow them, and a request that contradicts one is an open question for you.
 2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
 3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
 
@@ -33,7 +33,9 @@ For a [series](../concepts/changes.mdx#series), ask for a series or for several 
 5. **Optional technical design:** `design.md`, for API contracts and data models, architecture decisions, and diagrams.
 6. **Review:** only when no question is open, up to `engineering.review_rounds` rounds (`0` skips it). Each round spawns two critic agents in parallel on `engineering.models.critic`, covering every member of a series together:
    - a **grounding critic** checks the spec's claims about the code, tools, providers and libraries against the code and official docs; for a `fix-` change, it also re-runs the recorded reproduction and reports it when the output differs;
-   - an **implementability critic** checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, and contradictions.
+   - an **implementability critic** checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, contradictions, and a spec or task that contradicts a user standard.
+
+   Both critics get the paths of the user standards.
 
    Critics never edit anything; their probes answer one question each and write only to a temporary directory. Each finding carries its evidence and a `kind`: `fixable` or `decision`. The command verifies each finding and gives it a verdict (`confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`), fixes the confirmed `fixable` ones in the change files, and stops on a confirmed `decision` as an open question. A round with no confirmed findings ends the review. Without the Agent tool, it runs both lenses itself.
 
@@ -48,7 +50,7 @@ Everything is written under `~/.theway/<project>/changes/<change-id>/`:
 - `tasks.md`: numbered tasks grouped in phases, with a Notes section for blockers, discoveries and adjustments.
 - `design.md`, when needed.
 
-It reports the change folder, the findings that shaped the spec, and any open question. If a question is open, it stops: the spec is not ready until the question is answered.
+It reports the change folder, the findings that shaped the spec, the user standards read (or "none"), and any open question. If a question is open, it stops: the spec is not ready until the question is answered.
 
 When a `fix-` change stopped in Step 3, no folder is written and no review runs: it reports the outcome, the attempts or the evidence, and the question for you.
 

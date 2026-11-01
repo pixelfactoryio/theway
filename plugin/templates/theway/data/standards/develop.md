@@ -19,6 +19,10 @@ Write only under `<change-dir>` too: never in other change folders or `changes/a
 - Write the tests with the code they cover.
 - Tick each task (`- [x] N.`) once it is done, and record anything you learn that the next person needs in the Notes section of `tasks.md`.
 
+## User standards
+
+Follow the user standards you are given, as you follow `docs/architecture/coding-standards.md`. When one contradicts the spec, stop and bring it back, as "When the spec does not fit" says. They are not a change folder: "Stay inside this change" does not forbid reading them.
+
 ## When the spec does not fit
 
 If the code contradicts the spec, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop and bring it back: what you found, and the options you see. Carrying on with your own fix would leave a spec that no longer describes the code, and the decision would be made without the person who owns the change. Once it is decided, update `spec.md` (the decision and why) and `tasks.md`, then continue. A risk the spec did not foresee goes into its Hardpoints table. A light spec has no Hardpoints table: a risk at Medium or High that it did not foresee is brought back as a blocker.

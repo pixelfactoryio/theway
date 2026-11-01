@@ -19,7 +19,7 @@ type Manifest = Record<string, string>;
 const sha256 = (data: Buffer) => createHash("sha256").update(data).digest("hex");
 
 /** The manifest of the previous install, or undefined when it is missing, unreadable or not valid JSON. */
-function readManifest(home: string): Manifest | undefined {
+export function readManifest(home: string): Manifest | undefined {
   try {
     const parsed: unknown = JSON.parse(readFileSync(`${home}/${MANIFEST}`, "utf-8"));
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
