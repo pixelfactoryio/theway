@@ -6,7 +6,7 @@ allowed-tools: Bash(theway:*)
 
 # TheWay: Engineering
 
-> **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:develop`, from that spec.
+> **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:workflow`, from that spec.
 >
 > Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >

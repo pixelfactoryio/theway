@@ -73,7 +73,7 @@ test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () =>
 });
 
 test("every command that reads theway data has the same Locate the home step", () => {
-  const readers = ["archive.md", "develop.md", "document.md", "engineering-light.md", "engineering.md", "list.md", "workflow.md"];
+  const readers = ["archive.md", "document.md", "engineering-light.md", "engineering.md", "list.md", "workflow.md"];
   const reference = locateStep(read(join(COMMANDS, "engineering.md")));
   for (const marker of [
     "Run `theway path`",
@@ -87,16 +87,16 @@ test("every command that reads theway data has the same Locate the home step", (
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
-test("the engineering commands get the change folder from theway path, the develop ones from theway context", () => {
+test("the engineering commands get the change folder from theway path, workflow from theway context", () => {
   const missing = [
     ...["engineering.md", "engineering-light.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`")),
-    ...["develop.md", "workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context <project> develop <change-id>`")),
+    ...["workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context <project> develop <change-id>`")),
   ];
   expect(missing).toEqual([]);
 });
 
-test("the five loading commands call theway context, not theway config or theway standards", () => {
-  for (const f of ["engineering.md", "engineering-light.md", "develop.md", "workflow.md", "document.md"]) {
+test("the four loading commands call theway context, not theway config or theway standards", () => {
+  for (const f of ["engineering.md", "engineering-light.md", "workflow.md", "document.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("context");
     expect(text).not.toContain("theway config <project>");
@@ -233,7 +233,7 @@ test("every spawned agent gets the Authority rule", () => {
   for (const f of ["engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/spec-review.md`");
   }
-  for (const f of ["archive.md", "develop.md", "workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
+  for (const f of ["archive.md", "workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/interaction.md`");
   }
 });
@@ -314,8 +314,8 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
   const verify = section(read(join(STANDARDS, "develop.md")), "Verify");
   for (const marker of [
     "### A `fix-` change",
-    "`HEAD` for `/theway:develop`",
-    "`git merge-base <base> HEAD` for `/theway:workflow`",
+    "`HEAD` when the change is uncommitted",
+    "`git merge-base <base> HEAD` otherwise",
     "`git worktree add --detach <dir> <base-commit>`",
     "`<dir>` comes from `mktemp -d`",
     "`git worktree remove --force <dir>`",
@@ -403,19 +403,14 @@ test("engineering and engineering-light read the standards from theway context a
   expect(prompt).toContain("`## Authority`");
 });
 
-test("develop and workflow read the standards from theway context and report them", () => {
-  const develop = read(join(COMMANDS, "develop.md"));
+test("workflow reads the standards from theway context and reports them", () => {
   const workflow = read(join(COMMANDS, "workflow.md"));
-  for (const text of [develop, workflow]) {
-    const step1 = step(text, "Step 1:");
-    expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
-    expect(step1).toContain("- `docs/architecture/coding-standards.md`");
-    expect(step1).toContain("Run `theway context <project> develop <change-id>`");
-  }
-  expect(section(develop, "Exit")).toContain('or "none"');
-
+  const step1 = step(workflow, "Step 1:");
+  expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
+  expect(step1).toContain("- `docs/architecture/coding-standards.md`");
+  expect(step1).toContain("Run `theway context <project> develop <change-id>`");
   expect(section(workflow, "Exit")).toContain('or "none"');
-  for (const text of [develop, workflow]) expect(text).not.toContain("user standard");
+  expect(workflow).not.toContain("user standard");
 });
 
 test("the develop standard has a Standards section and the Authority rule names the standards folders", () => {
@@ -612,4 +607,17 @@ test("workflow.md replaces develop-workflow.md and runs the change through thewa
     expect(text).toContain(marker);
   }
   expect(text.replaceAll("never `--admin`", "")).not.toContain("--admin");
+});
+
+test("workflow.md replaces develop.md and runs inline steps itself and agent segments through run-pipeline", () => {
+  expect(existsSync(join(COMMANDS, "develop.md"))).toBe(false);
+  const text = read(join(COMMANDS, "workflow.md"));
+  for (const marker of [
+    "agents: false",
+    '"review ran inline"',
+    "`steps`, `commitType` and `head`",
+    "a series needs a workflow that commits",
+  ]) {
+    expect(text).toContain(marker);
+  }
 });
