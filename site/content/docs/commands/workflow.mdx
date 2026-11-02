@@ -1,6 +1,6 @@
 ---
 title: /theway:workflow
-description: Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so
+description: "Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so"
 ---
 
 It runs a change through the steps a [workflow](../concepts/workflows.mdx) file lists. The default, the shipped `develop` workflow, implements the tasks inline in your session and commits nothing. Steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`: the shipped `agents` workflow implements, reviews and opens the PR that way, while your session orchestrates.

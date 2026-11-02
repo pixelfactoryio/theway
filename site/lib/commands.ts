@@ -8,7 +8,9 @@ const docsDir = join(process.cwd(), 'content', 'docs', 'commands');
 function frontmatterDescription(path: string): string {
   const match = /^---\n[\s\S]*?^description: (.+)$[\s\S]*?^---$/m.exec(readFileSync(path, 'utf-8'));
   if (!match) throw new Error(`${path} has no frontmatter description`);
-  return match[1].trim();
+  const value = match[1].trim();
+  // A double-quoted value (needed when the text holds `: `) is unquoted as YAML does.
+  return value.startsWith('"') ? (JSON.parse(value) as string) : value;
 }
 
 /**

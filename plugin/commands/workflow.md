@@ -1,5 +1,5 @@
 ---
-description: Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so
+description: "Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so"
 author: Amine
 allowed-tools: Bash(theway:*)
 ---
