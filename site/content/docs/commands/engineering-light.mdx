@@ -13,6 +13,24 @@ The light path of [`/theway:engineering`](./engineering.mdx), for a small change
 
 Use it when you already know what changes and why. When the change needs a decision, a contract change or a risk analysis, use `/theway:engineering`: this command sends you there itself.
 
+## Example
+
+On `my-api`, a bug with a known cause (see [A light fix](../examples/light-fix.mdx)):
+
+```text
+/theway:engineering-light fix-health-query-limited: GET /health?probe=1 counts against the rate limit
+```
+
+```text
+Change folder: <home>/my-api/changes/fix-health-query-limited/
+Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
+Standards read: none.
+
+Review: 1 round (grounding critic).
+```
+
+A request that needs a decision writes nothing and sends you to `/theway:engineering`: see [An escalation](../examples/escalation.mdx).
+
 ## Steps
 
 1. **Load config and standards:** the same as `/theway:engineering`: it runs [`theway context <project> engineering`](../cli.mdx#context) and takes from its `config` `engineering.review_rounds` and `engineering.models.critic`, then reads `standards/tamm-framework.md`, and follows `standards/spec-investigation.md` in Step 3 and `standards/spec-review.md` in its review. Then it reads the [standards](../concepts/standards.mdx) its `standards` lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it. The spec and tasks follow them.

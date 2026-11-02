@@ -13,6 +13,23 @@ The spec is the contract: the work follows it and ends with a report on each Suc
 
 The change ID can also come from the request, for example "develop the add-redis-cache change". The command asks only when none is given.
 
+## Example
+
+On `my-api`, the light fix of [A light fix](../examples/light-fix.mdx):
+
+```text
+/theway:develop fix-health-query-limited
+```
+
+```text
+Tasks done: 2/2.
+Success Criteria:
+- Regression test fails before the fix and passes with it: yes, both runs recorded in Notes › Discoveries.
+- The reproduction no longer reproduces: the curl loop prints 61 200.
+- npm test passes: 11 tests, 11 pass.
+Standards followed: none.
+```
+
 ## Steps
 
 1. **Load context:** it runs [`theway context <project> develop <change-id>`](../cli.mdx#context), then reads these paths directly:

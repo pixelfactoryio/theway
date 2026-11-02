@@ -15,6 +15,27 @@ For a small change with nothing to decide, [`/theway:engineering-light`](./engin
 
 For a [series](../concepts/changes.mdx#series), ask for a series or for several sequential changes, or pass an argument that ends in `-NN`: [`theway next-id`](../cli.mdx#next-id) removes that ordinal.
 
+## Example
+
+On `my-api`, a series request (see [A series](../examples/series.mdx) for the whole run):
+
+```text
+/theway:engineering add-user-auth as a series: password storage, the login endpoint, docs
+```
+
+```text
+$ theway next-id my-api add-user-auth --count 3
+add-user-auth-01
+add-user-auth-02
+add-user-auth-03
+```
+
+Each member's `spec.md` starts with its `**Series:**` line, for example `**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01`. The report ends with the review outcome, trimmed here to one row:
+
+| # | Finding | Verdict | Fix |
+|---|---------|---------|-----|
+| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `204` with no body: `my-api` has no sessions, and `-02`'s Out of Scope excludes tokens |
+
 ## Steps
 
 1. **Load config and standards:** it runs [`theway context <project> engineering`](../cli.mdx#context) and takes from its `config` `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)). Then it reads `standards/tamm-framework.md`, and follows `standards/spec-investigation.md` in Step 3 and `standards/spec-review.md` in Step 6. Then it reads the [standards](../concepts/standards.mdx) its `standards` lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it. The spec and tasks follow them, and a request that contradicts one is an open question for you.
