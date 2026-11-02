@@ -19,7 +19,7 @@ const model = (d: "opus" | "sonnet"): Leaf => ({ rule: "model", default: d });
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
-const CORE = ["interaction.md", "develop.md", "tamm-framework.md"];
+const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.md", "spec-investigation.md"];
 
 /** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
 const SHARED = new Set(["data", "templates", "standards"]);

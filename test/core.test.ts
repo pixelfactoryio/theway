@@ -761,6 +761,16 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
+test("standards does not list the global spec-review.md and spec-investigation.md, which .shipped.json does not list", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(dir, ".shipped.json"), "{}\n");
+  for (const name of ["spec-review.md", "spec-investigation.md", "own.md"]) put(join(g, name), "x\n");
+  put(join(dir, "config.yaml"), "");
+  const res = run(dir, "standards", "p", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+});
+
 test("standards named like Object.prototype keys are listed and switched like any other", () => {
   const dir = home();
   const g = join(dir, "standards");

@@ -33,7 +33,7 @@ Done means the change does what the spec says, not that every task is ticked. Ru
 
 ### A `fix-` change
 
-A `fix-` change also proves that its regression test catches the bug, and that the bug is gone:
+A `fix-` change also proves that its regression test catches the bug, and that the bug is gone. This proof is **the regression check**. Its full form is steps 1-7:
 
 1. **Base commit:** `HEAD` for `/theway:develop`, where the change is uncommitted; `git merge-base <base> HEAD` for `/theway:develop-workflow`, with the `<base>` your prompt gives (the branch the change's branch was created from).
 2. Create a worktree of it with `git worktree add --detach <dir> <base-commit>`, where `<dir>` comes from `mktemp -d`. `--detach` is needed when the branch is checked out elsewhere.
@@ -43,7 +43,9 @@ A `fix-` change also proves that its regression test catches the bug, and that t
 6. Run it on the change and record that it passes.
 7. Remove the worktree with `git worktree remove --force <dir>`. Do this whatever happened before, including when you stopped at an earlier step because the setup or the test could not run, or because the test did not fail for the Root Cause's reason.
 
-When `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in the Discoveries of `tasks.md` Notes, then run it after the fix and record that it passes. Its failure must follow from the cause the spec's Problem states. Writing and running the test before the fix overrides "Write the tests with the code they cover" for that test.
+Its light form: when `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in the Discoveries of `tasks.md` Notes, then run it after the fix and record that it passes. Its failure must follow from the cause the spec's Problem states. Writing and running the test before the fix overrides "Write the tests with the code they cover" for that test.
+
+**Re-running the regression check** on a new head means steps 1-7 again for a full spec, and only the run after the fix for a light spec, whose failing run before the fix is already recorded.
 
 A regression test that does not fail on the base commit, or fails there for another reason (a compile error, or a symbol only the fix adds), does not prove the fix: bring it back as a spec gap, as "When the spec does not fit" says. When the setup or the test cannot run locally, report the criterion as not verified.
 
