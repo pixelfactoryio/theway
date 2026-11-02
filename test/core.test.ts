@@ -1073,3 +1073,300 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   expect(past.stdout).toBe("");
   expect(past.stderr).toBe("theway: series add-thing would go past -99\n");
 });
+
+/** A home with an empty global config, the two shipped lenses and the shipped `develop.yaml`. */
+function workflowHome(): string {
+  const dir = home();
+  put(join(dir, "config.yaml"), "");
+  put(join(dir, "lenses", "conformance.md"), "# conformance\n");
+  put(join(dir, "lenses", "correctness.md"), "# correctness\n");
+  put(join(dir, "workflows", "develop.yaml"), "steps:\n  - implement:\n  - review:\n  - pr:\n");
+  return dir;
+}
+
+/** The `develop` workflow `theway workflow` prints for a home with the default config. */
+function developJson(dir: string, file = join(dir, "workflows", "develop.yaml"), name = "develop"): string {
+  const doc = {
+    name,
+    file,
+    steps: [
+      { step: "implement", model: "opus" },
+      {
+        step: "review",
+        rounds: 1,
+        lenses: [
+          { name: "conformance", path: join(dir, "lenses", "conformance.md") },
+          { name: "correctness", path: join(dir, "lenses", "correctness.md") },
+        ],
+        model: "opus",
+        fix_model: "opus",
+      },
+      { step: "pr", ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+    ],
+  };
+  return `${JSON.stringify(doc, null, 2)}\n`;
+}
+
+test("workflow prints develop with every field from the defaults when no file sets default: true", () => {
+  const dir = workflowHome();
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
+  expect(run(dir, "workflow", "p", "develop").stdout).toBe(developJson(dir));
+});
+
+test("workflow fills every field in table order, an agent step included, and keeps the fields a step sets", () => {
+  const dir = workflowHome();
+  put(join(dir, "lenses", "security.md"), "# security\n");
+  put(
+    join(dir, "workflows", "full.yaml"),
+    [
+      "steps:",
+      "  - implement: {model: sonnet}",
+      "  - review: {fix_model: haiku, lenses: [security], rounds: 2}",
+      "  - agent: {prompt: Add a changelog entry., name: changelog}",
+      "  - pr: {}",
+      "",
+    ].join("\n"),
+  );
+  const res = run(dir, "workflow", "p", "full");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(res.stdout).toBe(
+    `${JSON.stringify(
+      {
+        name: "full",
+        file: join(dir, "workflows", "full.yaml"),
+        steps: [
+          { step: "implement", model: "sonnet" },
+          {
+            step: "review",
+            rounds: 2,
+            lenses: [{ name: "security", path: join(dir, "lenses", "security.md") }],
+            model: "opus",
+            fix_model: "haiku",
+          },
+          { step: "agent", name: "changelog", prompt: "Add a changelog entry.", model: "sonnet" },
+          { step: "pr", ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+});
+
+test("workflow takes absent fields from the project workflow.defaults over the global ones over the built-in values", () => {
+  const dir = workflowHome();
+  put(
+    join(dir, "config.yaml"),
+    "workflow:\n  defaults:\n    review:\n      rounds: 3\n      model: sonnet\n    pr:\n      ci_attempts: 4\n",
+  );
+  put(join(dir, "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 2\n      lenses: [correctness]\n");
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(res.stdout) as { steps: Record<string, unknown>[] };
+  expect(doc.steps[1]).toEqual({
+    step: "review",
+    rounds: 2,
+    lenses: [{ name: "correctness", path: join(dir, "lenses", "correctness.md") }],
+    model: "sonnet",
+    fix_model: "opus",
+  });
+  expect(doc.steps[2]).toEqual({ step: "pr", ci_attempts: 4, model: "sonnet", fix_model: "opus" });
+  const other = JSON.parse(run(dir, "workflow", "other").stdout) as { steps: Record<string, unknown>[] };
+  expect((other.steps[1] as { rounds: number }).rounds).toBe(3);
+});
+
+test("workflow <name> takes the project file over the global one, and exits 1 when neither exists", () => {
+  const dir = workflowHome();
+  put(join(dir, "workflows", "quick.yaml"), "steps:\n  - implement:\n");
+  expect(JSON.parse(run(dir, "workflow", "p", "quick").stdout).file).toBe(join(dir, "workflows", "quick.yaml"));
+  put(join(dir, "p", "workflows", "quick.yaml"), "steps:\n  - implement: {model: haiku}\n");
+  const res = run(dir, "workflow", "p", "quick");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(JSON.parse(res.stdout)).toEqual({
+    name: "quick",
+    file: join(dir, "p", "workflows", "quick.yaml"),
+    steps: [{ step: "implement", model: "haiku" }],
+  });
+  const missing = run(dir, "workflow", "p", "nope");
+  expect([missing.status, missing.stdout, missing.stderr]).toEqual([
+    1,
+    "",
+    `theway: no workflow 'nope' in ${join(dir, "p", "workflows")} or ${join(dir, "workflows")}\n`,
+  ]);
+});
+
+test("workflow exits 1 on an invalid name, an invalid project and a missing config.yaml, and prints config warnings", () => {
+  const dir = workflowHome();
+  for (const [args, line] of [
+    [["p", "Bad_Name"], "theway: invalid workflow name 'Bad_Name'\n"],
+    [["p", "a--b"], "theway: invalid workflow name 'a--b'\n"],
+    [["../x"], `theway: invalid project '../x': must be letters, digits, ".", "_" or "-", not starting with "." or "-"\n`],
+  ] as const) {
+    const res = run(dir, "workflow", ...args);
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", line]);
+  }
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
+  const warned = run(dir, "workflow", "p");
+  expect([warned.status, warned.stdout, warned.stderr]).toEqual([
+    0,
+    developJson(dir),
+    "theway: warning: config.yaml: unknown key workflow.open_pr; ignored\n",
+  ]);
+  rmSync(join(dir, "config.yaml"));
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([
+    1,
+    "",
+    `theway: config.yaml not found in ${dir}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`,
+  ]);
+});
+
+test("workflow picks the project's default: true file, else the global one not shadowed by a project file, else develop", () => {
+  const dir = workflowHome();
+  const one = "default: true\nsteps:\n  - implement:\n";
+  put(join(dir, "workflows", "global-one.yaml"), one);
+  put(join(dir, "workflows", "plain.yaml"), "default: false\nsteps:\n  - implement:\n");
+  expect(JSON.parse(run(dir, "workflow", "p").stdout).file).toBe(join(dir, "workflows", "global-one.yaml"));
+  put(join(dir, "p", "workflows", "mine.yaml"), one);
+  expect(JSON.parse(run(dir, "workflow", "p").stdout).file).toBe(join(dir, "p", "workflows", "mine.yaml"));
+  expect(JSON.parse(run(dir, "workflow", "other").stdout).file).toBe(join(dir, "workflows", "global-one.yaml"));
+  rmSync(join(dir, "p", "workflows", "mine.yaml"));
+  put(join(dir, "p", "workflows", "global-one.yaml"), "steps:\n  - implement:\n");
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
+  put(join(dir, "p", "workflows", "develop.yaml"), "steps:\n  - implement:\n  - review:\n  - pr:\n");
+  expect(run(dir, "workflow", "p").stdout).toBe(developJson(dir, join(dir, "p", "workflows", "develop.yaml")));
+});
+
+test("workflow exits 1 naming every file that sets default: true in the folder it reads", () => {
+  const dir = workflowHome();
+  const one = "default: true\nsteps:\n  - implement:\n";
+  put(join(dir, "workflows", "b.yaml"), one);
+  put(join(dir, "workflows", "a.yaml"), one);
+  const two = run(dir, "workflow", "p");
+  expect([two.status, two.stdout, two.stderr]).toEqual([1, "", "theway: workflows/a.yaml and workflows/b.yaml both set default: true\n"]);
+  for (const n of ["z", "m", "c"]) put(join(dir, "p", "workflows", `${n}.yaml`), one);
+  const three = run(dir, "workflow", "p");
+  expect(three.stderr).toBe("theway: p/workflows/c.yaml, p/workflows/m.yaml and p/workflows/z.yaml both set default: true\n");
+  expect(run(dir, "workflow", "p", "a").status).toBe(0);
+});
+
+test("workflow validates every file of the folder it reads for the default, and skips a shadowed global file", () => {
+  const dir = workflowHome();
+  put(join(dir, "workflows", "broken.yaml"), "steps: []\n");
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: workflows/broken.yaml: steps must be a non-empty list\n"]);
+  put(join(dir, "p", "workflows", "broken.yaml"), "steps:\n  - implement:\n");
+  expect([run(dir, "workflow", "p").status, run(dir, "workflow", "p").stdout]).toEqual([0, developJson(dir)]);
+  put(join(dir, "p", "workflows", "aaa.yaml"), "steps:\n  - review:\n");
+  put(join(dir, "p", "workflows", "zzz.yaml"), "default: true\nsteps:\n  - implement:\n");
+  expect(run(dir, "workflow", "p").stderr).toBe("theway: p/workflows/aaa.yaml: steps[0] must be implement\n");
+  expect(run(dir, "workflow", "p", "zzz").status).toBe(0);
+});
+
+test("workflow skips .default.yaml copies and warns about invalid stems only while it scans a folder", () => {
+  const dir = workflowHome();
+  put(join(dir, "workflows", "develop.default.yaml"), "default: true\nsteps: bad\n");
+  put(join(dir, "workflows", "Bad_Name.yaml"), "default: true\nsteps: bad\n");
+  put(join(dir, "workflows", "x.yml"), "default: true\n");
+  put(join(dir, "p", "workflows", "also bad.yaml"), "default: true\n");
+  put(join(dir, "p", "workflows", "notes.md"), "x\n");
+  mkdirSync(join(dir, "p", "workflows", "dir.yaml"));
+  const res = run(dir, "workflow", "p");
+  expect([res.status, res.stdout]).toEqual([0, developJson(dir)]);
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: p/workflows/also bad.yaml: not a valid workflow name; ignored",
+      "theway: warning: workflows/Bad_Name.yaml: not a valid workflow name; ignored",
+      "",
+    ].join("\n"),
+  );
+  const named = run(dir, "workflow", "p", "develop");
+  expect([named.status, named.stderr]).toEqual([0, ""]);
+});
+
+test("workflow reads no project folder for a shared project name", () => {
+  const dir = workflowHome();
+  put(join(dir, "standards", "workflows", "mine.yaml"), "default: true\nsteps:\n  - review:\n");
+  put(join(dir, "lenses", "lenses", "conformance.md"), "# own\n");
+  const res = run(dir, "workflow", "lenses");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
+  expect(run(dir, "workflow", "standards").stdout).toBe(developJson(dir));
+});
+
+test("workflow takes a project lens over the global one, and exits 1 for a lens with no file", () => {
+  const dir = workflowHome();
+  put(join(dir, "p", "lenses", "correctness.md"), "# mine\n");
+  const doc = JSON.parse(run(dir, "workflow", "p").stdout) as { steps: { lenses?: { path: string }[] }[] };
+  expect(doc.steps[1]?.lenses?.map((l) => l.path)).toEqual([
+    join(dir, "lenses", "conformance.md"),
+    join(dir, "p", "lenses", "correctness.md"),
+  ]);
+  put(join(dir, "workflows", "sec.yaml"), "steps:\n  - implement:\n  - review: {lenses: [correctness, security, other]}\n");
+  const res = run(dir, "workflow", "p", "sec");
+  expect([res.status, res.stdout, res.stderr]).toEqual([
+    1,
+    "",
+    `theway: workflows/sec.yaml: steps[1].review lens 'security' has no file in ${join(dir, "p", "lenses")} or ${join(dir, "lenses")}\n`,
+  ]);
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    review:\n      lenses: [missing]\n");
+  expect(run(dir, "workflow", "p").stderr).toBe(
+    `theway: workflows/develop.yaml: steps[1].review lens 'missing' has no file in ${join(dir, "p", "lenses")} or ${join(dir, "lenses")}\n`,
+  );
+});
+
+test("workflow exits 1 with the first validation error of a file, in the documented order", () => {
+  const dir = workflowHome();
+  const head = "steps:\n  - implement:\n";
+  const cases: [string, string][] = [
+    ["a: [1\n", "invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1"],
+    ["steps: 1\nsteps: 2\n", "invalid YAML: Map keys must be unique at line 2, column 1"],
+    ["", "not a map"],
+    ["- implement\n", "not a map"],
+    ["steps: x\nname: y\nother: z\n", "unknown key name"],
+    ["default: yes\nsteps:\n  - implement:\n", "default must be true or false"],
+    ["default: true\n", "steps must be a non-empty list"],
+    ["steps: {implement: {}}\n", "steps must be a non-empty list"],
+    ["steps: []\n", "steps must be a non-empty list"],
+    ["steps:\n  - implement\n", "steps[0] must be one of implement, review, agent, pr"],
+    ["steps:\n  - {implement: {}, pr: {}}\n", "steps[0] must be one of implement, review, agent, pr"],
+    [`${head}  - deploy: {}\n`, "steps[1] must be one of implement, review, agent, pr"],
+    [`${head}  - review: [1]\n`, "steps[1].review must be a map"],
+    [`${head}  - review: x\n`, "steps[1].review must be a map"],
+    [`${head}  - review: {rounds: 0, extra: 1, other: 2}\n`, "steps[1].review.extra is not a field of review"],
+    [`${head}  - pr: {model: opus, ci_attempts: 0}\n`, "steps[1].pr.ci_attempts must be a positive integer"],
+    [`${head}  - review: {rounds: 1.5}\n`, "steps[1].review.rounds must be a positive integer"],
+    ["steps:\n  - implement: {model: gpt}\n", "steps[0].implement.model must be opus, sonnet or haiku"],
+    [`${head}  - review: {fix_model: Opus}\n`, "steps[1].review.fix_model must be opus, sonnet or haiku"],
+    [`${head}  - review: {lenses: []}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
+    [`${head}  - review: {lenses: [a, a]}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
+    [`${head}  - review: {lenses: [Bad]}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
+    [`${head}  - agent: {name: Change Log, prompt: x}\n`, "steps[1].agent.name must be a name (lowercase letters, digits and -)"],
+    [`${head}  - agent: {name: x, prompt: ""}\n`, "steps[1].agent.prompt must be a non-empty string"],
+    [`${head}  - agent: {name: x, prompt: 3}\n`, "steps[1].agent.prompt must be a non-empty string"],
+    [`${head}  - agent:\n`, "steps[1].agent.name is required"],
+    [`${head}  - agent: {prompt: x}\n`, "steps[1].agent.name is required"],
+    [`${head}  - agent: {name: x}\n`, "steps[1].agent.prompt is required"],
+    ["steps:\n  - review:\n  - implement:\n", "steps[0] must be implement"],
+    ["steps:\n  - review: {rounds: 0}\n", "steps[0].review.rounds must be a positive integer"],
+    [`${head}  - implement:\n`, "steps[1]: implement may appear only once"],
+    [`${head}  - pr:\n  - review:\n`, "steps[1]: pr must be the last step"],
+    [`${head}  - pr:\n  - pr:\n`, "steps[1]: pr must be the last step"],
+    [`${head}  - review: {lenses: [nope]}\n  - pr: {bad: 1}\n`, `steps[1].review lens 'nope' has no file in ${join(dir, "p", "lenses")} or ${join(dir, "lenses")}`],
+    [`${head}  - pr: {}\n  - review: {bad: 1}\n`, "steps[1]: pr must be the last step"],
+  ];
+  for (const [text, reason] of cases) {
+    put(join(dir, "workflows", "w.yaml"), text);
+    const res = run(dir, "workflow", "p", "w");
+    expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
+  }
+});
+
+test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that cannot be read", () => {
+  const dir = workflowHome();
+  put(join(dir, "p", "workflows", "w.yaml"), "steps:\n  - implement:\n");
+  chmodSync(join(dir, "p", "workflows", "w.yaml"), 0o000);
+  const res = run(dir, "workflow", "p", "w");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/workflows/w.yaml: cannot be read\n"]);
+});
