@@ -9,6 +9,30 @@ description: List the active and archived changes of the current project
 /theway:list
 ```
 
+## Example
+
+In `my-api`, after the [series](../examples/series.mdx) and the archive of `add-rate-limiting`:
+
+```text
+/theway:list
+```
+
+```text
+theway changes — my-api
+
+Active changes
+
+  add-user-auth-01     2 files   3/3 tasks done
+  add-user-auth-02     2 files   3/3 tasks done
+  add-user-auth-03     2 files   3/3 tasks done
+
+Archived changes (1)
+
+  YYYY-MM-DD-add-rate-limiting
+
+Summary: 3 active change(s), 1 archived.
+```
+
 ## Steps
 
 It takes the name of the current working directory as `<project>`, runs the CLI and shows the output as it is:
@@ -19,19 +43,7 @@ theway list <project>
 
 ## Output
 
-```text
-theway changes — my-project
-
-Active changes
-
-  add-redis-cache      2 files   3/5 tasks done
-
-Archived changes (1)
-
-  2025-10-15-update-auth-middleware
-
-Summary: 1 active change(s), 1 archived.
-```
+Each line of `theway list <project>`, as in the example above:
 
 - An active change shows its number of `.md` files and its ticked numbered tasks out of all numbered tasks.
 - Archived changes are listed by folder name.

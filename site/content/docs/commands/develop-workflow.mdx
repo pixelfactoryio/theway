@@ -16,6 +16,28 @@ It is the agent-driven counterpart of [`/theway:develop`](./develop.mdx): your s
 
 Running the command authorizes, with `workflow.open_pr: true` (the default), pushing each change's own branch (never force-pushing, never the default branch) and opening its PR; with `workflow.open_pr: false`, nothing is pushed. It is also the opt-in for the Workflow tool. Each merge in a series needs your yes, and uses a normal squash merge, never `--admin`.
 
+## Example
+
+On `my-api`, the change of the [worked example](../example.mdx) (see [Develop through agents](../examples/develop-workflow.mdx)):
+
+```text
+/theway:develop-workflow add-rate-limiting
+```
+
+```text
+add-rate-limiting
+- Branch: add-rate-limiting
+- PR: https://github.com/example/my-api/pull/12
+- Review: 1 round used.
+  Not fixed: 2 false_positive "Retry-After can be 0 in the window's last millisecond".
+  Fix check: 0 resolved, 1 resolved.
+- CI: green, 1 of 2 attempts used.
+- Merge: not merged, awaits your validation.
+- Standards given to the agents: none.
+```
+
+A series run asks before each merge: see [A series](../examples/series.mdx#the-develop-run).
+
 ## Steps
 
 The steps run once per change ID, in order.

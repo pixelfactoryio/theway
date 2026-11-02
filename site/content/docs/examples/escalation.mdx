@@ -1,0 +1,61 @@
+---
+title: An escalation
+description: "A request that looks small but needs a decision: the light command writes nothing and sends you to /theway:engineering."
+---
+
+This is an illustrative run on the sample project `my-api`, with the rate limit of the [worked example](../example.mdx) in place.
+
+## The request
+
+```text
+/theway:engineering-light update-shared-rate-limits: share the rate limit across instances
+```
+
+## The investigation
+
+The command read the code and the docs before writing anything:
+
+- Where is the limiter's state? Read `src/rate-limit.js`: a `Map` in the process, so each instance counts on its own.
+- How many instances run? Read `README.md`: "single instance, no proxy". Running several is new.
+- Is there a shared store to use? Read `package.json` and `src/`: no dependencies, no database, no cache. The request does not name one either.
+
+Sharing the counters needs a store that the code, the docs and the request do not choose: for example Redis, or a database table. That is a decision, so the escalation check stops the command before any file is written.
+
+## The report
+
+```text
+Escalated: this change needs a decision, so no change folder was written.
+
+Found:
+- The limiter keeps its counters in a Map in each process (src/rate-limit.js).
+- The README says "single instance, no proxy"; sharing the limit across instances is new.
+- No shared store exists (no dependencies, no database), and the request names none:
+  which one to use (for example Redis, or a database table) is a decision.
+
+Run instead:
+  /theway:engineering update-shared-rate-limits: share the rate limit across instances
+
+Standards read: none.
+```
+
+The light command never writes a full spec itself, and no review ran, as there was nothing to review.
+
+## The full spec
+
+`/theway:engineering`, run with the same request, writes `<home>/my-api/changes/update-shared-rate-limits/spec.md` and stops on the store as an open question. Its first lines:
+
+```md
+# Spec Analysis: Share the Rate Limit Across Instances
+
+## Solution
+
+**Problem:** Each instance of `my-api` counts requests in its own memory (`src/rate-limit.js`), so behind several instances a client gets the limit once per instance. The limit must hold across instances.
+
+**Proposed Solution:**
+
+The limiter keeps its fixed window, but reads and increments each IP's counter in a store every instance shares, behind the same `check(key)` interface.
+
+**Open question:** which store holds the counters? The code, the README and the request name none, and the project has no dependencies today. Redis adds a dependency and a service to run; a database table adds a database. The rest of the spec waits on this choice.
+```
+
+The spec is not ready until you answer, and the review does not run while the question is open.

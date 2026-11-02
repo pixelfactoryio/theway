@@ -1,0 +1,113 @@
+---
+title: A series
+description: "One request split into three changes: member IDs from next-id, one review across them, and one PR per member, merged in order."
+---
+
+This is an illustrative run on the sample project `my-api`. It adds user authentication as a [series](../concepts/changes.mdx#series) of three changes, each built on the one before.
+
+## The request
+
+```text
+/theway:engineering add-user-auth as a series: password storage, the login endpoint, docs
+```
+
+## The member IDs
+
+The request asks for a series, so `add-user-auth` is the series ID. The command asked the CLI for three member IDs, on a home with no `add-user-auth` folder yet:
+
+```text
+$ theway next-id my-api add-user-auth --count 3
+add-user-auth-01
+add-user-auth-02
+add-user-auth-03
+```
+
+It assigned them in dependency order:
+
+| Member | Change |
+|---|---|
+| `add-user-auth-01` | Password storage: a `users` record with an scrypt hash from `node:crypto`, no new dependency |
+| `add-user-auth-02` | `POST /login`, checking the password against the stored hash |
+| `add-user-auth-03` | README: how to create a user and log in |
+
+Each member's `spec.md` carries its `**Series:**` line directly under its title:
+
+```md
+# Spec Analysis: Store User Passwords
+**Series:** add-user-auth — 01 of 03
+```
+
+```md
+# Spec Analysis: Add the Login Endpoint
+**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01
+```
+
+```md
+# Spec Analysis: Document User Authentication
+**Series:** add-user-auth — 03 of 03, depends on add-user-auth-02
+```
+
+## The review
+
+One review round covered the three members together. The report:
+
+```text
+Change folders:
+  <home>/my-api/changes/add-user-auth-01/
+  <home>/my-api/changes/add-user-auth-02/
+  <home>/my-api/changes/add-user-auth-03/
+Findings: no sessions exist today; settings are constants passed to createApp; no dependencies.
+Standards read: none.
+Open questions: none.
+
+Review: 1 round (grounding and implementability critics).
+```
+
+| # | Finding | Verdict | Fix |
+|---|---------|---------|-----|
+| R1-0 | `add-user-auth-02` names a `verifyPassword` helper that `-01` does not export | confirmed | `-01` task 2 now exports `verifyPassword(password, hash)` |
+| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `200` with a JSON body: every `my-api` route answers through `send(status, body)` with JSON (`send(200, { ok: true })` in `src/app.js`), and `-02`'s Out of Scope excludes sessions and tokens |
+| R1-2 | `-03` has a task to review the README wording | confirmed | task removed: reviewing is not repository work |
+
+R1-1 settled: `POST /login` returns `200` with a JSON body on success, as every existing route in `src/app.js` does.
+
+## The develop run
+
+```text
+/theway:develop-workflow add-user-auth-01 add-user-auth-02 add-user-auth-03
+```
+
+The members run in order, each from the synced `main`. After each PR is green, the command asks before merging:
+
+```text
+add-user-auth-01: PR #13 https://github.com/example/my-api/pull/13, CI green (1 of 2 attempts)
+ src/password.js       | 24 ++++++++
+ test/password.test.js | 31 ++++++++++
+ 2 files changed, 55 insertions(+)
+Merge PR #13? (yes / no)
+```
+
+On `yes`, it squash-merged PR #13, synced `main`, and created `add-user-auth-02`'s branch from it. PR #14 and PR #15 went the same way. Any other answer would have stopped the run, with the later members not started.
+
+## The list
+
+The orchestrator ticked every task, so each member's `tasks.md` shows its three tasks done:
+
+```text
+$ theway list my-api
+theway changes — my-api
+
+Active changes
+
+  add-user-auth-01     2 files   3/3 tasks done
+  add-user-auth-02     2 files   3/3 tasks done
+  add-user-auth-03     2 files   3/3 tasks done
+
+Archived changes (0)
+
+  No archived changes.
+
+Summary: 3 active change(s), 0 archived.
+```
+
+Each one can now be archived with [`/theway:archive`](../commands/archive.mdx).

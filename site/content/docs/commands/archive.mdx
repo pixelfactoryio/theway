@@ -11,6 +11,18 @@ Use it once the change is implemented, tested, deployed when that applies, and c
 /theway:archive <change-id>
 ```
 
+## Example
+
+On `my-api`, once the [worked example](../example.mdx)'s change is done:
+
+```text
+/theway:archive add-rate-limiting
+```
+
+```text
+Archived: <home>/my-api/changes/archive/YYYY-MM-DD-add-rate-limiting
+```
+
 ## Steps
 
 1. **Require an explicit instruction.** Archiving moves the folder, so it runs only when you name the change and say to archive it. Signals such as "it's merged" or "ship it" are not enough: it stops and asks.
