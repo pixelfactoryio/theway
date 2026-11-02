@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/pixelfactoryio/theway/compare/v0.10.0...v0.11.0) (2026-11-02)
+
+
+### Features
+
+* **install:** choose the data home and the opt-in standards at install ([#52](https://github.com/pixelfactoryio/theway/issues/52)) ([292c87d](https://github.com/pixelfactoryio/theway/commit/292c87df4efc9b5210c54a7a27dbbd847e5009a6))
+
 ## [0.10.0](https://github.com/pixelfactoryio/theway/compare/v0.9.0...v0.10.0) (2026-11-02)
 
 
