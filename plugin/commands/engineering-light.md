@@ -19,7 +19,7 @@ You are now scaffolding a light Spec analysis using templates: the short spec of
 Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
-- If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` writes `invalid change id '…'` and `archive` writes `Error: …`.
+- If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
 - Quote every `theway: warning:` line in your report.
 - Do not check for files under `<home>` before reading them. If a file under `<home>/standards/` or `<home>/templates/` does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 
@@ -29,14 +29,12 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 
 ### Step 1: Load Config and Standards
 
-Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid.
-
-Read these files from `<home>`:
+Run `theway context <project> engineering`. Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
-Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
+Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
-Take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
+From its `config`, where every value is already valid, take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
 
 ### Step 2: Create Change Folder
 

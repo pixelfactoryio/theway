@@ -29,8 +29,16 @@ function files(dir: string): string[] {
 /** The `## Locate the home` section of a command, up to the next heading. */
 const locateStep = (text: string) => /^## Locate the home\n[\s\S]*?(?=^#)/m.exec(text)?.[0];
 
-test("every theway subcommand the commands call is dispatched by the CLI", () => {
-  const called = new Set(commands.flatMap((f) => calls(read(join(COMMANDS, f)))));
+test("every theway subcommand the commands and standards call is dispatched by the CLI", () => {
+  const standards = join(PLUGIN, "home", "standards");
+  const texts = [
+    ...commands.map((f) => read(join(COMMANDS, f))),
+    ...readdirSync(standards)
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => read(join(standards, f))),
+  ];
+  const called = new Set(texts.flatMap(calls));
+  expect(called).toContain("authority");
   expect(called.size).toBeGreaterThan(0);
   const subcommands = buildProgram().commands.map((c) => c.name());
   expect([...called].filter((sub) => !subcommands.includes(sub))).toEqual([]);
@@ -78,11 +86,29 @@ test("every command that reads theway data has the same Locate the home step", (
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
-test("engineering, develop and develop-workflow get the change folder from theway path", () => {
-  const missing = ["engineering.md", "engineering-light.md", "develop.md", "develop-workflow.md"].filter(
-    (f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`"),
-  );
+test("the engineering commands get the change folder from theway path, the develop ones from theway context", () => {
+  const missing = [
+    ...["engineering.md", "engineering-light.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`")),
+    ...["develop.md", "develop-workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context <project> develop <change-id>`")),
+  ];
   expect(missing).toEqual([]);
+});
+
+test("the five loading commands call theway context, not theway config or theway standards", () => {
+  for (const f of ["engineering.md", "engineering-light.md", "develop.md", "develop-workflow.md", "document.md"]) {
+    const text = read(join(COMMANDS, f));
+    expect(calls(text)).toContain("context");
+    expect(text).not.toContain("theway config <project>");
+    expect(text).not.toContain("theway standards <project>");
+  }
+});
+
+test("engineering.md takes a series' member IDs from theway next-id", () => {
+  const text = read(join(COMMANDS, "engineering.md"));
+  expect(text).toContain("`theway next-id <project> <series-id> --count <N>`");
+  expect(text).toContain("on `would go past -99`, stop and report it.");
+  expect(text).not.toContain("changes/archive/*-");
+  expect(text).not.toContain("--series");
 });
 
 test("plugin.json and package.json carry the same semver version", () => {
@@ -197,6 +223,12 @@ test("every spawned agent gets the Authority rule", () => {
   expect(read(join(PLUGIN, "home", "standards", "interaction.md"))).toContain("\n## Authority\n");
   expect(read(join(COMMANDS, "develop-workflow.md"))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
   expect(read(join(PLUGIN, "home", "standards", "spec-review.md"))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
+  for (const text of [read(join(COMMANDS, "develop-workflow.md")), read(join(PLUGIN, "home", "standards", "spec-review.md"))]) {
+    expect(text).toContain("run `theway authority` and quote its output verbatim");
+  }
+  for (const f of [...files(join(PLUGIN, "commands")), ...files(join(PLUGIN, "home", "standards"))]) {
+    expect(read(f)).not.toContain("interaction.default.md");
+  }
   for (const f of ["engineering-light.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/spec-review.md`");
   }
@@ -459,7 +491,8 @@ test("engineering and engineering-light read the standards, follow them, give th
     const text = read(join(COMMANDS, f));
     const step1 = step(text, "Step 1:");
     expect(step1).toContain("- `<home>/standards/tamm-framework.md` - TAMM framework");
-    expect(step1).toContain("Then run `theway standards <project> engineering` and read every file it prints");
+    expect(step1).toContain("Run `theway context <project> engineering`.");
+    expect(step1).toContain("Then read every file its `standards` lists");
     expect(step1).toContain("the spec follows them.");
     for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
     expect(text).not.toContain(OPT_IN);
@@ -491,7 +524,8 @@ test("develop and develop-workflow read the user standards, give them to the age
     const step1 = step(text, "Step 1:");
     expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
     expect(step1).toContain("- `docs/architecture/coding-standards.md`");
-    expect(step1).toContain("Then run `theway standards <project> develop` and read every file it prints");
+    expect(step1).toContain("Run `theway context <project> develop <change-id>`");
+    expect(step1).toContain("Then read every file its `standards` lists");
     expect(step1).toContain("these are the user standards.");
     expect(step1).toContain("do not search the filesystem");
   }
@@ -532,24 +566,26 @@ test("the develop standard lets the orchestrator tick tasks and scopes writes am
   expect(section(read(join(STANDARDS, "interaction.md")), "Reporting")).toContain("unless the command tells you to name one");
 });
 
-test("engineering, engineering-light and develop-workflow take their keys from theway config", () => {
+test("engineering, engineering-light and develop-workflow take their keys from the config of theway context", () => {
   for (const [f, n] of [
     ["engineering.md", 6],
     ["engineering-light.md", 5],
   ] as const) {
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
-    expect(step1).toStartWith("### Step 1: Load Config and Standards\n\nRun `theway config <project>`");
-    expect(step1).toContain(`Take \`engineering.review_rounds\` (maximum review rounds in Step ${n})`);
+    expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
+    expect(step1.split("\n\n")[1]).toStartWith("Run `theway context <project> engineering`");
+    expect(step1).toContain("From its `config`, where every value is already valid, take");
+    expect(step1).toContain(`take \`engineering.review_rounds\` (maximum review rounds in Step ${n})`);
     expect(step1).toContain("and `engineering.models.critic`.");
   }
   const workflow = step(read(join(COMMANDS, "develop-workflow.md")), "Step 1:");
-  expect(workflow).toContain("Run `theway config <project>` and take the keys below from what it prints");
+  expect(workflow).toContain("From its `config`, where every value is already valid, take");
   for (const key of ["workflow.review_rounds", "workflow.ci_attempts", "workflow.open_pr", "workflow.models.implementer"]) {
     expect(workflow).toContain(`\`${key}\``);
   }
   for (const f of ["engineering.md", "engineering-light.md", "develop-workflow.md"]) {
     const text = read(join(COMMANDS, f));
-    expect(calls(text)).toContain("config");
+    expect(calls(text)).toContain("context");
     for (const old of [
       "A key that is absent or not a non-negative integer",
       "a key that is absent or holds any other value takes",
@@ -560,9 +596,11 @@ test("engineering, engineering-light and develop-workflow take their keys from t
   }
 });
 
-test("document reads the enabled opt-in standards from theway standards, not from theway config", () => {
+test("document reads the enabled opt-in standards from theway context", () => {
   const text = read(join(COMMANDS, "document.md"));
-  expect(step(text, "Step 1:").split("\n\n")[1]).toStartWith("Run `theway standards <project> document`");
+  const first = step(text, "Step 1:").split("\n\n")[1];
+  expect(first).toStartWith("Run `theway context <project> document`");
+  expect(first).toContain("read every file its `standards` lists");
   expect(calls(text)).not.toContain("config");
   expect(text).not.toContain("Then read these opt-in standards:");
   for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);

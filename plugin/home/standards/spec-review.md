@@ -21,7 +21,7 @@ Each lens is one critic agent. No critic sees another's findings.
 
 Each critic's prompt states:
 - its lens and the finding format below;
-- the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`, quoted verbatim (from `interaction.default.md` when the kept copy has no such section; when neither has it, tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop);
+- the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`: run `theway authority` and quote its output verbatim;
 - the absolute paths of the standards the command read in Step 1, which the spec must follow;
 - the rules: it never edits the change folder or the repository; it writes no prototype, reproduces none of the planned code, config or schema, and does not re-implement the spec's rules to measure them; each probe answers exactly one question (a version, a behavior, an error string) and writes only to a temporary directory created with `mktemp -d`.
 
