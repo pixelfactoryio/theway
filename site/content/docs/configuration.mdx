@@ -24,7 +24,7 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-`<rule>` is `a non-negative integer`, `a positive integer`, `true or false` or `opus or sonnet`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section or `models` that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
+`<rule>` is `a non-negative integer`, `a positive integer`, `true or false` or `opus, sonnet or haiku`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section or `models` that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
 
 For example, with the shipped global `config.yaml`, this `<home>/my-site/config.yaml`:
 
@@ -38,7 +38,7 @@ workflow:
     ci: haiku
 ```
 
-makes `theway config my-site` print this, with one warning on stderr, `theway: warning: my-site/config.yaml: workflow.models.ci must be opus or sonnet; ignored`:
+makes `theway config my-site` print this, with one warning on stderr, `theway: warning: my-site/config.yaml: workflow.models.ci must be opus, sonnet or haiku; ignored`:
 
 ```yaml
 standards:
@@ -69,7 +69,7 @@ workflow:
 
 `standards.<key>.enabled` switches any standard: the four opt-in standards theway ships and your own [user standards](./concepts/standards.mdx). The key is the file stem with `-` turned into `_`: `web-development.md` is `standards.web_development`, `tdd.md` is `standards.tdd`. Both the global and the project `config.yaml` take it, so a project can switch a global standard off, or an opt-in one on, for itself only (see [Switching a standard](./concepts/standards.mdx#switching-a-standard)).
 
-- The four opt-in standards default to `false`. `/theway:engineering`, `/theway:engineering-light` and `/theway:document` read one only when its `enabled` is `true`.
+- The four opt-in standards default to `false`. The commands that read standards, `/theway:engineering`, `/theway:engineering-light`, `/theway:develop`, `/theway:develop-workflow` and `/theway:document`, read one only when its `enabled` is `true`.
 - User standards default to `true`.
 - `theway config <project>` prints the four opt-in keys first, in the order below, then the key of every user standard of the project, sorted, each with its effective `enabled`.
 - A key with no standard file behind it, in either file, is ignored with a `has no standard file` warning.
@@ -94,9 +94,9 @@ The spec review of [`/theway:engineering`](./commands/engineering.mdx#steps) (st
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `engineering.review_rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
-| `engineering.models.critic` | `opus` | Model of the two critic agents: `opus` or `sonnet`. Any other value is ignored with a warning; `haiku` is never used. |
+| `engineering.models.critic` | `opus` | Model of the two critic agents: `opus`, `sonnet` or `haiku`. Any other value is ignored with a warning. |
 
-Each round spawns two critics. [`/theway:engineering-light`](./commands/engineering-light.mdx) reads the same keys but runs at most one round, with one grounding critic. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
+Each round spawns two critics. [`/theway:engineering-light`](./commands/engineering-light.mdx) reads the same keys and runs up to `engineering.review_rounds` rounds, with one grounding critic. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
 
 ## workflow
 
@@ -104,13 +104,13 @@ Caps for [`/theway:develop-workflow`](./commands/develop-workflow.mdx). A key th
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the local review. A light change (`**Mode:** light`) runs at most one round. |
+| `workflow.review_rounds` | `1` | Review rounds per change. A non-negative integer; `0` skips the local review. A light change (`**Mode:** light`) runs up to the same number. |
 | `workflow.ci_attempts` | `2` | CI attempts per change to reach green, re-runs included. A positive integer. |
 | `workflow.open_pr` | `true` | After the local review, push the branch, open the PR and drive CI. `false` stops at the reviewed local branch: nothing is pushed, and a series stacks each change on a local branch created from the previous one. |
 
 ### workflow.models
 
-The model each agent role of `/theway:develop-workflow` runs on. Each value is `opus` or `sonnet`; any other value is ignored with a warning. `haiku` is never used.
+The model each agent role of `/theway:develop-workflow` runs on. Each value is `opus`, `sonnet` or `haiku`; any other value is ignored with a warning.
 
 | Key | Default | Agents |
 |-----|---------|--------|
