@@ -15,13 +15,13 @@ The change ID can also come from the request, for example "develop the add-redis
 
 ## Steps
 
-1. **Load context**, reading these paths directly:
+1. **Load context:** it runs [`theway context <project> develop <change-id>`](../cli.mdx#context), then reads these paths directly:
    - `~/.theway/standards/develop.md`
    - `~/.theway/<project>/changes/<change-id>/spec.md`
    - `~/.theway/<project>/changes/<change-id>/tasks.md`
    - `~/.theway/<project>/changes/<change-id>/design.md`, when present
    - `docs/architecture/coding-standards.md`, when present
-   - the [user standards](../concepts/standards.mdx) that `theway standards <project> develop` prints
+   - the [user standards](../concepts/standards.mdx) its `standards` lists
 2. **Implement and verify**, following `develop.md`:
    - Read only this change's folder: never other changes or `changes/archive/`, so no task from another change ends up in this one.
    - Work through the numbered tasks in order, following the codebase's patterns, and write the tests with the code they cover.
