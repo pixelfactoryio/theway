@@ -6,7 +6,7 @@ description: The theway command line and its eleven subcommands.
 The `theway` program has eleven subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards`, `context`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
-theway install
+theway install [--home <path>] [--standards <keys>]
 theway uninstall
 theway list <project>
 theway archive <project> <change-id> [--force]
@@ -44,7 +44,23 @@ Other environment variables:
 npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, dropping the `Read` rule of the previous home and any `Edit` rule earlier versions added when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, dropping the `Read` rule of the previous home and any `Edit` rule earlier versions added when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+
+On a first install from a terminal (stdin and stdout), it asks where to keep the data home, only when theway was never installed, then which opt-in standards to enable, only when the data home has no `config.yaml`. The options answer without a question:
+
+- `--home <path>`: the data home, an absolute path or one starting with `~/`.
+- `--standards <keys>`: the opt-in standards to enable in a new `config.yaml`, comma-separated (`core_principles`, `sre`, `web_development`, `quality`), or `none`.
+
+It exits 1 and changes nothing when:
+
+- `--home` is not an absolute path and does not start with `~/`: `theway: invalid --home '<value>': must be an absolute path or start with ~/; nothing was changed`;
+- `--home` and a set `THEWAY_HOME` name different paths: `theway: --home <a> and THEWAY_HOME <b> differ; unset THEWAY_HOME or drop --home; nothing was changed`;
+- `--standards` names an unknown key: `theway: unknown standard '<element>' in --standards; valid: core_principles, sre, web_development, quality, or none`;
+- `--standards` combines `none` with a key: `theway: --standards none cannot be combined with other standards`;
+- `--standards` is given and the data home already has a `config.yaml`: `theway: --standards applies only to a first install; <home>/config.yaml exists, so set standards.<key>.enabled there instead; nothing was changed`;
+- you cancel a question: `theway: install cancelled; nothing was changed`.
+
+With no terminal and no `--standards`, a first install leaves the opt-in standards off and prints the line that says how to enable one.
 
 ## uninstall
 
