@@ -3,7 +3,7 @@ title: /theway:engineering-light
 description: Write a short spec and 1 to 3 tasks for a small change with nothing to decide
 ---
 
-The light path of [`/theway:engineering`](./engineering.mdx), for a small change with nothing to decide: a known cause, a local change, no contract that others rely on. It writes a short spec and 1 to 3 tasks, and one critic reviews them. The code comes later, from [`/theway:develop`](./develop.mdx) or [`/theway:workflow`](./workflow.mdx), as for any change.
+The light path of [`/theway:engineering`](./engineering.mdx), for a small change with nothing to decide: a known cause, a local change, no contract that others rely on. It writes a short spec and 1 to 3 tasks, and one critic reviews them. The code comes later, from [`/theway:workflow`](./workflow.mdx), as for any change.
 
 ## Usage
 
@@ -60,5 +60,5 @@ It reports the change folder, the findings that shaped the spec, the standards r
 ## Downstream
 
 The develop commands read `**Mode:** light`:
-- [`/theway:develop`](./develop.mdx#fix-checks) proves a light `fix-` change's regression test without the base-commit worktree: the test runs before the fix and fails, then runs after it and passes.
+- [`/theway:workflow`](./workflow.mdx#fix-checks) proves a light `fix-` change's regression test without the base-commit worktree: the test runs before the fix and fails, then runs after it and passes.
 - [`/theway:workflow`](./workflow.mdx) runs its `review` steps as for any change, and its `conformance` lens checks the diff against the Change section.

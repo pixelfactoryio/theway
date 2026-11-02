@@ -1,17 +1,17 @@
 ---
 title: Run through a workflow
-description: "The full change example's change run through the develop workflow: a local review round, then a PR driven to green CI."
+description: "The full change example's change run through the agents workflow: a local review round, then a PR driven to green CI."
 ---
 
-This is an illustrative run on the sample project `my-api`. It takes the `add-rate-limiting` change of the [full change](./full-change.mdx), from the same spec and tasks, and runs it with `/theway:workflow` instead of `/theway:develop`.
+This is an illustrative run on the sample project `my-api`. It takes the `add-rate-limiting` change of the [full change](./full-change.mdx), from the same spec and tasks, and runs it through agents with the shipped `agents` workflow, instead of inline in the session with the default `develop` workflow.
 
 ## The request
 
 ```text
-/theway:workflow add-rate-limiting
+/theway:workflow --workflow agents add-rate-limiting
 ```
 
-No workflow file sets `default: true`, so the shipped `develop` workflow runs, with the default [`workflow.defaults`](../configuration.mdx#workflow): one review round with the `conformance` and `correctness` lenses, then a PR with two CI attempts. `theway workflow my-api` printed it with every field filled.
+`--workflow agents` picks the shipped `agents` workflow, with the default [`workflow.defaults`](../configuration.mdx#workflow): one review round with the `conformance` and `correctness` lenses, then a PR with two CI attempts. `theway workflow my-api agents` printed it with every field filled, each step with `agents: true`.
 
 ## Implement
 
@@ -35,7 +35,7 @@ The `pr` step pushed the branch once and opened PR #12, titled `feat: add per-ip
 
 ```text
 add-rate-limiting
-- Workflow: develop (/home/you/.theway/workflows/develop.yaml)
+- Workflow: agents (/home/you/.theway/workflows/agents.yaml)
 - Branch: add-rate-limiting
 - PR: https://github.com/example/my-api/pull/12
 - Review: 1 round used.

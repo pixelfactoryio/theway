@@ -3,38 +3,52 @@ title: Workflows
 description: The YAML files that list the steps /theway:workflow runs, the lenses its reviewers follow, and how both are found.
 ---
 
-A workflow is a YAML file that lists the steps [`/theway:workflow`](../commands/workflow.mdx) runs for each change, in order: implement, review, any agent of your own, and the PR. A lens is a Markdown brief for one reviewer of a `review` step. theway ships one workflow, `develop`, and two lenses, `conformance` and `correctness`; you add your own next to them, globally or for one project.
+A workflow is a YAML file that lists the steps [`/theway:workflow`](../commands/workflow.mdx) runs for each change, in order: implement, review, any agent of your own, and the PR. Each step runs through agents or inline, in your session. A lens is a Markdown brief for one reviewer of a `review` step. theway ships two workflows, `develop` and `agents`, and two lenses, `conformance` and `correctness`; you add your own next to them, globally or for one project.
 
 ## Files and layering
 
 | What | Global | Project (wins by name) | Shipped |
 |---|---|---|---|
-| Workflows | `<home>/workflows/<name>.yaml` | `<home>/<project>/workflows/<name>.yaml` | `develop.yaml` |
+| Workflows | `<home>/workflows/<name>.yaml` | `<home>/<project>/workflows/<name>.yaml` | `develop.yaml`, `agents.yaml` |
 | Lenses | `<home>/lenses/<name>.md` | `<home>/<project>/lenses/<name>.md` | `conformance.md`, `correctness.md` |
 
 - A workflow's name is its file stem; the file has no `name` key. A name is lowercase letters and digits in words separated by single hyphens (`develop-secure`).
 - A project file wins over a global file of the same name.
-- Install writes the shipped files into `<home>/workflows/` and `<home>/lenses/` and treats them as it treats the shipped [standards](./standards.mdx): it updates a file you have not edited, keeps one you have and writes the shipped version next to it as `develop.default.yaml` or `<lens>.default.md`, keeps your own file when theway starts shipping one with its name, and removes an unedited file theway stops shipping. A `*.default.yaml` or `*.default.md` file is never a workflow or a lens.
+- Install writes the shipped files into `<home>/workflows/` and `<home>/lenses/` and treats them as it treats the shipped [standards](./standards.mdx): it updates a file you have not edited, keeps one you have and writes the shipped version next to it as `<name>.default.yaml` or `<lens>.default.md`, keeps your own file when theway starts shipping one with its name, and removes an unedited file theway stops shipping. A `*.default.yaml` or `*.default.md` file is never a workflow or a lens.
 - A project named `data`, `templates`, `standards`, `workflows` or `lenses` has no workflows or lenses of its own: only the global ones apply.
 
-## The shipped workflow
+## The shipped workflows
+
+`develop.yaml`, the default when no file sets `default: true`:
 
 ```yaml
-# The workflow /theway:workflow runs when no file sets default: true. Fields left out come from workflow.defaults in config.yaml.
+# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, as /theway:develop did.
+agents: false
+steps:
+  - implement:
+```
+
+It implements the tasks inline, in your session, following `develop.md`, and verifies them. It creates no branch and commits nothing: the change stays in your working tree for you to review. It runs one change at a time; a series needs a workflow that commits.
+
+`agents.yaml`:
+
+```yaml
+# Implement, review and open the PR through agents. Fields left out come from workflow.defaults in config.yaml.
 steps:
   - implement:
   - review:
   - pr:
 ```
 
-It implements the change with one agent, reviews it locally with the `conformance` and `correctness` lenses for one round, then pushes the branch, opens the PR and drives CI to green.
+It implements the change with one agent on a feature branch, reviews it locally with the `conformance` and `correctness` lenses for one round, then pushes the branch, opens the PR and drives CI to green. Run it with `/theway:workflow --workflow agents <change-id>`, or copy it under another name with `default: true`.
 
 ## Steps
 
-Each entry of `steps` is a map with exactly one key, the step type, whose value is a map of fields or nothing (`- implement:` and `- implement: {}` are the same). A field left out takes its value from [`workflow.defaults`](../configuration.mdx#workflow).
+Each entry of `steps` is a map with exactly one key, the step type, whose value is a map of fields or nothing (`- implement:` and `- implement: {}` are the same). A field left out takes its value from [`workflow.defaults`](../configuration.mdx#workflow), except `agents` (see [Inline or through agents](#inline-or-through-agents)).
 
 | Step | Field | Rule | Default | Used by |
 |---|---|---|---|---|
+| every step | `agents` | `true` or `false` | the top-level `agents`, else `true` | `false` runs the step inline, in your session |
 | `implement` | `model` | `opus`, `sonnet` or `haiku` | `opus` | the implementer |
 | `review` | `rounds` | a positive integer | `1` | the maximum review rounds |
 | | `lenses` | a non-empty list of names, no duplicates | `[conformance, correctness]` | one reviewer per lens |
@@ -52,13 +66,34 @@ Each entry of `steps` is a map with exactly one key, the step type, whose value 
 - **`agent`:** one agent runs your `prompt` after the fixed rules every agent gets. It may commit on the feature branch and does not push. When it reports that it could not do the task, the change fails.
 - **`pr`:** pushes the branch once, opens the PR and drives CI until it is green or `ci_attempts` is used up.
 
+These describe a step through agents; with `agents: false`, your session does the same work itself.
+
+## Inline or through agents
+
+`agents` is a boolean, at the top level of the file and on any step. A step's value is its own `agents`, else the top-level one, else `true`.
+
+- **`agents: true`:** the step runs through agents in the plugin workflow `theway:run-pipeline`, with the models of its fields. Consecutive steps with `agents: true` run as one segment: one Workflow call.
+- **`agents: false`:** your session does the step itself, under the same rules the script gives that step's agents. An inline step takes no model: setting `model` or `fix_model` on it is an error, `steps[<i>].<type>.<field> has no effect when the step runs inline (agents: false)`, and `theway workflow` prints no model for it.
+- An inline `implement` followed by other steps commits on the feature branch, and the later segments start from its head. An inline `implement` that is the only step commits nothing and creates no branch.
+- An inline `review` is a self-check: the session reviews its own diff through each lens, one after the other, triages, fixes and checks its fixes, and the report says "review ran inline". It is not the independent review that separate reviewer agents give.
+
+```yaml
+# Implement inline, then review and open the PR through agents.
+steps:
+  - implement: {agents: false}
+  - review:
+  - pr:
+```
+
+The first Workflow call of a run shows Claude Code's permission prompt for `theway:run-pipeline`: approve it once, or choose "don't ask again" for `theway:run-pipeline`. A workflow whose steps all run inline makes no Workflow call.
+
 Every agent gets the same fixed rules first, which no field changes: the `## Authority` section of `interaction.md`, commits only on the feature branch, no force-push, no push of the default branch, no merge, the change files read-only, and the commit type of the change verb.
 
 ## Rules
 
-- The top-level keys are `default` and `steps`; any other key is an error.
-- `default` is `true` or `false`.
-- `steps` is a non-empty list. The first step is `implement`, and `implement` appears once; `pr` appears at most once, as the last step; `review` and `agent` appear any number of times.
+- The top-level keys are `default`, `agents` and `steps`; any other key is an error.
+- `default` and `agents` are `true` or `false`.
+- `steps` is a non-empty list. The first step is `implement`, inline or not, and `implement` appears once; `pr` appears at most once, as the last step; `review` and `agent` appear any number of times.
 - A workflow with no `pr` step pushes nothing and opens no PR. To skip the review, leave out the `review` step: `rounds` has no `0`.
 - Every lens of a `review` step must have a file.
 
@@ -76,7 +111,7 @@ Write a new lens as `<home>/lenses/<name>.md`, or `<home>/<project>/lenses/<name
 ## Which workflow runs
 
 - `/theway:workflow --workflow <name> <change-id>` runs the workflow `<name>`: the project file, else the global one.
-- Without `--workflow`, it runs the default: the project's file that sets `default: true`, else the global file that sets it (one no project file of the same name shadows), else `develop`. Two files of the same folder that both set `default: true` are an error.
+- Without `--workflow`, it runs the default: the project's file that sets `default: true`, else the global file that sets it (one no project file of the same name shadows), else `develop`, the inline one. Two files of the same folder that both set `default: true` are an error.
 
 There is no config key for the default workflow: mark the file with `default: true`.
 

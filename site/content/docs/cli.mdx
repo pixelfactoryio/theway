@@ -275,32 +275,35 @@ Which file:
 - **Without `<name>`, the default:**
   1. The project's folder: every workflow file in it is validated, in file-name order, and the one that sets `default: true` is the default.
   2. Only when the project has none, the global folder: the same, over the global files that no project file of the same name shadows. A shadowed global file is not read.
-  3. When neither has one, `develop`, looked up as with `<name>`.
+  3. When neither has one, `develop` (the shipped one runs a single inline `implement`), looked up as with `<name>`.
 - A `<name>` matches `^[a-z0-9]+(-[a-z0-9]+)*$`; the workflow's name is its file stem. A `*.default.yaml` file is the shipped copy install writes next to an edited file, never a workflow. While it scans a folder for the default, a `.yaml` file whose stem is not a valid name is skipped with `theway: warning: <file>: not a valid workflow name; ignored`.
 - Each lens of a `review` step is `<home>/<project>/lenses/<lens>.md` when it is a file, else `<home>/lenses/<lens>.md`. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, no project folder is read.
 
+`theway workflow my-api agents`, with the shipped `agents.yaml`:
+
 ```json
 {
-  "name": "develop",
-  "file": "/home/you/.theway/workflows/develop.yaml",
+  "name": "agents",
+  "file": "/home/you/.theway/workflows/agents.yaml",
   "steps": [
-    { "step": "implement", "model": "opus" },
-    { "step": "review", "rounds": 1, "lenses": [{ "name": "conformance", "path": "/home/you/.theway/lenses/conformance.md" }, { "name": "correctness", "path": "/home/you/.theway/lenses/correctness.md" }], "model": "opus", "fix_model": "opus" },
-    { "step": "pr", "ci_attempts": 2, "model": "sonnet", "fix_model": "opus" }
+    { "step": "implement", "agents": true, "model": "opus" },
+    { "step": "review", "agents": true, "rounds": 1, "lenses": [{ "name": "conformance", "path": "/home/you/.theway/lenses/conformance.md" }, { "name": "correctness", "path": "/home/you/.theway/lenses/correctness.md" }], "model": "opus", "fix_model": "opus" },
+    { "step": "pr", "agents": true, "ci_attempts": 2, "model": "sonnet", "fix_model": "opus" }
   ]
 }
 ```
 
-Every field of every step is printed, `step` first. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the rule of [`path`](#path) for `<project>`, and these, where `<file>` is the path relative to the home:
+Every field of every step is printed, `step` first, then `agents`: the step's own value, else the file's top-level `agents`, else `true`. A step with `agents: false` runs inline and has no `model` or `fix_model`; the shipped `develop` prints `"steps": [{ "step": "implement", "agents": false }]`. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the rule of [`path`](#path) for `<project>`, and these, where `<file>` is the path relative to the home:
 
 ```text
 theway: invalid workflow name '<name>'
 theway: no workflow '<name>' in <home>/<project>/workflows or <home>/workflows
 theway: workflows/a.yaml and workflows/b.yaml both set default: true
 theway: <file>: steps[1]: pr must be the last step
+theway: <file>: steps[0].implement.model has no effect when the step runs inline (agents: false)
 ```
 
-A workflow file error is the first one found: the file cannot be read or is not valid YAML; the root is not a map, has a key other than `default` and `steps`, `default` is not `true` or `false`, or `steps` is not a non-empty list; then, step by step, a step that is not one of `implement`, `review`, `agent`, `pr`, a field its type does not have, a value that breaks its rule, a missing `agent` `name` or `prompt`, a step out of order, and a lens with no file. [Workflows](./concepts/workflows.mdx#rules) lists each rule.
+A workflow file error is the first one found: the file cannot be read or is not valid YAML; the root is not a map, has a key other than `default`, `agents` and `steps`, `default` or `agents` is not `true` or `false`, or `steps` is not a non-empty list; then, step by step, a step that is not one of `implement`, `review`, `agent`, `pr`, a field its type does not have, a value that breaks its rule, a `model` or `fix_model` on an inline step, a missing `agent` `name` or `prompt`, a step out of order, and a lens with no file. [Workflows](./concepts/workflows.mdx#rules) lists each rule.
 
 ## authority
 
