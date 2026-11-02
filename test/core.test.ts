@@ -1370,3 +1370,13 @@ test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that
   const res = run(dir, "workflow", "p", "w");
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/workflows/w.yaml: cannot be read\n"]);
 });
+
+test("workflow prints the shipped develop for a home holding the shipped config, workflow and lenses", () => {
+  const dir = home();
+  const shipped = join(import.meta.dirname, "..", "plugin", "home");
+  for (const rel of ["config.yaml", "workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+    put(join(dir, rel), readFileSync(join(shipped, rel), "utf-8"));
+  }
+  const res = run(dir, "workflow", "theway");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
+});

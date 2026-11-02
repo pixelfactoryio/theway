@@ -198,7 +198,7 @@ test("plugin/home holds only what install reads", () => {
   const HOME = join(PLUGIN, "home");
   const unused = files(HOME)
     .map((f) => relative(HOME, f))
-    .filter((f) => !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md)$/.test(f));
+    .filter((f) => !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md|workflows\/[^/]+\.yaml|lenses\/[^/]+\.md)$/.test(f));
   expect(unused).toEqual([]);
 });
 

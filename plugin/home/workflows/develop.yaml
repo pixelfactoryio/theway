@@ -1,0 +1,5 @@
+# The workflow /theway:workflow runs when no file sets default: true. Fields left out come from workflow.defaults in config.yaml.
+steps:
+  - implement:
+  - review:
+  - pr:

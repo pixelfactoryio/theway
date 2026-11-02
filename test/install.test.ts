@@ -26,9 +26,16 @@ const REPO = join(import.meta.dirname, "..");
 const CLI = join(REPO, "dist", "theway.js");
 const SHIPPED = join(REPO, "plugin", "home");
 const SHIPPED_CONFIG = join(SHIPPED, "config.yaml");
-const SHIPPED_FILES = ["standards", "templates"].flatMap((d) =>
+const SHIPPED_FILES = (
+  [
+    ["standards", ".md"],
+    ["templates", ".md"],
+    ["workflows", ".yaml"],
+    ["lenses", ".md"],
+  ] as const
+).flatMap(([d, ext]) =>
   readdirSync(join(SHIPPED, d))
-    .filter((n) => n.endsWith(".md"))
+    .filter((n) => n.endsWith(ext))
     .map((n) => `${d}/${n}`),
 );
 const NODE_DIR = dirname(spawnSync("node", ["-p", "process.execPath"], { encoding: "utf-8" }).stdout.trim());
@@ -604,12 +611,61 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(16);
+  expect(SHIPPED_FILES).toHaveLength(19);
+  for (const rel of ["workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+    expect(SHIPPED_FILES).toContain(rel);
+  }
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
   expect(manifest(env)).toEqual(Object.fromEntries(SHIPPED_FILES.map((rel) => [rel, sha256(shipped(rel))])));
   expect(manifest(env)["templates/fix-spec-template.md"]).toBe(sha256(shipped("templates/fix-spec-template.md")));
   expect(manifest(env)["templates/light-spec-template.md"]).toBe(sha256(shipped("templates/light-spec-template.md")));
-  expect(walk(env.theway).filter((f) => f.endsWith(".default.md") || f.endsWith(".bak"))).toEqual([]);
+  expect(walk(env.theway).filter((f) => /\/[^/]+\.default\.(md|yaml)$/.test(f) || f.endsWith(".bak"))).toEqual([]);
+});
+
+const WF = "workflows/develop.yaml";
+const WF_DEFAULT = "workflows/develop.default.yaml";
+
+test("install keeps an edited develop.yaml with develop.default.yaml next to it, and updates it once reverted", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const edited = "steps:\n  - implement:\n  - pr:\n";
+  put(join(env.theway, WF), edited);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Kept your edited ${WF} (shipped version: ${WF_DEFAULT})\n`);
+  expect(readFileSync(join(env.theway, WF), "utf-8")).toBe(edited);
+  expect(readFileSync(join(env.theway, WF_DEFAULT), "utf-8")).toBe(shipped(WF));
+  expect(manifest(env)[WF]).toBe(sha256(shipped(WF)));
+  writeFileSync(join(env.theway, WF), shipped(WF));
+  expect(run(env, "install").status).toBe(0);
+  expect(existsSync(join(env.theway, WF_DEFAULT))).toBe(false);
+});
+
+test("install keeps a user workflow and lens with a shipped name, and removes an unedited one theway stops shipping", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const LENS = "lenses/correctness.md";
+  const GONE = "lenses/old.md";
+  const EDITED = "workflows/old.yaml";
+  const { [LENS]: _, [WF]: __, ...rest } = manifest(env);
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...rest, [GONE]: sha256("# old\n"), [EDITED]: sha256("steps: []\n") }));
+  put(join(env.theway, LENS), "# my correctness\n");
+  put(join(env.theway, WF), "steps:\n  - implement:\n");
+  put(join(env.theway, GONE), "# old\n");
+  put(join(env.theway, EDITED), "steps:\n  - implement:\n");
+  put(join(env.theway, "lenses", "orphan.default.md"), "x\n");
+  put(join(env.theway, "workflows", "orphan.default.yaml"), "x\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Kept your ${LENS}: theway now ships a file with that name (its version: lenses/correctness.default.md)\n`);
+  expect(res.stdout).toContain(`Kept your ${WF}: theway now ships a file with that name (its version: ${WF_DEFAULT})\n`);
+  expect(res.stdout).toContain(`Removed ${GONE}: theway no longer ships it\n`);
+  expect(res.stdout).toContain(`Kept your edited ${EDITED}: theway no longer ships it, so it is now one of your workflows\n`);
+  expect(readFileSync(join(env.theway, LENS), "utf-8")).toBe("# my correctness\n");
+  expect(existsSync(join(env.theway, GONE))).toBe(false);
+  expect(existsSync(join(env.theway, "lenses", "orphan.default.md"))).toBe(false);
+  expect(existsSync(join(env.theway, "workflows", "orphan.default.yaml"))).toBe(false);
+  expect(manifest(env)[LENS]).toBeUndefined();
 });
 
 test("install removes an unedited standard no longer shipped, keeps an edited one, and keeps the user's config.yaml", () => {
