@@ -44,8 +44,8 @@ A `fix-` change fixes a bug: Steps 3, 4 and 6 have rules of their own for it.
 
 **Series naming**
 
-- **Trigger:** the request is a series when the user asks for a series, for multiple sequential changes, or to "split into N changes", or when the argument passed already ends in `-NN`. In series mode the argument given to `/theway:engineering` is the `<series-id>`, not a change ID.
-- **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule) plus a zero-padded two-digit ordinal starting at `01`, assigned in dependency order.
+- **Trigger:** the request is a series when the user asks for a series, for multiple sequential changes, or to "split into N changes", or when the argument passed already ends in `-NN`. In series mode the `<series-id>` is the argument without a trailing `-NN`, not a change ID.
+- **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule) plus a zero-padded two-digit ordinal. The member IDs are exactly the ones `theway next-id` prints: from `01` for a new series, after the highest existing ordinal otherwise.
 - **Member IDs:** run `theway next-id <project> <series-id> --count <N>`, with `<N>` the number of members, and assign the IDs it prints in dependency order; never rename or renumber existing folders. On `invalid change id '…'`, fix the series ID from the reason and run it again; on `would go past -99`, stop and report it.
 - **Forbidden:** topic-word suffixes (`add-user-auth-login`), and mixing standalone and series IDs in one series.
 - **Example:** `add-user-auth-01`, `add-user-auth-02`, `add-user-auth-03`.
@@ -72,7 +72,7 @@ For each template below, read the template file, follow its frontmatter instruct
 A `fix-` ID uses `fix-spec-template.md`; every other verb uses `spec-template.md`. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
 
 For a series, each member's `spec.md` carries one line directly under its H1 title:
-`**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)` — the `01` member states no dependency.
+`**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)` — `NN` is the member's ordinal from `next-id`, `TOTAL` the last ordinal it printed; the `01` member states no dependency.
 
 ### Step 5: Optional Technical Design
 
