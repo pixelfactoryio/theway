@@ -307,6 +307,7 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
     "report the criterion as not verified.",
     "re-run the reproduction recorded in the spec",
     "it must no longer reproduce",
+    "Copy in only the regression test files",
   ]) {
     expect(verify).toContain(marker);
   }
@@ -324,9 +325,15 @@ test("develop-workflow.md takes the commit type from the change verb and reviews
     "for an `update-` or `remove-` change, the commit type it chose",
     "the change's `<base>` (Step 2), which `develop.md` uses for a `fix-` change",
     "With several implementers, the first one run chooses the type",
+    "uses it in the PR title",
+    "returns it in its result",
+    "Adversarial reviewers and the fix check: `workflow.models.reviewer`.",
+    "Fix agents: `workflow.models.fix`.",
+    "CI polling and log-fetch agents: `workflow.models.ci`.",
   ]) {
     expect(step3).toContain(marker);
   }
+  expect(step(workflow, "Step 1:")).toContain("Step 5 is skipped and nothing is pushed");
   expect(step(workflow, "Step 2:")).toContain("is the change's `<base>`");
   const step4 = step(workflow, "Step 4:");
   for (const marker of [
@@ -335,11 +342,15 @@ test("develop-workflow.md takes the commit type from the change verb and reviews
     "spawn one fix agent with them and the change's commit type (Step 3)",
     "re-runs the base-commit check of `develop.md`'s Verify on the new head",
     "failing on the base commit for the Root Cause's reason",
+    "It does not look for new problems",
+    "and passing on the new head",
+    "returns both recorded outputs",
   ]) {
     expect(step4).toContain(marker);
   }
   const step5 = step(workflow, "Step 5:");
   expect(step5).toContain("Its title is a Conventional Commit (`type(scope): description`)");
+  expect(step5).toContain("of the change's commit type (Step 3)");
   expect(step5).toContain("spawn one fix agent with the quoted CI error and the change's commit type");
 });
 
@@ -390,6 +401,8 @@ test("engineering-light.md validates a standalone ID, escalates, writes the ligh
   expect(light).toContain("the user re-runs `/theway:engineering-light` with the new information");
   expect(light).toContain("engineering.models.critic");
   expect(light).toContain("re-runs the recorded reproduction as a single-question probe");
+  expect(step(light, "Step 3: Investigate")).toContain("a public contract change");
+  expect(step(light, "Step 5: Review")).toContain("which writes over them");
 });
 
 test("engineering.md does not stop on the change IDs it writes or the series it continues", () => {
@@ -404,6 +417,7 @@ test("develop.md proves a light fix- change without the base worktree and escala
   expect(verify).toContain("When `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply");
   expect(verify).toContain("run the regression test before writing the fix");
   expect(verify).toContain("failing output in the Discoveries of `tasks.md` Notes");
+  expect(verify).toContain("then run it after the fix and record that it passes");
   const fit = section(develop, "When the spec does not fit");
   expect(fit).toContain("A light spec has no Hardpoints table");
   expect(fit).toContain("is brought back as a blocker.");
@@ -439,6 +453,7 @@ test("engineering and engineering-light read the standards, follow them, give th
     expect(text).toContain("- the absolute paths of the standards read in Step 1");
     expect(text).toContain("read in Step 1, which the spec must follow;");
     expect(section(text, "Exit")).toContain("names the standards read in Step 1, by file name, or \"none\"");
+    expect(section(text, "Exit")).toContain("including a stop or an escalation");
   }
   const engineering = read(join(COMMANDS, "engineering.md"));
   expect(step(engineering, "Step 3: Investigate")).toContain("A request that contradicts a standard is an open question for the user.");
@@ -460,6 +475,7 @@ test("develop and develop-workflow read the user standards, give them to the age
     expect(step1).toContain("- `docs/architecture/coding-standards.md`");
     expect(step1).toContain("Then run `theway standards <project> develop` and read every file it prints");
     expect(step1).toContain("these are the user standards.");
+    expect(step1).toContain("do not search the filesystem");
   }
   expect(section(develop, "Exit")).toContain('Also name the user standards followed, by file name, or "none".');
 
