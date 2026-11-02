@@ -11,7 +11,7 @@ A change ID is lowercase kebab-case and starts with one of five verbs: `add-`, `
 
 A `fix-` change fixes a bug. `/theway:engineering` reproduces the bug before it writes anything and writes its spec from the fix template, which records the symptom, the reproduction, the root cause and the regression test. See [`/theway:engineering`](../commands/engineering.mdx). A small bug with a known cause can go through [`/theway:engineering-light`](../commands/engineering-light.mdx) instead: a short spec with the reproduction, and a regression test that fails before the fix and passes after it.
 
-[`theway validate-id`](../cli.mdx#validate-id) checks the format, and `/theway:engineering` runs it before it writes a change folder. A standalone ID must not end in a one- or two-digit number, since `-NN` is kept for series members.
+[`theway validate-id`](../cli.mdx#validate-id) checks the format, and `/theway:engineering` runs it on a standalone ID before it writes a change folder. A series' member IDs come from [`theway next-id`](../cli.mdx#next-id), which checks the series ID. A standalone ID must not end in a one- or two-digit number, since `-NN` is kept for series members.
 
 ## Series
 

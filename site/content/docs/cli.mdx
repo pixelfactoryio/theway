@@ -296,7 +296,12 @@ add-user-auth-04
 add-user-auth-05
 ```
 
-- A trailing `-NN` is removed from `<series-id>` first, so `add-user-auth-07` gives the same IDs as `add-user-auth`. The rest is checked as a standalone ID of [`validate-id`](#validate-id); when it is invalid, it exits 1 with the same `invalid change id '<id>': <reason>` line, `<id>` being the series ID without its ordinal.
+- A trailing `-NN` is removed from `<series-id>` first, so `add-user-auth-07` gives the same IDs as `add-user-auth`. The rest must fit the [`validate-id`](#validate-id) format and must not end in a one- or two-digit number; when it is invalid, it exits 1 with an `invalid change id '<id>': <reason>` line, `<id>` being the series ID without its ordinal, for example:
+
+  ```text
+  invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number
+  ```
+
 - It counts the folders `<home>/<project>/changes/<series-id>-NN` and the archived `<home>/<project>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.
 - A `--count` that is not a positive integer is rejected with `must be a positive integer`. When the last ID would be past `-99`, it exits 1:
 
