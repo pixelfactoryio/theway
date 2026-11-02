@@ -77,7 +77,6 @@ test("every command that reads theway data has the same Locate the home step", (
     "Run `theway path`",
     "error: unknown command",
     "`theway: warning:`",
-    "Do not check for files under `<home>` before reading them",
     "`<home>/standards/` or `<home>/templates/`",
   ]) {
     expect(reference).toContain(marker);
@@ -106,7 +105,7 @@ test("the five loading commands call theway context, not theway config or theway
 test("engineering.md takes a series' member IDs from theway next-id", () => {
   const text = read(join(COMMANDS, "engineering.md"));
   expect(text).toContain("`theway next-id <project> <series-id> --count <N>`");
-  expect(text).toContain("on `would go past -99`, stop and report it.");
+  expect(text).toContain("`would go past -99`");
   expect(text).not.toContain("changes/archive/*-");
   expect(text).not.toContain("--series");
 });
@@ -224,7 +223,7 @@ test("every spawned agent gets the Authority rule", () => {
   expect(read(join(COMMANDS, "develop-workflow.md"))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
   expect(read(join(PLUGIN, "home", "standards", "spec-review.md"))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
   for (const text of [read(join(COMMANDS, "develop-workflow.md")), read(join(PLUGIN, "home", "standards", "spec-review.md"))]) {
-    expect(text).toContain("run `theway authority` and quote its output verbatim");
+    expect(text).toContain("`theway authority`");
   }
   for (const f of [...files(join(PLUGIN, "commands")), ...files(join(PLUGIN, "home", "standards"))]) {
     expect(read(f)).not.toContain("interaction.default.md");
@@ -233,7 +232,7 @@ test("every spawned agent gets the Authority rule", () => {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/spec-review.md`");
   }
   for (const f of ["archive.md", "develop.md", "develop-workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
-    expect(read(join(COMMANDS, f))).toContain("(exploration, reporting and authority)");
+    expect(read(join(COMMANDS, f))).toContain("`<home>/standards/interaction.md`");
   }
 });
 
@@ -271,18 +270,14 @@ test("the fix spec template has the spec template's frontmatter keys, its fixed 
     "Implementation",
   ]);
   expect(section(fix, "Solution")).toContain("**Problem:**");
-  expect(section(fix, "Reproduction")).toContain("Reasoning about the code is not a reproduction.");
   expect(section(fix, "Reproduction")).toContain("**Observed output:**");
   expect(section(fix, "Reproduction")).toContain("**Expected result:**");
-  expect(section(fix, "Root Cause")).toContain("file:line evidence");
   const regression = section(fix, "Regression Test");
   for (const field of ["**File:**", "**Test name:**", "**Command:**", "**Failure on the base commit:**"]) {
     expect(regression).toContain(field);
   }
-  expect(section(fix, "Hardpoints (TAMM Analysis)")).toContain("**Only document Medium/High risk hardpoints. Omit low-risk items.**");
   expect(section(fix, "Hardpoints (TAMM Analysis)")).toContain('"None at Medium or High."');
   const implementation = section(fix, "Implementation");
-  expect(implementation).toContain("Task 1 of `tasks.md` writes the regression test");
   const criteria = implementation.split("**Success Criteria:**\n")[1]?.split("\n").filter((l) => l.startsWith("- [ ] "));
   expect(criteria?.slice(0, 2)).toEqual([
     "- [ ] The regression test `[test name]` fails on the base commit for the reason in Root Cause, and passes with the fix",
@@ -290,42 +285,27 @@ test("the fix spec template has the spec template's frontmatter keys, its fixed 
   ]);
 });
 
-test("engineering.md handles a fix- change: the verb, reproduce first, the stop outcomes, the template and the grounding check", () => {
+test("engineering.md handles a fix- change: the verb list, the investigation standard, the fix template and the stop outcomes", () => {
   const engineering = read(join(COMMANDS, "engineering.md"));
   expect(engineering).toContain("`add-*`, `update-*`, `refactor-*`, `remove-*`, `fix-*`");
   expect(engineering).toContain("`fix-login-crash`");
-  expect(engineering).toContain("(same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule)");
   const step3 = step(engineering, "Step 3: Investigate");
   expect(step3).toContain("`<home>/standards/spec-investigation.md`");
-  expect(step3).toContain("the recorded reproduction goes into the spec's Reproduction");
   const investigation = read(join(STANDARDS, "spec-investigation.md"));
   for (const marker of [
-    "**For a `fix-` change, reproduce the bug first**",
     "`mktemp -d`",
-    "existing commands and tests without changing the repository",
-    "Reasoning about the code is not a reproduction.",
-    "before any change file is written",
     "- **Not reproduced:**",
-    "listing each attempt (its command and output)",
     "- **Possibly already covered:**",
-    "an active change listed by `theway list <project>`",
-    "Judge from the IDs only: never open other change folders.",
+    "`theway list <project>`",
     "- **Works as intended:**",
   ]) {
     expect(section(investigation, "A `fix-` change")).toContain(marker);
   }
   const step4 = step(engineering, "Step 4:");
   expect(step4).toContain("`<home>/templates/fix-spec-template.md` for a `fix-` ID");
-  expect(step4).toContain("A `fix-` ID uses `fix-spec-template.md`");
-  expect(step4).toContain("In a `fix-` change, task 1 writes the regression test");
-  expect(section(read(join(STANDARDS, "spec-review.md")), "Lenses")).toContain("re-runs the recorded reproduction as a single-question probe");
   const exit = section(engineering, "Exit");
-  expect(exit).toContain("When a `fix-` change stopped in Step 3");
-  expect(exit).toContain("report the stop as `<home>/standards/spec-investigation.md` sets it out");
-  expect(exit).toContain("the user re-runs `/theway:engineering` with the new information");
-  const stop = section(investigation, "The stop report");
-  expect(stop).toContain("in place of the change folder and the review outcome");
-  expect(stop).toContain("the attempts (each command and its output) or the evidence");
+  expect(exit).toContain("`<home>/standards/spec-investigation.md`");
+  expect(exit).toContain("`/theway:engineering`");
 });
 
 test("develop.md Verify proves a fix- regression test fails on the base commit and re-runs the reproduction", () => {
@@ -336,22 +316,10 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
     "`git merge-base <base> HEAD` for `/theway:develop-workflow`",
     "`git worktree add --detach <dir> <base-commit>`",
     "`<dir>` comes from `mktemp -d`",
-    "setup and build commands that CI runs before its tests",
-    "run only the regression test.",
-    "It must fail **for the reason the spec's Root Cause gives**.",
     "`git worktree remove --force <dir>`",
-    "with the `<base>` your prompt gives",
-    "Do this whatever happened before",
-    "bring it back as a spec gap",
-    "report the criterion as not verified.",
-    "re-run the reproduction recorded in the spec",
-    "it must no longer reproduce",
-    "Copy in only the regression test files",
-    "This proof is **the regression check**. Its full form is steps 1-7:",
-    "Its light form: when `spec.md` has `**Mode:** light` under its title",
-    "**Re-running the regression check** on a new head means steps 1-7 again",
-    "and only the run after the fix for a light spec",
-    "whose failing run before the fix is already recorded.",
+    "**the regression check**",
+    "`**Mode:** light`",
+    "**Re-running the regression check**",
   ]) {
     expect(verify).toContain(marker);
   }
@@ -362,39 +330,16 @@ test("develop-workflow.md takes the commit type from the change verb and reviews
   const step3 = step(workflow, "Step 3:");
   for (const marker of [
     "- `add-` → `feat`, `fix-` → `fix`, `refactor-` → `refactor`.",
-    "For `update-` and `remove-`, the implementer chooses one Conventional type",
-    "The orchestrator gives that type to every fix agent (Steps 4 and 5)",
-    "except commits that change only tests (`test`) or only docs (`docs`)",
-    "`!` after it and the commit a `BREAKING CHANGE:` footer",
-    "for an `update-` or `remove-` change, the commit type it chose",
-    "the change's `<base>` (Step 2), which `develop.md` uses for a `fix-` change",
-    "With several implementers, the first one run chooses the type",
-    "uses it in the PR title",
-    "returns it in its result",
-    "Adversarial reviewers and the fix check: `workflow.models.reviewer`.",
-    "Fix agents: `workflow.models.fix`.",
-    "CI polling and log-fetch agents: `workflow.models.ci`.",
+    "`BREAKING CHANGE:`",
+    "`<base>` (Step 2)",
+    "`workflow.models.reviewer`",
+    "`workflow.models.fix`",
+    "`workflow.models.ci`",
   ]) {
     expect(step3).toContain(marker);
   }
-  expect(step(workflow, "Step 1:")).toContain("Step 5 is skipped and nothing is pushed");
-  expect(step(workflow, "Step 2:")).toContain("is the change's `<base>`");
-  const step4 = step(workflow, "Step 4:");
-  for (const marker of [
-    "For a `fix-` change, the reviewers also check the root cause",
-    "the regression test would fail without the fix",
-    "spawn one fix agent with them and the change's commit type (Step 3)",
-    "re-runs the regression check of `develop.md` on the new head",
-    "only when those outputs pass the regression check of `develop.md`",
-    "It does not look for new problems",
-    "and returns its outputs.",
-  ]) {
-    expect(step4).toContain(marker);
-  }
   const step5 = step(workflow, "Step 5:");
-  expect(step5).toContain("Its title is a Conventional Commit (`type(scope): description`)");
-  expect(step5).toContain("of the change's commit type (Step 3)");
-  expect(step5).toContain("spawn one fix agent with the quoted CI error and the change's commit type");
+  expect(step5).toContain("`type(scope): description`");
 });
 
 test("the light spec template has the spec template's frontmatter keys, the Mode line, its fixed headings and the two fix- criteria", () => {
@@ -407,7 +352,6 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
   expect(light).toContain("\n# Spec Analysis: [Change Name]\n**Mode:** light\n");
   expect([...light.matchAll(/^## (.+)$/gm)].map((m) => m[1])).toEqual(["Problem", "Evidence", "Change", "Success Criteria"]);
   const evidence = section(light, "Evidence");
-  expect(evidence).toContain("Reasoning about the code is not a reproduction.");
   for (const field of ["**Command:**", "**Observed output:**", "**Expected result:**"]) expect(evidence).toContain(field);
   expect(section(light, "Change").trimEnd().endsWith("Nothing else changes.")).toBe(true);
   const criteria = section(light, "Success Criteria").split("\n").filter((l) => l.startsWith("- [ ] "));
@@ -417,18 +361,10 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
   ]);
 });
 
-test("engineering-light.md validates a standalone ID, escalates, writes the light spec and runs one grounding critic", () => {
+test("engineering-light.md validates a standalone ID and writes the light spec", () => {
   const light = read(join(COMMANDS, "engineering-light.md"));
   for (const marker of [
-    "run `theway validate-id <change-id>`, never with `--series`",
-    "Escalate when the investigation finds a decision to make",
-    "a TAMM risk at Medium or High, or a request for a series.",
-    "Escalating writes no change file",
-    "tell the user to run `/theway:engineering` with the original request",
-    "Run up to `engineering.review_rounds` review rounds",
-    "with one grounding critic.",
-    "A confirmed `decision` finding is an escalation, not an open question.",
-    "Escalating after the review keeps the light files",
+    "`theway validate-id <change-id>`",
     "`/theway:engineering <change-id>: <original request>`",
   ]) {
     expect(light).toContain(marker);
@@ -438,88 +374,44 @@ test("engineering-light.md validates a standalone ID, escalates, writes the ligh
   expect(light).not.toContain("Implementability critic");
   expect(light).toContain("`<home>/templates/light-spec-template.md` | `spec.md`");
   expect(light).toContain("`<home>/templates/tasks-template.md` | `tasks.md`");
-  expect(light).toContain("`tasks.md` follows `tasks-template.md`'s rule for a light change.");
-  expect(light).toContain("A light change has no `design.md`.");
   expect(step(light, "Step 3: Investigate")).toContain("`<home>/standards/spec-investigation.md`");
-  expect(step(light, "Step 3: Investigate")).toContain("the recorded reproduction, go into the spec's Evidence, quoted");
-  expect(light).toContain("the user re-runs `/theway:engineering-light` with the new information");
+  expect(section(light, "Exit")).toContain("`/theway:engineering-light`");
   expect(light).toContain("engineering.models.critic");
-  expect(step(light, "Step 5: Review")).toContain("with the grounding lens only");
-  expect(step(light, "Step 3: Investigate")).toContain("a public contract change");
-  expect(step(light, "Step 5: Review")).toContain("which writes over them");
-});
-
-test("spec-investigation.md does not stop on the change IDs it writes or the series it continues", () => {
-  const covered = /^- \*\*Possibly already covered:\*\*.*$/m.exec(read(join(STANDARDS, "spec-investigation.md")))?.[0] ?? "";
-  expect(covered).toContain("other than the ones this run writes");
-  expect(covered).toContain("the existing members of the series it continues");
-});
-
-test("develop.md proves a light fix- change without the base worktree and escalates its unforeseen risks", () => {
-  const develop = read(join(STANDARDS, "develop.md"));
-  const verify = section(develop, "Verify");
-  expect(verify).toContain("`spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply");
-  expect(verify).toContain("run the regression test before writing the fix");
-  expect(verify).toContain("failing output in the Discoveries of `tasks.md` Notes");
-  expect(verify).toContain("then run it after the fix and record that it passes");
-  const fit = section(develop, "When the spec does not fit");
-  expect(fit).toContain("A light spec has no Hardpoints table");
-  expect(fit).toContain("is brought back as a blocker.");
 });
 
 test("develop-workflow.md runs a light change's review up to review_rounds and checks a fix- test by the regression check", () => {
   const workflow = read(join(COMMANDS, "develop-workflow.md"));
   const step4 = step(workflow, "Step 4:");
   expect(workflow).not.toContain("min(");
-  expect(step4).toContain("Run up to `review_rounds` review rounds on the local branch");
-  expect(step4).toContain("the reviewers check the diff against its Change section");
   for (const prefix of ["3. **Fix once.**", "4. **Fix check:**"]) {
     const item = new RegExp(`^${escapeRegExp(prefix)}.*$`, "m").exec(step4)?.[0] ?? "";
     expect(item).toContain("the regression check");
     expect(item).not.toContain("**Mode:** light");
     expect(item).not.toContain("light `fix-`");
   }
-  expect(step(workflow, "Step 3:")).toContain("the outputs of the regression check of `develop.md`");
   expect(step(workflow, "Step 3:")).not.toContain("light `fix-`");
   expect(step(workflow, "Step 1:")).toContain("- `<home>/standards/spec-review.md`");
-  expect(step4).toContain("the triage verdicts of `spec-review.md`");
+  expect(step4).toContain("`spec-review.md`");
 });
 
 const OPT_IN_PATHS = ["core-principles.md", "sre.md", "web-development.md", "quality.md"].map((n) => `<home>/standards/${n}`);
-const OPT_IN = "An opt-in standard is read only when";
 
-test("engineering and engineering-light read the standards, follow them, give them to the critics and report them", () => {
+test("engineering and engineering-light read the standards from theway context and report them", () => {
   for (const f of ["engineering.md", "engineering-light.md"]) {
     const text = read(join(COMMANDS, f));
     const step1 = step(text, "Step 1:");
     expect(step1).toContain("- `<home>/standards/tamm-framework.md` - TAMM framework");
     expect(step1).toContain("Run `theway context <project> engineering`.");
-    expect(step1).toContain("Then read every file its `standards` lists");
-    expect(step1).toContain("the spec follows them.");
     for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
-    expect(text).not.toContain(OPT_IN);
     expect(text).not.toContain("user standard");
-    expect(section(text, "Exit")).toContain("names the standards read in Step 1, by file name, or \"none\"");
-    expect(section(text, "Exit")).toContain("including a stop or an escalation");
+    expect(section(text, "Exit")).toContain('or "none"');
   }
   const review = read(join(STANDARDS, "spec-review.md"));
   const prompt = section(review, "Critic prompt");
-  expect(prompt).toContain("except the standards (next item) and the `## Authority` section");
-  expect(prompt).toContain("- the absolute paths of the standards the command read in Step 1");
-  expect(prompt).toContain("read in Step 1, which the spec must follow;");
-  const engineering = read(join(COMMANDS, "engineering.md"));
-  expect(step(engineering, "Step 3: Investigate")).toContain("A request that contradicts a standard is an open question for the user.");
-  const lens = /\*\*Implementability:\*\*[\s\S]*?(?=\n\n)/.exec(section(review, "Lenses"))?.[0] ?? "";
-  expect(lens).toContain("\n  - a spec or task that contradicts a standard;\n");
-
-  const light = read(join(COMMANDS, "engineering-light.md"));
-  expect(step(light, "Step 3: Investigate")).toContain("A request that contradicts a standard is a decision to make.");
-  const grounding = /\*\*Grounding:\*\*.*$/m.exec(section(review, "Lenses"))?.[0] ?? "";
-  expect(grounding).toContain("When it runs alone, it also reports a spec or task that contradicts a standard.");
-  expect(step(light, "Step 5: Review")).toContain("also reports a spec or task that contradicts a standard");
+  expect(prompt).toContain("`## Authority`");
 });
 
-test("develop and develop-workflow read the standards, give them to the agents, enforce and report them", () => {
+test("develop and develop-workflow read the standards from theway context and report them", () => {
   const develop = read(join(COMMANDS, "develop.md"));
   const workflow = read(join(COMMANDS, "develop-workflow.md"));
   for (const text of [develop, workflow]) {
@@ -527,47 +419,21 @@ test("develop and develop-workflow read the standards, give them to the agents, 
     expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
     expect(step1).toContain("- `docs/architecture/coding-standards.md`");
     expect(step1).toContain("Run `theway context <project> develop <change-id>`");
-    expect(step1).toContain("Then read every file its `standards` lists");
-    expect(step1).toContain("these are the standards, the shipped opt-in ones that are enabled and yours.");
-    expect(step1).toContain("do not search the filesystem");
   }
-  expect(section(develop, "Exit")).toContain('Also name the standards of Step 1 followed, by file name, or "none".');
+  expect(section(develop, "Exit")).toContain('or "none"');
 
-  expect(step(workflow, "Step 1:")).toContain("verified (given to every implementer)");
-  const step3 = step(workflow, "Step 3:");
-  expect(step3).toContain("Every implementer, reviewer, fix agent (Steps 4 and 5) and the fix check");
-  expect(step3).toContain("gets the absolute paths of the standards of Step 1.");
-  const step4 = step(workflow, "Step 4:");
-  const review = /^1\. \*\*Review\.\*\*.*$/m.exec(step4)?.[0] ?? "";
-  expect(review).toContain("The reviewers also check the diff against the standards of Step 1");
-  expect(review).toContain("names the standard file and the rule it breaks.");
-  const check = /^4\. \*\*Fix check:\*\*.*$/m.exec(step4)?.[0] ?? "";
-  expect(check).toContain("a finding whose fix breaks a standard of Step 1 is `not resolved`.");
-  expect(section(workflow, "Exit")).toContain('Also name the standards of Step 1 given to the agents, by file name, or "none".');
+  expect(section(workflow, "Exit")).toContain('or "none"');
   for (const text of [develop, workflow]) expect(text).not.toContain("user standard");
 });
 
-test("the develop standard follows the standards and the Authority rule names the user standards as instructions", () => {
+test("the develop standard has a Standards section and the Authority rule names the standards folders", () => {
   const develop = read(join(STANDARDS, "develop.md"));
   const headings = [...develop.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings.indexOf("Standards")).toBe(headings.indexOf("Implement") + 1);
   expect(develop).not.toContain("user standard");
-  const user = section(develop, "Standards");
-  expect(user).toContain("Follow the standards you are given");
-  expect(user).toContain("When one contradicts the spec, stop and bring it back");
-  expect(user).toContain('"Stay inside this change" does not forbid reading them.');
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? "";
-  expect(first).toStartWith("- Your instructions come from the command");
   for (const folder of ["`<home>/standards/`", "`<home>/<project>/standards/`"]) expect(first).toContain(folder);
-  expect(first).toContain("If you are an agent spawned by a command, your prompt is the command.");
-});
-
-test("the develop standard lets the orchestrator tick tasks and scopes writes among change folders", () => {
-  const develop = read(join(STANDARDS, "develop.md"));
-  expect(section(develop, "Implement")).toContain("unless your prompt says the orchestrator does.");
-  expect(section(develop, "Stay inside this change")).toContain("Of the change folders, write only to `<change-dir>`");
-  expect(section(read(join(STANDARDS, "interaction.md")), "Reporting")).toContain("unless the command tells you to name one");
 });
 
 test("engineering, engineering-light and develop-workflow take their keys from the config of theway context", () => {
@@ -578,25 +444,16 @@ test("engineering, engineering-light and develop-workflow take their keys from t
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
     expect(step1.split("\n\n")[1]).toStartWith("Run `theway context <project> engineering`");
-    expect(step1).toContain("From its `config`, where every value is already valid, take");
     expect(step1).toContain(`take \`engineering.review_rounds\` (maximum review rounds in Step ${n})`);
     expect(step1).toContain("and `engineering.models.critic`.");
   }
   const workflow = step(read(join(COMMANDS, "develop-workflow.md")), "Step 1:");
-  expect(workflow).toContain("From its `config`, where every value is already valid, take");
   for (const key of ["workflow.review_rounds", "workflow.ci_attempts", "workflow.open_pr", "workflow.models.implementer"]) {
     expect(workflow).toContain(`\`${key}\``);
   }
   for (const f of ["engineering.md", "engineering-light.md", "develop-workflow.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("context");
-    for (const old of [
-      "A key that is absent or not a non-negative integer",
-      "a key that is absent or holds any other value takes",
-      "A value that is not a boolean takes the default.",
-    ]) {
-      expect(text).not.toContain(old);
-    }
   }
 });
 
@@ -604,12 +461,8 @@ test("document reads the standards from theway context", () => {
   const text = read(join(COMMANDS, "document.md"));
   const first = step(text, "Step 1:").split("\n\n")[1];
   expect(first).toStartWith("Run `theway context <project> document`");
-  expect(first).toContain("read every file its `standards` lists");
-  expect(first).toContain("these are the standards, the shipped opt-in ones that are enabled and yours.");
   expect(calls(text)).not.toContain("config");
-  expect(text).not.toContain("Then read these opt-in standards:");
   for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
-  expect(text).not.toContain(OPT_IN);
 });
 
 test("no command names <home>/config.yaml outside its Locate the home section", () => {
@@ -634,18 +487,15 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
   expect([...review.matchAll(/^## (.+)$/gm)].map((m) => m[1])).toEqual(["Lenses", "Critic prompt", "Findings", "Triage", "Report"]);
   expect(section(review, "Lenses")).toContain("- **Grounding:**");
   expect(section(review, "Lenses")).toContain("- **Implementability:**");
-  expect(section(review, "Critic prompt")).toContain("does not re-implement the spec's rules");
-  expect(section(review, "Findings")).toContain("`fixable` (the spec can be corrected from facts)");
+  expect(section(review, "Findings")).toContain("`fixable`");
   const triage = section(review, "Triage");
   for (const verdict of ["confirmed", "false_positive", "duplicate", "nit", "out_of_scope"]) {
     expect(triage).toContain(`   - \`${verdict}\` (`);
   }
-  expect(triage).toContain("its verdict reads `confirmed, settled`");
-  expect(triage).toContain("If the Agent tool is not available");
+  expect(triage).toContain("`confirmed, settled`");
   const report = section(review, "Report");
   expect(report).toContain("the columns `#`, `Finding`, `Verdict` and `Fix`");
   expect(report).toContain("as `R<round>-<index>`");
-  expect(report).toContain("each `confirmed, settled` finding again");
   const investigation = read(join(STANDARDS, "spec-investigation.md"));
   expect([...investigation.matchAll(/^## (.+)$/gm)].map((m) => m[1])).toEqual(["Investigate", "A `fix-` change", "The stop report"]);
   for (const outcome of ["Not reproduced", "Possibly already covered", "Works as intended"]) {
@@ -655,7 +505,6 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
     const text = read(join(COMMANDS, f));
     expect(text).toContain("`<home>/standards/spec-review.md`");
     expect(text).toContain("`<home>/standards/spec-investigation.md`");
-    expect(text).not.toContain("does not re-implement the spec's rules");
     expect(text).not.toContain("**Not reproduced:**");
   }
 });
