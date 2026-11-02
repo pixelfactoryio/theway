@@ -70,7 +70,7 @@ Nothing else changes.
 ## Success Criteria
 
 - [ ] The regression test `HTTP: /health with a query string is exempt` fails before the fix and passes with it
-- [ ] The reproduction no longer reproduces: the `curl` loop above now shows `61 200`
+- [ ] The reproduction no longer reproduces: `for i in $(seq 1 61); do curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3000/health?probe=1"; done | sort | uniq -c` now shows `61 200`
 - [ ] `npm test` passes
 ````
 

@@ -66,10 +66,10 @@ Review: 1 round (grounding and implementability critics).
 | # | Finding | Verdict | Fix |
 |---|---------|---------|-----|
 | R1-0 | `add-user-auth-02` names a `verifyPassword` helper that `-01` does not export | confirmed | `-01` task 2 now exports `verifyPassword(password, hash)` |
-| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `204` with no body: `my-api` has no sessions, and `-02`'s Out of Scope excludes tokens |
+| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `200` with a JSON body: every `my-api` route answers through `send(status, body)` with JSON (`send(200, { ok: true })` in `src/app.js`), and `-02`'s Out of Scope excludes sessions and tokens |
 | R1-2 | `-03` has a task to review the README wording | confirmed | task removed: reviewing is not repository work |
 
-R1-1 settled: `POST /login` returns `204` with no body on success, as the spec's own scope excludes sessions and tokens.
+R1-1 settled: `POST /login` returns `200` with a JSON body on success, as every existing route in `src/app.js` does.
 
 ## The develop run
 
