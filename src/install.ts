@@ -337,14 +337,16 @@ export function expandHome(value: string): string | { error: string } {
 function parseStandards(value: string): string[] | { error: string } {
   if (value === "none") return [];
   const elements = value.split(",");
+  const unknownError = (element: string) => ({
+    error: `theway: unknown standard '${element}' in --standards; valid: ${OPT_IN_KEYS.join(", ")}, or none`,
+  });
   const unknown = elements.find((e) => e !== "none" && !OPT_IN_KEYS.includes(e));
-  if (unknown !== undefined) {
-    return {
-      error: `theway: unknown standard '${unknown}' in --standards; valid: ${OPT_IN_KEYS.join(", ")}, or none`,
-    };
+  if (unknown !== undefined) return unknownError(unknown);
+  if (!elements.includes("none")) return elements;
+  if (elements.some((e) => e !== "none")) {
+    return { error: "theway: --standards none cannot be combined with other standards" };
   }
-  if (elements.includes("none")) return { error: "theway: --standards none cannot be combined with other standards" };
-  return elements;
+  return unknownError("none");
 }
 
 /** True when stdin and stdout are both terminals: only then does install ask. */
