@@ -315,6 +315,11 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
     "re-run the reproduction recorded in the spec",
     "it must no longer reproduce",
     "Copy in only the regression test files",
+    "This proof is **the regression check**. Its full form is steps 1-7:",
+    "Its light form: when `spec.md` has `**Mode:** light` under its title",
+    "**Re-running the regression check** on a new head means steps 1-7 again",
+    "and only the run after the fix for a light spec",
+    "whose failing run before the fix is already recorded.",
   ]) {
     expect(verify).toContain(marker);
   }
