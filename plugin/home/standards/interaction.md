@@ -9,7 +9,7 @@ Cross-cutting behavior for all TheWay commands. Load and apply these in every mo
 
 ## Reporting
 
-- Never narrate TheWay mode or which command to run next (e.g. "staying read-only", "no repo files touched", "run /theway:develop to implement"). Staying in the current mode is the default, not news.
+- Never narrate TheWay mode or which command to run next (e.g. "staying read-only", "no repo files touched", "run /theway:develop to implement"), unless the command tells you to name one. Staying in the current mode is the default, not news.
 - Report only spec/tasks/implementation progress and what is actionable.
 
 ## Authority

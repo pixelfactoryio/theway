@@ -6,8 +6,6 @@ allowed-tools: Bash(theway:*)
 
 # TheWay: Engineering
 
-You are now scaffolding a Spec analysis using templates.
-
 > **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:develop`, from that spec.
 >
 > Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
@@ -16,10 +14,12 @@ You are now scaffolding a Spec analysis using templates.
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
-- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
-- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. Not every error line starts with `theway:`: `validate-id` writes `invalid change id '…'` and `archive` writes `Error: …`.
+- Quote every `theway: warning:` line in your report.
+- Do not check for files under `<home>` before reading them. If a file under `<home>/standards/` or `<home>/templates/` does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 
 ## Workflow
 
@@ -27,12 +27,12 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 
 ### Step 1: Load Config and Standards
 
-Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
+Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid.
 
 Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
-Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
+Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
 Take `engineering.review_rounds` (maximum review rounds in Step 6) and `engineering.models.critic`.
 
@@ -49,14 +49,12 @@ A `fix-` change fixes a bug: Steps 3, 4 and 6 have rules of their own for it.
 - **Trigger:** the request is a series when the user asks for a series, for multiple sequential changes, or to "split into N changes", or when the argument passed already ends in `-NN`. In series mode the argument given to `/theway:engineering` is the `<series-id>`, not a change ID; if it already ends in `-NN`, strip that ordinal to get the `<series-id>` (never append a second one).
 - **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule) plus a zero-padded two-digit ordinal starting at `01`, assigned in dependency order.
 - **Continuation:** before assigning ordinals, run `theway path <project>` and use the folder it prints as `<project-dir>`, then `Glob` `<project-dir>/changes/<series-id>-[0-9][0-9]` and `<project-dir>/changes/archive/*-<series-id>-[0-9][0-9]` (archived folders are named `YYYY-MM-DD-<change-id>`; match only the exact `<series-id>`, not sibling series that merely end with it). Continue from the next free ordinal — never restart at `01`, never rename or renumber existing folders.
-- **Forbidden:** topic-word suffixes (`add-user-auth-login`), letter suffixes in place of the ordinal (`-a`, `-b`; a standalone ID may still end in a one-letter word that is part of its name, e.g. `add-vitamin-c`, so a member of a series is always validated with `--series`), unpadded numbers (`-1`), mixing standalone IDs and series IDs within one series, and putting an ordinal on a single (non-series) change.
+- **Forbidden:** topic-word suffixes (`add-user-auth-login`), and mixing standalone and series IDs in one series.
 - **Example:** `add-user-auth-01`, `add-user-auth-02`, `add-user-auth-03`.
 
-**Validate every ID before writing:** run exactly one form per ID — a standalone change: `theway validate-id <change-id>`; a series member: `theway validate-id <change-id> --series` only (never the form without `--series`, which rejects every `-NN` ID). It must exit 0 before any change folder is written. On exit 1 with an `invalid change id '<id>': <reason>` line on stderr, fix the ID from that reason and run it again. If it instead fails with `error: unknown command 'validate-id'`, the installed `theway` is stale: do not change the ID; stop and tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, then validate again. `validate-id` is the source of truth for the ID format.
+**Validate every ID before writing:** run `theway validate-id <change-id>` for a standalone change, or `theway validate-id <change-id> --series` for a series member, and fix the ID from the reason it prints until it exits 0, before writing any change folder.
 
 **Locate the change folder:** once an ID is valid, run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>` for that change (one per member in a series). Every file of the change is written there.
-
-> The `Write` tool creates parent directories automatically — no need for explicit `mkdir`.
 
 ### Step 3: Investigate
 
@@ -72,7 +70,7 @@ What you learn goes into the spec as findings (question, method, result), not as
 
 Then decide the outcome, before any change file is written. Three outcomes stop the command, with no change folder:
 - **Not reproduced:** no attempt reproduced the symptom, including a bug that needs production or is intermittent. Stop and ask the user, listing each attempt (its command and output) and what would help: an environment, a log, exact steps.
-- **Possibly already covered:** an active change ID listed by `theway list <project>` plausibly names the same bug. The members of the series this run continues (Step 2) do not count: they share its name by construction. The change ID this run picked in Step 2 does not count either: its folder is written over. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
+- **Possibly already covered:** an active change listed by `theway list <project>`, other than the ones this run writes and the existing members of the series it continues, plausibly names the same bug. Stop and ask the user whether that change covers it, naming the ID. Judge from the IDs only: never open other change folders.
 - **Works as intended:** the code and docs show the reported behavior is intended. Report them, and write no change folder.
 
 Otherwise the bug is reproduced: continue to Step 4.
@@ -106,7 +104,7 @@ Run up to `review_rounds` review rounds. In a series, each round covers every me
 
 Each round:
 
-1. **Review.** Spawn two critic agents in parallel, in a single message, with the Agent tool and `model` set to `engineering.models.critic` (never `haiku`). Neither sees the other's findings.
+1. **Review.** Spawn two critic agents in parallel, in a single message, with the Agent tool and `model` set to `engineering.models.critic`. Neither sees the other's findings.
    - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code. For a `fix-` change, it also re-runs the recorded reproduction as a single-question probe and reports it when its output differs from the spec's.
    - **Implementability critic:** checks whether a cold-start implementer could carry out the change without guessing. It reports:
      - choices left open ("probe X then decide", "A or B", "if needed");

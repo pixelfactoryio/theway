@@ -10,14 +10,14 @@ How a change is implemented, whoever implements it: `/theway:develop` follows th
 
 Read only this change's folder (`<change-dir>`, the `changes/<change-id>/` folder that `theway path <project> <change-id>` prints). Do not open other change folders or `changes/archive/`: their tasks belong to other changes, and acting on them would put work in this change that its spec does not ask for. If you need something about the system, read the code and the project's docs.
 
-Write only under `<change-dir>` too: never in other change folders or `changes/archive/`.
+Of the change folders, write only to `<change-dir>`: never to other change folders or `changes/archive/`.
 
 ## Implement
 
 - Work through the numbered tasks of `tasks.md`. Keep their order unless the spec shows a task does not depend on the ones before it: later tasks usually build on earlier ones.
 - Follow the codebase's existing patterns and `docs/architecture/coding-standards.md` when it exists.
 - Write the tests with the code they cover.
-- Tick each task (`- [x] N.`) once it is done, and record anything you learn that the next person needs in the Notes section of `tasks.md`.
+- Tick each task (`- [x] N.`) once it is done, and record anything you learn that the next person needs in the Notes section of `tasks.md`, unless your prompt says the orchestrator does.
 
 ## User standards
 

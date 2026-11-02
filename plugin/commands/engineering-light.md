@@ -16,10 +16,12 @@ You are now scaffolding a light Spec analysis using templates: the short spec of
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
-- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
-- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. Not every error line starts with `theway:`: `validate-id` writes `invalid change id '…'` and `archive` writes `Error: …`.
+- Quote every `theway: warning:` line in your report.
+- Do not check for files under `<home>` before reading them. If a file under `<home>/standards/` or `<home>/templates/` does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 
 ## Workflow
 
@@ -27,12 +29,12 @@ Run `theway path` and use the folder it prints as `<home>`: TheWay files are sto
 
 ### Step 1: Load Config and Standards
 
-Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'config'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line and stop.
+Run `theway config <project>` and take the keys below from what it prints: it merges the defaults, the global `config.yaml` and the project's `config.yaml`, and every value it prints is already valid.
 
 Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
-Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them. Quote any `theway: warning:` line it writes in your report. If it fails with `error: unknown command 'standards'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop. When it exits 1 for another reason, quote its `theway:` line in your report and continue with no standards.
+Then run `theway standards <project> engineering` and read every file it prints: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
 Take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
 
@@ -44,11 +46,9 @@ Example change IDs: `add-user-authentication`, `update-payment-api`, `fix-login-
 
 When the request names a change ID, use it.
 
-**Validate the ID before writing:** run `theway validate-id <change-id>` only, never with `--series`: a light change is never a series member. It must exit 0 before any change folder is written. On exit 1 with an `invalid change id '<id>': <reason>` line on stderr, fix the ID from that reason and run it again. If it instead fails with `error: unknown command 'validate-id'`, the installed `theway` is stale: do not change the ID; stop and tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, then validate again. `validate-id` is the source of truth for the ID format.
+**Validate the ID before writing:** run `theway validate-id <change-id>`, never with `--series` (a light change is never a series member), and fix the ID from the reason it prints until it exits 0, before writing any change folder.
 
 **Locate the change folder:** once the ID is valid, run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>`. Every file of the change is written there.
-
-> The `Write` tool creates parent directories automatically — no need for explicit `mkdir`.
 
 ### Step 3: Investigate
 
@@ -78,7 +78,7 @@ For each template below, read the template file, follow its frontmatter instruct
 
 `spec.md` keeps the `**Mode:** light` line directly under its H1 title: the develop commands read it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction.
 
-`tasks.md` departs from `tasks-template.md` in one way: it has no `## Phase` headings. It has 1 to 3 numbered tasks directly under the H1, then the template's Notes section. The template's phase rules do not apply: the `quality_standards` entry "Tasks are organized by logical implementation phases", `workflow_steps` 1-3, and the `best_practices` entry "Ensure every spec phase has corresponding tasks". In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
+`tasks.md` follows `tasks-template.md`'s rule for a light change. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
 
 A light change has no `design.md`.
 
@@ -86,7 +86,7 @@ A light change has no `design.md`.
 
 Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
 
-1. **Review.** Spawn one critic agent with the Agent tool and `model` set to `engineering.models.critic` (never `haiku`).
+1. **Review.** Spawn one critic agent with the Agent tool and `model` set to `engineering.models.critic`.
    - **Grounding critic:** checks every claim of the spec about the code, tools, providers and libraries. It reads the code and official docs and may run single-question probes. It reports claims that are wrong, unverified or contradicted by the current code. For a `fix-` change, it also re-runs the recorded reproduction as a single-question probe and reports it when its output differs from the spec's Evidence. It also reports a spec or task that contradicts a standard.
 
    The critic's prompt states:
