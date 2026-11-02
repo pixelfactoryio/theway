@@ -589,14 +589,23 @@ function effective(over: Record<string, string> = {}, user: [string, boolean][] 
     "  models:",
     `    critic: ${v("engineering.models.critic", "opus")}`,
     "workflow:",
-    `  review_rounds: ${v("workflow.review_rounds", "1")}`,
-    `  ci_attempts: ${v("workflow.ci_attempts", "2")}`,
-    `  open_pr: ${v("workflow.open_pr", "true")}`,
-    "  models:",
-    `    implementer: ${v("workflow.models.implementer", "opus")}`,
-    `    reviewer: ${v("workflow.models.reviewer", "opus")}`,
-    `    fix: ${v("workflow.models.fix", "opus")}`,
-    `    ci: ${v("workflow.models.ci", "sonnet")}`,
+    "  defaults:",
+    "    implement:",
+    `      model: ${v("workflow.defaults.implement.model", "opus")}`,
+    "    review:",
+    `      rounds: ${v("workflow.defaults.review.rounds", "1")}`,
+    "      lenses:",
+    ...v("workflow.defaults.review.lenses", "conformance,correctness")
+      .split(",")
+      .map((lens) => `        - ${lens}`),
+    `      model: ${v("workflow.defaults.review.model", "opus")}`,
+    `      fix_model: ${v("workflow.defaults.review.fix_model", "opus")}`,
+    "    pr:",
+    `      ci_attempts: ${v("workflow.defaults.pr.ci_attempts", "2")}`,
+    `      model: ${v("workflow.defaults.pr.model", "sonnet")}`,
+    `      fix_model: ${v("workflow.defaults.pr.fix_model", "opus")}`,
+    "    agent:",
+    `      model: ${v("workflow.defaults.agent.model", "sonnet")}`,
     "",
   ].join("\n");
 }
@@ -605,14 +614,14 @@ test("config prints the global values, defaults for the keys it lacks, every key
   const dir = home();
   put(
     join(dir, "config.yaml"),
-    "# c\nworkflow:\n  models:\n    ci: opus\n  open_pr: false\nstandards:\n  sre:\n    enabled: true\nengineering:\n  review_rounds: 0\n",
+    "# c\nworkflow:\n  defaults:\n    pr:\n      model: opus\n    review:\n      lenses: [security, correctness]\nstandards:\n  sre:\n    enabled: true\nengineering:\n  review_rounds: 0\n",
   );
   const res = run(dir, "config", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
   expect(res.stdout).toBe(
     effective({
-      "workflow.models.ci": "opus",
-      "workflow.open_pr": "false",
+      "workflow.defaults.pr.model": "opus",
+      "workflow.defaults.review.lenses": "security,correctness",
       "standards.sre.enabled": "true",
       "engineering.review_rounds": "0",
     }),
@@ -621,10 +630,13 @@ test("config prints the global values, defaults for the keys it lacks, every key
 
 test("config lets a project file override keys of every section, nested models included", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 3\n  models:\n    critic: sonnet\nworkflow:\n  ci_attempts: 5\n");
+  put(
+    join(dir, "config.yaml"),
+    "engineering:\n  review_rounds: 3\n  models:\n    critic: sonnet\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 5\n    review:\n      lenses: [conformance]\n",
+  );
   put(
     join(dir, "p", "config.yaml"),
-    "standards:\n  quality:\n    enabled: true\nengineering:\n  models:\n    critic: opus\nworkflow:\n  ci_attempts: 1\n  models:\n    implementer: sonnet\n",
+    "standards:\n  quality:\n    enabled: true\nengineering:\n  models:\n    critic: opus\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 1\n    implement:\n      model: sonnet\n",
   );
   const res = run(dir, "config", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
@@ -633,12 +645,18 @@ test("config lets a project file override keys of every section, nested models i
       "standards.quality.enabled": "true",
       "engineering.review_rounds": "3",
       "engineering.models.critic": "opus",
-      "workflow.ci_attempts": "1",
-      "workflow.models.implementer": "sonnet",
+      "workflow.defaults.pr.ci_attempts": "1",
+      "workflow.defaults.implement.model": "sonnet",
+      "workflow.defaults.review.lenses": "conformance",
     }),
   );
   expect(run(dir, "config", "other").stdout).toBe(
-    effective({ "engineering.review_rounds": "3", "engineering.models.critic": "sonnet", "workflow.ci_attempts": "5" }),
+    effective({
+      "engineering.review_rounds": "3",
+      "engineering.models.critic": "sonnet",
+      "workflow.defaults.pr.ci_attempts": "5",
+      "workflow.defaults.review.lenses": "conformance",
+    }),
   );
 });
 
@@ -646,23 +664,45 @@ test("config falls back from an invalid project value to the global one, and fro
   const dir = home();
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review_rounds: -1\nworkflow:\n  ci_attempts: 4\n  open_pr: false\n  models:\n    reviewer: gpt\n",
+    "engineering:\n  review_rounds: -1\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 4\n    review:\n      rounds: 3\n      model: gpt\n",
   );
   put(
     join(dir, "p", "config.yaml"),
-    "workflow:\n  ci_attempts: 0\n  open_pr: \"no\"\n  review_rounds: [1]\nstandards:\n  sre:\n    enabled: yes\n",
+    "workflow:\n  defaults:\n    pr:\n      ci_attempts: 0\n    review:\n      rounds: [1]\n      lenses: []\nstandards:\n  sre:\n    enabled: yes\n",
   );
   const res = run(dir, "config", "p");
   expect(res.status).toBe(0);
-  expect(res.stdout).toBe(effective({ "workflow.ci_attempts": "4", "workflow.open_pr": "false" }));
+  expect(res.stdout).toBe(effective({ "workflow.defaults.pr.ci_attempts": "4", "workflow.defaults.review.rounds": "3" }));
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
-      "theway: warning: config.yaml: workflow.models.reviewer must be opus, sonnet or haiku; ignored",
-      "theway: warning: p/config.yaml: workflow.ci_attempts must be a positive integer; ignored",
-      "theway: warning: p/config.yaml: workflow.open_pr must be true or false; ignored",
-      "theway: warning: p/config.yaml: workflow.review_rounds must be a non-negative integer; ignored",
+      "theway: warning: config.yaml: workflow.defaults.review.model must be opus, sonnet or haiku; ignored",
+      "theway: warning: p/config.yaml: workflow.defaults.pr.ci_attempts must be a positive integer; ignored",
+      "theway: warning: p/config.yaml: workflow.defaults.review.rounds must be a positive integer; ignored",
+      "theway: warning: p/config.yaml: workflow.defaults.review.lenses must be a non-empty list of names without duplicates; ignored",
       "theway: warning: p/config.yaml: standards.sre.enabled must be true or false; ignored",
+      "",
+    ].join("\n"),
+  );
+});
+
+test("config warns about the removed workflow keys as unknown keys and keeps the defaults", () => {
+  const dir = home();
+  put(
+    join(dir, "config.yaml"),
+    "workflow:\n  review_rounds: 2\n  ci_attempts: 3\n  open_pr: false\n  models:\n    implementer: sonnet\n  defaults:\n    review:\n      lenses: [a, a]\n      extra: 1\n    deploy:\n      model: opus\n",
+  );
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stdout]).toEqual([0, effective()]);
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: unknown key workflow.review_rounds; ignored",
+      "theway: warning: config.yaml: unknown key workflow.ci_attempts; ignored",
+      "theway: warning: config.yaml: unknown key workflow.open_pr; ignored",
+      "theway: warning: config.yaml: unknown key workflow.models; ignored",
+      "theway: warning: config.yaml: workflow.defaults.review.lenses must be a non-empty list of names without duplicates; ignored",
+      "theway: warning: config.yaml: unknown key workflow.defaults.review.extra; ignored",
+      "theway: warning: config.yaml: unknown key workflow.defaults.deploy; ignored",
       "",
     ].join("\n"),
   );
@@ -670,10 +710,10 @@ test("config falls back from an invalid project value to the global one, and fro
 
 test("config accepts haiku as a model with no warning", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  models:\n    critic: haiku\nworkflow:\n  models:\n    ci: haiku\n");
+  put(join(dir, "config.yaml"), "engineering:\n  models:\n    critic: haiku\nworkflow:\n  defaults:\n    agent:\n      model: haiku\n");
   const res = run(dir, "config", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
-  expect(res.stdout).toBe(effective({ "engineering.models.critic": "haiku", "workflow.models.ci": "haiku" }));
+  expect(res.stdout).toBe(effective({ "engineering.models.critic": "haiku", "workflow.defaults.agent.model": "haiku" }));
 });
 
 test("config ignores an unknown key once at its highest level, a section that is not a map, and a root that is not a map", () => {
@@ -715,14 +755,14 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
   ];
   const badGlobal = home();
   put(join(badGlobal, "config.yaml"), "a: [1\n");
-  put(join(badGlobal, "p", "config.yaml"), "workflow:\n  open_pr: false\n");
+  put(join(badGlobal, "p", "config.yaml"), "engineering:\n  review_rounds: 2\n");
   cases.push([
     badGlobal,
     "p",
     "theway: config.yaml: invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1\n",
   ]);
   const badProject = home();
-  put(join(badProject, "config.yaml"), "workflow:\n  open_pr: 1\n");
+  put(join(badProject, "config.yaml"), "engineering:\n  review_rounds: 2\n");
   put(join(badProject, "p", "config.yaml"), "engineering:\n  review_rounds: 1\n  review_rounds: 2\n");
   cases.push([
     badProject,
@@ -737,8 +777,8 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
 
 test.skipIf(process.getuid?.() === 0)("config exits 1 with nothing on stdout for a project file that cannot be read", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
-  put(join(dir, "p", "config.yaml"), "workflow:\n  open_pr: true\n");
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 2\n");
+  put(join(dir, "p", "config.yaml"), "engineering:\n  review_rounds: 3\n");
   chmodSync(join(dir, "p", "config.yaml"), 0o000);
   const res = run(dir, "config", "p");
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/config.yaml: cannot be read\n"]);
@@ -746,25 +786,25 @@ test.skipIf(process.getuid?.() === 0)("config exits 1 with nothing on stdout for
 
 test("config prints only its own warning for a value yaml warns about", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "workflow:\n  open_pr: !foo false\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: !foo false\n");
   const res = run(dir, "config", "p");
   expect([res.status, res.stdout, res.stderr]).toEqual([
     0,
     effective(),
-    "theway: warning: config.yaml: workflow.open_pr must be true or false; ignored\n",
+    "theway: warning: config.yaml: standards.sre.enabled must be true or false; ignored\n",
   ]);
 });
 
 test("config rejects a non-integer number for an integer key", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 1.5\nworkflow:\n  ci_attempts: 2.5\n");
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 1.5\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 2.5\n");
   const res = run(dir, "config", "p");
   expect(res.status).toBe(0);
   expect(res.stdout).toBe(effective());
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
-      "theway: warning: config.yaml: workflow.ci_attempts must be a positive integer; ignored",
+      "theway: warning: config.yaml: workflow.defaults.pr.ci_attempts must be a positive integer; ignored",
       "",
     ].join("\n"),
   );
