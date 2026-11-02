@@ -912,7 +912,15 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   expect(bad.status).toBe(1);
   expect(bad.stdout).toBe("");
   expect(bad.stderr).toBe("invalid change id 'Add-thing': uppercase letters are not allowed; use lowercase kebab-case\n");
-  expect(run(dir, "next-id", "p", "add-thing-01-02").stderr).toStartWith("invalid change id 'add-thing-01': ends in an ordinal (-01)");
+  const ordinal = run(dir, "next-id", "p", "add-thing-01-02");
+  expect(ordinal.status).toBe(1);
+  expect(ordinal.stderr).toBe("invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number\n");
+  const number = run(dir, "next-id", "p", "add-thing-7");
+  expect(number.status).toBe(1);
+  expect(number.stderr).toBe("invalid change id 'add-thing-7': ends in a number (-7); a series id cannot end in a number\n");
+  const twoDigits = run(dir, "next-id", "p", "add-thing-42-05");
+  expect(twoDigits.stderr).toBe("invalid change id 'add-thing-42': ends in a number (-42); a series id cannot end in a number\n");
+  for (const res of [bad, ordinal, number, twoDigits]) expect(res.stderr).not.toContain("--series");
   expect(run(dir, "next-id", "Bad/p", "add-thing").stderr).toStartWith("theway: invalid project 'Bad/p': ");
   for (const count of ["0", "-1", "1.5", "x"]) {
     const res = run(dir, "next-id", "p", "add-thing", "--count", count);

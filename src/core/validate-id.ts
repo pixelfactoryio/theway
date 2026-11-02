@@ -6,7 +6,7 @@ const SERIES = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*-[0-9]{2
 const last = (id: string) => id.slice(id.lastIndexOf("-") + 1);
 
 /** The reason an id breaks the verb-prefixed kebab-case grammar, "" when it fits. */
-function formatReason(id: string): string {
+export function formatReason(id: string): string {
   if (id === "") return "empty change id";
   if (/[A-Z]/.test(id)) return "uppercase letters are not allowed; use lowercase kebab-case";
   if (id.includes("_")) return "underscores are not allowed; use kebab-case (-)";

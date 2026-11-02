@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDir, thewayHome } from "./io";
 import { invalidSegments } from "./path";
-import { standaloneReason } from "./validate-id";
+import { formatReason } from "./validate-id";
 
 /** The names of the directories directly in `dir`; none when it is missing. */
 function dirs(dir: string): string[] {
@@ -13,6 +13,15 @@ function dirs(dir: string): string[] {
   }
 }
 
+/** The reason a series id (its trailing -NN already removed) is invalid, "" when it fits. */
+function seriesIdReason(id: string): string {
+  const reason = formatReason(id);
+  if (reason !== "") return reason;
+  const tail = id.slice(id.lastIndexOf("-") + 1);
+  if (/^[0-9]{1,2}$/.test(tail)) return `ends in a number (-${tail}); a series id cannot end in a number`;
+  return "";
+}
+
 /**
  * `theway next-id <project> <series-id> [--count <n>]`: the next `count` free member ids of a series, one per line,
  * after the highest ordinal among the active (`changes/<series-id>-NN`) and archived (`changes/archive/YYYY-MM-DD-<series-id>-NN`) members.
@@ -20,7 +29,7 @@ function dirs(dir: string): string[] {
 export function cmdNextId(project: string, seriesId: string, count: number): number {
   if (invalidSegments([["project", project]])) return 1;
   const rest = seriesId.replace(/-[0-9]{2}$/, "");
-  const reason = standaloneReason(rest);
+  const reason = seriesIdReason(rest);
   if (reason !== "") {
     const shown = rest.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
     process.stderr.write(`invalid change id '${shown}': ${reason}\n`);
