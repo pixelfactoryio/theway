@@ -8,7 +8,7 @@ allowed-tools: Bash(theway:*)
 
 You are now scaffolding a light Spec analysis using templates: the short spec of a small change with nothing to decide.
 
-> **What this command produces.** A short spec someone else can implement without guessing: the problem, the evidence, the change file by file, and 1 to 3 tasks. The code is written later, by `/theway:develop` or `/theway:develop-workflow`, from that spec. A change that needs decisions goes through `/theway:engineering` instead: this command escalates to it and never writes a full spec itself.
+> **What this command produces.** A short spec someone else can implement without guessing: the problem, the evidence, the change file by file, and 1 to 3 tasks. The code is written later, by `/theway:develop` or `/theway:workflow`, from that spec. A change that needs decisions goes through `/theway:engineering` instead: this command escalates to it and never writes a full spec itself.
 >
 > Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critic's (Step 5), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >

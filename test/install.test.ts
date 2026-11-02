@@ -132,6 +132,12 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
   for (const rel of ["workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
     expect(existsSync(join(env.theway, rel))).toBe(true);
   }
+  const old = join(env.claude, "skills", "theway", "commands", "develop-workflow.md");
+  expect(existsSync(old)).toBe(false);
+  put(old, "# an earlier version's command\n");
+  expect(run(env, "install").status).toBe(0);
+  expect(existsSync(old)).toBe(false);
+  expect(existsSync(join(env.claude, "skills", "theway", "commands", "workflow.md"))).toBe(true);
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
 });
 

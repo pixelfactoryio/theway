@@ -1,6 +1,6 @@
 # TheWay Development Core
 
-How a change is implemented, whoever implements it: `/theway:develop` follows this inline, `/theway:develop-workflow` gives it to its implementer agents.
+How a change is implemented, whoever implements it: `/theway:develop` follows this inline, `/theway:workflow` gives it to its implementer agents.
 
 ## The spec is the contract
 
@@ -35,7 +35,7 @@ Done means the change does what the spec says, not that every task is ticked. Ru
 
 A `fix-` change also proves that its regression test catches the bug, and that the bug is gone. This proof is **the regression check**. Its full form is steps 1-7:
 
-1. **Base commit:** `HEAD` for `/theway:develop`, where the change is uncommitted; `git merge-base <base> HEAD` for `/theway:develop-workflow`, with the `<base>` your prompt gives (the branch the change's branch was created from).
+1. **Base commit:** `HEAD` for `/theway:develop`, where the change is uncommitted; `git merge-base <base> HEAD` for `/theway:workflow`, with the `<base>` your prompt gives (the branch the change's branch was created from).
 2. Create a worktree of it with `git worktree add --detach <dir> <base-commit>`, where `<dir>` comes from `mktemp -d`. `--detach` is needed when the branch is checked out elsewhere.
 3. In the worktree, run the project's setup and build commands that CI runs before its tests (read them from the CI configuration): a fresh worktree has no gitignored files, such as dependencies and build output.
 4. Copy in only the regression test files, and run only the regression test.
