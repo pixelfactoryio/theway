@@ -1,0 +1,114 @@
+---
+title: Standards and project config
+description: "A global standard, a project standard and a project override, and the files each phase gets."
+---
+
+This is an illustrative run on the sample project `my-api`. It shows how global and project [standards](../concepts/standards.mdx) and the two `config.yaml` files decide what each command reads.
+
+## The files
+
+`<home>` is the folder `theway path` prints. Four files are added to the shipped content:
+
+- `<home>/standards/test-first.md`, a global standard for the develop phase only:
+
+  ```md
+  ---
+  applies_to: [develop]
+  ---
+  # Test First
+
+  Write the failing test before the code it covers.
+  ```
+
+- `<home>/my-api/standards/api-style.md`, a project standard with no frontmatter:
+
+  ```md
+  # API Style
+
+  Every error response is JSON: {"error": "<message>"}.
+  ```
+
+- `<home>/config.yaml`, the shipped file with one value changed, which enables the opt-in `quality` standard for every project:
+
+  ```yaml
+  standards:
+    quality:
+      enabled: true
+  ```
+
+- `<home>/my-api/config.yaml`, which turns it off again for `my-api`:
+
+  ```yaml
+  standards:
+    quality:
+      enabled: false
+  ```
+
+## What each phase gets
+
+`/theway:engineering` and `/theway:engineering-light` load the engineering phase:
+
+```text
+$ theway standards my-api engineering
+<home>/my-api/standards/api-style.md
+```
+
+`/theway:develop` and `/theway:develop-workflow` load the develop phase:
+
+```text
+$ theway standards my-api develop
+<home>/standards/test-first.md
+<home>/my-api/standards/api-style.md
+```
+
+Why each file is or is not listed:
+
+- `api-style.md` has no `applies_to`, so it applies to every phase. A user standard is enabled by default (`api_style: true`).
+- `test-first.md` is listed for develop only: its `applies_to` names only that phase. Global files come before the project's.
+- `quality.md` is listed in neither: the global config enables it, but the project config overrides the key with `false`.
+- `core-principles.md`, `sre.md` and `web-development.md` are shipped opt-in standards that nothing enables.
+- `develop.md`, `interaction.md`, `spec-review.md`, `spec-investigation.md` and `tamm-framework.md` are never listed: the commands read them by path.
+
+## The context a command loads
+
+A command's first step runs `theway context`, which prints the same `standards` list next to the config it uses:
+
+```text
+$ theway context my-api develop add-x
+home: <home>
+change_dir: <home>/my-api/changes/add-x
+standards:
+  - <home>/standards/test-first.md
+  - <home>/my-api/standards/api-style.md
+config:
+  standards:
+    core_principles:
+      enabled: false
+    sre:
+      enabled: false
+    web_development:
+      enabled: false
+    quality:
+      enabled: false
+    api_style:
+      enabled: true
+    test_first:
+      enabled: true
+  engineering:
+    review_rounds: 1
+    models:
+      critic: opus
+  workflow:
+    review_rounds: 1
+    ci_attempts: 2
+    open_pr: true
+    models:
+      implementer: opus
+      reviewer: opus
+      fix: opus
+      ci: sonnet
+```
+
+`change_dir` is printed even though `add-x` has no folder yet. Every agent of `/theway:develop-workflow` gets the two paths of `standards`, and its reports name them: `test-first.md, api-style.md`.
+
+See [Configuration](../configuration.mdx#standards) for every key.

@@ -1,0 +1,153 @@
+---
+title: A light fix
+description: "A small bug with a known cause: a light spec, two tasks, and the regression test proved before the fix."
+---
+
+This is an illustrative run on the sample project `my-api`, after the [worked example](../example.mdx) added its rate limit.
+
+## The request
+
+A health probe that adds a query string gets throttled. The cause is known and the fix is local, so the light path fits:
+
+```text
+/theway:engineering-light fix-health-query-limited: GET /health?probe=1 counts against the rate limit
+```
+
+## The investigation
+
+The command reproduced the bug before writing anything, with the server started from `createApp`'s defaults (60 requests per minute):
+
+```bash
+node -e 'import("./src/app.js").then((m) => m.createApp().listen(3000))' &
+for i in $(seq 1 61); do curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3000/health?probe=1"; done | sort | uniq -c
+```
+
+```text
+  60 404
+   1 429
+```
+
+The bypass and the route both compare `req.url` to `"/health"` exactly, so the query string makes the request a normal one: it is counted, answered `404`, and limited on the 61st. Nothing in it is a decision: the README already calls `/health` exempt, and no contract changes.
+
+## The spec
+
+`<home>/my-api/changes/fix-health-query-limited/spec.md`:
+
+````md
+# Spec Analysis: Exempt /health with a query string from the rate limit
+**Mode:** light
+
+## Problem
+
+`GET /health?probe=1` counts against the rate limit and gets `429` once the IP's quota is used. The bypass matches `req.url === "/health"` exactly (`src/app.js:15`), and so does the route (`src/app.js:21`), so any query string makes the request a normal, limited one.
+
+## Evidence
+
+- Is a query string ever stripped? Read `src/app.js`: no, `req.url` is compared as-is.
+- Is the exemption meant to cover probes? Read `README.md`: "except `/health`", with no mention of the query.
+
+**Command:**
+```bash
+node -e 'import("./src/app.js").then((m) => m.createApp().listen(3000))' &
+for i in $(seq 1 61); do curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3000/health?probe=1"; done | sort | uniq -c
+```
+
+**Observed output:**
+```text
+  60 404
+   1 429
+```
+
+**Expected result:** `61 200`: every probe is answered by `/health` and none is limited.
+
+## Change
+
+- `src/app.js`: take the path before `?` once (`req.url.split("?")[0]`), and use it for the `/health` bypass and the `/health` route.
+- `test/app.test.js`: one HTTP test, "HTTP: /health with a query string is exempt".
+
+Nothing else changes.
+
+## Success Criteria
+
+- [ ] The regression test `HTTP: /health with a query string is exempt` fails before the fix and passes with it
+- [ ] The reproduction no longer reproduces: the `curl` loop above now shows `61 200`
+- [ ] `npm test` passes
+````
+
+And `tasks.md`, with no phases:
+
+```md
+# Implementation Tasks: Exempt /health with a query string from the rate limit
+
+- [ ] 1. In `test/app.test.js`, add "HTTP: /health with a query string is exempt": with `createApp({ rateLimit: { limit: 2 } })`, three `GET /health?probe=1` all return `200`
+- [ ] 2. In `src/app.js`, compute the path before `?` once and use it for the `/health` bypass and route; run `npm test`
+
+## Notes
+
+**Blockers:**
+
+**Discoveries:**
+
+**Adjustments:**
+```
+
+The command's report ends with the review outcome:
+
+```text
+Change folder: <home>/my-api/changes/fix-health-query-limited/
+Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
+Standards read: none.
+
+Review: 1 round (grounding critic).
+```
+
+| # | Finding | Verdict | Fix |
+|---|---------|---------|-----|
+| R1-0 | `/users?x=1` is also unmatched by the route | out_of_scope | the request and Problem are about `/health` only |
+
+## The develop run
+
+```text
+/theway:develop fix-health-query-limited
+```
+
+For a light spec, the regression test runs before the fix is written. Task 1 added it and ran it:
+
+```text
+$ node --test --test-name-pattern="query string" test/
+✖ HTTP: /health with a query string is exempt
+  AssertionError: Expected values to be strictly deep-equal:
+  + actual - expected
+  + [404, 404, 429]
+  - [200, 200, 200]
+ℹ tests 1
+ℹ pass 0
+ℹ fail 1
+```
+
+It fails for the cause Problem states: the probes reach the limiter and miss the route. Task 2 wrote the fix, and the same command passed (`ℹ pass 1`). Both runs went into the Notes:
+
+```md
+**Discoveries:**
+- Regression test before the fix: `node --test --test-name-pattern="query string" test/` failed with actual `[404, 404, 429]`, expected `[200, 200, 200]`.
+- After the fix: the same command passes (1 pass, 0 fail).
+```
+
+Then it re-ran the reproduction:
+
+```text
+  61 200
+```
+
+The report:
+
+```text
+Tasks done: 2/2.
+Success Criteria:
+- Regression test fails before the fix and passes with it: yes, both runs recorded in Notes › Discoveries.
+- The reproduction no longer reproduces: the curl loop prints 61 200.
+- npm test passes: 11 tests, 11 pass.
+Deviations: none.
+Standards followed: none.
+Open: nothing.
+```
