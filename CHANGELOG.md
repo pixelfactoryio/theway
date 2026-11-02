@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/pixelfactoryio/theway/compare/v0.11.0...v0.12.0) (2026-11-02)
+
+
+### Features
+
+* **standards:** apply every enabled standard to every phase ([#54](https://github.com/pixelfactoryio/theway/issues/54)) ([6a41a5c](https://github.com/pixelfactoryio/theway/commit/6a41a5c337d7f5619f5953edfc019615cdb38d75))
+
 ## [0.11.0](https://github.com/pixelfactoryio/theway/compare/v0.10.0...v0.11.0) (2026-11-02)
 
 
