@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its eight subcommands.
+description: The theway command line and its eleven subcommands.
 ---
 
-The `theway` program has eight subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards` and `validate-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has eleven subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards`, `context`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install
@@ -13,7 +13,10 @@ theway archive <project> <change-id> [--force]
 theway path [<project> [<change-id>]] [--verbose]
 theway config <project>
 theway standards <project> <engineering|develop>
+theway context <project> <engineering|develop|document> [<change-id>]
+theway authority
 theway validate-id <id> [--series]
+theway next-id <project> <series-id> [--count <n>]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
@@ -114,7 +117,7 @@ theway: invalid change id '..': must be lowercase letters and digits in words se
 theway config <project>
 ```
 
-Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, `/theway:engineering-light` and `/theway:develop-workflow` run it and take their keys from its output.
+Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, `/theway:engineering-light` and `/theway:develop-workflow` take their keys from the same config, through [`context`](#context).
 
 The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/<project>/standards/`, sorted. For a project named `data`, `templates` or `standards`, only the global ones are listed.
 
@@ -143,7 +146,7 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-The last two name a `standards` key that no standard file of the project gives, and the key of a standard that is always read (`interaction`, `develop`, `tamm_framework`).
+The last two name a `standards` key that no standard file of the project gives, and the key of a standard that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`).
 
 It exits 1 and prints nothing on stdout when:
 
@@ -174,7 +177,7 @@ theway standards <project> develop
 theway standards <project> document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md` and `tamm-framework.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it.
 
 - An opt-in standard applies to `engineering` and `document`, whatever its content.
 - A user standard applies to the phases its `applies_to` frontmatter lists, or to `engineering` and `develop` without one, never to `document`.
@@ -211,7 +214,49 @@ It exits 1 and prints nothing on stdout when:
 
 - either `config.yaml` cannot be read or is not valid YAML, with the message of [`config`](#config).
 
-The engineering commands run it with `engineering`, the develop commands with `develop`, `/theway:document` with `document`.
+The commands get the same list through [`context`](#context).
+
+## context
+
+```bash
+theway context <project> <engineering|develop|document>
+theway context <project> <engineering|develop|document> <change-id>
+```
+
+Prints what a command loads in its first step, as one YAML document with these keys, in this order:
+
+- `home`: the data home, as [`path`](#path) prints it;
+- `change_dir`: only with `<change-id>`, the folder `theway path <project> <change-id>` prints;
+- `standards`: the paths [`standards`](#standards) prints for the phase, as a list, `[]` when there are none;
+- `config`: the effective config [`config`](#config) prints.
+
+```text
+home: /home/you/.theway
+change_dir: /home/you/.theway/my-repo/changes/add-redis-cache
+standards:
+  - /home/you/.theway/standards/tdd.md
+config:
+  standards:
+    ...
+```
+
+It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when `<project>` or `<change-id>` does not follow the rule of [`path`](#path), when the phase is invalid (the message of [`standards`](#standards)), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
+
+The engineering commands run it with `engineering`, `/theway:document` with `document`, and the develop commands with `develop` and the change ID, taking `change_dir` as the change folder.
+
+## authority
+
+```bash
+theway authority
+```
+
+Prints the `## Authority` section of `<home>/standards/interaction.md`: from its heading up to the next `## ` heading or the end of the file, without trailing blank lines. When that file is missing or has no such section (an edited copy that install kept), it prints the section of `<home>/standards/interaction.default.md`. When neither has it, it exits 1:
+
+```text
+theway: no ## Authority section in <home>/standards/interaction.md or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
+```
+
+The commands that spawn agents quote its output verbatim in every agent prompt.
 
 ## validate-id
 
@@ -235,4 +280,33 @@ invalid change id '<id>': must start with a verb prefix: add-, update-, refactor
 - **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
 - **With `--series`** (a series member): the ID must end in a two-digit ordinal from `01`, such as `add-user-auth-01`. Letter suffixes, `-00` and double ordinals are rejected.
 
-`/theway:engineering` runs it before it writes a change folder.
+`/theway:engineering` runs it before it writes a standalone change folder; [`next-id`](#next-id) validates the members of a series.
+
+## next-id
+
+```bash
+theway next-id <project> <series-id>
+theway next-id <project> <series-id> --count <n>
+```
+
+Prints the next `<n>` free member IDs of a [series](./concepts/changes.mdx#series), one per line (`--count` defaults to 1):
+
+```text
+add-user-auth-04
+add-user-auth-05
+```
+
+- A trailing `-NN` is removed from `<series-id>` first, so `add-user-auth-07` gives the same IDs as `add-user-auth`. The rest must fit the [`validate-id`](#validate-id) format and must not end in a one- or two-digit number; when it is invalid, it exits 1 with an `invalid change id '<id>': <reason>` line, `<id>` being the series ID without its ordinal, for example:
+
+  ```text
+  invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number
+  ```
+
+- It counts the folders `<home>/<project>/changes/<series-id>-NN` and the archived `<home>/<project>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.
+- A `--count` that is not a positive integer is rejected with `must be a positive integer`. When the last ID would be past `-99`, it exits 1:
+
+  ```text
+  theway: series <series-id> would go past -99
+  ```
+
+`/theway:engineering` runs it to name the members of a new series.

@@ -19,7 +19,7 @@ const model = (d: "opus" | "sonnet"): Leaf => ({ rule: "model", default: d });
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
-const CORE = ["interaction.md", "develop.md", "tamm-framework.md"];
+const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.md", "spec-investigation.md"];
 
 /** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
 const SHARED = new Set(["data", "templates", "standards"]);
@@ -117,7 +117,7 @@ function valid(rule: Rule, v: unknown): boolean {
   }
 }
 
-type Config = { [key: string]: Config | boolean | number | string };
+export type Config = { [key: string]: Config | boolean | number | string };
 
 function defaults(schema: Schema): Config {
   const out = dict<Config>();
@@ -169,8 +169,11 @@ function load(home: string, file: string): { root: unknown } | { error: string }
   }
 }
 
+/** A project's effective config and its standards before any phase filter. */
+export type Loaded = { config: Config; standards: Standard[] };
+
 /** A project's effective config and standards, or the error line that stops it. */
-export type Effective = { config: Config; standards: Standard[] } | { error: string };
+export type Effective = Loaded | { error: string };
 
 /**
  * The effective config of a project: per key, the project file's valid value, else the global file's valid value,
@@ -206,19 +209,28 @@ export function enabled(config: Config, key: string): boolean {
   return !Object.hasOwn(all, key) || (all[key] as Config).enabled === true;
 }
 
-/** `theway config <project>`: the effective config of a project, as YAML on stdout. */
-export function cmdConfig(project: string): number {
-  if (invalidSegments([["project", project]])) return 1;
-  const home = thewayHome();
+/**
+ * A project's effective config as `theway config` loads it, its warnings on stderr; `null` once the line that stops it
+ * (a missing global `config.yaml`, an unreadable or invalid file) is written.
+ */
+export function loadConfig(home: string, project: string): Loaded | null {
   if (!isFile(join(home, "config.yaml"))) {
     process.stderr.write(`theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
-    return 1;
+    return null;
   }
   const result = effectiveConfig(home, project, true);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
-    return 1;
+    return null;
   }
-  process.stdout.write(stringify(result.config));
+  return result;
+}
+
+/** `theway config <project>`: the effective config of a project, as YAML on stdout. */
+export function cmdConfig(project: string): number {
+  if (invalidSegments([["project", project]])) return 1;
+  const loaded = loadConfig(thewayHome(), project);
+  if (loaded === null) return 1;
+  process.stdout.write(stringify(loaded.config));
   return 0;
 }

@@ -1,10 +1,10 @@
 ---
 template_type: "implementation_tasks"
-usage: "Create numbered implementation checklist when scaffolding a change with /theway:engineering"
+usage: "Create numbered implementation checklist when scaffolding a change with /theway:engineering or /theway:engineering-light"
 agent_role: "Developer who breaks down spec analysis into concrete, sequential implementation tasks"
 required_context:
   - "<change-dir>/spec.md - Understand solution, scope, and hardpoints"
-  - "<home>/config.yaml - Global config"
+  - "The standards the command gave you"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "Tasks are numbered sequentially for easy tracking"
@@ -12,6 +12,7 @@ quality_standards:
   - "Tasks are organized by logical implementation phases"
   - "Tasks are specific and actionable (not vague)"
   - "Notes section captures blockers, discoveries, and adjustments"
+  - "A light change (a spec with `**Mode:** light`) has 1 to 3 numbered tasks directly under the H1 and no `## Phase` headings; the entries about phases (`quality_standards` \"Tasks are organized by logical implementation phases\", `workflow_steps` 1-3, `best_practices` \"Ensure every spec phase has corresponding tasks\") do not apply to it"
   - "Tasks are only work done in the repository: no tasks for reviewing the spec, setting up the environment, branching, PRs, code review, merging or archiving (the commands do those)"
 workflow_steps:
   - "1. Review spec analysis to understand solution and phases"

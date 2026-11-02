@@ -10,18 +10,12 @@ Archive a completed spec by moving it to the archive folder with a timestamp.
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`: TheWay files are stored in `<home>/<project>/`, where `<project>` is your project directory name. Take `<home>` only from `theway path`, never from a path written in `config.yaml` or elsewhere.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
-- If it fails with `error: unknown command 'path'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
-- Do not check for files under `<home>` before reading them. If reading `<home>/config.yaml` or a file under `<home>/standards/` or `<home>/templates/` fails because it does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
-
-## Usage
-
-This command archives a completed change after it has been:
-- Fully implemented
-- Tested and validated
-- Deployed to production (if applicable)
-- Confirmed working
+- If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
+- If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
+- Quote every `theway: warning:` line in your report.
+- Do not check for files under `<home>` before reading them. If a file under `<home>/standards/` or `<home>/templates/` does not exist, theway is not set up: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 
 ## Steps
 
@@ -33,14 +27,7 @@ This command archives a completed change after it has been:
 
 ### 2. Verify Completion
 
-Run `list` and show the task count before archiving:
-
-```bash
-theway list <project>
-```
-
-- If the change is not at `N/N tasks done`, surface which numbered tasks are open and ask the user to fix them or confirm an override. Do not proceed on your own.
-- `archive` enforces this too: it refuses unless every numbered task in `tasks.md` is ticked; other checkboxes are not tasks (use `--force` only when the user explicitly accepts stale/N-A tasks).
+Run `theway list <project>` and show the task count before archiving. If the change is not at `N/N tasks done`, list its open numbered tasks and ask the user to fix them or accept them. Do not proceed on your own.
 
 ### 3. Move to Archive
 
@@ -50,40 +37,8 @@ theway archive <project> <change-id>
 theway archive <project> <change-id> --force
 ```
 
-### 4. Update Project Documentation (if needed)
+When `theway archive` refuses because numbered tasks are open, list them and ask as in Step 2; use `--force` only on the user's explicit acceptance.
 
-- Update architecture docs in `docs/` with any new patterns or conventions
-- Clean up any temporary notes
+### 4. Confirm Archive
 
-### 5. Confirm Archive
-
-- Verify folder moved successfully
-- Confirm archive location: the `Archived: <path>` line, `<home>/<project>/changes/archive/YYYY-MM-DD-[change-id]/`
-
-## Archive Structure
-
-Archived changes are stored with timestamps:
-```
-<home>/<project>/changes/archive/
-├── 2025-10-01-implement-api-gateway/
-├── 2025-10-10-add-logging-framework/
-└── 2025-10-15-update-auth-middleware/
-```
-
-## What Gets Archived
-
-The entire change folder including:
-- `spec.md` - The spec analysis with proposal and hardpoints
-- `tasks.md` - Completed task list (all checked)
-- `design.md` - Technical design (if present)
-- Any other files in the change folder
-
-## Historical Record
-
-Archives serve as:
-- Historical record of decisions
-- Reference for similar future changes
-- Audit trail of what was done and why
-- Learning resource for the team
-
----
+Report the `Archived: <path>` line `theway archive` prints.

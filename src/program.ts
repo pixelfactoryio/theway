@@ -1,8 +1,11 @@
 /** The theway command line: every subcommand with its arguments and flags. */
 import { Command, InvalidArgumentError } from "commander";
 import { cmdArchive } from "./core/archive";
+import { cmdAuthority } from "./core/authority";
 import { cmdConfig } from "./core/config";
+import { cmdContext } from "./core/context";
 import { cmdList } from "./core/list";
+import { cmdNextId } from "./core/next-id";
 import { cmdPath } from "./core/path";
 import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
@@ -11,6 +14,10 @@ import { install, uninstall } from "./install";
 const nonEmpty = (value: string): string => {
   if (value === "") throw new InvalidArgumentError("must not be empty");
   return value;
+};
+const positive = (value: string): number => {
+  if (!/^[1-9][0-9]*$/.test(value)) throw new InvalidArgumentError("must be a positive integer");
+  return Number(value);
 };
 const exit = (code: number): void => {
   process.exitCode = code;
@@ -47,6 +54,19 @@ export function buildProgram(): Command {
     .argument("<project>")
     .argument("<phase>")
     .action((project: string, phase: string) => exit(cmdStandards(project, phase)));
+  program
+    .command("context")
+    .argument("<project>")
+    .argument("<phase>")
+    .argument("[change-id]")
+    .action((project: string, phase: string, change: string | undefined) => exit(cmdContext(project, phase, change)));
+  program.command("authority").action(() => exit(cmdAuthority()));
+  program
+    .command("next-id")
+    .argument("<project>")
+    .argument("<series-id>")
+    .option("--count <n>", "", positive, 1)
+    .action((project: string, series: string, o: { count: number }) => exit(cmdNextId(project, series, o.count)));
   program
     .command("validate-id")
     .argument("<id>")

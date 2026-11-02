@@ -3,9 +3,8 @@ template_type: "light"
 usage: "Create the short spec of a change with nothing to decide, written by /theway:engineering-light"
 agent_role: "Spec Analyst who writes the smallest spec a cold-start implementer can follow"
 required_context:
-  - "<home>/config.yaml - Global config"
+  - "The standards the command gave you"
   - "<home>/standards/tamm-framework.md - TAMM framework"
-  - "<home>/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "The Change section lists every file the change touches and ends with \"Nothing else changes.\""

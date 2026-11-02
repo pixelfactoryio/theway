@@ -13,12 +13,12 @@ For a small change with nothing to decide, [`/theway:engineering-light`](./engin
 /theway:engineering <request>
 ```
 
-For a [series](../concepts/changes.mdx#series), ask for a series or for several sequential changes, or pass an argument that ends in `-NN`: the command strips that ordinal to get the `<series-id>`.
+For a [series](../concepts/changes.mdx#series), ask for a series or for several sequential changes, or pass an argument that ends in `-NN`: [`theway next-id`](../cli.mdx#next-id) removes that ordinal.
 
 ## Steps
 
-1. **Load config and standards:** it runs [`theway config <project>`](../cli.mdx#config) and takes its keys from what it prints: `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)). Then it reads `standards/tamm-framework.md`. Then it reads the standards from [`theway standards <project> engineering`](../cli.mdx#standards): the opt-in standards that are enabled and your enabled [user standards](../concepts/standards.mdx). The spec and tasks follow them, and a request that contradicts one is an open question for you.
-2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`, or `validate-id <change-id> --series` for a series member. It must exit 0 before any folder is written. For a series, it first looks for existing members, active and archived, and continues from the next free ordinal.
+1. **Load config and standards:** it runs [`theway context <project> engineering`](../cli.mdx#context) and takes from its `config` `engineering.review_rounds` and `engineering.models.critic` (see [Configuration](../configuration.mdx#engineering)). Then it reads `standards/tamm-framework.md`, and follows `standards/spec-investigation.md` in Step 3 and `standards/spec-review.md` in Step 6. Then it reads the standards its `standards` lists: the opt-in standards that are enabled and your enabled [user standards](../concepts/standards.mdx). The spec and tasks follow them, and a request that contradicts one is an open question for you.
+2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`. It must exit 0 before any folder is written. For a series, [`theway next-id <project> <series-id> --count <N>`](../cli.mdx#next-id) validates the series ID and prints the member IDs.
 3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
 
    For a `fix-` change, it reproduces the bug first, with a throwaway probe in a `mktemp -d` directory or the project's existing commands and tests, without changing the repository. The command and its output go into the spec, quoted: reasoning about the code is not a reproduction. Three outcomes stop the command before any change file is written:

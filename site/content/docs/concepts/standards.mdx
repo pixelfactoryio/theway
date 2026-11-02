@@ -25,7 +25,7 @@ Both folders are optional. Install never touches your files in them.
 
 `<home>/standards/` also holds the standards theway ships. Their names decide what they are, whatever `.shipped.json` says:
 
-- `interaction.md`, `develop.md` and `tamm-framework.md` are always read by the commands that need them, never listed and never switchable.
+- `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are always read by the commands that need them, never listed and never switchable. Do not name a file of yours `spec-review.md` or `spec-investigation.md`: these names are reserved, and when install keeps such a file in `<home>/standards/`, the commands read it as theway's own procedure.
 - `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards: off by default, read by the engineering commands and `/theway:document` when switched on. A file of yours kept at one of these names counts as that opt-in standard.
 - Any other name `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
 
@@ -107,7 +107,7 @@ standards:
 
 ## Who reads them
 
-The commands list them with [`theway standards <project> <engineering|develop|document>`](../cli.mdx#standards) and read every file it prints: `engineering` lists the enabled opt-in standards and your enabled standards that apply to it, `develop` your enabled standards that apply to it, `document` the enabled opt-in standards only. When the installed `theway` is too old to know `standards`, the command tells you to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stops; when `theway standards` exits 1 for another reason, it quotes the error in its report and continues without them. Standards are binding, not guidance:
+The commands get them from the `standards` list of [`theway context <project> <engineering|develop|document>`](../cli.mdx#context), the paths [`theway standards`](../cli.mdx#standards) prints for that phase, and read every file it lists: `engineering` lists the enabled opt-in standards and your enabled standards that apply to it, `develop` your enabled standards that apply to it, `document` the enabled opt-in standards only. When the installed `theway` is too old to know `context`, the command tells you to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stops; when `theway context` exits 1 for another reason, it quotes the error and stops. Standards are binding, not guidance:
 
 - [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
 - [`/theway:develop`](../commands/develop.mdx) and the implementers of [`/theway:develop-workflow`](../commands/develop-workflow.mdx) follow them. When one contradicts the spec, the implementer stops and brings it back.

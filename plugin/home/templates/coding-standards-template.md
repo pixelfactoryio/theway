@@ -3,8 +3,7 @@ template_type: "coding_standards"
 usage: "Document project-specific coding conventions when using /theway:document to fill documentation gaps"
 agent_role: "System Architect documenting coding standards"
 required_context:
-  - "<home>/config.yaml - Global config"
-  - "<home>/standards/core-principles.md, sre.md, web-development.md, quality.md - Opt-in standards (each only if enabled)"
+  - "The standards the command gave you"
   - "Existing codebase - Review actual patterns and conventions in use"
 quality_standards:
   - "Conventions reflect actual codebase patterns (not aspirational)"

@@ -761,6 +761,16 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
+test("standards does not list the global spec-review.md and spec-investigation.md, which .shipped.json does not list", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(dir, ".shipped.json"), "{}\n");
+  for (const name of ["spec-review.md", "spec-investigation.md", "own.md"]) put(join(g, name), "x\n");
+  put(join(dir, "config.yaml"), "");
+  const res = run(dir, "standards", "p", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+});
+
 test("standards named like Object.prototype keys are listed and switched like any other", () => {
   const dir = home();
   const g = join(dir, "standards");
@@ -806,4 +816,121 @@ test("a user standard sharing an opt-in key defaults to false with it", () => {
   expect(run(dir, "standards", "p", "engineering").stdout).toBe("");
   put(join(dir, "config.yaml"), "standards:\n  web_development:\n    enabled: true\n");
   expect(run(dir, "standards", "p", "engineering").stdout).toBe(`${join(g, "web-development.md")}\n${own}\n`);
+});
+
+test("context prints home, change_dir, standards and config in that order, matching path, standards and config", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 3\n");
+  put(join(dir, "standards", "tdd.md"), "# tdd\n");
+  const res = run(dir, "context", "p", "develop", "add-x");
+  expect(res.status).toBe(0);
+  const doc = Bun.YAML.parse(res.stdout) as Record<string, unknown>;
+  expect(Object.keys(doc)).toEqual(["home", "change_dir", "standards", "config"]);
+  expect(doc.home).toBe(run(dir, "path").stdout.trim());
+  expect(doc.change_dir).toBe(run(dir, "path", "p", "add-x").stdout.trim());
+  expect(doc.standards).toEqual(run(dir, "standards", "p", "develop").stdout.split("\n").filter((l) => l !== ""));
+  expect(doc.standards).toEqual([join(dir, "standards", "tdd.md")]);
+  expect(doc.config).toEqual(Bun.YAML.parse(run(dir, "config", "p").stdout));
+});
+
+test("context has no change_dir without a change id and prints standards: [] when none apply", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "");
+  put(join(dir, "standards", "tdd.md"), "# tdd\n");
+  const res = run(dir, "context", "p", "document");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toStartWith(`home: ${dir}\nstandards: []\nconfig:\n`);
+  expect(Object.keys(Bun.YAML.parse(res.stdout) as object)).toEqual(["home", "standards", "config"]);
+});
+
+test("context writes config's warnings once and exits 1 on the missing config, an invalid project, phase or change id", () => {
+  const dir = home();
+  const missing = run(dir, "context", "p", "engineering");
+  expect(missing.status).toBe(1);
+  expect(missing.stdout).toBe("");
+  expect(missing.stderr).toBe(
+    `theway: config.yaml not found in ${dir}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`,
+  );
+  put(join(dir, "config.yaml"), "bogus: 1\n");
+  const warned = run(dir, "context", "p", "engineering");
+  expect(warned.status).toBe(0);
+  expect(warned.stderr).toBe("theway: warning: config.yaml: unknown key bogus; ignored\n");
+  for (const [args, line] of [
+    [["Bad/p", "develop"], "theway: invalid project 'Bad/p': "],
+    [["p", "deploy"], "theway: invalid phase 'deploy': must be engineering, develop or document\n"],
+    [["p", "develop", "Add_X"], "theway: invalid change id 'Add_X': "],
+  ] as const) {
+    const res = run(dir, "context", ...args);
+    expect(res.status).toBe(1);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toStartWith(line);
+  }
+});
+
+test("authority prints the Authority section of interaction.md, else of interaction.default.md, else exits 1", () => {
+  const dir = home();
+  const kept = join(dir, "standards", "interaction.md");
+  const shipped = join(dir, "standards", "interaction.default.md");
+  const noSection = `theway: no ## Authority section in ${kept} or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
+  const none = run(dir, "authority");
+  expect(none.status).toBe(1);
+  expect(none.stderr).toBe(noSection);
+  put(shipped, "# I\n\n## Authority\n\n- shipped\n");
+  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
+  put(kept, "# I\n\n## Reporting\n\n- r\n");
+  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
+  put(kept, "# I\n\n## Authority\n\n- kept\n- two\n\n\n## Next\n\nz\n");
+  const res = run(dir, "authority");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe("## Authority\n\n- kept\n- two\n");
+  put(kept, "# I\n\n## Authority\n- last\n\n");
+  expect(run(dir, "authority").stdout).toBe("## Authority\n- last\n");
+  rmSync(shipped);
+  put(kept, "# I\n");
+  expect(run(dir, "authority").stderr).toBe(noSection);
+});
+
+test("next-id continues after the highest active or archived ordinal of the exact series", () => {
+  const dir = home();
+  expect(run(dir, "next-id", "p", "add-thing").stdout).toBe("add-thing-01\n");
+  const changes = join(dir, "p", "changes");
+  mkdirSync(join(changes, "add-thing-01"), { recursive: true });
+  mkdirSync(join(changes, "archive", "2026-01-01-add-thing-03"), { recursive: true });
+  mkdirSync(join(changes, "add-other-thing-09"), { recursive: true });
+  mkdirSync(join(changes, "archive", "2026-01-01-add-other-thing-08"), { recursive: true });
+  put(join(changes, "add-thing-12"), "a file, not a member\n");
+  const res = run(dir, "next-id", "p", "add-thing", "--count", "2");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe("add-thing-04\nadd-thing-05\n");
+  expect(run(dir, "next-id", "p", "add-thing-07").stdout).toBe("add-thing-04\n");
+  expect(run(dir, "next-id", "p", "add-thing", "--count", "3").stdout).toBe("add-thing-04\nadd-thing-05\nadd-thing-06\n");
+});
+
+test("next-id exits 1 on an invalid series id, a bad --count and past -99", () => {
+  const dir = home();
+  const bad = run(dir, "next-id", "p", "Add-thing");
+  expect(bad.status).toBe(1);
+  expect(bad.stdout).toBe("");
+  expect(bad.stderr).toBe("invalid change id 'Add-thing': uppercase letters are not allowed; use lowercase kebab-case\n");
+  const ordinal = run(dir, "next-id", "p", "add-thing-01-02");
+  expect(ordinal.status).toBe(1);
+  expect(ordinal.stderr).toBe("invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number\n");
+  const number = run(dir, "next-id", "p", "add-thing-7");
+  expect(number.status).toBe(1);
+  expect(number.stderr).toBe("invalid change id 'add-thing-7': ends in a number (-7); a series id cannot end in a number\n");
+  const twoDigits = run(dir, "next-id", "p", "add-thing-42-05");
+  expect(twoDigits.stderr).toBe("invalid change id 'add-thing-42': ends in a number (-42); a series id cannot end in a number\n");
+  for (const res of [bad, ordinal, number, twoDigits]) expect(res.stderr).not.toContain("--series");
+  expect(run(dir, "next-id", "Bad/p", "add-thing").stderr).toStartWith("theway: invalid project 'Bad/p': ");
+  for (const count of ["0", "-1", "1.5", "x"]) {
+    const res = run(dir, "next-id", "p", "add-thing", "--count", count);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("must be a positive integer");
+  }
+  mkdirSync(join(dir, "p", "changes", "add-thing-98"), { recursive: true });
+  expect(run(dir, "next-id", "p", "add-thing").stdout).toBe("add-thing-99\n");
+  const past = run(dir, "next-id", "p", "add-thing", "--count", "2");
+  expect(past.status).toBe(1);
+  expect(past.stdout).toBe("");
+  expect(past.stderr).toBe("theway: series add-thing would go past -99\n");
 });
