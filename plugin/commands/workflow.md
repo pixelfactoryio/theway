@@ -83,7 +83,7 @@ Whatever the status, record what the result holds in `<change-dir>/tasks.md`: ti
 ### Step 5: Gate
 
 - **`succeeded`, one change:** report the PR ready for validation, or the local branch when the workflow has no `pr` step. Never merge.
-- **`succeeded`, a series with a `pr` step:** report the PR URL, its diffstat (`gh pr diff <number> --stat`) and CI status, and ask the user whether to merge it. On an explicit yes, merge with `gh pr merge <number> --squash` (never `--admin`), sync main, then continue with the next change ID. Any other answer stops the run; report where the series stopped.
+- **`succeeded`, a series with a `pr` step:** report the PR URL, its diffstat (`gh pr view <number> --json additions,deletions,changedFiles`) and CI status, and ask the user whether to merge it. On an explicit yes, merge with `gh pr merge <number> --squash` (never `--admin`), sync main, then continue with the next change ID. Any other answer stops the run; report where the series stopped.
 - **`succeeded`, a series without a `pr` step:** nothing is merged; continue with the next change ID, whose branch Step 2 creates from this change's branch.
 - **`blocked`:** stop the run and bring `implementation.blocker` (or `error`) to the user with its options. In a series, no later change starts.
 - **`failed`:** never merge; stop the run and report `error`: each finding the fix check marked `not resolved` with its reason, or the quoted CI error. In a series, no later change starts.
