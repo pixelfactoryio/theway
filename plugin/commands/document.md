@@ -34,7 +34,7 @@ docs/architecture/
 
 ### Step 1: Generate Documents from Templates
 
-Run `theway context <project> document` and read every file its `standards` lists: these are the shipped opt-in standards that are enabled.
+Run `theway context <project> document` and read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours.
 
 Then, for each template below, read the template file, follow its frontmatter instructions (required_context, agent_role, workflow_steps, quality_standards, best_practices), and create/update the output file in `docs/architecture/` (overwrite if it already exists).
 

@@ -19,9 +19,9 @@ Of the change folders, write only to `<change-dir>`: never to other change folde
 - Write the tests with the code they cover.
 - Tick each task (`- [x] N.`) once it is done, and record anything you learn that the next person needs in the Notes section of `tasks.md`, unless your prompt says the orchestrator does.
 
-## User standards
+## Standards
 
-Follow the user standards you are given, as you follow `docs/architecture/coding-standards.md`. When one contradicts the spec, stop and bring it back, as "When the spec does not fit" says. They are not a change folder: "Stay inside this change" does not forbid reading them.
+Follow the standards you are given, as you follow `docs/architecture/coding-standards.md`. When one contradicts the spec, stop and bring it back, as "When the spec does not fit" says. They are not a change folder: "Stay inside this change" does not forbid reading them.
 
 ## When the spec does not fit
 

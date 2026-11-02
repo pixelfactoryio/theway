@@ -425,7 +425,7 @@ test("engineering-light.md validates a standalone ID, escalates, writes the ligh
     "a TAMM risk at Medium or High, or a request for a series.",
     "Escalating writes no change file",
     "tell the user to run `/theway:engineering` with the original request",
-    "Run up to `min(engineering.review_rounds, 1)` review rounds",
+    "Run up to `engineering.review_rounds` review rounds",
     "with one grounding critic.",
     "A confirmed `decision` finding is an escalation, not an open question.",
     "Escalating after the review keeps the light files",
@@ -434,6 +434,7 @@ test("engineering-light.md validates a standalone ID, escalates, writes the ligh
     expect(light).toContain(marker);
   }
   expect(light).not.toContain("validate-id <change-id> --series");
+  expect(light).not.toContain("min(");
   expect(light).not.toContain("Implementability critic");
   expect(light).toContain("`<home>/templates/light-spec-template.md` | `spec.md`");
   expect(light).toContain("`<home>/templates/tasks-template.md` | `tasks.md`");
@@ -466,10 +467,11 @@ test("develop.md proves a light fix- change without the base worktree and escala
   expect(fit).toContain("is brought back as a blocker.");
 });
 
-test("develop-workflow.md caps a light change's review at one round and checks a fix- test by the regression check", () => {
+test("develop-workflow.md runs a light change's review up to review_rounds and checks a fix- test by the regression check", () => {
   const workflow = read(join(COMMANDS, "develop-workflow.md"));
   const step4 = step(workflow, "Step 4:");
-  expect(step4).toContain("run up to `min(workflow.review_rounds, 1)` rounds.");
+  expect(workflow).not.toContain("min(");
+  expect(step4).toContain("Run up to `review_rounds` review rounds on the local branch");
   expect(step4).toContain("the reviewers check the diff against its Change section");
   for (const prefix of ["3. **Fix once.**", "4. **Fix check:**"]) {
     const item = new RegExp(`^${escapeRegExp(prefix)}.*$`, "m").exec(step4)?.[0] ?? "";
@@ -517,7 +519,7 @@ test("engineering and engineering-light read the standards, follow them, give th
   expect(step(light, "Step 5: Review")).toContain("also reports a spec or task that contradicts a standard");
 });
 
-test("develop and develop-workflow read the user standards, give them to the agents, enforce and report them", () => {
+test("develop and develop-workflow read the standards, give them to the agents, enforce and report them", () => {
   const develop = read(join(COMMANDS, "develop.md"));
   const workflow = read(join(COMMANDS, "develop-workflow.md"));
   for (const text of [develop, workflow]) {
@@ -526,30 +528,32 @@ test("develop and develop-workflow read the user standards, give them to the age
     expect(step1).toContain("- `docs/architecture/coding-standards.md`");
     expect(step1).toContain("Run `theway context <project> develop <change-id>`");
     expect(step1).toContain("Then read every file its `standards` lists");
-    expect(step1).toContain("these are the user standards.");
+    expect(step1).toContain("these are the standards, the shipped opt-in ones that are enabled and yours.");
     expect(step1).toContain("do not search the filesystem");
   }
-  expect(section(develop, "Exit")).toContain('Also name the user standards followed, by file name, or "none".');
+  expect(section(develop, "Exit")).toContain('Also name the standards of Step 1 followed, by file name, or "none".');
 
   expect(step(workflow, "Step 1:")).toContain("verified (given to every implementer)");
   const step3 = step(workflow, "Step 3:");
   expect(step3).toContain("Every implementer, reviewer, fix agent (Steps 4 and 5) and the fix check");
-  expect(step3).toContain("gets the absolute paths of the user standards (Step 1).");
+  expect(step3).toContain("gets the absolute paths of the standards of Step 1.");
   const step4 = step(workflow, "Step 4:");
   const review = /^1\. \*\*Review\.\*\*.*$/m.exec(step4)?.[0] ?? "";
-  expect(review).toContain("The reviewers also check the diff against the user standards");
+  expect(review).toContain("The reviewers also check the diff against the standards of Step 1");
   expect(review).toContain("names the standard file and the rule it breaks.");
   const check = /^4\. \*\*Fix check:\*\*.*$/m.exec(step4)?.[0] ?? "";
-  expect(check).toContain("a finding whose fix breaks a user standard is `not resolved`.");
-  expect(section(workflow, "Exit")).toContain('Also name the user standards given to the agents, by file name, or "none".');
+  expect(check).toContain("a finding whose fix breaks a standard of Step 1 is `not resolved`.");
+  expect(section(workflow, "Exit")).toContain('Also name the standards of Step 1 given to the agents, by file name, or "none".');
+  for (const text of [develop, workflow]) expect(text).not.toContain("user standard");
 });
 
-test("the develop standard follows the user standards and the Authority rule names them as instructions", () => {
+test("the develop standard follows the standards and the Authority rule names the user standards as instructions", () => {
   const develop = read(join(STANDARDS, "develop.md"));
   const headings = [...develop.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
-  expect(headings.indexOf("User standards")).toBe(headings.indexOf("Implement") + 1);
-  const user = section(develop, "User standards");
-  expect(user).toContain("Follow the user standards you are given");
+  expect(headings.indexOf("Standards")).toBe(headings.indexOf("Implement") + 1);
+  expect(develop).not.toContain("user standard");
+  const user = section(develop, "Standards");
+  expect(user).toContain("Follow the standards you are given");
   expect(user).toContain("When one contradicts the spec, stop and bring it back");
   expect(user).toContain('"Stay inside this change" does not forbid reading them.');
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
@@ -596,11 +600,12 @@ test("engineering, engineering-light and develop-workflow take their keys from t
   }
 });
 
-test("document reads the enabled opt-in standards from theway context", () => {
+test("document reads the standards from theway context", () => {
   const text = read(join(COMMANDS, "document.md"));
   const first = step(text, "Step 1:").split("\n\n")[1];
   expect(first).toStartWith("Run `theway context <project> document`");
   expect(first).toContain("read every file its `standards` lists");
+  expect(first).toContain("these are the standards, the shipped opt-in ones that are enabled and yours.");
   expect(calls(text)).not.toContain("config");
   expect(text).not.toContain("Then read these opt-in standards:");
   for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);

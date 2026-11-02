@@ -71,7 +71,7 @@ A light change has no `design.md`.
 
 ### Step 5: Review
 
-Run up to `min(engineering.review_rounds, 1)` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
+Run up to `engineering.review_rounds` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
 
 Review the change as `<home>/standards/spec-review.md` sets out, with the grounding lens only, which then also reports a spec or task that contradicts a standard. Spawn the critic with the Agent tool and `model` set to `engineering.models.critic`.
 
