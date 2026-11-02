@@ -12,7 +12,7 @@ theway list <project>
 theway archive <project> <change-id> [--force]
 theway path [<project> [<change-id>]] [--verbose]
 theway config <project>
-theway standards <project> <engineering|develop>
+theway standards <project> <engineering|develop|document>
 theway context <project> <engineering|develop|document> [<change-id>]
 theway authority
 theway validate-id <id> [--series]
@@ -26,7 +26,7 @@ It needs Node.js 22.12 or later and exits 1 with a message on older versions.
 The data home holds the config, the standards, the templates and the change folders. The CLI resolves it on every run, in this order:
 
 1. `THEWAY_HOME`, when it is set and not empty.
-2. The pointer file `${XDG_CONFIG_HOME:-~/.config}/theway/home`, when it exists and is not empty. Install writes it for a custom `THEWAY_HOME`.
+2. The pointer file `${XDG_CONFIG_HOME:-~/.config}/theway/home`, when it exists and is not empty. Install writes it whenever the resulting home is not the default: one chosen with `--home` or the install question, one set by `THEWAY_HOME`, or the custom home an earlier pointer names on a reinstall.
 3. `~/.theway`.
 
 [`theway path --verbose`](#path) says which one it used.
@@ -44,7 +44,7 @@ Other environment variables:
 npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, dropping the `Read` rule of the previous home and any `Edit` rule earlier versions added when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, always dropping the `Edit` rules earlier versions added, and dropping the previous home's `Read` rule when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 On a first install from a terminal (stdin and stdout), it asks where to keep the data home, only when theway was never installed, then which opt-in standards to enable, only when the data home has no `config.yaml`. The options answer without a question:
 
@@ -206,7 +206,7 @@ With nothing to print, it prints nothing and exits 0.
 /home/you/.theway/my-repo/standards/review.md
 ```
 
-A file whose `applies_to` has any other value or form is skipped for every phase, with a warning on stderr; the exit code stays 0:
+An enabled file whose `applies_to` has any other value or form is skipped for every phase, with a warning on stderr; the exit code stays 0:
 
 ```text
 theway: warning: <path>: applies_to must list engineering, develop and/or document; skipped
@@ -295,7 +295,7 @@ invalid change id '<id>': must start with a verb prefix: add-, update-, refactor
 - **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
 - **With `--series`** (a series member): the ID must end in a two-digit ordinal from `01`, such as `add-user-auth-01`. Letter suffixes, `-00` and double ordinals are rejected.
 
-`/theway:engineering` runs it before it writes a standalone change folder; [`next-id`](#next-id) validates the members of a series.
+`/theway:engineering` and `/theway:engineering-light` run it before they write a standalone change folder; [`next-id`](#next-id) validates the members of a series.
 
 ## next-id
 
