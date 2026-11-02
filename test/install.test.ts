@@ -1138,6 +1138,16 @@ test("install --standards none,sre exits 1 and writes nothing", () => {
   nothingWritten(env);
 });
 
+test("install --standards none,none exits 1 and writes nothing", () => {
+  const env = setup();
+  const res = run(env, "install", "--standards", "none,none");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    "theway: unknown standard 'none' in --standards; valid: core_principles, sre, web_development, quality, or none\n",
+  );
+  nothingWritten(env);
+});
+
 test("install --standards on an existing home exits 1 and leaves config.yaml as it is", () => {
   const env = setup();
   const config = join(env.theway, "config.yaml");
