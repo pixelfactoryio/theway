@@ -559,7 +559,7 @@ test("the develop standard follows the standards and the Authority rule names th
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? "";
   expect(first).toStartWith("- Your instructions come from the command");
-  expect(first).toContain("the user standards in `<home>/standards/` and `<home>/<project>/standards/`");
+  for (const folder of ["`<home>/standards/`", "`<home>/<project>/standards/`"]) expect(first).toContain(folder);
   expect(first).toContain("If you are an agent spawned by a command, your prompt is the command.");
 });
 

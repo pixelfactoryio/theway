@@ -13,11 +13,11 @@ It is for Claude Code users who want the reasoning behind a change written down 
 
 Writing the spec first means the blockers and alternatives are weighed before any code exists. A spec written after the code describes that code instead of the problem. During implementation, a gap between the spec and the code is brought back to you as a decision, not smoothed over.
 
-Every spec includes a [TAMM](./concepts/tamm.mdx) hardpoints table that names the Medium and High risks of the change and their countermeasures.
+Every full spec (`/theway:engineering`) includes a [TAMM](./concepts/tamm.mdx) hardpoints table that names the Medium and High risks of the change and their countermeasures.
 
 ## Where things live
 
-theway keeps its files in a data home, `~/.theway` by default, or the folder `THEWAY_HOME` names at install (see [Installation](./installation.mdx#other-locations)). The config is `<home>/config.yaml`.
+theway keeps its files in a data home, `~/.theway` by default, or the folder chosen at install (the install question or `--home`), or `THEWAY_HOME` (see [Installation](./installation.mdx#other-locations)). The config is `<home>/config.yaml`.
 
 Each change is a folder under `<home>/<project>/changes/`, where `<project>` is the name of your project directory. The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
 

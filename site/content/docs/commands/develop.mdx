@@ -16,12 +16,12 @@ The change ID can also come from the request, for example "develop the add-redis
 ## Steps
 
 1. **Load context:** it runs [`theway context <project> develop <change-id>`](../cli.mdx#context), then reads these paths directly:
-   - `~/.theway/standards/develop.md`
-   - `~/.theway/<project>/changes/<change-id>/spec.md`
-   - `~/.theway/<project>/changes/<change-id>/tasks.md`
-   - `~/.theway/<project>/changes/<change-id>/design.md`, when present
+   - `<home>/standards/develop.md` (`<home>` is the folder `theway path` prints, `~/.theway` by default)
+   - `<home>/<project>/changes/<change-id>/spec.md`
+   - `<home>/<project>/changes/<change-id>/tasks.md`
+   - `<home>/<project>/changes/<change-id>/design.md`, when present
    - `docs/architecture/coding-standards.md`, when present
-   - the [standards](../concepts/standards.mdx) its `standards` lists: the enabled ones that apply to `develop`, the shipped opt-in ones and yours
+   - the [standards](../concepts/standards.mdx) its `standards` lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it
 2. **Implement and verify**, following `develop.md`:
    - Read only this change's folder: never other changes or `changes/archive/`, so no task from another change ends up in this one.
    - Work through the numbered tasks in order, following the codebase's patterns, and write the tests with the code they cover.
@@ -39,7 +39,7 @@ A `fix-` change also proves its regression test, which `develop.md` Verify calls
 3. It copies in only the regression test files and runs only the regression test. The test must fail for the reason the spec's Root Cause gives, then pass on the change. The worktree is then removed, also when the check stopped early.
 4. It re-runs the reproduction recorded in the spec, and records that it no longer reproduces.
 
-For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering-light`](./engineering-light.mdx)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its failing output is recorded in the Notes of `tasks.md`. The reproduction is still re-run.
+For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering-light`](./engineering-light.mdx)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the Discoveries of the `tasks.md` Notes. The reproduction is still re-run.
 
 Re-running the regression check on a new head, as `/theway:develop-workflow` does after a review fix, means steps 1 to 3 again for a full spec, and only the run after the fix for a light spec.
 

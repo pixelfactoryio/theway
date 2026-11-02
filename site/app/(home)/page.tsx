@@ -61,7 +61,7 @@ const steps: Step[] = [
         input: true,
         entries: [
           { kind: 'prompt', text: '/theway:engineering add rate limiting to the public API' },
-          { kind: 'tool', name: 'Read', args: '~/.theway/config.yaml' },
+          { kind: 'tool', name: 'Bash', args: 'theway context my-api engineering' },
           { kind: 'tool', name: 'Read', args: 'src/api/router.ts' },
           { kind: 'tool', name: 'Write', args: '~/.theway/my-api/changes/add-rate-limit/spec.md' },
           { kind: 'tool', name: 'Write', args: '~/.theway/my-api/changes/add-rate-limit/tasks.md' },
@@ -89,7 +89,7 @@ const steps: Step[] = [
         title: 'Numbered tasks',
         body: (
           <>
-            <code>tasks.md</code> splits the work into numbered tasks, grouped by phase.
+            <code>tasks.md</code> splits the work into numbered tasks, grouped by phase (a light change: 1 to 3 tasks).
           </>
         ),
       },
@@ -100,7 +100,7 @@ const steps: Step[] = [
     subline: (
       <>
         <code className="text-accent-text">/theway:develop</code> works through the tasks in your session. <code className="text-accent-text">/theway:develop-workflow</code>{' '}
-        hands them to agents that open a pull request.
+        hands them to agents that implement and review locally, then opens a pull request.
       </>
     ),
     mocks: [
@@ -118,9 +118,10 @@ const steps: Step[] = [
         type: 'session',
         entries: [
           { kind: 'prompt', text: '/theway:develop-workflow add-rate-limit' },
-          { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'PR #42 opened' },
-          { kind: 'tool', name: 'Agent', args: 'review PR #42', result: '2 findings, 2 confirmed' },
-          { kind: 'tool', name: 'Agent', args: 'fix PR #42', result: '2 resolved' },
+          { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'committed on add/rate-limit' },
+          { kind: 'tool', name: 'Agent', args: 'review add/rate-limit', result: '2 findings, 2 confirmed' },
+          { kind: 'tool', name: 'Agent', args: 'fix add/rate-limit', result: '2 resolved' },
+          { kind: 'tool', name: 'Bash', args: 'gh pr create', result: 'PR #42 opened' },
           { kind: 'tool', name: 'Bash', args: 'gh pr checks 42', result: 'test  pass' },
           { kind: 'message', text: 'PR #42 is ready for you to merge.' },
         ],
