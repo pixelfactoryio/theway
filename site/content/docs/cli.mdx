@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its eleven subcommands.
+description: The theway command line and its twelve subcommands.
 ---
 
-The `theway` program has eleven subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards`, `context`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has twelve subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
@@ -14,6 +14,7 @@ theway path [<project> [<change-id>]] [--verbose]
 theway config <project>
 theway standards <project> <engineering|develop|document>
 theway context <project> <engineering|develop|document> [<change-id>]
+theway workflow <project> [<name>]
 theway authority
 theway validate-id <id> [--series]
 theway next-id <project> <series-id> [--count <n>]
@@ -133,9 +134,9 @@ theway: invalid change id '..': must be lowercase letters and digits in words se
 theway config <project>
 ```
 
-Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, `/theway:engineering-light` and `/theway:develop-workflow` take their keys from the same config, through [`context`](#context).
+Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering` and `/theway:engineering-light` take their keys from the same config, through [`context`](#context), and [`workflow`](#workflow) takes `workflow.defaults` from it.
 
-The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/<project>/standards/`, sorted. For a project named `data`, `templates` or `standards`, only the global ones are listed.
+The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/<project>/standards/`, sorted. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, only the global ones are listed.
 
 ```text
 standards:
@@ -143,12 +144,12 @@ standards:
     enabled: false
   ...
 workflow:
-  ...
-  models:
-    implementer: opus
-    reviewer: opus
-    fix: opus
-    ci: sonnet
+  defaults:
+    ...
+    pr:
+      ci_attempts: 2
+      model: sonnet
+      fix_model: opus
 ```
 
 An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `<project>/config.yaml`:
@@ -197,7 +198,7 @@ Prints the absolute path of every enabled [standard](./concepts/standards.mdx) t
 
 - A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
-- For a project named `data`, `templates` or `standards`, the project's `standards/` folder is not read: `templates/` and `standards/` hold theway's own files, and `data/` can still hold the standards of an [older layout](./installation.mdx#from-the-old-layout). The global standards are still listed.
+- For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, the project's `standards/` folder is not read: those folders of the home hold theway's own files, and `data/` can still hold the standards of an [older layout](./installation.mdx#from-the-old-layout). The global standards are still listed.
 
 With nothing to print, it prints nothing and exits 0.
 
@@ -258,6 +259,48 @@ config:
 It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when `<project>` or `<change-id>` does not follow the rule of [`path`](#path), when the phase is invalid (the message of [`standards`](#standards)), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
 
 The engineering commands run it with `engineering`, `/theway:document` with `document`, and the develop commands with `develop` and the change ID, taking `change_dir` as the change folder.
+
+## workflow
+
+```bash
+theway workflow <project>
+theway workflow <project> <name>
+```
+
+Resolves one [workflow](./concepts/workflows.mdx), validates it, fills every field its steps leave out from [`workflow.defaults`](./configuration.mdx#workflow), and prints it as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it once per run and passes the result to its pipeline.
+
+Which file:
+
+- **With `<name>`:** `<home>/<project>/workflows/<name>.yaml` when it is a file, else `<home>/workflows/<name>.yaml`.
+- **Without `<name>`, the default:**
+  1. The project's folder: every workflow file in it is validated, in file-name order, and the one that sets `default: true` is the default.
+  2. Only when the project has none, the global folder: the same, over the global files that no project file of the same name shadows. A shadowed global file is not read.
+  3. When neither has one, `develop`, looked up as with `<name>`.
+- A `<name>` matches `^[a-z0-9]+(-[a-z0-9]+)*$`; the workflow's name is its file stem. A `*.default.yaml` file is the shipped copy install writes next to an edited file, never a workflow. While it scans a folder for the default, a `.yaml` file whose stem is not a valid name is skipped with `theway: warning: <file>: not a valid workflow name; ignored`.
+- Each lens of a `review` step is `<home>/<project>/lenses/<lens>.md` when it is a file, else `<home>/lenses/<lens>.md`. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, no project folder is read.
+
+```json
+{
+  "name": "develop",
+  "file": "/home/you/.theway/workflows/develop.yaml",
+  "steps": [
+    { "step": "implement", "model": "opus" },
+    { "step": "review", "rounds": 1, "lenses": [{ "name": "conformance", "path": "/home/you/.theway/lenses/conformance.md" }, { "name": "correctness", "path": "/home/you/.theway/lenses/correctness.md" }], "model": "opus", "fix_model": "opus" },
+    { "step": "pr", "ci_attempts": 2, "model": "sonnet", "fix_model": "opus" }
+  ]
+}
+```
+
+Every field of every step is printed, `step` first. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the rule of [`path`](#path) for `<project>`, and these, where `<file>` is the path relative to the home:
+
+```text
+theway: invalid workflow name '<name>'
+theway: no workflow '<name>' in <home>/<project>/workflows or <home>/workflows
+theway: workflows/a.yaml and workflows/b.yaml both set default: true
+theway: <file>: steps[1]: pr must be the last step
+```
+
+A workflow file error is the first one found: the file cannot be read or is not valid YAML; the root is not a map, has a key other than `default` and `steps`, `default` is not `true` or `false`, or `steps` is not a non-empty list; then, step by step, a step that is not one of `implement`, `review`, `agent`, `pr`, a field its type does not have, a value that breaks its rule, a missing `agent` `name` or `prompt`, a step out of order, and a lens with no file. [Workflows](./concepts/workflows.mdx#rules) lists each rule.
 
 ## authority
 

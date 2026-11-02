@@ -68,12 +68,13 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
 
 ## What install writes
 
-- **`~/.claude/skills/theway`:** the plugin, with its commands. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
+- **`~/.claude/skills/theway`:** the plugin, with its commands and the `run-pipeline` workflow that `/theway:workflow` calls. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
 - **`~/.local/bin/theway`:** the [CLI](./cli.mdx) the commands call, a single executable file run by the `node` on your `PATH`. Install replaces a theway binary there, but not another program called `theway`: it then stops, changes nothing, and asks you to remove it or set `THEWAY_INSTALL_DIR`.
 - **The data home, `~/.theway`** by default:
   - `config.yaml`: the [configuration](./configuration.mdx). A new one is the shipped configuration with `enabled: true` under each opt-in standard you picked at the prompt or with `--standards`, and every other line as shipped. An existing `config.yaml` is kept.
   - `config.default.yaml`: the shipped configuration, written on every install.
-  - `standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped.
+  - `standards/`, `templates/`, `workflows/` and `lenses/`: the standards, templates, [workflows and lenses](./concepts/workflows.mdx) the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`, or `<name>.default.yaml` in `workflows/`. `.shipped.json` records what install last shipped.
+    - `workflows/` and `lenses/` also hold your own workflows and lenses, and follow the rules of `standards/` below: your file with a newly shipped name is kept, and a file theway stops shipping is removed when you have not edited it.
     - `standards/` also holds your [global user standards](./concepts/standards.mdx). When theway starts shipping a name you already use there, install keeps your file, writes its version as `<name>.default.md`, leaves the name out of `.shipped.json` so the file stays yours, and prints `Kept your standards/<name>: theway now ships a file with that name (its version: standards/<base>.default.md)` on every install while the clash lasts. When you have no `.shipped.json`, a differing file with a shipped name is treated as an edited shipped file instead.
     - A standard theway stops shipping is removed when you have not edited it (`Removed standards/<name>: theway no longer ships it`) and kept as one of your standards when you have (`Kept your edited standards/<name>: theway no longer ships it, so it is now one of your standards`). Install also removes a `standards/<name>.default.md` whose `<name>.md` it no longer ships.
     - A template theway no longer ships is left in `templates/` untouched. A differing template that `.shipped.json` does not list is backed up to `<name>.md.bak` and replaced.

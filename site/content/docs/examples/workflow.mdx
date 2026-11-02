@@ -1,0 +1,48 @@
+---
+title: Run through a workflow
+description: "The full change example's change run through the develop workflow: a local review round, then a PR driven to green CI."
+---
+
+This is an illustrative run on the sample project `my-api`. It takes the `add-rate-limiting` change of the [full change](./full-change.mdx), from the same spec and tasks, and runs it with `/theway:workflow` instead of `/theway:develop`.
+
+## The request
+
+```text
+/theway:workflow add-rate-limiting
+```
+
+No workflow file sets `default: true`, so the shipped `develop` workflow runs, with the default [`workflow.defaults`](../configuration.mdx#workflow): one review round with the `conformance` and `correctness` lenses, then a PR with two CI attempts. `theway workflow my-api` printed it with every field filled.
+
+## Implement
+
+The command synced `main`, created the branch `add-rate-limiting` and called the `theway:run-pipeline` workflow. Its implementer followed `develop.md`, committed locally with the `feat` type of an `add-` change, and ran `npm test` (10 tests, 10 pass). The command, not the agent, ticked the tasks in `tasks.md`.
+
+## Review locally
+
+Before anything was pushed, the two reviewers, one per lens, tried to refute the branch diff. They reported three findings, triaged as:
+
+- `0` `confirmed`: the close test only checks that `close` completes, not that the sweep timer is cleared.
+- `1` `confirmed`: per-IP counting is tested on the limiter only; no HTTP test sends from two addresses.
+- `2` `false_positive`: "`Retry-After` can be `0` in the window's last millisecond". Refuted: the header is `max(1, ceil((resetAt - now) / 1000))`.
+
+One fix agent added both tests, in a commit of type `test` since it changes only tests, and re-ran `npm test` (12 tests, 12 pass). The fix check then read the fix commit and answered `resolved` for findings 0 and 1.
+
+## Open the PR and drive CI
+
+The `pr` step pushed the branch once and opened PR #12, titled `feat: add per-ip rate limiting`. CI went green on attempt 1. With a single change, there is no merge question: the run stops with the PR ready for your validation.
+
+## The report
+
+```text
+add-rate-limiting
+- Workflow: develop (/home/you/.theway/workflows/develop.yaml)
+- Branch: add-rate-limiting
+- PR: https://github.com/example/my-api/pull/12
+- Review: 1 round used.
+  Not confirmed: 2 false_positive "Retry-After can be 0 in the window's last millisecond".
+  Fix check: 0 resolved, 1 resolved.
+- PR step: CI green, 1 of 2 attempts used.
+- Merge: not merged, awaits your validation.
+- Standards given to the agents: none.
+- Blockers: none.
+```

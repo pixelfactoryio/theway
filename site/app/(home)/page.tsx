@@ -99,8 +99,8 @@ const steps: Step[] = [
     title: 'Implement task by task',
     subline: (
       <>
-        <code className="text-accent-text">/theway:develop</code> works through the tasks in your session. <code className="text-accent-text">/theway:develop-workflow</code>{' '}
-        hands them to agents that implement and review locally, then opens a pull request.
+        <code className="text-accent-text">/theway:develop</code> works through the tasks in your session. <code className="text-accent-text">/theway:workflow</code>{' '}
+        hands them to agents that implement and review locally, then opens a pull request, in the steps of a YAML workflow.
       </>
     ),
     mocks: [
@@ -117,7 +117,7 @@ const steps: Step[] = [
       {
         type: 'session',
         entries: [
-          { kind: 'prompt', text: '/theway:develop-workflow add-rate-limit' },
+          { kind: 'prompt', text: '/theway:workflow add-rate-limit' },
           { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'committed on add/rate-limit' },
           { kind: 'tool', name: 'Agent', args: 'review add/rate-limit', result: '2 findings, 2 confirmed' },
           { kind: 'tool', name: 'Agent', args: 'fix add/rate-limit', result: '2 resolved' },
@@ -196,7 +196,7 @@ const commandIcons: [string, LucideIcon][] = [
   ['engineering', FileText],
   ['engineering-light', Feather],
   ['develop', Code],
-  ['develop-workflow', GitPullRequest],
+  ['workflow', GitPullRequest],
   ['document', BookOpen],
   ['list', List],
   ['archive', Archive],
