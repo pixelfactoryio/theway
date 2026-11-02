@@ -125,7 +125,13 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
   expect(res.status).toBe(0);
   expect(existsSync(join(env.claude, "skills", "theway", ".claude-plugin", "plugin.json"))).toBe(true);
   expect(existsSync(join(env.claude, "skills", "theway", "commands", "engineering.md"))).toBe(true);
+  expect(readFileSync(join(env.claude, "skills", "theway", "workflows", "run-pipeline.js"), "utf-8")).toBe(
+    readFileSync(join(REPO, "plugin", "workflows", "run-pipeline.js"), "utf-8"),
+  );
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
+  for (const rel of ["workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+    expect(existsSync(join(env.theway, rel))).toBe(true);
+  }
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
 });
 

@@ -27,7 +27,7 @@ import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./co
 const self = fileURLToPath(import.meta.url);
 const pkgRoot = dirname(dirname(self));
 const plugin = join(pkgRoot, "plugin");
-const PLUGIN_DIRS = [".claude-plugin", "commands"];
+const PLUGIN_DIRS = [".claude-plugin", "commands", "workflows"];
 /** Present in every theway CLI bundle: tells the copy install wrote from another program named `theway`. */
 const BINARY_MARKER = "theway-cli-binary:pixelfactoryio/theway";
 

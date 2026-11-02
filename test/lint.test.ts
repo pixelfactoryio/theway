@@ -508,3 +508,43 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
     expect(text).not.toContain("**Not reproduced:**");
   }
 });
+
+const PIPELINE = join(PLUGIN, "workflows", "run-pipeline.js");
+
+test("run-pipeline.js is a plugin workflow that compiles, with its four phases and its fixed rules and outcomes", async () => {
+  const text = read(PIPELINE);
+  expect(readdirSync(join(PLUGIN, "workflows"))).toEqual(["run-pipeline.js"]);
+  expect(text).toStartWith("export const meta = {");
+  expect(text).toContain("name: 'run-pipeline'");
+  for (const title of ["Implement", "Review", "Agent", "PR"]) {
+    expect(text).toContain(`title: '${title}'`);
+    expect(text).toContain(`phase: '${title}'`);
+  }
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const body = text.slice("export ".length);
+  const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
+  expect(await run(undefined, null, null, null, () => {}, () => {})).toEqual({
+    status: "failed",
+    error: "run-pipeline is started by /theway:workflow with its args",
+    commitType: null,
+    implementation: null,
+    steps: [],
+    pr: null,
+    authorityReports: [],
+  });
+  for (const marker of [
+    "{ add: 'feat', fix: 'fix', refactor: 'refactor' }",
+    "args.authority",
+    "args.standards",
+    "status: 'blocked'",
+    "status: 'failed'",
+    "status: 'succeeded'",
+    "BREAKING CHANGE:",
+    "the regression check of develop.md",
+    "does not look for new problems",
+    "never merge",
+    "run-pipeline is started by /theway:workflow with its args",
+  ]) {
+    expect(text).toContain(marker);
+  }
+});
