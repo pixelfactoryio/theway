@@ -54,6 +54,9 @@ type Dirs = { home: string; project: string; own: boolean };
 
 const projectDir = (d: Dirs, kind: "workflows" | "lenses") => join(d.home, d.project, kind);
 const globalDir = (d: Dirs, kind: "workflows" | "lenses") => join(d.home, kind);
+/** The folders searched for `kind`, for an error line: the global one alone when the project folder is not read. */
+const searched = (d: Dirs, kind: "workflows" | "lenses") =>
+  d.own ? `${projectDir(d, kind)} or ${globalDir(d, kind)}` : globalDir(d, kind);
 
 /** The lens file of `lens`: the project one if it is a file, else the global one, else `null`. */
 function lensPath(d: Dirs, lens: string): string | null {
@@ -113,9 +116,7 @@ function validate(d: Dirs, path: string, defaults: Config): { workflow: Workflow
       for (const lens of step.lenses as string[]) {
         const p = lensPath(d, lens);
         if (p === null) {
-          return fail(
-            `${at}.review lens '${lens}' has no file in ${projectDir(d, "lenses")} or ${globalDir(d, "lenses")}`,
-          );
+          return fail(`${at}.review lens '${lens}' has no file in ${searched(d, "lenses")}`);
         }
         found.push({ name: lens, path: p });
       }
@@ -170,9 +171,7 @@ function byName(d: Dirs, wanted: string, defaults: Config): { workflow: Workflow
   const global = join(globalDir(d, "workflows"), `${wanted}.yaml`);
   const path = d.own && isFile(own) ? own : isFile(global) ? global : null;
   if (path === null) {
-    return {
-      error: `theway: no workflow '${wanted}' in ${projectDir(d, "workflows")} or ${globalDir(d, "workflows")}`,
-    };
+    return { error: `theway: no workflow '${wanted}' in ${searched(d, "workflows")}` };
   }
   return validate(d, path, defaults);
 }

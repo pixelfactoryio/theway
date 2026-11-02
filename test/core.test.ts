@@ -1295,6 +1295,23 @@ test("workflow reads no project folder for a shared project name", () => {
   expect(run(dir, "workflow", "standards").stdout).toBe(developJson(dir));
 });
 
+test("workflow names only the global folder in its errors for a shared project name", () => {
+  const dir = workflowHome();
+  const missing = run(dir, "workflow", "lenses", "nope");
+  expect([missing.status, missing.stdout, missing.stderr]).toEqual([
+    1,
+    "",
+    `theway: no workflow 'nope' in ${join(dir, "workflows")}\n`,
+  ]);
+  put(join(dir, "workflows", "sec.yaml"), "steps:\n  - implement:\n  - review: {lenses: [security]}\n");
+  const lens = run(dir, "workflow", "standards", "sec");
+  expect([lens.status, lens.stdout, lens.stderr]).toEqual([
+    1,
+    "",
+    `theway: workflows/sec.yaml: steps[1].review lens 'security' has no file in ${join(dir, "lenses")}\n`,
+  ]);
+});
+
 test("workflow takes a project lens over the global one, and exits 1 for a lens with no file", () => {
   const dir = workflowHome();
   put(join(dir, "p", "lenses", "correctness.md"), "# mine\n");
