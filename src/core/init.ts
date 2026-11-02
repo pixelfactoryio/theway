@@ -185,15 +185,27 @@ function copyShipped(src: string, home: string): void {
   writeManifest(home, manifest);
 }
 
-/** Copies the shipped config, standards and templates into `home`. */
-export function init(src: string, home: string): number {
+/** The shipped config text with the `    enabled: false` line directly after `  <key>:` turned on for each key in `enabled`. */
+function enableStandards(text: string, enabled: readonly string[]): string {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i + 1] !== "    enabled: false") continue;
+    if (enabled.some((key) => lines[i] === `  ${key}:`)) lines[i + 1] = "    enabled: true";
+  }
+  return lines.join("\n");
+}
+
+/** Copies the shipped config, standards and templates into `home`; a new `config.yaml` has the `enabled` standards on. */
+export function init(src: string, home: string, enabled: readonly string[] = []): number {
   try {
     mkdirSync(home, { recursive: true });
     copyFileSync(`${src}/config.yaml`, `${home}/config.default.yaml`);
     if (existsSync(`${home}/config.yaml`)) {
       process.stdout.write("Kept existing config.yaml (shipped defaults: config.default.yaml)\n");
-    } else {
+    } else if (enabled.length === 0) {
       copyFileSync(`${src}/config.yaml`, `${home}/config.yaml`);
+    } else {
+      writeFileSync(`${home}/config.yaml`, enableStandards(readFileSync(`${src}/config.yaml`, "utf-8"), enabled));
     }
     migrateDataStandards(src, home);
     copyShipped(src, home);

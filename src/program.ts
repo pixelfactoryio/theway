@@ -25,7 +25,11 @@ const exit = (code: number): void => {
 
 export function buildProgram(): Command {
   const program = new Command("theway");
-  program.command("install").action(() => exit(install()));
+  program
+    .command("install")
+    .option("--home <path>", "", nonEmpty)
+    .option("--standards <keys>")
+    .action(async (o: { home?: string; standards?: string }) => exit(await install({ home: o.home, standards: o.standards })));
   program.command("uninstall").action(() => exit(uninstall()));
   program
     .command("list")
