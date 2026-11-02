@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/pixelfactoryio/theway/compare/v0.9.0...v0.10.0) (2026-11-02)
+
+
+### Features
+
+* **cli:** streamline the command prompts with context, authority and next-id ([#50](https://github.com/pixelfactoryio/theway/issues/50)) ([72f0092](https://github.com/pixelfactoryio/theway/commit/72f009244a53fc19bb3c4167369298def7d6a4e7))
+
 ## [0.9.0](https://github.com/pixelfactoryio/theway/compare/v0.8.0...v0.9.0) (2026-11-01)
 
 
