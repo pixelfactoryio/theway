@@ -18,6 +18,30 @@ npx --yes @pixelfactoryio/theway@latest install
 
 Every run fetches the latest release from npm, so running the command again updates theway. When it finishes, start a new Claude Code session or run `/reload-plugins`.
 
+On a first install from a terminal, install asks two questions before it writes anything:
+
+1. **Where should theway keep its data?** Asked only when theway was never installed (no `THEWAY_HOME`, no pointer file and no `~/.theway/config.yaml`). Press Enter for `~/.theway`, or type an absolute path or one starting with `~/`. A path install would refuse (see [Other locations](#other-locations)) is rejected and asked again.
+2. **Enable opt-in standards.** Asked only when the chosen data home has no `config.yaml`. Pick any of `core_principles`, `sre`, `web_development` and `quality` with Space, or none, then press Enter.
+
+Ctrl-C at either question exits 1 with `theway: install cancelled; nothing was changed`.
+
+Two options give the same choices without a question, and win over the terminal:
+
+- `--home <path>`: the data home, an absolute path or one starting with `~/`. It takes precedence over the pointer file. When `THEWAY_HOME` is set to another path, install exits 1 and changes nothing.
+- `--standards <keys>`: a comma-separated list of opt-in keys, such as `sre,quality`, or `none`. It applies only to a first install: when the data home already has a `config.yaml`, install exits 1 and changes nothing, so set `standards.<key>.enabled` there instead. An unknown key, or `none` combined with a key, also exits 1.
+
+```bash
+npx --yes @pixelfactoryio/theway@latest install --home ~/work/theway --standards sre,quality
+```
+
+Without a terminal, as in Claude Code's `!` prefix, install asks nothing: pass the options instead. In a Claude Code session:
+
+```text
+! npx --yes @pixelfactoryio/theway@latest install --home <path> --standards <keys>
+```
+
+A first install with no terminal and no `--standards` leaves the four opt-in standards off and prints `Opt-in standards are off (core_principles, sre, web_development, quality): set standards.<key>.enabled: true in <home>/config.yaml to enable one`.
+
 When the install folder is not on your `PATH`, install still finishes and exits 0, and prints the line to add:
 
 ```text
@@ -47,14 +71,14 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
 - **`~/.claude/skills/theway`:** the plugin, with its commands. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
 - **`~/.local/bin/theway`:** the [CLI](./cli.mdx) the commands call, a single executable file run by the `node` on your `PATH`. Install replaces a theway binary there, but not another program called `theway`: it then stops, changes nothing, and asks you to remove it or set `THEWAY_INSTALL_DIR`.
 - **The data home, `~/.theway`** by default:
-  - `config.yaml`: the [configuration](./configuration.mdx). An existing `config.yaml` is kept.
+  - `config.yaml`: the [configuration](./configuration.mdx). A new one is the shipped configuration with `enabled: true` under each opt-in standard you picked at the prompt or with `--standards`, and every other line as shipped. An existing `config.yaml` is kept.
   - `config.default.yaml`: the shipped configuration, written on every install.
   - `standards/` and `templates/`: the standards and templates the commands read. Install updates the files you have not edited. A file you edited is kept, and the new shipped version is written next to it as `<name>.default.md`. `.shipped.json` records what install last shipped.
     - `standards/` also holds your [global user standards](./concepts/standards.mdx). When theway starts shipping a name you already use there, install keeps your file, writes its version as `<name>.default.md`, leaves the name out of `.shipped.json` so the file stays yours, and prints `Kept your standards/<name>: theway now ships a file with that name (its version: standards/<base>.default.md)` on every install while the clash lasts. When you have no `.shipped.json`, a differing file with a shipped name is treated as an edited shipped file instead.
     - A standard theway stops shipping is removed when you have not edited it (`Removed standards/<name>: theway no longer ships it`) and kept as one of your standards when you have (`Kept your edited standards/<name>: theway no longer ships it, so it is now one of your standards`). Install also removes a `standards/<name>.default.md` whose `<name>.md` it no longer ships.
     - A template theway no longer ships is left in `templates/` untouched. A differing template that `.shipped.json` does not list is backed up to `<name>.md.bak` and replaced.
   - `<project>/changes/`: the change folders, written by the commands.
-- **`~/.config/theway/home`**, only for a custom `THEWAY_HOME`: the pointer file that holds the absolute data home, so the CLI finds it when `THEWAY_HOME` is not set. With the default home (`THEWAY_HOME` set to `~/.theway`, or neither `THEWAY_HOME` nor a pointer), install writes no pointer and removes an existing one.
+- **`~/.config/theway/home`**, only for a custom home (from `--home`, the home prompt or `THEWAY_HOME`): the pointer file that holds the absolute data home, so the CLI finds it when `THEWAY_HOME` is not set. With the default home (`--home ~/.theway`, `THEWAY_HOME` set to `~/.theway`, or neither `THEWAY_HOME` nor a pointer), install writes no pointer and removes an existing one.
 - **Two permission rules**, added to `permissions.allow` in `~/.claude/settings.json` when they are missing:
   - `Bash(theway:*)`: runs the CLI without a prompt.
   - `Read(~/.theway/**)`: reads the data home.
@@ -79,13 +103,13 @@ Earlier versions installed the standards in `data/standards/`. On its first run 
 
 - `CLAUDE_CONFIG_DIR` replaces `~/.claude` when it is set.
 - `THEWAY_INSTALL_DIR` replaces `~/.local/bin` when it is set. Pick a folder already on your `PATH`, such as `/opt/homebrew/bin`. Set it again when you uninstall.
-- `THEWAY_HOME` replaces `~/.theway` as the data home when it is set at install. Install records it in the pointer file, so nothing is written to `~/.theway` and the commands find the home without `THEWAY_HOME` in Claude Code's environment. `XDG_CONFIG_HOME` replaces `~/.config` for the pointer file.
+- `--home <path>`, or `THEWAY_HOME`, replaces `~/.theway` as the data home when it is given at install. Install records it in the pointer file, so nothing is written to `~/.theway` and the commands find the home without `THEWAY_HOME` in Claude Code's environment. `XDG_CONFIG_HOME` replaces `~/.config` for the pointer file.
 
-The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in its environment, then the pointer file, then `~/.theway`. After changing `THEWAY_HOME`, run install again with the new value: it rewrites the pointer, adds the rules of the new home and drops the `Read` and `Edit` rules of the previous one. Until then, `theway path` warns that `THEWAY_HOME` and the pointer differ.
+The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in its environment, then the pointer file, then `~/.theway`. To change the home, run install again with the new value in `--home` or `THEWAY_HOME`: it rewrites the pointer, adds the rules of the new home and drops the `Read` and `Edit` rules of the previous one. Your existing data is not moved. Until then, `theway path` warns that `THEWAY_HOME` and the pointer differ.
 
-Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
+Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break, whether it comes from `--home` or `THEWAY_HOME`: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
 
-Install finds the data home the same way. Without `THEWAY_HOME`, it updates the home the pointer names, so a reinstall from a shell that does not export `THEWAY_HOME` keeps a custom home. To go back to `~/.theway`, run install with `THEWAY_HOME=~/.theway`.
+Install finds the data home the same way, with `--home` first. Without `--home` or `THEWAY_HOME`, it updates the home the pointer names, so a reinstall from a shell that does not export `THEWAY_HOME` keeps a custom home. To go back to `~/.theway`, run install with `--home ~/.theway` or `THEWAY_HOME=~/.theway`.
 
 ## Upgrading from 0.2.0
 

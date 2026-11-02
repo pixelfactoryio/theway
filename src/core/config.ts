@@ -26,7 +26,7 @@ const SHARED = new Set(["data", "templates", "standards"]);
 
 /** The `standards.<key>` of a standard file: its stem with `-` turned into `_`. */
 const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_");
-const OPT_IN_KEYS = OPT_IN.map(keyOf);
+export const OPT_IN_KEYS = OPT_IN.map(keyOf);
 const CORE_KEYS = new Set(CORE.map(keyOf));
 
 /** A standard a project can read: its path, its switch and whether it is a shipped opt-in one. */

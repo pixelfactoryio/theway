@@ -19,6 +19,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { OPT_IN_KEYS } from "../src/core/config";
+import { OPT_IN_HINTS } from "../src/install";
 
 const REPO = join(import.meta.dirname, "..");
 const CLI = join(REPO, "dist", "theway.js");
@@ -566,7 +568,7 @@ test("install refuses a data home that is HOME, a parent of HOME, or holds a glo
         home === env.home || home === env.root
           ? "it is your home folder or one of its parents"
           : "it contains a glob character or a line break"
-      }; set THEWAY_HOME to a dedicated folder\n`,
+      }; set THEWAY_HOME or --home to a dedicated folder\n`,
     );
     expect(readFileSync(settings, "utf-8")).toBe(before);
     expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
@@ -983,4 +985,215 @@ test("install finishes a partial migration and drops a key whose files are both 
   expect(manifest(env)[SRE]).toBeUndefined();
   // With the key dropped, sre.md is a missing shipped file: written from the release.
   expect(readFileSync(join(env.theway, "standards", "sre.md"), "utf-8")).toBe(shipped("standards/sre.md"));
+});
+
+const OFF_LINE = (home: string) =>
+  `Opt-in standards are off (core_principles, sre, web_development, quality): set standards.<key>.enabled: true in ${home}/config.yaml to enable one\n`;
+
+/** True when install wrote nothing: no data home, plugin, binary or pointer. */
+function nothingWritten(env: Env, home = env.theway): void {
+  expect(existsSync(home)).toBe(false);
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+  expect(existsSync(bin(env))).toBe(false);
+  expect(existsSync(pointer(env))).toBe(false);
+}
+
+test("install --home writes the data home there and the pointer names it, with nothing in ~/.theway", () => {
+  const env = setup({ defaultHome: true });
+  const data = join(env.root, "data");
+  const res = run(env, "install", "--home", data);
+  expect(res.status).toBe(0);
+  expect(existsSync(join(data, "config.yaml"))).toBe(true);
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${data}\n`);
+  expect(existsSync(join(env.home, ".theway"))).toBe(false);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${data}/**)`]);
+});
+
+test("install --home ~/data expands under HOME", () => {
+  const env = setup({ defaultHome: true });
+  expect(run(env, "install", "--home", "~/data").status).toBe(0);
+  const data = join(env.home, "data");
+  expect(existsSync(join(data, "config.yaml"))).toBe(true);
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${data}\n`);
+  expect(existsSync(join(env.home, ".theway"))).toBe(false);
+});
+
+test("install --home ~/.theway/ is the default home and writes no pointer", () => {
+  const env = setup({ defaultHome: true });
+  expect(run(env, "install", "--home", "~/.theway/").status).toBe(0);
+  expect(existsSync(join(env.home, ".theway", "config.yaml"))).toBe(true);
+  expect(existsSync(pointer(env))).toBe(false);
+  expect(allow(env)).toEqual(["Bash(theway:*)", "Read(~/.theway/**)"]);
+});
+
+test("install --home overrides the home the pointer names", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  env.thewayHome = undefined;
+  const data = join(env.root, "data");
+  expect(run(env, "install", "--home", data).status).toBe(0);
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${data}\n`);
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${data}/**)`]);
+});
+
+test("install --home with a relative path exits 1 and writes nothing", () => {
+  const env = setup({ defaultHome: true });
+  const res = run(env, "install", "--home", "data");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe("theway: invalid --home 'data': must be an absolute path or start with ~/; nothing was changed\n");
+  nothingWritten(env);
+});
+
+test("install --home that differs from THEWAY_HOME exits 1 and writes nothing", () => {
+  const env = setup();
+  const data = join(env.root, "data");
+  const res = run(env, "install", "--home", data);
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    `theway: --home ${data} and THEWAY_HOME ${env.theway} differ; unset THEWAY_HOME or drop --home; nothing was changed\n`,
+  );
+  nothingWritten(env);
+  expect(existsSync(data)).toBe(false);
+});
+
+test("install --home equal to THEWAY_HOME installs there", () => {
+  const env = setup();
+  expect(run(env, "install", "--home", env.theway).status).toBe(0);
+  expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
+  expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`);
+});
+
+test("install --home set to HOME is refused with the --home message and writes nothing", () => {
+  const env = setup({ defaultHome: true });
+  const res = run(env, "install", "--home", env.home);
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    `theway: refusing data home ${env.home}: it is your home folder or one of its parents; set THEWAY_HOME or --home to a dedicated folder\n`,
+  );
+  nothingWritten(env);
+  expect(existsSync(join(env.home, "config.yaml"))).toBe(false);
+});
+
+test("install --standards sre,quality turns on exactly those two keys and keeps config.default.yaml shipped", () => {
+  const env = setup();
+  const res = run(env, "install", "--standards", "sre,quality");
+  expect(res.status).toBe(0);
+  const shipped = readFileSync(SHIPPED_CONFIG, "utf-8").split("\n");
+  const written = readFileSync(join(env.theway, "config.yaml"), "utf-8").split("\n");
+  expect(written.length).toBe(shipped.length);
+  const diff = written.flatMap((line, i) => (line !== shipped[i] ? [[shipped[i - 1], line]] : []));
+  expect(diff).toEqual([
+    ["  sre:", "    enabled: true"],
+    ["  quality:", "    enabled: true"],
+  ]);
+  expect(readFileSync(join(env.theway, "config.default.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
+  expect(res.stdout).not.toContain("Opt-in standards are off");
+});
+
+test("install --standards none writes the shipped config with no line", () => {
+  const env = setup();
+  const res = run(env, "install", "--standards", "none");
+  expect(res.status).toBe(0);
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
+  expect(res.stdout).not.toContain("Opt-in standards are off");
+});
+
+test("install with no flag and no terminal writes the shipped config and prints the opt-in line", () => {
+  const env = setup();
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
+  expect(res.stdout).toContain(OFF_LINE(env.theway));
+});
+
+test("install over an existing config.yaml prints no opt-in line", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).not.toContain("Opt-in standards are off");
+});
+
+test("install --standards with an unknown key exits 1 and writes nothing", () => {
+  for (const [value, element] of [
+    ["sre,bogus", "bogus"],
+    ["sre,", ""],
+    ["", ""],
+  ]) {
+    const env = setup();
+    const res = run(env, "install", "--standards", value);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toBe(
+      `theway: unknown standard '${element}' in --standards; valid: core_principles, sre, web_development, quality, or none\n`,
+    );
+    nothingWritten(env);
+  }
+});
+
+test("install --standards none,sre exits 1 and writes nothing", () => {
+  const env = setup();
+  const res = run(env, "install", "--standards", "none,sre");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe("theway: --standards none cannot be combined with other standards\n");
+  nothingWritten(env);
+});
+
+test("install --standards none,none exits 1 and writes nothing", () => {
+  const env = setup();
+  const res = run(env, "install", "--standards", "none,none");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    "theway: unknown standard 'none' in --standards; valid: core_principles, sre, web_development, quality, or none\n",
+  );
+  nothingWritten(env);
+});
+
+test("install --standards on an existing home exits 1 and leaves config.yaml as it is", () => {
+  const env = setup();
+  const config = join(env.theway, "config.yaml");
+  put(config, "standards:\n  sre:\n    enabled: false\n");
+  const before = readFileSync(config);
+  const res = run(env, "install", "--standards", "sre");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    `theway: --standards applies only to a first install; ${config} exists, so set standards.<key>.enabled there instead; nothing was changed\n`,
+  );
+  expect(readFileSync(config)).toEqual(before);
+  expect(readdirSync(env.theway)).toEqual(["config.yaml"]);
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+  expect(existsSync(bin(env))).toBe(false);
+});
+
+test("install --standards bogus on an existing home gives the unknown-standard message", () => {
+  const env = setup();
+  const config = join(env.theway, "config.yaml");
+  put(config, "standards: {}\n");
+  const res = run(env, "install", "--standards", "bogus");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    "theway: unknown standard 'bogus' in --standards; valid: core_principles, sre, web_development, quality, or none\n",
+  );
+  expect(readFileSync(config, "utf-8")).toBe("standards: {}\n");
+  expect(readdirSync(env.theway)).toEqual(["config.yaml"]);
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false);
+  expect(existsSync(bin(env))).toBe(false);
+});
+
+test("the standards prompt hints are the comments above each opt-in key of the shipped config", () => {
+  expect(Object.keys(OPT_IN_HINTS)).toEqual(OPT_IN_KEYS);
+  const lines = readFileSync(SHIPPED_CONFIG, "utf-8").split("\n");
+  for (const key of OPT_IN_KEYS) {
+    const i = lines.indexOf(`  ${key}:`);
+    expect(i).toBeGreaterThan(0);
+    expect(lines[i - 1]).toBe(`  # ${OPT_IN_HINTS[key]}`);
+    expect(lines[i + 1]).toBe("    enabled: false");
+  }
+});
+
+test("dist/theway.js bundles @clack/prompts instead of importing it", () => {
+  const text = readFileSync(CLI, "utf-8");
+  expect(text).not.toMatch(/(\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']@clack\//);
+  const pkg = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8"));
+  expect(pkg.devDependencies["@clack/prompts"]).toBe("1.8.1");
+  expect(pkg.dependencies).toBeUndefined();
 });

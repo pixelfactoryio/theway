@@ -17,8 +17,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, dirname, join, resolve, sep } from "node:path";
+import { delimiter, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isCancel, multiselect, text } from "@clack/prompts";
+import { OPT_IN_KEYS } from "./core/config";
 import { init } from "./core/init";
 import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./core/io";
 
@@ -311,14 +313,114 @@ function checkPath(dir: string, binary: string): void {
   }
 }
 
-export function install(): number {
+/** The opt-in standards' descriptions, keyed by opt-in key: the comment above each key in the shipped `config.yaml`. */
+export const OPT_IN_HINTS: Record<string, string> = {
+  core_principles: "Architecture philosophy (simplicity, security, pragmatic technology)",
+  sre: "SRE operational excellence (reliability, observability, automation)",
+  web_development: "Frontend, API and backend standards with web performance targets",
+  quality: "Testing, deployment, monitoring and security expectations",
+};
+
+const CANCELLED = "theway: install cancelled; nothing was changed";
+
+/** `value` as an absolute path: `~` and `~/<rest>` under the user's home, an absolute path resolved; anything else is an error. */
+export function expandHome(value: string): string | { error: string } {
+  const v = value.trim();
+  if (v === "") return { error: "must not be empty" };
+  if (v === "~") return homedir();
+  if (v.startsWith("~/")) return resolve(homedir(), v.slice(2));
+  if (isAbsolute(v)) return resolve(v);
+  return { error: "must be an absolute path or start with ~/" };
+}
+
+/** The opt-in keys `--standards` names, `[]` for `none`, or the line install fails with. */
+function parseStandards(value: string): string[] | { error: string } {
+  if (value === "none") return [];
+  const elements = value.split(",");
+  const unknownError = (element: string) => ({
+    error: `theway: unknown standard '${element}' in --standards; valid: ${OPT_IN_KEYS.join(", ")}, or none`,
+  });
+  const unknown = elements.find((e) => e !== "none" && !OPT_IN_KEYS.includes(e));
+  if (unknown !== undefined) return unknownError(unknown);
+  if (!elements.includes("none")) return elements;
+  if (elements.some((e) => e !== "none")) {
+    return { error: "theway: --standards none cannot be combined with other standards" };
+  }
+  return unknownError("none");
+}
+
+/** True when stdin and stdout are both terminals: only then does install ask. */
+function interactive(): boolean {
+  return process.stdin.isTTY === true && process.stdout.isTTY === true;
+}
+
+/** Asks where to keep the data home; `null` when the user cancels. */
+async function askHome(): Promise<string | null> {
+  const answer = await text({
+    message: "Where should theway keep its data?",
+    placeholder: "~/.theway",
+    defaultValue: "~/.theway",
+    validate: (value) => {
+      if (value === undefined || value.trim() === "") return undefined;
+      const home = expandHome(value);
+      if (typeof home !== "string") return home.error;
+      const reason = unsafeHomeReason(home, home !== resolve(defaultHome()));
+      return reason !== "" ? `refusing ${home}: ${reason}` : undefined;
+    },
+  });
+  if (isCancel(answer)) return null;
+  const home = expandHome(answer.trim() === "" ? "~/.theway" : answer);
+  // validate accepted it, so it expands.
+  return typeof home === "string" ? home : null;
+}
+
+/** Asks which opt-in standards to enable; `null` when the user cancels. */
+async function askStandards(): Promise<string[] | null> {
+  const answer = await multiselect({
+    message: "Enable opt-in standards",
+    options: OPT_IN_KEYS.map((key) => ({ value: key, label: key, hint: OPT_IN_HINTS[key] })),
+    required: false,
+  });
+  return isCancel(answer) ? null : answer;
+}
+
+export async function install(opts: { home?: string; standards?: string }): Promise<number> {
   // An installed copy has no plugin next to it: installs and updates go through npx.
   if (!existsSync(join(plugin, ".claude-plugin"))) {
     return fail("theway: run `npx --yes @pixelfactoryio/theway@latest install` to install or update theway");
   }
+
+  let enabled: string[] = [];
+  if (opts.standards !== undefined) {
+    const parsed = parseStandards(opts.standards);
+    if (!Array.isArray(parsed)) return fail(parsed.error);
+    enabled = parsed;
+  }
+
   const cHome = claudeHome();
-  // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as a reinstall usually is) keeps the recorded home.
-  const tHome = resolveHome().home;
+  let tHome: string;
+  if (opts.home !== undefined) {
+    const home = expandHome(opts.home);
+    if (typeof home !== "string") return fail(`theway: invalid --home '${opts.home}': ${home.error}; nothing was changed`);
+    const env = process.env.THEWAY_HOME ?? "";
+    if (env !== "" && resolve(env) !== home) {
+      return fail(
+        `theway: --home ${home} and THEWAY_HOME ${resolve(env)} differ; unset THEWAY_HOME or drop --home; nothing was changed`,
+      );
+    }
+    tHome = home;
+  } else {
+    // THEWAY_HOME, else the pointer: an install run without THEWAY_HOME (as a reinstall usually is) keeps the recorded home.
+    const found = resolveHome();
+    const neverInstalled = found.source === "default" && !existsSync(join(defaultHome(), "config.yaml"));
+    if (neverInstalled && interactive()) {
+      const home = await askHome();
+      if (home === null) return fail(CANCELLED);
+      tHome = home;
+    } else {
+      tHome = found.home;
+    }
+  }
   const previous = recordedHome();
   const custom = tHome !== resolve(defaultHome());
   const dir = installDir();
@@ -326,7 +428,7 @@ export function install(): number {
 
   const unsafe = unsafeHomeReason(tHome, custom);
   if (unsafe !== "") {
-    return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME to a dedicated folder`);
+    return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME or --home to a dedicated folder`);
   }
 
   const resolved = settingsTarget(settingsPath);
@@ -342,6 +444,20 @@ export function install(): number {
     );
   }
 
+  const config = join(resolve(tHome), "config.yaml");
+  const firstInstall = !existsSync(config);
+  if (opts.standards !== undefined && !firstInstall) {
+    return fail(
+      `theway: --standards applies only to a first install; ${config} exists, so set standards.<key>.enabled there instead; nothing was changed`,
+    );
+  }
+  const asked = firstInstall && opts.standards === undefined && interactive();
+  if (asked) {
+    const chosen = await askStandards();
+    if (chosen === null) return fail(CANCELLED);
+    enabled = chosen;
+  }
+
   const dest = copyPlugin(cHome);
 
   let binary: string;
@@ -351,8 +467,13 @@ export function install(): number {
   } catch (e) {
     return fail(`theway: ${(e as Error).message}`);
   }
-  const status = init(join(plugin, "home"), tHome);
+  const status = init(join(plugin, "home"), tHome, enabled);
   if (status !== 0) return status;
+  if (firstInstall && opts.standards === undefined && !asked) {
+    process.stdout.write(
+      `Opt-in standards are off (${OPT_IN_KEYS.join(", ")}): set standards.<key>.enabled: true in ${config} to enable one\n`,
+    );
+  }
   try {
     writePointer(tHome, custom);
   } catch (e) {
