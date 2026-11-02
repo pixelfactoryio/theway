@@ -75,14 +75,14 @@ export function standardsOf(home: string, project: string): Standard[] {
 /**
  * The `standards` section of the schema for a project: the four opt-in keys in order, then the user keys sorted.
  * A key defaults to `true` when only user standards hold it, `false` otherwise (an opt-in key with no file included);
- * a global file shadowed by a project file does not count, so the project file decides.
+ * a shipped opt-in global file counts even when a project file shadows it, so that key stays off until enabled.
  * A core key is switchable only when a project file holds it: `standardsOf` leaves the global core files out.
  */
 function standardsSchema(standards: Standard[]): Schema {
   const userKeys = [...new Set(standards.map((s) => s.key))].filter((k) => !OPT_IN_KEYS.includes(k)).sort();
   const schema = dict<Schema>();
   for (const key of [...OPT_IN_KEYS, ...userKeys]) {
-    const holders = standards.filter((s) => s.key === key && s.shadowedBy === undefined);
+    const holders = standards.filter((s) => s.key === key);
     schema[key] = { enabled: bool(holders.length > 0 && holders.every((s) => !s.optIn)) };
   }
   return schema;

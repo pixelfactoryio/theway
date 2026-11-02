@@ -307,6 +307,8 @@ test("standards skips the files install ships into the global folder and their .
     expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "tdd.md")}\n`, ""]);
   }
   put(join(dir, "p", "standards", "sre.md"), "# project sre\n");
+  expect(run(dir, "standards", "p", "develop").stdout).toBe(`${join(g, "tdd.md")}\n`);
+  put(join(dir, "p", "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
   expect(run(dir, "standards", "p", "develop").stdout).toBe(`${join(g, "tdd.md")}\n${join(dir, "p", "standards", "sre.md")}\n`);
 });
 
@@ -460,6 +462,30 @@ test("standards takes a project sre.md as a user standard that the sre switch tu
   expect(run(dir, "standards", "p", "engineering").stdout).toBe(`${join(dir, "standards", "sre.md")}\n`);
   expect(run(dir, "standards", "p", "document").stdout).toBe(`${join(dir, "standards", "sre.md")}\n`);
   expect(run(dir, "standards", "other", "document").stdout).toBe("");
+});
+
+test("a project sre.md shadowing the global opt-in sre.md stays off with an empty config.yaml until the switch is on", () => {
+  const dir = home();
+  const global = join(dir, "standards", "sre.md");
+  const own = join(dir, "p", "standards", "sre.md");
+  put(join(dir, "config.yaml"), "");
+  put(global, "# global sre\n");
+  put(own, "---\napplies_to: [develop]\n---\n# project sre\n");
+  for (const phase of ["engineering", "develop", "document"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, "", ""]);
+  }
+  const off = run(dir, "config", "p");
+  expect([off.status, off.stdout, off.stderr]).toEqual([0, effective(), ""]);
+  put(join(dir, "p", "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  for (const [phase, stdout] of [
+    ["engineering", `${global}\n`],
+    ["develop", `${own}\n`],
+    ["document", `${global}\n`],
+  ] as const) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, stdout, ""]);
+  }
 });
 
 test("standards applies the defaults with no config.yaml: opt-in off, user on", () => {
