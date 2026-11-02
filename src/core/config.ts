@@ -14,7 +14,7 @@ type Schema = { [key: string]: Leaf | Schema };
 const dict = <T>(): T => Object.create(null) as T;
 
 const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
-const model = (d: "opus" | "sonnet"): Leaf => ({ rule: "model", default: d });
+const model = (d: "opus" | "sonnet" | "haiku"): Leaf => ({ rule: "model", default: d });
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
@@ -29,8 +29,11 @@ const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll(
 export const OPT_IN_KEYS = OPT_IN.map(keyOf);
 const CORE_KEYS = new Set(CORE.map(keyOf));
 
-/** A standard a project can read: its path, its switch and whether it is a shipped opt-in one. */
-export type Standard = { path: string; key: string; optIn: boolean };
+/**
+ * A standard a project can read: its path, its switch, whether it is a shipped opt-in one and, for a global file, the
+ * path of the project file with the same name that replaces it for the phases that file applies to.
+ */
+export type Standard = { path: string; key: string; optIn: boolean; shadowedBy?: string };
 
 /** The names of the regular `.md` files directly in `dir`, sorted; none when it is missing. */
 function mdFiles(dir: string): string[] {
@@ -47,7 +50,9 @@ function mdFiles(dir: string): string[] {
  * Every standard of a project before any phase filter: the global folder's files, sorted, then the project's, sorted.
  * A global file is classified by name: a core name is left out, an opt-in name is an opt-in standard, any other name
  * `.shipped.json` lists as `standards/<name>` and any `*.default.md` is left out, the rest are user standards. A project
- * file is a user standard and replaces a global file with the same name. The shared projects read no project folder.
+ * file is a user standard; a global file with the same name is kept and records it in `shadowedBy`, so that the phase
+ * filter drops the global file only for the phases the project file applies to. The shared projects read no project
+ * folder.
  */
 export function standardsOf(home: string, project: string): Standard[] {
   const globalDir = join(home, "standards");
@@ -56,10 +61,12 @@ export function standardsOf(home: string, project: string): Standard[] {
   const shipped = readManifest(home) ?? {};
   const out: Standard[] = [];
   for (const name of mdFiles(globalDir)) {
-    if (CORE.includes(name) || projectNames.includes(name)) continue;
+    if (CORE.includes(name)) continue;
     const optIn = OPT_IN.includes(name);
     if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue;
-    out.push({ path: join(globalDir, name), key: keyOf(name), optIn });
+    const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn };
+    if (projectNames.includes(name)) global.shadowedBy = join(projectDir, name);
+    out.push(global);
   }
   for (const name of projectNames) out.push({ path: join(projectDir, name), key: keyOf(name), optIn: false });
   return out;
@@ -67,7 +74,8 @@ export function standardsOf(home: string, project: string): Standard[] {
 
 /**
  * The `standards` section of the schema for a project: the four opt-in keys in order, then the user keys sorted.
- * A key defaults to `true` when only user standards hold it, `false` otherwise (an opt-in key with no file included).
+ * A key defaults to `true` when only user standards hold it, `false` otherwise (an opt-in key with no file included);
+ * a shipped opt-in global file counts even when a project file shadows it, so that key stays off until enabled.
  * A core key is switchable only when a project file holds it: `standardsOf` leaves the global core files out.
  */
 function standardsSchema(standards: Standard[]): Schema {
@@ -99,7 +107,7 @@ const RULE_TEXT: Record<Rule, string> = {
   boolean: "true or false",
   "non-negative": "a non-negative integer",
   positive: "a positive integer",
-  model: "opus or sonnet",
+  model: "opus, sonnet or haiku",
 };
 
 const isLeaf = (node: Leaf | Schema): node is Leaf => typeof (node as Leaf).rule === "string";
@@ -113,7 +121,7 @@ function valid(rule: Rule, v: unknown): boolean {
     case "positive":
       return typeof v === "number" && Number.isInteger(v) && v >= 1;
     case "model":
-      return v === "opus" || v === "sonnet";
+      return v === "opus" || v === "sonnet" || v === "haiku";
   }
 }
 

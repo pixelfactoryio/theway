@@ -193,10 +193,9 @@ theway standards <project> develop
 theway standards <project> document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
 
-- An opt-in standard applies to `engineering` and `document`, whatever its content.
-- A user standard applies to the phases its `applies_to` frontmatter lists, or to `engineering` and `develop` without one, never to `document`.
+- A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
 - For a project named `data`, `templates` or `standards`, the project's `standards/` folder is not read: `templates/` and `standards/` hold theway's own files, and `data/` can still hold the standards of an [older layout](./installation.mdx#from-the-old-layout). The global standards are still listed.
 
@@ -207,10 +206,10 @@ With nothing to print, it prints nothing and exits 0.
 /home/you/.theway/my-repo/standards/review.md
 ```
 
-An `applies_to` with any other value or form applies to both phases, with a warning on stderr; the exit code stays 0:
+A file whose `applies_to` has any other value or form is skipped for every phase, with a warning on stderr; the exit code stays 0:
 
 ```text
-theway: warning: <path>: applies_to must list engineering and/or develop; applied to both
+theway: warning: <path>: applies_to must list engineering, develop and/or document; skipped
 ```
 
 A file that cannot be read is skipped, with a warning on stderr; the others are still listed and the exit code stays 0:

@@ -20,7 +20,7 @@ standards:
 engineering:
   # Maximum review rounds per scaffold; 0 skips the review
   review_rounds: 1
-  # Model of the two critic agents: opus or sonnet (absent or invalid means the default)
+  # Model of the two critic agents: opus, sonnet or haiku (absent or invalid means the default)
   # Lower cost: sonnet
   models:
     critic: opus
@@ -33,7 +33,7 @@ workflow:
   ci_attempts: 2
   # Push the branch, open the PR and drive CI after the local review; false stops at the reviewed local branch
   open_pr: true
-  # Model per agent role: opus or sonnet (absent or invalid means the default)
+  # Model per agent role: opus, sonnet or haiku (absent or invalid means the default)
   # Lower cost: implementer, fix and ci on sonnet, reviewer on opus
   models:
     implementer: opus

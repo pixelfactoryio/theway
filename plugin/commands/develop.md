@@ -30,7 +30,7 @@ Take the change ID from the user's request (e.g. "develop the add-redis-cache ch
 - `<change-dir>/design.md` - Technical specs (if present)
 - `docs/architecture/coding-standards.md` - Project coding standards (if exists)
 
-Then read every file its `standards` lists: these are the user standards.
+Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours.
 
 ### Step 2: Implement and Verify
 
@@ -38,4 +38,4 @@ Follow `<home>/standards/develop.md`: implement the tasks, stop and ask when the
 
 ## Exit
 
-Report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, and anything still open. Also name the user standards followed, by file name, or "none".
+Report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, and anything still open. Also name the standards of Step 1 followed, by file name, or "none".
