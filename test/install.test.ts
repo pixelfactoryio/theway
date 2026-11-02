@@ -129,7 +129,7 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
     readFileSync(join(REPO, "plugin", "workflows", "run-pipeline.js"), "utf-8"),
   );
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
-  for (const rel of ["workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  for (const rel of ["workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
     expect(existsSync(join(env.theway, rel))).toBe(true);
   }
   const old = join(env.claude, "skills", "theway", "commands", "develop-workflow.md");
@@ -623,8 +623,8 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(19);
-  for (const rel of ["workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  expect(SHIPPED_FILES).toHaveLength(20);
+  for (const rel of ["workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
     expect(SHIPPED_FILES).toContain(rel);
   }
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));

@@ -1,0 +1,5 @@
+# Implement, review and open the PR through agents. Fields left out come from workflow.defaults in config.yaml.
+steps:
+  - implement:
+  - review:
+  - pr:

@@ -21,6 +21,7 @@ const name: FieldRule = {
   text: "a name (lowercase letters, digits and -)",
 };
 const nonEmpty: FieldRule = { test: (v) => typeof v === "string" && v.length > 0, text: "a non-empty string" };
+const bool: FieldRule = { test: (v) => typeof v === "boolean", text: "true or false" };
 
 /** The fields of each step type, in output order, with their rules. */
 const FIELDS: Record<StepType, [string, FieldRule][]> = {
@@ -44,6 +45,8 @@ const FIELDS: Record<StepType, [string, FieldRule][]> = {
 };
 /** The `agent` fields with no default, in the order their absence is reported. */
 const REQUIRED = ["name", "prompt"];
+/** The fields an inline step (`agents: false`) may not set: it runs in the session, whose model they cannot change. */
+const MODELS = ["model", "fix_model"];
 
 type Lens = { name: string; path: string };
 type Step = { step: StepType } & Record<string, unknown>;
@@ -75,9 +78,11 @@ function validate(d: Dirs, path: string, defaults: Config): { workflow: Workflow
   const root = loaded.root;
   if (!(root instanceof Map)) return fail("not a map");
   for (const key of root.keys()) {
-    if (key !== "default" && key !== "steps") return fail(`unknown key ${String(key)}`);
+    if (key !== "default" && key !== "agents" && key !== "steps") return fail(`unknown key ${String(key)}`);
   }
   if (root.has("default") && typeof root.get("default") !== "boolean") return fail("default must be true or false");
+  if (root.has("agents") && typeof root.get("agents") !== "boolean") return fail("agents must be true or false");
+  const topAgents = root.has("agents") ? (root.get("agents") as boolean) : true;
   const entries: unknown = root.get("steps");
   if (!Array.isArray(entries) || entries.length === 0) return fail("steps must be a non-empty list");
 
@@ -90,13 +95,21 @@ function validate(d: Dirs, path: string, defaults: Config): { workflow: Workflow
     const value: unknown = (entry as Map<unknown, unknown>).get(t);
     if (value !== null && !(value instanceof Map)) return fail(`${at}.${t} must be a map`);
     const given = (value ?? new Map()) as Map<unknown, unknown>;
-    const fields = new Map(FIELDS[t]);
+    const fields = new Map([["agents", bool], ...FIELDS[t]]);
     for (const key of given.keys()) {
       if (typeof key !== "string" || !fields.has(key)) return fail(`${at}.${t}.${String(key)} is not a field of ${t}`);
     }
     for (const [key, v] of given) {
       const rule = fields.get(key as string) as FieldRule;
       if (!rule.test(v)) return fail(`${at}.${t}.${String(key)} must be ${rule.text}`);
+    }
+    const agents = given.has("agents") ? (given.get("agents") as boolean) : topAgents;
+    if (!agents) {
+      for (const key of given.keys()) {
+        if (MODELS.includes(key as string)) {
+          return fail(`${at}.${t}.${String(key)} has no effect when the step runs inline (agents: false)`);
+        }
+      }
     }
     if (t === "agent") {
       for (const field of REQUIRED) if (!given.has(field)) return fail(`${at}.agent.${field} is required`);
@@ -106,8 +119,9 @@ function validate(d: Dirs, path: string, defaults: Config): { workflow: Workflow
     if (t === "pr" && i !== entries.length - 1) return fail(`${at}: pr must be the last step`);
 
     const own = (defaults[t] ?? {}) as Config;
-    const step: Step = { step: t };
+    const step: Step = { step: t, agents };
     for (const [field] of FIELDS[t]) {
+      if (!agents && MODELS.includes(field)) continue;
       const v = given.has(field) ? given.get(field) : own[field];
       step[field] = Array.isArray(v) ? [...v] : v;
     }

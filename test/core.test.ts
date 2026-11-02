@@ -1074,7 +1074,7 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   expect(past.stderr).toBe("theway: series add-thing would go past -99\n");
 });
 
-/** A home with an empty global config, the two shipped lenses and the shipped `develop.yaml`. */
+/** A home with an empty global config, the two shipped lenses, and a `develop.yaml` holding the steps of the shipped `agents.yaml`. */
 function workflowHome(): string {
   const dir = home();
   put(join(dir, "config.yaml"), "");
@@ -1090,9 +1090,10 @@ function developJson(dir: string, file = join(dir, "workflows", "develop.yaml"),
     name,
     file,
     steps: [
-      { step: "implement", model: "opus" },
+      { step: "implement", agents: true, model: "opus" },
       {
         step: "review",
+        agents: true,
         rounds: 1,
         lenses: [
           { name: "conformance", path: join(dir, "lenses", "conformance.md") },
@@ -1101,7 +1102,7 @@ function developJson(dir: string, file = join(dir, "workflows", "develop.yaml"),
         model: "opus",
         fix_model: "opus",
       },
-      { step: "pr", ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+      { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
     ],
   };
   return `${JSON.stringify(doc, null, 2)}\n`;
@@ -1136,16 +1137,17 @@ test("workflow fills every field in table order, an agent step included, and kee
         name: "full",
         file: join(dir, "workflows", "full.yaml"),
         steps: [
-          { step: "implement", model: "sonnet" },
+          { step: "implement", agents: true, model: "sonnet" },
           {
             step: "review",
+            agents: true,
             rounds: 2,
             lenses: [{ name: "security", path: join(dir, "lenses", "security.md") }],
             model: "opus",
             fix_model: "haiku",
           },
-          { step: "agent", name: "changelog", prompt: "Add a changelog entry.", model: "sonnet" },
-          { step: "pr", ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+          { step: "agent", agents: true, name: "changelog", prompt: "Add a changelog entry.", model: "sonnet" },
+          { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
         ],
       },
       null,
@@ -1166,12 +1168,13 @@ test("workflow takes absent fields from the project workflow.defaults over the g
   const doc = JSON.parse(res.stdout) as { steps: Record<string, unknown>[] };
   expect(doc.steps[1]).toEqual({
     step: "review",
+    agents: true,
     rounds: 2,
     lenses: [{ name: "correctness", path: join(dir, "lenses", "correctness.md") }],
     model: "sonnet",
     fix_model: "opus",
   });
-  expect(doc.steps[2]).toEqual({ step: "pr", ci_attempts: 4, model: "sonnet", fix_model: "opus" });
+  expect(doc.steps[2]).toEqual({ step: "pr", agents: true, ci_attempts: 4, model: "sonnet", fix_model: "opus" });
   const other = JSON.parse(run(dir, "workflow", "other").stdout) as { steps: Record<string, unknown>[] };
   expect((other.steps[1] as { rounds: number }).rounds).toBe(3);
 });
@@ -1186,7 +1189,7 @@ test("workflow <name> takes the project file over the global one, and exits 1 wh
   expect(JSON.parse(res.stdout)).toEqual({
     name: "quick",
     file: join(dir, "p", "workflows", "quick.yaml"),
-    steps: [{ step: "implement", model: "haiku" }],
+    steps: [{ step: "implement", agents: true, model: "haiku" }],
   });
   const missing = run(dir, "workflow", "p", "nope");
   expect([missing.status, missing.stdout, missing.stderr]).toEqual([
@@ -1378,7 +1381,7 @@ test("workflow exits 1 with the first validation error of a file, in the documen
     const res = run(dir, "workflow", "p", "w");
     expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
   }
-});
+}, 30_000);
 
 test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that cannot be read", () => {
   const dir = workflowHome();
@@ -1388,12 +1391,89 @@ test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/workflows/w.yaml: cannot be read\n"]);
 });
 
-test("workflow prints the shipped develop for a home holding the shipped config, workflow and lenses", () => {
+/** A home holding the shipped config, workflows and lenses. */
+function shippedHome(): string {
   const dir = home();
   const shipped = join(import.meta.dirname, "..", "plugin", "home");
-  for (const rel of ["config.yaml", "workflows/develop.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  for (const rel of ["config.yaml", "workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
     put(join(dir, rel), readFileSync(join(shipped, rel), "utf-8"));
   }
-  const res = run(dir, "workflow", "theway");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
+  return dir;
+}
+
+test("workflow prints the shipped agents for a home holding the shipped config, workflows and lenses", () => {
+  const dir = shippedHome();
+  const res = run(dir, "workflow", "theway", "agents");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir, join(dir, "workflows", "agents.yaml"), "agents"), ""]);
 });
+
+test("workflow resolves the shipped develop, the fallback default, to one inline implement step", () => {
+  const dir = shippedHome();
+  const doc = { name: "develop", file: join(dir, "workflows", "develop.yaml"), steps: [{ step: "implement", agents: false }] };
+  const res = run(dir, "workflow", "theway");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${JSON.stringify(doc, null, 2)}\n`, ""]);
+  expect(run(dir, "workflow", "theway", "develop").stdout).toBe(res.stdout);
+});
+
+test("workflow gives every step its own agents, else the top-level one, else true, and inline steps no models", () => {
+  const dir = workflowHome();
+  put(
+    join(dir, "workflows", "mixed.yaml"),
+    [
+      "agents: false",
+      "steps:",
+      "  - implement:",
+      "  - review: {agents: true, model: sonnet}",
+      "  - review: {rounds: 2}",
+      "  - agent: {name: notes, prompt: Write the notes.}",
+      "  - pr: {agents: true}",
+      "",
+    ].join("\n"),
+  );
+  const res = run(dir, "workflow", "p", "mixed");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const lensList = [
+    { name: "conformance", path: join(dir, "lenses", "conformance.md") },
+    { name: "correctness", path: join(dir, "lenses", "correctness.md") },
+  ];
+  expect(JSON.parse(res.stdout).steps).toEqual([
+    { step: "implement", agents: false },
+    { step: "review", agents: true, rounds: 1, lenses: lensList, model: "sonnet", fix_model: "opus" },
+    { step: "review", agents: false, rounds: 2, lenses: lensList },
+    { step: "agent", agents: false, name: "notes", prompt: "Write the notes." },
+    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+  ]);
+  expect(Object.keys(JSON.parse(res.stdout).steps[2])).toEqual(["step", "agents", "rounds", "lenses"]);
+  put(join(dir, "workflows", "on.yaml"), "agents: true\nsteps:\n  - implement: {agents: false}\n  - pr:\n");
+  expect(JSON.parse(run(dir, "workflow", "p", "on").stdout).steps).toEqual([
+    { step: "implement", agents: false },
+    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+  ]);
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    implement:\n      model: haiku\n");
+  expect(JSON.parse(run(dir, "workflow", "p", "on").stdout).steps[0]).toEqual({ step: "implement", agents: false });
+});
+
+test("workflow exits 1 for agents that is not a boolean and for an inline step that sets a model, in the documented order", () => {
+  const dir = workflowHome();
+  const head = "steps:\n  - implement:\n";
+  const cases: [string, string][] = [
+    ["agents: no\nsteps: x\n", "agents must be true or false"],
+    ["default: 1\nagents: 1\n", "default must be true or false"],
+    ["agents: 1\nsteps: []\n", "agents must be true or false"],
+    ["steps:\n  - implement: {agents: 1}\n", "steps[0].implement.agents must be true or false"],
+    ["steps:\n  - implement: {agents: 1, x: 1}\n", "steps[0].implement.x is not a field of implement"],
+    ["steps:\n  - implement: {agents: false, model: opus}\n", "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
+    ["agents: false\nsteps:\n  - implement: {model: opus}\n", "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
+    ["agents: false\nsteps:\n  - implement: {model: gpt}\n", "steps[0].implement.model must be opus, sonnet or haiku"],
+    [`agents: false\n${head}  - review: {fix_model: opus, model: opus}\n`, "steps[1].review.fix_model has no effect when the step runs inline (agents: false)"],
+    [`agents: false\n${head}  - pr: {fix_model: opus}\n`, "steps[1].pr.fix_model has no effect when the step runs inline (agents: false)"],
+    [`agents: false\n${head}  - agent: {model: haiku}\n`, "steps[1].agent.model has no effect when the step runs inline (agents: false)"],
+    [`${head}  - agent: {agents: false, model: haiku}\n`, "steps[1].agent.model has no effect when the step runs inline (agents: false)"],
+    [`agents: false\n${head}  - implement: {model: opus}\n`, "steps[1].implement.model has no effect when the step runs inline (agents: false)"],
+  ];
+  for (const [text, reason] of cases) {
+    put(join(dir, "workflows", "w.yaml"), text);
+    const res = run(dir, "workflow", "p", "w");
+    expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
+  }
+}, 30_000);

@@ -539,6 +539,62 @@ test("run-pipeline.js is a plugin workflow that compiles, with its four phases a
   }
 });
 
+test("run-pipeline.js runs only a segment of consecutive agent steps, with commitType and head set after inline steps", async () => {
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", read(PIPELINE).slice("export ".length));
+  const steps = [
+    { step: "implement", agents: false },
+    { step: "agent", agents: true, name: "notes", prompt: "Write the notes.", model: "sonnet" },
+    { step: "review", agents: false, rounds: 1, lenses: [] },
+    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+  ];
+  const base = {
+    repo: "/r",
+    branch: "feat/x",
+    base: "main",
+    changeId: "add-x",
+    changeDir: "/c",
+    light: false,
+    develop: "/h/standards/develop.md",
+    specReview: "/h/standards/spec-review.md",
+    standards: [],
+    authority: "## Authority",
+    workflow: { name: "w", file: "/h/workflows/w.yaml", steps },
+  };
+  const none = async () => null;
+  const exec = (args: Record<string, unknown>) => run(args, none, none, none, () => {}, () => {});
+  const error = "run-pipeline is started by /theway:workflow with its args";
+  const agentsAt0 = steps.map((s, i) => (i === 0 ? { ...s, agents: true, model: "opus" } : s));
+  const cases: Record<string, unknown>[] = [
+    { ...base, steps: [], commitType: "feat", head: "abc" },
+    { ...base, steps: [1, 3], commitType: "feat", head: "abc" },
+    { ...base, steps: [1, 2], commitType: "feat", head: "abc" },
+    { ...base, steps: [2], commitType: "feat", head: "abc" },
+    { ...base, steps: [1], commitType: null, head: "abc" },
+    { ...base, steps: [1], commitType: "feat", head: null },
+    { ...base, steps: [1], commitType: "feature", head: "abc" },
+    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], commitType: "feat", head: null },
+    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], commitType: null, head: "abc" },
+    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1] },
+  ];
+  for (const args of cases) {
+    const res = await exec(args);
+    expect([args.steps, args.commitType, args.head, res.status, res.error]).toEqual([args.steps, args.commitType, args.head, "failed", error]);
+  }
+  const segment = await exec({ ...base, steps: [1], commitType: "feat!", head: "abc" });
+  expect(segment).toEqual({
+    status: "failed",
+    error: "agent:notes returned no result",
+    commitType: "feat!",
+    implementation: null,
+    steps: [{ step: "agent", label: "agent:notes", result: null }],
+    pr: null,
+    authorityReports: [],
+  });
+  const first = await exec({ ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1], commitType: null, head: null });
+  expect([first.status, first.error, first.commitType]).toEqual(["blocked", "implement returned no result", "feat"]);
+});
+
 test("workflow.md replaces develop-workflow.md and runs the change through theway:run-pipeline", () => {
   expect(existsSync(join(COMMANDS, "develop-workflow.md"))).toBe(false);
   const text = read(join(COMMANDS, "workflow.md"));
