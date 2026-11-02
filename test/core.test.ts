@@ -264,7 +264,7 @@ test("standards prints nothing and exits 0 for missing and empty folders", () =>
   }
 });
 
-test("standards prints global files before project files, each sorted, a project file replacing a global one", () => {
+test("standards prints global files before project files, each sorted, a project file replacing a global one for its phases", () => {
   const dir = home();
   const g = join(dir, "standards");
   const p = join(dir, "p", "standards");
@@ -279,7 +279,9 @@ test("standards prints global files before project files, each sorted, a project
   expect(eng.status).toBe(0);
   expect(eng.stderr).toBe("");
   expect(eng.stdout).toBe(
-    [join(g, "alpha.md"), join(g, "zeta.md"), join(p, "beta.md"), join(p, "tdd.md")].map((l) => `${l}\n`).join(""),
+    [join(g, "alpha.md"), join(g, "review.md"), join(g, "zeta.md"), join(p, "beta.md"), join(p, "tdd.md")]
+      .map((l) => `${l}\n`)
+      .join(""),
   );
   const dev = run(dir, "standards", "p", "develop");
   expect(dev.stdout).toBe(
@@ -323,19 +325,34 @@ test("standards applies applies_to: none, both, a flow list of one phase, a bloc
   const dev = run(dir, "standards", "p", "develop");
   expect([dev.status, dev.stderr]).toEqual([0, ""]);
   expect(dev.stdout).toBe(lines("a-none.md", "b-both.md", "d-block-dev.md", "e-nokey.md"));
+  const doc = run(dir, "standards", "p", "document");
+  expect([doc.status, doc.stderr]).toEqual([0, ""]);
+  expect(doc.stdout).toBe(lines("a-none.md", "e-nokey.md"));
 });
 
-test("standards applies an invalid applies_to to both phases with a warning", () => {
+test("standards applies applies_to: [document] to document only", () => {
+  const dir = home();
+  const file = join(dir, "p", "standards", "docs.md");
+  put(file, "---\napplies_to: [document]\n---\n");
+  for (const [phase, stdout] of [
+    ["engineering", ""],
+    ["develop", ""],
+    ["document", `${file}\n`],
+  ] as const) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, stdout, ""]);
+  }
+});
+
+test("standards lists a file with an invalid applies_to for no phase, with a warning", () => {
   const dir = home();
   const file = join(dir, "p", "standards", "x.md");
   put(file, "---\napplies_to: [review]\n---\n");
-  for (const phase of ["engineering", "develop"]) {
+  for (const phase of ["engineering", "develop", "document"]) {
     const res = run(dir, "standards", "p", phase);
     expect(res.status).toBe(0);
-    expect(res.stdout).toBe(`${file}\n`);
-    expect(res.stderr).toBe(
-      `theway: warning: ${file}: applies_to must list engineering and/or develop; applied to both\n`,
-    );
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toBe(`theway: warning: ${file}: applies_to must list engineering, develop and/or document; skipped\n`);
   }
 });
 
@@ -393,7 +410,7 @@ test("standards lists only the global standards for the projects data, templates
     const eng = run(dir, "standards", project, "engineering");
     expect([eng.status, eng.stdout, eng.stderr]).toEqual([0, `${join(g, "g.md")}\n${join(g, "sre.md")}\n`, ""]);
     const doc = run(dir, "standards", project, "document");
-    expect([doc.status, doc.stdout, doc.stderr]).toEqual([0, `${join(g, "sre.md")}\n`, ""]);
+    expect([doc.status, doc.stdout, doc.stderr]).toEqual([0, `${join(g, "g.md")}\n${join(g, "sre.md")}\n`, ""]);
   }
 });
 
@@ -416,12 +433,12 @@ test("standards lists the enabled opt-in and user standards per phase, from the 
   put(join(dir, "p", "config.yaml"), "standards:\n  quality:\n    enabled: false\n  sre:\n    enabled: true\n  gamma:\n    enabled: false\n");
   const lines = (...paths: string[]) => paths.map((l) => `${l}\n`).join("");
   const cases: [string, string, string][] = [
-    ["p", "engineering", lines(join(g, "alpha.md"), join(g, "core-principles.md"), join(g, "sre.md"), join(p, "beta.md"))],
-    ["p", "develop", lines(join(g, "dev.md"), join(p, "beta.md"))],
-    ["p", "document", lines(join(g, "core-principles.md"), join(g, "sre.md"))],
-    ["other", "engineering", lines(join(g, "alpha.md"), join(g, "core-principles.md"), join(g, "quality.md"))],
-    ["other", "develop", lines(join(g, "dev.md"))],
-    ["other", "document", lines(join(g, "core-principles.md"), join(g, "quality.md"))],
+    ["p", "engineering", lines(join(g, "alpha.md"), join(p, "beta.md"))],
+    ["p", "develop", lines(join(g, "core-principles.md"), join(g, "dev.md"), join(g, "sre.md"), join(p, "beta.md"))],
+    ["p", "document", lines(join(p, "beta.md"))],
+    ["other", "engineering", lines(join(g, "alpha.md"))],
+    ["other", "develop", lines(join(g, "core-principles.md"), join(g, "dev.md"), join(g, "quality.md"))],
+    ["other", "document", ""],
   ];
   for (const [project, phase, stdout] of cases) {
     const res = run(dir, "standards", project, phase);
@@ -429,7 +446,7 @@ test("standards lists the enabled opt-in and user standards per phase, from the 
   }
 });
 
-test("standards takes a project sre.md as a user standard that the sre switch turns on", () => {
+test("standards takes a project sre.md as a user standard that the sre switch turns on, replacing the global one for its phases", () => {
   const dir = home();
   put(join(dir, "config.yaml"), readFileSync(join(import.meta.dirname, "..", "plugin", "home", "config.yaml"), "utf-8"));
   put(join(dir, "standards", "sre.md"), "# global sre\n");
@@ -440,8 +457,8 @@ test("standards takes a project sre.md as a user standard that the sre switch tu
   }
   put(join(dir, "p", "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
   expect(run(dir, "standards", "p", "develop").stdout).toBe(`${own}\n`);
-  expect(run(dir, "standards", "p", "engineering").stdout).toBe("");
-  expect(run(dir, "standards", "p", "document").stdout).toBe("");
+  expect(run(dir, "standards", "p", "engineering").stdout).toBe(`${join(dir, "standards", "sre.md")}\n`);
+  expect(run(dir, "standards", "p", "document").stdout).toBe(`${join(dir, "standards", "sre.md")}\n`);
   expect(run(dir, "standards", "other", "document").stdout).toBe("");
 });
 
@@ -453,10 +470,58 @@ test("standards applies the defaults with no config.yaml: opt-in off, user on", 
   for (const [phase, stdout] of [
     ["engineering", `${join(g, "tdd.md")}\n`],
     ["develop", `${join(g, "tdd.md")}\n`],
-    ["document", ""],
+    ["document", `${join(g, "tdd.md")}\n`],
   ] as const) {
     const res = run(dir, "standards", "p", phase);
     expect([res.status, res.stdout, res.stderr]).toEqual([0, stdout, ""]);
+  }
+});
+
+test("standards lists the enabled opt-in standards without frontmatter for every phase", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  const names = ["core-principles.md", "quality.md", "sre.md", "web-development.md"];
+  for (const name of names) put(join(g, name), `# ${name}\n`);
+  put(
+    join(dir, "config.yaml"),
+    "standards:\n  core_principles:\n    enabled: true\n  sre:\n    enabled: true\n  web_development:\n    enabled: true\n  quality:\n    enabled: true\n",
+  );
+  const all = names.map((n) => `${join(g, n)}\n`).join("");
+  for (const phase of ["engineering", "develop", "document"]) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, all, ""]);
+  }
+});
+
+test("standards lists an opt-in standard with applies_to: [develop] for develop only", () => {
+  const dir = home();
+  const sre = join(dir, "standards", "sre.md");
+  put(sre, "---\napplies_to: [develop]\n---\n# sre\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  for (const [phase, stdout] of [
+    ["engineering", ""],
+    ["develop", `${sre}\n`],
+    ["document", ""],
+  ] as const) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, stdout, ""]);
+  }
+});
+
+test("standards replaces an enabled global sre.md by a project sre.md with applies_to: [develop] for develop only", () => {
+  const dir = home();
+  const global = join(dir, "standards", "sre.md");
+  const own = join(dir, "p", "standards", "sre.md");
+  put(global, "# global sre\n");
+  put(own, "---\napplies_to: [develop]\n---\n# project sre\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  for (const [phase, stdout] of [
+    ["engineering", `${global}\n`],
+    ["develop", `${own}\n`],
+    ["document", `${global}\n`],
+  ] as const) {
+    const res = run(dir, "standards", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, stdout, ""]);
   }
 });
 
@@ -555,7 +620,7 @@ test("config falls back from an invalid project value to the global one, and fro
   const dir = home();
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review_rounds: -1\nworkflow:\n  ci_attempts: 4\n  open_pr: false\n  models:\n    reviewer: haiku\n",
+    "engineering:\n  review_rounds: -1\nworkflow:\n  ci_attempts: 4\n  open_pr: false\n  models:\n    reviewer: gpt\n",
   );
   put(
     join(dir, "p", "config.yaml"),
@@ -567,7 +632,7 @@ test("config falls back from an invalid project value to the global one, and fro
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: engineering.review_rounds must be a non-negative integer; ignored",
-      "theway: warning: config.yaml: workflow.models.reviewer must be opus or sonnet; ignored",
+      "theway: warning: config.yaml: workflow.models.reviewer must be opus, sonnet or haiku; ignored",
       "theway: warning: p/config.yaml: workflow.ci_attempts must be a positive integer; ignored",
       "theway: warning: p/config.yaml: workflow.open_pr must be true or false; ignored",
       "theway: warning: p/config.yaml: workflow.review_rounds must be a non-negative integer; ignored",
@@ -575,6 +640,14 @@ test("config falls back from an invalid project value to the global one, and fro
       "",
     ].join("\n"),
   );
+});
+
+test("config accepts haiku as a model with no warning", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "engineering:\n  models:\n    critic: haiku\nworkflow:\n  models:\n    ci: haiku\n");
+  const res = run(dir, "config", "p");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(res.stdout).toBe(effective({ "engineering.models.critic": "haiku", "workflow.models.ci": "haiku" }));
 });
 
 test("config ignores an unknown key once at its highest level, a section that is not a map, and a root that is not a map", () => {
@@ -836,7 +909,7 @@ test("context prints home, change_dir, standards and config in that order, match
 test("context has no change_dir without a change id and prints standards: [] when none apply", () => {
   const dir = home();
   put(join(dir, "config.yaml"), "");
-  put(join(dir, "standards", "tdd.md"), "# tdd\n");
+  put(join(dir, "standards", "tdd.md"), "---\napplies_to: [develop]\n---\n# tdd\n");
   const res = run(dir, "context", "p", "document");
   expect(res.status).toBe(0);
   expect(res.stdout).toStartWith(`home: ${dir}\nstandards: []\nconfig:\n`);

@@ -6,18 +6,10 @@ import { invalidSegments } from "./path";
 const PHASES = ["engineering", "develop", "document"] as const;
 export type Phase = (typeof PHASES)[number];
 
-/** The phases a user standard's `applies_to` can name; it never applies to `document`. */
-const USER_PHASES = ["engineering", "develop"] as const;
-type UserPhase = (typeof USER_PHASES)[number];
-
-/** The phases a shipped opt-in standard applies to, whatever its content. */
-const OPT_IN_PHASES: readonly Phase[] = ["engineering", "document"];
-
 const isPhase = (v: string): v is Phase => (PHASES as readonly string[]).includes(v);
-const isUserPhase = (v: string): v is UserPhase => (USER_PHASES as readonly string[]).includes(v);
 
 /** The phases a file's `applies_to` lists, or `null` when its value or form is invalid. */
-function parseList(first: string, rest: string[]): UserPhase[] | null {
+function parseList(first: string, rest: string[]): Phase[] | null {
   let values: string[];
   if (first !== "") {
     const flow = /^\[(.*)\]$/.exec(first);
@@ -31,11 +23,11 @@ function parseList(first: string, rest: string[]): UserPhase[] | null {
       values.push((item[1] ?? "").trim());
     }
   }
-  if (values.length === 0 || !values.every(isUserPhase)) return null;
-  return values as UserPhase[];
+  if (values.length === 0 || !values.every(isPhase)) return null;
+  return values as Phase[];
 }
 
-/** The phases a user standard applies to: its `applies_to`, both without one, both with a warning when it is invalid, none with a warning when it cannot be read. */
+/** The phases a standard applies to: its `applies_to`, all three without one, none with a warning when it is invalid or cannot be read. */
 function phasesOf(path: string): readonly Phase[] {
   let text: string;
   try {
@@ -45,16 +37,16 @@ function phasesOf(path: string): readonly Phase[] {
     return [];
   }
   const lines = text.split("\n").map((l) => l.replace(/\s+$/, ""));
-  if (lines[0] !== "---") return USER_PHASES;
+  if (lines[0] !== "---") return PHASES;
   const close = lines.indexOf("---", 1);
-  if (close === -1) return USER_PHASES;
+  if (close === -1) return PHASES;
   const front = lines.slice(1, close);
   const at = front.findIndex((l) => /^applies_to:/.test(l));
-  if (at === -1) return USER_PHASES;
+  if (at === -1) return PHASES;
   const phases = parseList((front[at] ?? "").slice("applies_to:".length).trim(), front.slice(at + 1));
   if (phases === null) {
-    process.stderr.write(`theway: warning: ${path}: applies_to must list engineering and/or develop; applied to both\n`);
-    return USER_PHASES;
+    process.stderr.write(`theway: warning: ${path}: applies_to must list engineering, develop and/or document; skipped\n`);
+    return [];
   }
   return phases;
 }
@@ -68,13 +60,23 @@ export function checkPhase(phase: string): phase is Phase {
 }
 
 /**
- * The paths of the enabled standards that apply to a phase, global ones first.
- * Shipped opt-in standards apply to `engineering` and `document`, user standards to the phases of their `applies_to`.
+ * The paths of the enabled standards that apply to a phase, global ones first. Every standard, shipped opt-in or
+ * user, applies to the phases of its `applies_to`, all three without one. A global file shadowed by a project file
+ * with the same name is dropped for the phases that project file applies to.
  */
 export function selectStandards(loaded: Loaded, phase: Phase): string[] {
+  const phases = new Map<string, readonly Phase[]>();
+  const of = (path: string): readonly Phase[] => {
+    let known = phases.get(path);
+    if (known === undefined) {
+      known = phasesOf(path);
+      phases.set(path, known);
+    }
+    return known;
+  };
   return loaded.standards
     .filter((s) => enabled(loaded.config, s.key))
-    .filter((s) => (s.optIn ? OPT_IN_PHASES.includes(phase) : phase !== "document" && phasesOf(s.path).includes(phase)))
+    .filter((s) => of(s.path).includes(phase) && (s.shadowedBy === undefined || !of(s.shadowedBy).includes(phase)))
     .map((s) => s.path);
 }
 
