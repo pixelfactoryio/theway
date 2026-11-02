@@ -174,7 +174,7 @@ theway standards <project> develop
 theway standards <project> document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md` and `tamm-framework.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it.
 
 - An opt-in standard applies to `engineering` and `document`, whatever its content.
 - A user standard applies to the phases its `applies_to` frontmatter lists, or to `engineering` and `develop` without one, never to `document`.
