@@ -214,21 +214,22 @@ const LOG_SCHEMA = {
     },
     classification: { type: 'string', enum: ['this_pr', 'base_red', 'flaky'] },
     baseFix: { type: ['string', 'null'] },
+    rerun: STRINGS,
     authorityReports: REPORTS,
   },
-  required: ['errors', 'classification', 'baseFix', 'authorityReports'],
+  required: ['errors', 'classification', 'baseFix', 'rerun', 'authorityReports'],
 }
 
 const CI_FIX_SCHEMA = {
   type: 'object',
-  properties: { head: { type: 'string' }, commits: COMMITS, pushed: { type: 'boolean' }, authorityReports: REPORTS },
-  required: ['head', 'commits', 'pushed', 'authorityReports'],
-}
-
-const RERUN_SCHEMA = {
-  type: 'object',
-  properties: { rerun: STRINGS, authorityReports: REPORTS },
-  required: ['rerun', 'authorityReports'],
+  properties: {
+    head: { type: 'string' },
+    commits: COMMITS,
+    pushed: { type: 'boolean' },
+    reason: { type: ['string', 'null'] },
+    authorityReports: REPORTS,
+  },
+  required: ['head', 'commits', 'pushed', 'reason', 'authorityReports'],
 }
 
 // ---- Prompts ----
@@ -472,16 +473,22 @@ async function pr(step, record) {
       return
     }
     out.ci = 'red'
+    const last = attempt === step.ci_attempts
+    const rerunRule = last
+      ? 'This is the last CI attempt: do not re-run anything; return rerun [].'
+      : `When you classify flaky, or base_red with baseFix null, re-run the failed jobs of each run once (gh run rerun <id> --failed, for ${poll.failedRunIds.join(', ')}) and return rerun (the run IDs re-run); [] otherwise, and re-run nothing then.`
     const log = await call(
       { label: 'pr', phase: 'PR', model: step.model },
       prompt(
         `CI failed on PR #${opened.number}, runs ${poll.failedRunIds.join(', ')}. For each run, fetch its log with gh run view <id> --log-failed (the full --log when that is empty) and quote the real error line; never diagnose from memory.`,
-        `Classify the failure: this_pr (this PR causes it), base_red (${args.base} fails the same way) or flaky (infrastructure). For base_red, give baseFix: the sha of a commit on ${args.base} that fixes it, or null when there is none; null for the others. Do not push, edit or re-run anything.`,
+        `Classify the failure: this_pr (this PR causes it), base_red (${args.base} fails the same way) or flaky (infrastructure). For base_red, give baseFix: the sha of a commit on ${args.base} that fixes it, or null when there is none; null for the others.`,
+        rerunRule,
+        'Do not push or edit anything.',
       ),
       LOG_SCHEMA,
     )
     out.errors.push({ attempt, classification: log.classification, errors: log.errors })
-    if (attempt === step.ci_attempts) break
+    if (last) break
 
     const quoted = JSON.stringify(log.errors, null, 2)
     if (log.classification === 'this_pr' || (log.classification === 'base_red' && isString(log.baseFix))) {
@@ -494,23 +501,21 @@ async function pr(step, record) {
         prompt(
           task,
           commitRules(state.commitType),
-          `Commit on ${args.branch} and push it once (git push origin ${args.branch}, never force). Return head (the pushed head sha), commits and pushed.`,
+          `Commit on ${args.branch} and push it once (git push origin ${args.branch}, never force). Return head (the pushed head sha), commits, pushed, and reason (why you did not push; null when you pushed).`,
         ),
         CI_FIX_SCHEMA,
       )
+      if (fixed.pushed !== true) {
+        const why = isString(fixed.reason) && fixed.reason !== '' ? fixed.reason : `head ${fixed.head}`
+        throw failed(`pr fix agent did not push: ${why}`)
+      }
       head = fixed.head
-    } else {
-      await call(
-        { label: 'pr', phase: 'PR', model: step.model },
-        prompt(
-          `Re-run the failed jobs of each run once: gh run rerun <id> --failed, for ${poll.failedRunIds.join(', ')}. Do not push or edit anything. Return rerun (the run IDs re-run).`,
-        ),
-        RERUN_SCHEMA,
-      )
+    } else if (!Array.isArray(log.rerun) || log.rerun.length === 0) {
+      throw failed('pr re-run did not start')
     }
   }
-  const last = out.errors[out.errors.length - 1]
-  const what = last === undefined ? '' : `: ${last.classification}: ${last.errors.map((e) => e.error).join(' | ')}`
+  const final = out.errors[out.errors.length - 1]
+  const what = final === undefined ? '' : `: ${final.classification}: ${final.errors.map((e) => e.error).join(' | ')}`
   throw failed(`CI red after ${out.ciAttempts} attempts${what}`)
 }
 
