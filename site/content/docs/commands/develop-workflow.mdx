@@ -36,7 +36,7 @@ The steps run once per change ID, in order.
    - **Blocked:** an implementer returned a blocker. Nothing is merged, the run stops and the blocker comes back to you with its options.
    - **Failed:** a confirmed finding is not resolved, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 
-Each agent role runs on the model set in [`workflow.models`](../configuration.mdx#workflowmodels): by default implementers, reviewers, fix agents and the fix check on `opus`, CI polling and log fetching on `sonnet`. `haiku` is never used.
+Each agent role runs on the model set in [`workflow.models`](../configuration.mdx#workflowmodels): by default implementers, reviewers, fix agents and the fix check on `opus`, CI polling and log fetching on `sonnet`. Each role can be set to `opus`, `sonnet` or `haiku`.
 
 ## Commit type
 
