@@ -258,7 +258,7 @@ config:
 
 It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when `<project>` or `<change-id>` does not follow the rule of [`path`](#path), when the phase is invalid (the message of [`standards`](#standards)), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
 
-The engineering commands run it with `engineering`, `/theway:document` with `document`, and the develop commands with `develop` and the change ID, taking `change_dir` as the change folder.
+The engineering commands run it with `engineering`, `/theway:document` with `document`, and `/theway:workflow` with `develop` and the change ID, taking `change_dir` as the change folder.
 
 ## workflow
 

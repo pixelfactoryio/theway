@@ -63,7 +63,7 @@ For each template below, read the template file, follow its frontmatter instruct
 | `<home>/templates/light-spec-template.md` | `spec.md` |
 | `<home>/templates/tasks-template.md` | `tasks.md` |
 
-`spec.md` keeps the `**Mode:** light` line directly under its H1 title: the develop commands read it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction.
+`spec.md` keeps the `**Mode:** light` line directly under its H1 title: `/theway:workflow` reads it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction.
 
 `tasks.md` follows `tasks-template.md`'s rule for a light change. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
 
