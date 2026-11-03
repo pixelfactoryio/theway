@@ -35,7 +35,7 @@ Archived: <home>/projects/-home-you-code-my-api/changes/archive/YYYY-MM-DD-add-r
    theway archive <change-id> --force
    ```
 
-   The CLI also refuses while a numbered task is open, unless `--force` is given.
+   The CLI also refuses while a numbered task is open, unless `--force` is given. It also refuses when `changes/archive/YYYY-MM-DD-<change-id>/` already exists, for example the same change archived twice in one day.
 4. **Confirm:** it reports the `Archived: <path>` line `theway archive` prints.
 
 ## Output

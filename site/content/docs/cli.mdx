@@ -48,7 +48,7 @@ Other environment variables:
 npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, always dropping the `Edit` rules earlier versions added, and dropping the previous home's `Read` rule when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, always dropping the `Edit` rule earlier versions added for the new and the previous home, and dropping the previous home's `Read` rule when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 On a first install from a terminal (stdin and stdout), it asks where to keep the data home, only when theway was never installed, then which opt-in standards to enable, only when the data home has no `config.yaml`. The options answer without a question:
 
@@ -57,7 +57,7 @@ On a first install from a terminal (stdin and stdout), it asks where to keep the
 
 It exits 1 and changes nothing when:
 
-- `--home` is not an absolute path and does not start with `~/`: `theway: invalid --home '<value>': must be an absolute path or start with ~/; nothing was changed`;
+- `--home` is not an absolute path and does not start with `~/`: `theway: invalid --home '<value>': <reason>; nothing was changed`, with `<reason>` `must be an absolute path or start with ~/`, or `must not be empty` for a value of only spaces (an empty `--home ''` is refused by the argument parser);
 - `--home` and a set `THEWAY_HOME` name different paths: `theway: --home <a> and THEWAY_HOME <b> differ; unset THEWAY_HOME or drop --home; nothing was changed`;
 - `--standards` names an unknown key: `theway: unknown standard '<element>' in --standards; valid: core_principles, sre, web_development, quality, or none`;
 - `--standards` combines `none` with a key: `theway: --standards none cannot be combined with other standards`;
@@ -167,7 +167,7 @@ The root is resolved to its physical path (symlinks followed) before the key is 
   theway: project key for <root> is longer than 200 characters; pass --project <key>
   ```
 
-Every subcommand checks the key first, then its other arguments.
+Every subcommand checks the key first, then its other arguments; an empty `<change-id>` for `archive` and an invalid `--count` for `next-id` are refused by the argument parser before it.
 
 ## config
 
@@ -204,7 +204,7 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-The last two name a `standards` key that no standard file of the project gives, and the key of a standard that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`).
+The last two name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name, or a convention standard (`commits`, `git_host`).
 
 It exits 1 and prints nothing on stdout when:
 
@@ -332,9 +332,35 @@ Which file:
   "commits": "/home/you/.theway/standards/commits.md",
   "git_host": "/home/you/.theway/standards/git-host.md",
   "steps": [
-    { "step": "implement", "agents": true, "model": "opus" },
-    { "step": "review", "agents": true, "rounds": 1, "lenses": [{ "name": "conformance", "path": "/home/you/.theway/lenses/conformance.md" }, { "name": "correctness", "path": "/home/you/.theway/lenses/correctness.md" }], "model": "opus", "fix_model": "opus" },
-    { "step": "pr", "agents": true, "ci_attempts": 2, "model": "sonnet", "fix_model": "opus" }
+    {
+      "step": "implement",
+      "agents": true,
+      "model": "opus"
+    },
+    {
+      "step": "review",
+      "agents": true,
+      "rounds": 1,
+      "lenses": [
+        {
+          "name": "conformance",
+          "path": "/home/you/.theway/lenses/conformance.md"
+        },
+        {
+          "name": "correctness",
+          "path": "/home/you/.theway/lenses/correctness.md"
+        }
+      ],
+      "model": "opus",
+      "fix_model": "opus"
+    },
+    {
+      "step": "pr",
+      "agents": true,
+      "ci_attempts": 2,
+      "model": "sonnet",
+      "fix_model": "opus"
+    }
   ]
 }
 ```
@@ -380,7 +406,7 @@ Checks a [change ID](./concepts/changes.mdx#change-ids). It exits 0 when the ID 
 invalid change id '<id>': <reason>
 ```
 
-Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-`, `remove-` or `fix-`. Any other start is rejected with:
+Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-`, `remove-` or `fix-`. An ID with uppercase letters is rejected with `uppercase letters are not allowed; use lowercase kebab-case`, one with underscores with `underscores are not allowed; use kebab-case (-)`; any other start is rejected with:
 
 ```text
 invalid change id '<id>': must start with a verb prefix: add-, update-, refactor-, remove- or fix-
@@ -412,7 +438,7 @@ add-user-auth-05
   ```
 
 - It counts the folders `<home>/projects/<key>/changes/<series-id>-NN` and the archived `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.
-- A `--count` that is not a positive integer is rejected with `must be a positive integer`. When the last ID would be past `-99`, it exits 1:
+- A `--count` that is not a positive integer is rejected with `error: option '--count <n>' argument '<value>' is invalid. must be a positive integer`. When the last ID would be past `-99`, it exits 1:
 
   ```text
   theway: series <series-id> would go past -99

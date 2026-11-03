@@ -3,7 +3,7 @@ title: Standards
 description: Your own rules, for every project or for one, and the switch that turns any standard on or off.
 ---
 
-A user standard is a Markdown file of your own rules, such as test-first, that the engineering, develop and document commands follow on top of theway's shipped standards. You write it once, outside any repository, and it survives every install.
+A user standard is a Markdown file of your own rules, such as test-first, that `/theway:engineering`, `/theway:workflow` and `/theway:document` follow on top of theway's shipped standards. You write it once, outside any repository, and it survives every install.
 
 ## The two folders
 
@@ -135,6 +135,6 @@ The commands get them from the `standards` list of [`theway context <engineering
 
 - [`/theway:engineering`](../commands/engineering.mdx), with or without [`--light`](../commands/engineering.mdx#light), writes the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question without `--light`, and an escalation with it. The critics get their paths: the implementability critic (the grounding critic with `--light`) reports a spec or task that contradicts one.
 - [`/theway:workflow`](../commands/workflow.mdx) follows them, in your session for an inline `implement` and through its implementer agent otherwise. When one contradicts the spec, the implementation stops and brings it back.
-- In `/theway:workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
+- In `/theway:workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. Every agent of the run gets their paths; the implementer, the reviewers and the fix check are the ones asked to apply them.
 
 Every report of these commands names the standards used, by file name, or "none". [`/theway:document`](../commands/document.mdx) follows the standards that apply to `document` when it writes the docs.

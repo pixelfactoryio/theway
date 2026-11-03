@@ -23,7 +23,7 @@ add-user-auth-02
 add-user-auth-03
 ```
 
-- [`theway next-id`](../cli.mdx#next-id) names the members of a new series: it validates the series ID and prints the next free IDs, counting active and archived members. Existing folders are never renamed or renumbered.
+- [`theway next-id`](../cli.mdx#next-id) names the members of a new or continued series: it validates the series ID and prints the next free IDs, counting active and archived members. Existing folders are never renamed or renumbered.
 - With `--series`, `validate-id` rejects topic suffixes (`add-user-auth-login`), letter suffixes (`-a`, `-b`), unpadded numbers (`-1`), `-00` and double ordinals.
 - Each member's `spec.md` has a line under its title: `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`. The `01` member states no dependency.
 

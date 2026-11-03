@@ -23,7 +23,7 @@ For a small change with nothing to decide, [`/theway:engineering --light`](./com
 
 It writes the change files only under `<home>/projects/<key>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
 
-## 2. Develop
+## 2. Workflow
 
 [`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file. It reads `standards/develop.md`, `standards/spec-review.md`, the standards `theway context` lists, the change's `spec.md`, `tasks.md` and `design.md`, and `docs/architecture/coding-standards.md` when it exists, and resolves the workflow with `theway workflow`, its fields filled from [`workflow.defaults`](./configuration.mdx#workflow). The spec is the contract: when the code contradicts it, the work stops and comes back to you with the options.
 

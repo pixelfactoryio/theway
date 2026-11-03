@@ -110,7 +110,7 @@ Write a new lens as `<home>/lenses/<name>.md`, or `<home>/projects/<key>/lenses/
 ## Which workflow runs
 
 - `/theway:workflow --workflow <name> <change-id>` runs the workflow `<name>`: the project file, else the global one.
-- Without `--workflow`, it runs the default: the project's file that sets `default: true`, else the global file that sets it (one no project file of the same name shadows), else `develop`, the inline one. Two files of the same folder that both set `default: true` are an error.
+- Without `--workflow`, it runs the default: the project's file that sets `default: true`, else the global file that sets it (one no project file of the same name shadows), else `develop`, the inline one. Two files of the same folder that both set `default: true` are an error. Finding the default validates the project's workflow files and, when none of them sets `default: true`, the global files no project file shadows: an invalid one stops a run without `--workflow`. A file ending in `.default.yaml` is skipped, and one whose name is not a valid workflow name is skipped with `theway: warning: <file>: not a valid workflow name; ignored`, `<file>` relative to the home, as [`cli.mdx`](../cli.mdx#workflow) writes it.
 
 There is no config key for the default workflow: mark the file with `default: true`.
 

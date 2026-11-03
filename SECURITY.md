@@ -12,7 +12,7 @@ Only the latest release is supported.
 - The data home is `~/.theway`, or `THEWAY_HOME`. Install refuses a home that is your home folder, one of its parents or `/`, and a custom home with a glob character or a line break.
 - Install writes into the data home:
   - `config.yaml`, only when absent, and `config.default.yaml`, always;
-  - the shipped standards and templates: an unedited one is updated, an edited one is kept with the shipped version in a `<base>.default.md` sibling, and on a first install without a manifest a differing file is backed up to `.bak` before being replaced;
+  - the shipped standards, templates, workflows and lenses: an unedited one is updated, an edited one is kept with the shipped version next to it as `<stem>.default.md` (`<stem>.default.yaml` for a workflow); in `standards/`, `workflows/` and `lenses/`, a file of yours with a shipped name is kept and an unedited file theway stops shipping is removed; in `templates/`, on a first install without a manifest a differing file is backed up to `.bak` before being replaced;
   - the `.shipped.json` manifest.
 - A pointer file is written for a custom home only, at `$XDG_CONFIG_HOME/theway/home` (`~/.config/theway/home` when unset).
 - Two rules are added to `permissions.allow` in `$CLAUDE_CONFIG_DIR/settings.json` (`~/.claude/settings.json` when unset):
@@ -23,20 +23,21 @@ Only the latest release is supported.
 - Install cleans up after older versions and earlier homes:
   - it removes the legacy `Edit(<root>/*/changes/**)` rule and the 0.2.0 rules;
   - when the home changed, it removes the previous home's Read rule;
-  - it deletes the 0.2.0 launcher files under `<home>/bin`, only when their contents match what 0.2.0 wrote.
+  - it deletes the 0.2.0 launcher files under `<home>/bin`, only when their contents match what 0.2.0 wrote;
+  - it moves the shipped standards of the old `data/standards/` layout to `standards/`, and removes `data/standards/` and then `data/` when empty.
 - Uninstall removes the plugin, the binary when it is theway's, the pointer, and the rules of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`, plus the legacy `Edit(<root>/*/changes/**)` rule and the 0.2.0 rules. It keeps the data home, with your changes and config.
 
 ### What the commands may do
 
 - `engineering`: writes only the change folder, with throwaway probes in a `mktemp -d` directory.
 - `workflow`: edits the repository, inline or through agents, and updates the change's `tasks.md` in its change folder, plus its `spec.md` only for a decision taken during an inline `implement`; commits only on the change's feature branch (nothing for a workflow whose only step is an inline `implement`); pushes that branch and opens its PR only when its workflow has a `pr` step; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
-- `archive`: moves a change folder only when you name the change and say to archive it; may then update architecture docs in `docs/` and clean up temporary notes.
+- `archive`: moves a change folder to `changes/archive/<date>-<change-id>/` only when you name the change and say to archive it; with `--force` only when you accept its open tasks.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
-- `list`: reads only; runs `theway path` and `theway list`.
+- `list`: reads only; runs `theway path`, `theway project` and `theway list`.
 
 ### Input checks
 
-- Project names must match `^[A-Za-z0-9_][A-Za-z0-9._-]*$`, and change IDs `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
+- Project keys given with `--project` must match `^[A-Za-z0-9-]{1,200}$` (a derived key longer than 200 characters is refused), and change IDs `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 - Both are at most 200 characters.
 - A path built from them stays inside the data home.
 
