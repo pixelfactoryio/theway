@@ -1,4 +1,4 @@
-# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, as /theway:develop did.
+# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, nothing committed.
 agents: false
 steps:
   - implement:
