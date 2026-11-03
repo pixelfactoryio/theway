@@ -41,6 +41,7 @@ test("every theway subcommand the commands and standards call is dispatched by t
   ];
   const called = new Set(texts.flatMap(calls));
   expect(called).toContain("authority");
+  expect(called).toContain("project");
   expect(called.size).toBeGreaterThan(0);
   const subcommands = buildProgram().commands.map((c) => c.name());
   expect([...called].filter((sub) => !subcommands.includes(sub))).toEqual([]);
@@ -57,6 +58,12 @@ test("no file in plugin/, src/, site/ or test/ names the removed setup command",
   });
   const offending = searched.filter((f) => read(f).includes(removed));
   expect(searched).toContain(join(REPO, "test", "lint.test.ts"));
+  expect(offending.map((f) => relative(REPO, f))).toEqual([]);
+});
+
+test("no file in plugin/ passes a project to the CLI or names a project folder by directory name", () => {
+  const old = /<home>\/<project>|theway (list|archive|path|config|standards|context|workflow|next-id) (<project>|my-[a-z]+)|\.theway\/my-|<home>\/my-|my-repo|my-site|my-project|current directory name/;
+  const offending = files(PLUGIN).filter((f) => old.test(read(f)));
   expect(offending.map((f) => relative(REPO, f))).toEqual([]);
 });
 
@@ -80,6 +87,7 @@ test("every command that reads theway data has the same Locate the home step", (
     "error: unknown command",
     "`theway: warning:`",
     "`<home>/standards/` or `<home>/templates/`",
+    "TheWay files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.",
   ]) {
     expect(reference).toContain(marker);
   }
@@ -89,8 +97,8 @@ test("every command that reads theway data has the same Locate the home step", (
 
 test("the engineering commands get the change folder from theway path, workflow from theway context", () => {
   const missing = [
-    ...["engineering.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`")),
-    ...["workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context <project> develop <change-id>`")),
+    ...["engineering.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <change-id>`")),
+    ...["workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context develop <change-id>`")),
   ];
   expect(missing).toEqual([]);
 });
@@ -99,14 +107,14 @@ test("the four loading commands call theway context, not theway config or theway
   for (const f of ["engineering.md", "workflow.md", "document.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("context");
-    expect(text).not.toContain("theway config <project>");
-    expect(text).not.toContain("theway standards <project>");
+    expect(calls(text)).not.toContain("config");
+    expect(calls(text)).not.toContain("standards");
   }
 });
 
 test("engineering.md takes a series' member IDs from theway next-id", () => {
   const text = read(join(COMMANDS, "engineering.md"));
-  expect(text).toContain("`theway next-id <project> <series-id> --count <N>`");
+  expect(text).toContain("`theway next-id <series-id> --count <N>`");
   expect(text).toContain("`would go past -99`");
   expect(text).not.toContain("changes/archive/*-");
   expect(text).not.toContain("validate-id <change-id> --series");
@@ -298,7 +306,7 @@ test("engineering.md handles a fix- change: the verb list, the investigation sta
     "`mktemp -d`",
     "- **Not reproduced:**",
     "- **Possibly already covered:**",
-    "`theway list <project>`",
+    "`theway list`",
     "- **Works as intended:**",
   ]) {
     expect(section(investigation, "A `fix-` change")).toContain(marker);
@@ -408,7 +416,7 @@ test("engineering reads the standards from theway context and reports them", () 
     const text = read(join(COMMANDS, f));
     const step1 = step(text, "Step 1:");
     expect(step1).toContain("- `<home>/standards/tamm-framework.md` - TAMM framework");
-    expect(step1).toContain("Run `theway context <project> engineering`.");
+    expect(step1).toContain("Run `theway context engineering`.");
     for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
     expect(text).not.toContain("user standard");
     expect(section(text, "Exit")).toContain('or "none"');
@@ -423,7 +431,7 @@ test("workflow reads the standards from theway context and reports them", () => 
   const step1 = step(workflow, "Step 1:");
   expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
   expect(step1).toContain("- `docs/architecture/coding-standards.md`");
-  expect(step1).toContain("Run `theway context <project> develop <change-id>`");
+  expect(step1).toContain("Run `theway context develop <change-id>`");
   expect(section(workflow, "Exit")).toContain('or "none"');
   expect(workflow).not.toContain("user standard");
 });
@@ -435,19 +443,19 @@ test("the develop standard has a Standards section and the Authority rule names 
   expect(develop).not.toContain("user standard");
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? "";
-  for (const folder of ["`<home>/standards/`", "`<home>/<project>/standards/`"]) expect(first).toContain(folder);
+  for (const folder of ["`<home>/standards/`", "`<home>/projects/<key>/standards/`"]) expect(first).toContain(folder);
 });
 
 test("engineering takes its keys from the config of theway context, workflow from theway workflow", () => {
   for (const [f, n] of [["engineering.md", 6]] as const) {
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
-    expect(step1.split("\n\n")[1]).toStartWith("Run `theway context <project> engineering`");
+    expect(step1.split("\n\n")[1]).toStartWith("Run `theway context engineering`");
     expect(step1).toContain(`take \`engineering.review.rounds\` (maximum review rounds in Step ${n})`);
     expect(step1).toContain("and `engineering.review.model`.");
   }
   const workflow = read(join(COMMANDS, "workflow.md"));
-  expect(step(workflow, "Step 1:")).toContain("`theway workflow <project>`");
+  expect(step(workflow, "Step 1:")).toContain("`theway workflow`");
   expect(workflow).not.toMatch(/\bworkflow\.[a-z_]/);
   for (const f of ["engineering.md", "workflow.md"]) {
     const text = read(join(COMMANDS, f));
@@ -458,7 +466,7 @@ test("engineering takes its keys from the config of theway context, workflow fro
 test("document reads the standards from theway context", () => {
   const text = read(join(COMMANDS, "document.md"));
   const first = step(text, "Step 1:").split("\n\n")[1];
-  expect(first).toStartWith("Run `theway context <project> document`");
+  expect(first).toStartWith("Run `theway context document`");
   expect(calls(text)).not.toContain("config");
   for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
 });
@@ -473,7 +481,7 @@ test("no command names <home>/config.yaml outside its Locate the home section", 
 
 test("the shipped config.yaml says a project can override any key", () => {
   expect(read(join(PLUGIN, "home", "config.yaml"))).toStartWith(
-    "# theway configuration\n# A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.\n",
+    "# theway configuration\n# A project can override any key in <home>/projects/<key>/config.yaml; theway config prints the result.\n",
   );
   expect(read(join(PLUGIN, "home", "config.yaml"))).toContain(
     "\n# Standards: standards.<key>.enabled switches any standard, key = file stem with - as _ (shipped opt-in ones default false, your own standards true)\nstandards:\n",
@@ -621,8 +629,8 @@ test("workflow.md replaces develop-workflow.md and runs the change through thewa
   const text = read(join(COMMANDS, "workflow.md"));
   expect(locateStep(text)).toBe(locateStep(read(join(COMMANDS, "engineering.md"))));
   for (const marker of [
-    "`theway context <project> develop <change-id>`",
-    "`theway workflow <project>`",
+    "`theway context develop <change-id>`",
+    "`theway workflow`",
     "`theway authority`",
     "`<home>/standards/interaction.md`",
     'name: "theway:run-pipeline"',

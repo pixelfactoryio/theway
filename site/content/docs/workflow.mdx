@@ -21,7 +21,7 @@ A `fix-` change uses the fix template for `spec.md`, and the command reproduces 
 
 For a small change with nothing to decide, [`/theway:engineering --light`](./commands/engineering.mdx#light) writes a short spec (`**Mode:** light`) and 1 to 3 tasks, and one grounding critic reviews them. When it finds a decision, a contract change, a Medium or High risk or a series, it sends you to `/theway:engineering` without `--light`.
 
-It writes the change files only under `<home>/<project>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
+It writes the change files only under `<home>/projects/<key>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
 
 ## 2. Develop
 
@@ -46,6 +46,6 @@ Use `develop` to watch and steer the work in your session. Use `--workflow agent
 
 ## 3. Archive
 
-[`/theway:archive`](./commands/archive.mdx) moves a finished change to `<home>/<project>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a numbered task in `tasks.md` is open, unless you accept the open tasks and it runs with `--force`.
+[`/theway:archive`](./commands/archive.mdx) moves a finished change to `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a numbered task in `tasks.md` is open, unless you accept the open tasks and it runs with `--force`.
 
 See the [Examples](./examples/full-change.mdx) section: one change from request to passing tests, then a light fix, an escalation, a workflow run, a series and standards.

@@ -1,8 +1,8 @@
 import { readdirSync } from "node:fs";
 import { basename, join, relative } from "node:path";
-import { CONVENTIONS, type Config, isLensList, isShared, load, loadConfig, NAME } from "./config";
+import { CONVENTIONS, type Config, isLensList, load, loadConfig, NAME } from "./config";
 import { isFile, thewayHome } from "./io";
-import { invalidSegments } from "./path";
+import { projectDir as projectOf, resolveKey } from "./project";
 
 const TYPES = ["implement", "review", "agent", "pr"] as const;
 type StepType = (typeof TYPES)[number];
@@ -52,19 +52,18 @@ type Lens = { name: string; path: string };
 type Step = { step: StepType } & Record<string, unknown>;
 type Workflow = { name: string; file: string; steps: Step[] };
 
-/** The home, the project and whether the project has its own `workflows/` and `lenses/` (not for a shared name). */
-type Dirs = { home: string; project: string; own: boolean };
+/** The home and the project key. */
+type Dirs = { home: string; key: string };
 
-const projectDir = (d: Dirs, kind: "workflows" | "lenses") => join(d.home, d.project, kind);
+const projectDir = (d: Dirs, kind: "workflows" | "lenses") => join(projectOf(d.home, d.key), kind);
 const globalDir = (d: Dirs, kind: "workflows" | "lenses") => join(d.home, kind);
-/** The folders searched for `kind`, for an error line: the global one alone when the project folder is not read. */
-const searched = (d: Dirs, kind: "workflows" | "lenses") =>
-  d.own ? `${projectDir(d, kind)} or ${globalDir(d, kind)}` : globalDir(d, kind);
+/** The folders searched for `kind`, for an error line. */
+const searched = (d: Dirs, kind: "workflows" | "lenses") => `${projectDir(d, kind)} or ${globalDir(d, kind)}`;
 
 /** The lens file of `lens`: the project one if it is a file, else the global one, else `null`. */
 function lensPath(d: Dirs, lens: string): string | null {
   const own = join(projectDir(d, "lenses"), `${lens}.md`);
-  if (d.own && isFile(own)) return own;
+  if (isFile(own)) return own;
   const global = join(globalDir(d, "lenses"), `${lens}.md`);
   return isFile(global) ? global : null;
 }
@@ -183,7 +182,7 @@ function defaultOf(d: Dirs, paths: string[], defaults: Config): { workflow: Work
 function byName(d: Dirs, wanted: string, defaults: Config): { workflow: Workflow } | { error: string } {
   const own = join(projectDir(d, "workflows"), `${wanted}.yaml`);
   const global = join(globalDir(d, "workflows"), `${wanted}.yaml`);
-  const path = d.own && isFile(own) ? own : isFile(global) ? global : null;
+  const path = isFile(own) ? own : isFile(global) ? global : null;
   if (path === null) {
     return { error: `theway: no workflow '${wanted}' in ${searched(d, "workflows")}` };
   }
@@ -192,7 +191,7 @@ function byName(d: Dirs, wanted: string, defaults: Config): { workflow: Workflow
 
 /** The workflow a run without `<name>` uses: the project's `default: true` file, else the global one, else `develop`. */
 function byDefault(d: Dirs, defaults: Config): { workflow: Workflow } | { error: string } {
-  const ownNames = d.own ? scan(d, projectDir(d, "workflows")) : [];
+  const ownNames = scan(d, projectDir(d, "workflows"));
   const own = defaultOf(
     d,
     ownNames.map((n) => join(projectDir(d, "workflows"), n)),
@@ -209,19 +208,20 @@ function byDefault(d: Dirs, defaults: Config): { workflow: Workflow } | { error:
   return byName(d, "develop", defaults);
 }
 
-/** `theway workflow <project> [<name>]`: one workflow, resolved, validated and with every field filled, as JSON. */
-export function cmdWorkflow(project: string, wanted: string | undefined): number {
-  if (invalidSegments([["project", project]])) return 1;
+/** `theway workflow [<name>] [--project <key>]`: one workflow, resolved, validated and with every field filled, as JSON. */
+export function cmdWorkflow(wanted: string | undefined, override: string | undefined): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
   if (wanted !== undefined && !NAME.test(wanted)) {
     const shown = wanted.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
     process.stderr.write(`theway: invalid workflow name '${shown}'\n`);
     return 1;
   }
   const home = thewayHome();
-  const loaded = loadConfig(home, project);
+  const loaded = loadConfig(home, key);
   if (loaded === null) return 1;
   const defaults = (loaded.config.workflow as Config).defaults as Config;
-  const d: Dirs = { home, project, own: !isShared(project) };
+  const d: Dirs = { home, key };
   const result = wanted === undefined ? byDefault(d, defaults) : byName(d, wanted, defaults);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
@@ -234,8 +234,8 @@ export function cmdWorkflow(project: string, wanted: string | undefined): number
       process.stderr.write(`theway: ${global} not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
       return 1;
     }
-    const own = join(home, project, "standards", file);
-    conventions.push(d.own && isFile(own) ? own : global);
+    const own = join(projectOf(home, key), "standards", file);
+    conventions.push(isFile(own) ? own : global);
   }
   const { name, file, steps } = result.workflow;
   const doc = { name, file, commits: conventions[0], git_host: conventions[1], steps };

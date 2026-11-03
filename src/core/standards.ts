@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { effectiveConfig, enabled, type Loaded } from "./config";
 import { thewayHome } from "./io";
-import { invalidSegments } from "./path";
+import { resolveKey } from "./project";
 
 const PHASES = ["engineering", "develop", "document"] as const;
 export type Phase = (typeof PHASES)[number];
@@ -80,12 +80,13 @@ export function selectStandards(loaded: Loaded, phase: Phase): string[] {
     .map((s) => s.path);
 }
 
-/** `theway standards <project> <engineering|develop|document>`: the paths `selectStandards` gives, one per line. */
-export function cmdStandards(project: string, phase: string): number {
-  if (invalidSegments([["project", project]])) return 1;
+/** `theway standards <engineering|develop|document> [--project <key>]`: the paths `selectStandards` gives, one per line. */
+export function cmdStandards(phase: string, override: string | undefined): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
   if (!checkPhase(phase)) return 1;
 
-  const result = effectiveConfig(thewayHome(), project, false);
+  const result = effectiveConfig(thewayHome(), key, false);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return 1;

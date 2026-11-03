@@ -6,11 +6,11 @@ allowed-tools: Bash(theway:*)
 
 # TheWay: Workflow
 
-Run each change through one workflow: an ordered list of steps (`implement`, `review`, `agent`, `pr`) that `theway workflow` resolves from `<home>/<project>/workflows/` or `<home>/workflows/`. The default workflow, the shipped `develop`, runs one `implement` step inline, in this session; steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`, and steps with `agents: false` run inline.
+Run each change through one workflow: an ordered list of steps (`implement`, `review`, `agent`, `pr`) that `theway workflow` resolves from `<home>/projects/<key>/workflows/` or `<home>/workflows/`. The default workflow, the shipped `develop`, runs one `implement` step inline, in this session; steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`, and steps with `agents: false` run inline.
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 - If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
@@ -39,12 +39,12 @@ Run Step 1's first part once per run, then Steps 1-5 once per change ID, in orde
 ### Step 1: Load Context
 
 Once per run:
-- Run `theway workflow <project>`, or `theway workflow <project> <name>` with `--workflow <name>`. It prints the resolved workflow as JSON: its `name`, its `file`, `commits` and `git_host`, and its `steps`, every field filled, each step with its effective `agents` (`agents: false` runs it inline). On exit 1, quote its error line and stop: no change starts.
+- Run `theway workflow`, or `theway workflow <name>` with `--workflow <name>`. It prints the resolved workflow as JSON: its `name`, its `file`, `commits` and `git_host`, and its `steps`, every field filled, each step with its effective `agents` (`agents: false` runs it inline). On exit 1, quote its error line and stop: no change starts.
 - Read the files at its `commits` and `git_host` paths, `commits.md` and `git-host.md` (your project's own copy when it has one): `commits.md` says how the feature branch, the commits and the PR are named, `git-host.md` gives the command of each git host operation by its heading. Pass both paths to every Workflow call (Step 3) and follow both in every step you do yourself.
 - When the workflow is a single inline `implement` step and more than one change ID was given, stop before any work and say: `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
 - Run `theway authority`: its output is the `## Authority` section of `<home>/standards/interaction.md`, which every agent of the run gets verbatim.
 
-Run `theway context <project> develop <change-id>` for each change and use its `change_dir` as `<change-dir>`. Then read these exact paths directly — do not search the filesystem to locate them:
+Run `theway context develop <change-id>` for each change and use its `change_dir` as `<change-dir>`. Then read these exact paths directly — do not search the filesystem to locate them:
 - `<home>/standards/develop.md` - How a change is implemented and verified (you follow it for an inline `implement`; the implementer agent gets it otherwise)
 - `<home>/standards/spec-review.md` - The triage verdicts of the review
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria

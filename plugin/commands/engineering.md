@@ -8,13 +8,13 @@ allowed-tools: Bash(theway:*)
 
 > **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. With `--light`, a short spec: the problem, the evidence, the change file by file, and 1 to 3 tasks. The code is written later, by `/theway:workflow`, from that spec.
 >
-> Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
+> Write only under `<change-dir>`, the change folder `theway path <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >
 > Do **not** suggest entering plan mode — its approval step is a "start coding" trigger that collapses scaffolding into implementation.
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 - If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
@@ -41,7 +41,7 @@ Every step below states the full rule; a **With `--light`:** paragraph replaces 
 
 ### Step 1: Load Config and Standards
 
-Run `theway context <project> engineering`. Read these files from `<home>`:
+Run `theway context engineering`. Read these files from `<home>`:
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
 Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
@@ -60,15 +60,15 @@ A `fix-` change fixes a bug: Steps 3, 4 and 6 (with `--light`: Steps 3 and 4) ha
 
 - **Trigger:** the request is a series when the user asks for a series, for multiple sequential changes, or to "split into N changes", or when the argument passed already ends in `-NN`. In series mode the `<series-id>` is the argument without a trailing `-NN`, not a change ID.
 - **Pattern:** every member is `<series-id>-NN` — a shared verb-prefixed kebab-case `<series-id>` (same `add-`/`update-`/`refactor-`/`remove-`/`fix-` rule) plus a zero-padded two-digit ordinal. The member IDs are exactly the ones `theway next-id` prints: from `01` for a new series, after the highest existing ordinal otherwise.
-- **Member IDs:** run `theway next-id <project> <series-id> --count <N>`, with `<N>` the number of members, and assign the IDs it prints in dependency order; never rename or renumber existing folders. On `invalid change id '…'`, fix the series ID from the reason and run it again; on `would go past -99`, stop and report it.
+- **Member IDs:** run `theway next-id <series-id> --count <N>`, with `<N>` the number of members, and assign the IDs it prints in dependency order; never rename or renumber existing folders. On `invalid change id '…'`, fix the series ID from the reason and run it again; on `would go past -99`, stop and report it.
 - **Forbidden:** topic-word suffixes (`add-user-auth-login`), and mixing standalone and series IDs in one series.
 - **Example:** `add-user-auth-01`, `add-user-auth-02`, `add-user-auth-03`.
 
 **Validate the ID before writing:** run `theway validate-id <change-id>` for a standalone change (`next-id` already validated a series' IDs), and fix the ID from the reason it prints until it exits 0, before writing any change folder.
 
-**Locate the change folder:** once an ID is valid, run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>` for that change (one per member in a series). Every file of the change is written there.
+**Locate the change folder:** once an ID is valid, run `theway path <change-id>` and use the folder it prints as `<change-dir>` for that change (one per member in a series). Every file of the change is written there.
 
-**With `--light`:** When the request names a change ID, use it. There is no series naming. **Validate the ID before writing:** run `theway validate-id <change-id>`, never with `--series` (a light change is never a series member), and fix the ID from the reason it prints until it exits 0, before writing any change folder. **Locate the change folder:** once the ID is valid, run `theway path <project> <change-id>` and use the folder it prints as `<change-dir>`. Every file of the change is written there.
+**With `--light`:** When the request names a change ID, use it. There is no series naming. **Validate the ID before writing:** run `theway validate-id <change-id>`, never with `--series` (a light change is never a series member), and fix the ID from the reason it prints until it exits 0, before writing any change folder. **Locate the change folder:** once the ID is valid, run `theway path <change-id>` and use the folder it prints as `<change-dir>`. Every file of the change is written there.
 
 ### Step 3: Investigate
 

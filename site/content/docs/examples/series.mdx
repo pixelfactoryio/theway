@@ -16,7 +16,7 @@ This is an illustrative run on the sample project `my-api`. It adds user authent
 The request asks for a series, so `add-user-auth` is the series ID. The command asked the CLI for three member IDs, on a home with no `add-user-auth` folder yet:
 
 ```text
-$ theway next-id my-api add-user-auth --count 3
+$ theway next-id add-user-auth --count 3
 add-user-auth-01
 add-user-auth-02
 add-user-auth-03
@@ -53,9 +53,9 @@ One review round covered the three members together. The report:
 
 ```text
 Change folders:
-  <home>/my-api/changes/add-user-auth-01/
-  <home>/my-api/changes/add-user-auth-02/
-  <home>/my-api/changes/add-user-auth-03/
+  <home>/projects/-home-you-code-my-api/changes/add-user-auth-01/
+  <home>/projects/-home-you-code-my-api/changes/add-user-auth-02/
+  <home>/projects/-home-you-code-my-api/changes/add-user-auth-03/
 Findings: no sessions exist today; settings are constants passed to createApp; no dependencies.
 Standards read: none.
 Open questions: none.
@@ -94,8 +94,8 @@ On `yes`, it squash-merged PR #13, synced `main`, and created `add-user-auth-02`
 The orchestrator ticked every task, so each member's `tasks.md` shows its three tasks done:
 
 ```text
-$ theway list my-api
-theway changes — my-api
+$ theway list
+theway changes — -home-you-code-my-api
 
 Active changes
 

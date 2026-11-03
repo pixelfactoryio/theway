@@ -20,19 +20,19 @@ On `my-api`, once the [full change example](../examples/full-change.mdx)'s chang
 ```
 
 ```text
-Archived: <home>/my-api/changes/archive/YYYY-MM-DD-add-rate-limiting
+Archived: <home>/projects/-home-you-code-my-api/changes/archive/YYYY-MM-DD-add-rate-limiting
 ```
 
 ## Steps
 
 1. **Require an explicit instruction.** Archiving moves the folder, so it runs only when you name the change and say to archive it. Signals such as "it's merged" or "ship it" are not enough: it stops and asks.
-2. **Verify completion.** It runs `theway list <project>` and shows the task count. If the change is not at `N/N tasks done`, it shows the open numbered tasks and asks you to fix them or accept an override.
+2. **Verify completion.** It runs `theway list` and shows the task count. If the change is not at `N/N tasks done`, it shows the open numbered tasks and asks you to fix them or accept an override.
 3. **Move to the archive:**
 
    ```bash
-   theway archive <project> <change-id>
+   theway archive <change-id>
    # only when you accept the remaining open numbered tasks:
-   theway archive <project> <change-id> --force
+   theway archive <change-id> --force
    ```
 
    The CLI also refuses while a numbered task is open, unless `--force` is given.
@@ -43,7 +43,7 @@ Archived: <home>/my-api/changes/archive/YYYY-MM-DD-add-rate-limiting
 The whole change folder (`spec.md`, `tasks.md`, `design.md` and any other file) moves to:
 
 ```text
-<home>/<project>/changes/archive/YYYY-MM-DD-<change-id>/
+<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>/
 ```
 
 `<home>` is the folder `theway path` prints, `~/.theway` by default.

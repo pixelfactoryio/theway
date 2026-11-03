@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { isDir, thewayHome } from "./io";
-import { invalidSegments } from "./path";
+import { projectDir, resolveKey } from "./project";
 import { formatReason } from "./validate-id";
 
 /** The names of the directories directly in `dir`; none when it is missing. */
@@ -23,11 +23,12 @@ function seriesIdReason(id: string): string {
 }
 
 /**
- * `theway next-id <project> <series-id> [--count <n>]`: the next `count` free member ids of a series, one per line,
+ * `theway next-id <series-id> [--count <n>] [--project <key>]`: the next `count` free member ids of a series, one per line,
  * after the highest ordinal among the active (`changes/<series-id>-NN`) and archived (`changes/archive/YYYY-MM-DD-<series-id>-NN`) members.
  */
-export function cmdNextId(project: string, seriesId: string, count: number): number {
-  if (invalidSegments([["project", project]])) return 1;
+export function cmdNextId(seriesId: string, count: number, override: string | undefined): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
   const rest = seriesId.replace(/-[0-9]{2}$/, "");
   const reason = seriesIdReason(rest);
   if (reason !== "") {
@@ -36,7 +37,7 @@ export function cmdNextId(project: string, seriesId: string, count: number): num
     return 1;
   }
 
-  const changes = join(thewayHome(), project, "changes");
+  const changes = join(projectDir(thewayHome(), key), "changes");
   const active = new RegExp(`^${rest}-([0-9]{2})$`);
   const archived = new RegExp(`^[0-9]{4}-[0-9]{2}-[0-9]{2}-${rest}-([0-9]{2})$`);
   let max = 0;

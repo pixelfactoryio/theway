@@ -31,7 +31,7 @@ The bypass and the route both compare `req.url` to `"/health"` exactly, so the q
 
 ## The spec
 
-`<home>/my-api/changes/fix-health-query-limited/spec.md`:
+`<home>/projects/-home-you-code-my-api/changes/fix-health-query-limited/spec.md`:
 
 ````md
 # Spec Analysis: Exempt /health with a query string from the rate limit
@@ -94,7 +94,7 @@ And `tasks.md`, with no phases:
 The command's report ends with the review outcome:
 
 ```text
-Change folder: <home>/my-api/changes/fix-health-query-limited/
+Change folder: <home>/projects/-home-you-code-my-api/changes/fix-health-query-limited/
 Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
 Standards read: none.
 

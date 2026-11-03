@@ -19,7 +19,7 @@ Every full spec (`/theway:engineering`) includes a [TAMM](./concepts/tamm.mdx) h
 
 theway keeps its files in a data home, `~/.theway` by default, or the folder chosen at install (the install question or `--home`), or `THEWAY_HOME` (see [Installation](./installation.mdx#other-locations)). The config is `<home>/config.yaml`.
 
-Each change is a folder under `<home>/<project>/changes/`, where `<project>` is the name of your project directory. The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
+Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is your repository's path with every non-alphanumeric character turned into `-` (`/home/you/code/my-api` gives `-home-you-code-my-api`). The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
 
 ## Next steps
 

@@ -169,12 +169,12 @@ test("install with a custom home writes the pointer, leaves no ~/.theway and nam
   expect(existsSync(join(env.home, ".theway"))).toBe(false);
   expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`]);
 
-  put(join(env.theway, "proj", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] 2. b\n");
+  put(join(env.theway, "projects", "proj", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] 2. b\n");
   const path = runInstalled(env, "path", "--verbose");
   expect(path.stdout).toBe(`${env.theway}\n`);
   expect(path.stderr).toBe(`theway: home ${env.theway} (from pointer)\n`);
-  expect(runInstalled(env, "path", "proj", "add-x").stdout).toBe(`${join(env.theway, "proj", "changes", "add-x")}\n`);
-  expect(runInstalled(env, "list", "proj").stdout).toContain("add-x                1 files   1/2 tasks done");
+  expect(runInstalled(env, "path", "--project", "proj", "add-x").stdout).toBe(`${join(env.theway, "projects", "proj", "changes", "add-x")}\n`);
+  expect(runInstalled(env, "list", "--project", "proj").stdout).toContain("add-x                1 files   1/2 tasks done");
   expect(existsSync(join(env.home, ".theway"))).toBe(false);
 });
 
@@ -322,7 +322,7 @@ test("install over a 0.2.0 default home removes the old launcher and rule and ke
   const env = setup({ defaultHome: true });
   putLegacyBin(env.theway);
   put(join(env.theway, "config.yaml"), "# sentinel: keep me\n");
-  put(join(env.theway, "proj", "changes", "add-x", "spec.md"), "# x\n");
+  put(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"), "# x\n");
   put(
     join(env.claude, "settings.json"),
     JSON.stringify({ permissions: { allow: ["Bash(ls:*)", "Read(~/.theway/**)", "Bash(~/.theway/bin/theway:*)"] } }),
@@ -330,7 +330,7 @@ test("install over a 0.2.0 default home removes the old launcher and rule and ke
   expect(run(env, "install").status).toBe(0);
   expect(existsSync(join(env.theway, "bin"))).toBe(false);
   expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe("# sentinel: keep me\n");
-  expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
+  expect(existsSync(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"))).toBe(true);
   expect(allow(env)).toEqual(["Bash(ls:*)", "Read(~/.theway/**)", "Bash(theway:*)"]);
 });
 
@@ -344,7 +344,7 @@ for (const [label, name] of [
     env.thewayHome = env.theway;
     putLegacyBin(env.theway);
     put(join(env.theway, "bin", "mine.sh"), "# keep\n");
-    put(join(env.theway, "proj", "changes", "add-x", "spec.md"), "# x\n");
+    put(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"), "# x\n");
     put(
       join(env.claude, "settings.json"),
       JSON.stringify({ permissions: { allow: [`Read(/${env.theway}/**)`, `Bash(${env.theway}/bin/theway:*)`] } }),
@@ -353,7 +353,7 @@ for (const [label, name] of [
     expect(existsSync(join(env.theway, "bin", "theway"))).toBe(false);
     expect(existsSync(join(env.theway, "bin", "theway.js"))).toBe(false);
     expect(existsSync(join(env.theway, "bin", "mine.sh"))).toBe(true);
-    expect(existsSync(join(env.theway, "proj", "changes", "add-x", "spec.md"))).toBe(true);
+    expect(existsSync(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"))).toBe(true);
     expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)"]);
   });
 }
@@ -651,7 +651,7 @@ test("install into a fresh home writes every shipped file and a manifest of thei
 test("install writes commits.md and git-host.md, keeps an edited one with its .default.md, and theway workflow resolves them", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const workflow = () => spawnSync("node", [CLI, "workflow", "theway", "agents"], { encoding: "utf-8", env: vars(env) });
+  const workflow = () => spawnSync("node", [CLI, "workflow", "--project", "theway", "agents"], { encoding: "utf-8", env: vars(env) });
   const doc = JSON.parse(workflow().stdout);
   expect([doc.commits, doc.git_host]).toEqual([join(env.theway, "standards", "commits.md"), join(env.theway, "standards", "git-host.md")]);
   put(join(env.theway, "standards", "git-host.md"), "# GitLab\n");
