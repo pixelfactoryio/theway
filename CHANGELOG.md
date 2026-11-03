@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.14.0](https://github.com/pixelfactoryio/theway/compare/v0.13.0...v0.14.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* move project files to a projects folder keyed by repository path ([#64](https://github.com/pixelfactoryio/theway/issues/64))
+* fold engineering-light into engineering as --light ([#62](https://github.com/pixelfactoryio/theway/issues/62))
+
+### Features
+
+* fold engineering-light into engineering as --light ([#62](https://github.com/pixelfactoryio/theway/issues/62)) ([fcdad8f](https://github.com/pixelfactoryio/theway/commit/fcdad8f199f8a9adada7c3d7d52d27363c2c3c45))
+* move project files to a projects folder keyed by repository path ([#64](https://github.com/pixelfactoryio/theway/issues/64)) ([b1e9fa0](https://github.com/pixelfactoryio/theway/commit/b1e9fa0bf8bdcd12fddc1fd40087ec9d9c24abf0))
+
+
+### Bug Fixes
+
+* show only the phases a run uses in the pipeline progress ([#65](https://github.com/pixelfactoryio/theway/issues/65)) ([351b40a](https://github.com/pixelfactoryio/theway/commit/351b40acb8d3926281113781d3269067643b4ad9))
+
 ## [0.13.0](https://github.com/pixelfactoryio/theway/compare/v0.12.0...v0.13.0) (2026-11-03)
 
 
