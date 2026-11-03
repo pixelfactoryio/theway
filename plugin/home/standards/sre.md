@@ -1,4 +1,4 @@
-# SRE-EE Operational Excellence
+# SRE Operational Excellence
 
 - Reliability First - Design stable, resilient systems
 - Observability - Make systems transparent and measurable
@@ -8,6 +8,6 @@
 
 ## Applying
 
-- `/theway:document`: write `coding-standards.md` and `tech-stack.md` following SRE-EE operational excellence principles
+- `/theway:document`: write `coding-standards.md` and `tech-stack.md` following SRE operational excellence principles
 
 Apply these pragmatically based on project context.
