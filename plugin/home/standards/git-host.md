@@ -1,4 +1,4 @@
-# TheWay Git Host
+# theway Git Host
 
 The commands `/theway:workflow` and its agents run for each git host operation, here for GitHub through the `gh` CLI. Edit it, or replace it for one project with `<home>/projects/<key>/standards/git-host.md`, to use another host: keep the headings, which the command and its agents name, and change the commands under them.
 

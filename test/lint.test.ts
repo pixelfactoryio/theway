@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { buildProgram } from "../src/program";
@@ -72,6 +73,14 @@ test("no file in plugin/ names ~/.theway", () => {
   expect(offending).toEqual([]);
 });
 
+test("no tracked .md or .mdx file capitalizes the name theway", () => {
+  const tracked = execFileSync("git", ["ls-files", "*.md", "*.mdx"], { cwd: REPO, encoding: "utf-8" })
+    .split("\n")
+    .filter(Boolean);
+  expect(tracked.length).toBeGreaterThan(0);
+  expect(tracked.filter((f) => /The[Ww]ay/.test(read(join(REPO, f))))).toEqual([]);
+});
+
 test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () => {
   const calling = commands.filter((f) => calls(read(join(COMMANDS, f))).length > 0);
   expect(calling.length).toBeGreaterThan(0);
@@ -87,7 +96,7 @@ test("every command that reads theway data has the same Locate the home step", (
     "error: unknown command",
     "`theway: warning:`",
     "`<home>/standards/` or `<home>/templates/`",
-    "TheWay files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.",
+    "theway files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.",
   ]) {
     expect(reference).toContain(marker);
   }

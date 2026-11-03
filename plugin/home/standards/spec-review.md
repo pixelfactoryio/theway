@@ -1,4 +1,4 @@
-# TheWay Spec Review
+# theway Spec Review
 
 How a change's spec is reviewed before it is reported ready: `/theway:engineering` follows this, with or without `--light`. The command sets how many rounds run, which lenses run, and what a confirmed `decision` finding means.
 

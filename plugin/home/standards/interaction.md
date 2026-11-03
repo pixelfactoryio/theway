@@ -1,6 +1,6 @@
-# TheWay Interaction Conventions
+# theway Interaction Conventions
 
-Cross-cutting behavior for all TheWay commands. Load and apply these in every mode.
+Cross-cutting behavior for all theway commands. Load and apply these in every mode.
 
 ## Exploration
 
@@ -9,7 +9,7 @@ Cross-cutting behavior for all TheWay commands. Load and apply these in every mo
 
 ## Reporting
 
-- Never narrate TheWay mode or which command to run next (e.g. "staying read-only", "no repo files touched", "run /theway:workflow to implement"), unless the command tells you to name one. Staying in the current mode is the default, not news.
+- Never narrate theway mode or which command to run next (e.g. "staying read-only", "no repo files touched", "run /theway:workflow to implement"), unless the command tells you to name one. Staying in the current mode is the default, not news.
 - Report only spec/tasks/implementation progress and what is actionable.
 
 ## Authority

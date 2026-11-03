@@ -1,4 +1,4 @@
-# TheWay Spec Investigation
+# theway Spec Investigation
 
 How a change is investigated before its spec is drafted: `/theway:engineering` follows this in its Investigate step, with or without `--light`. The command says what happens to a question this cannot settle, and which section of the spec the findings and the reproduction go to.
 
