@@ -1,5 +1,5 @@
 # theway configuration
-# A project can override any key in <home>/<project>/config.yaml; theway config <project> prints the result.
+# A project can override any key in <home>/projects/<key>/config.yaml; theway config prints the result.
 
 # Standards: standards.<key>.enabled switches any standard, key = file stem with - as _ (shipped opt-in ones default false, your own standards true)
 standards:
@@ -36,7 +36,7 @@ workflow:
     review:
       # Maximum review rounds; leave the review step out of a workflow to skip the review
       rounds: 1
-      # One reviewer per lens, from <home>/<project>/lenses/<name>.md or <home>/lenses/<name>.md
+      # One reviewer per lens, from <home>/projects/<key>/lenses/<name>.md or <home>/lenses/<name>.md
       lenses: [conformance, correctness]
       # The reviewers, the triage agent and the fix check
       model: opus

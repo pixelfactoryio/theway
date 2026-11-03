@@ -10,7 +10,7 @@ Archive a completed spec by moving it to the archive folder with a timestamp.
 
 ## Locate the home
 
-Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files are stored in `<home>/<project>/`, where `<project>` is the current directory name.
+Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: TheWay files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 - If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
@@ -27,14 +27,14 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 
 ### 2. Verify Completion
 
-Run `theway list <project>` and show the task count before archiving. If the change is not at `N/N tasks done`, list its open numbered tasks and ask the user to fix them or accept them. Do not proceed on your own.
+Run `theway list` and show the task count before archiving. If the change is not at `N/N tasks done`, list its open numbered tasks and ask the user to fix them or accept them. Do not proceed on your own.
 
 ### 3. Move to Archive
 
 ```bash
-theway archive <project> <change-id>
+theway archive <change-id>
 # only if the user explicitly accepts remaining open numbered tasks:
-theway archive <project> <change-id> --force
+theway archive <change-id> --force
 ```
 
 When `theway archive` refuses because numbered tasks are open, list them and ask as in Step 2; use `--force` only on the user's explicit acceptance.

@@ -4,7 +4,7 @@ export const meta = {
   phases: [{ title: 'Implement' }, { title: 'Review' }, { title: 'Agent' }, { title: 'PR' }],
 }
 
-// run-pipeline is started by /theway:workflow with its args: the resolved workflow (theway workflow <project>), the
+// run-pipeline is started by /theway:workflow with its args: the resolved workflow (theway workflow), the
 // change's paths, the commits and git host standards, and the segment to run: steps (consecutive indices of
 // agents: true steps) and head (null when the segment starts at implement, else the branch head the inline steps before
 // it left). The rules every agent gets and the outcomes are fixed here: no workflow field changes them. How commits,

@@ -8,7 +8,7 @@ How a change is implemented, whoever implements it: the session follows this for
 
 ## Stay inside this change
 
-Read only this change's folder (`<change-dir>`, the `changes/<change-id>/` folder that `theway path <project> <change-id>` prints). Do not open other change folders or `changes/archive/`: their tasks belong to other changes, and acting on them would put work in this change that its spec does not ask for. If you need something about the system, read the code and the project's docs.
+Read only this change's folder (`<change-dir>`, the `changes/<change-id>/` folder that `theway path <change-id>` prints). Do not open other change folders or `changes/archive/`: their tasks belong to other changes, and acting on them would put work in this change that its spec does not ask for. If you need something about the system, read the code and the project's docs.
 
 Of the change folders, write only to `<change-dir>`: never to other change folders or `changes/archive/`.
 
