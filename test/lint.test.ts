@@ -508,15 +508,16 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
 });
 
 
-test("run-pipeline.js is a plugin workflow that compiles, with its four phases and its fixed rules and outcomes", async () => {
+test("run-pipeline.js is a plugin workflow that compiles, with its fixed rules and outcomes", async () => {
   const text = read(PIPELINE);
   expect(readdirSync(join(PLUGIN, "workflows"))).toEqual(["run-pipeline.js"]);
   expect(text).toStartWith("export const meta = {");
   expect(text).toContain("name: 'run-pipeline'");
   for (const title of ["Implement", "Review", "Agent", "PR"]) {
-    expect(text).toContain(`title: '${title}'`);
+    expect(text).toContain(`phase('${title}')`);
     expect(text).toContain(`phase: '${title}'`);
   }
+  expect(text).not.toContain("phases:");
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
   const body = text.slice("export ".length);
   const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
