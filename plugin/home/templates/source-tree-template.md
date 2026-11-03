@@ -54,6 +54,7 @@ Source code organization and structure for {{PROJECT_NAME}}.
 {{DIR_1_DESCRIPTION}}
 
 **Key Files:**
+
 - `{{FILE_1}}` - {{FILE_1_PURPOSE}}
 - `{{FILE_2}}` - {{FILE_2_PURPOSE}}
 
@@ -61,6 +62,7 @@ Source code organization and structure for {{PROJECT_NAME}}.
 {{DIR_2_DESCRIPTION}}
 
 **Key Files:**
+
 - `{{FILE_1}}` - {{FILE_1_PURPOSE}}
 - `{{FILE_2}}` - {{FILE_2_PURPOSE}}
 
@@ -68,6 +70,7 @@ Source code organization and structure for {{PROJECT_NAME}}.
 {{DIR_3_DESCRIPTION}}
 
 **Key Files:**
+
 - `{{FILE_1}}` - {{FILE_1_PURPOSE}}
 - `{{FILE_2}}` - {{FILE_2_PURPOSE}}
 
@@ -76,11 +79,13 @@ Source code organization and structure for {{PROJECT_NAME}}.
 {{MODULE_ORGANIZATION_DESCRIPTION}}
 
 ### {{MODULE_1}}
+
 - **Location:** `{{MODULE_1_PATH}}`
 - **Purpose:** {{MODULE_1_PURPOSE}}
 - **Dependencies:** {{MODULE_1_DEPS}}
 
 ### {{MODULE_2}}
+
 - **Location:** `{{MODULE_2_PATH}}`
 - **Purpose:** {{MODULE_2_PURPOSE}}
 - **Dependencies:** {{MODULE_2_DEPS}}

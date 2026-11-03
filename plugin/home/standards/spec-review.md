@@ -20,6 +20,7 @@ Each lens is one critic agent. No critic sees another's findings.
 ## Critic prompt
 
 Each critic's prompt states:
+
 - its lens and the finding format below;
 - the absolute paths of `<change-dir>` (every member's folder in a series) and of the repository root. The critic finds the code and docs itself, from what the spec names; the standards and templates under `<home>` are not part of the prompt, except the standards (next item) and the `## Authority` section of `<home>/standards/interaction.md`: run `theway authority` and quote its output verbatim;
 - the absolute paths of the standards the command read in Step 1, which the spec must follow;
@@ -52,6 +53,7 @@ If the Agent tool is not available in the session, run the lenses yourself, one 
 ## Report
 
 The review outcome:
+
 - how it ran: the rounds used, off (`rounds: 0`), or inline;
 - every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding:
   - `#` is the round and the triage index, as `R<round>-<index>`, for example `R1-0`;

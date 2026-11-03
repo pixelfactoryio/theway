@@ -47,11 +47,13 @@ best_practices:
 The reproduction is a command that was run, with the output it printed. Reasoning about the code is not a reproduction.
 
 **Command:**
+
 ```bash
 [the exact command, run from the repository root or a `mktemp -d` directory]
 ```
 
 **Observed output:**
+
 ```text
 [the output it printed, quoted]
 ```
@@ -76,11 +78,13 @@ The reproduction is a command that was run, with the output it printed. Reasonin
 ## Scope
 
 **In Scope:**
+
 - [The fix]
 - [The regression test]
 - [Other symptoms of the same cause, if any]
 
 **Out of Scope:**
+
 - [What will not be included]
 - [Related bugs with a different cause]
 
@@ -96,6 +100,7 @@ The reproduction is a command that was run, with the output it printed. Reasonin
 | Machine (M) | Med/High | [How this limitation constrains the solution] | 1. [Countermeasure]<br>2. [Countermeasure] |
 
 **TAMM Legend:**
+
 - **Time**: Timeline constraints, dependencies, blocking risks
 - **Autonomy**: Decision authority, organizational constraints, approval needs
 - **Mastery**: Skill gaps, knowledge requirements, learning curves
@@ -106,6 +111,7 @@ The reproduction is a command that was run, with the output it printed. Reasonin
 Task 1 of `tasks.md` writes the regression test; the fix follows. Re-running the reproduction is part of Verify, not a task.
 
 **Success Criteria:**
+
 - [ ] The regression test `[test name]` fails on the base commit for the reason in Root Cause, and passes with the fix
 - [ ] The reproduction no longer reproduces: `[reproduction command]` now shows [expected result]
 - [ ] [Criterion 3]

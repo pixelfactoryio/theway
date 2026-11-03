@@ -11,6 +11,7 @@ Run each change through one workflow: an ordered list of steps (`implement`, `re
 ## Locate the home
 
 Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: theway files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.
+
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 - If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
@@ -39,12 +40,14 @@ Run Step 1's first part once per run, then Steps 1-5 once per change ID, in orde
 ### Step 1: Load Context
 
 Once per run:
+
 - Run `theway workflow`, or `theway workflow <name>` with `--workflow <name>`. It prints the resolved workflow as JSON: its `name`, its `file`, `commits` and `git_host`, and its `steps`, every field filled, each step with its effective `agents` (`agents: false` runs it inline). On exit 1, quote its error line and stop: no change starts.
 - Read the files at its `commits` and `git_host` paths, `commits.md` and `git-host.md` (your project's own copy when it has one): `commits.md` says how the feature branch, the commits and the PR are named, `git-host.md` gives the command of each git host operation by its heading. Pass both paths to every Workflow call (Step 3) and follow both in every step you do yourself.
 - When the workflow is a single inline `implement` step and more than one change ID was given, stop before any work and say: `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
 - Run `theway authority`: its output is the `## Authority` section of `<home>/standards/interaction.md`, which every agent of the run gets verbatim.
 
 Run `theway context develop <change-id>` for each change and use its `change_dir` as `<change-dir>`. Then read these exact paths directly — do not search the filesystem to locate them:
+
 - `<home>/standards/develop.md` - How a change is implemented and verified (you follow it for an inline `implement`; the implementer agent gets it otherwise)
 - `<home>/standards/spec-review.md` - The triage verdicts of the review
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria
@@ -86,6 +89,7 @@ The script runs the segment's steps and returns `{ status, error, implementation
 - **When the Workflow call returns an error and no result:** the change is `failed`, with that error quoted. There is no fallback then, since agents may already have committed.
 
 **Inline step.** Do the step yourself under the rules the script gives that step's agents (read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` for them): the Authority rules, the change files under `<change-dir>` are read-only except what Step 4 records and, during an inline `implement`, the `spec.md` and `tasks.md` updates `develop.md` asks for once a decision is taken, commits only on the feature branch, never force-push, never push the default branch, never merge.
+
 - **`implement`:** follow `<home>/standards/develop.md`, including its update of `spec.md` (the decision and why) and `tasks.md` once a decision you brought back is taken; agent steps keep the change files read-only. When steps follow it, commit on the feature branch as `commits.md` says. When it is the only step, commit nothing (Step 2 was skipped). On a spec that does not fit the code, the change is `blocked`, with the blocker and its options.
 - **`review`:** up to `rounds` rounds. Per round, review `git diff <base>...<branch>` yourself through each lens, one after the other (read its `path` and follow it, and check the diff against every standard), then give each finding one of the five verdicts of `<home>/standards/spec-review.md`'s Triage step 1 (`confirmed`, `false_positive`, `duplicate`, `nit`, `out_of_scope`). No confirmed finding ends the step. Otherwise fix the confirmed findings and commit as `commits.md` says (for a `fix-` change whose fixes touch the regression test or the fix, re-run the regression check of `develop.md`), then check your fixes from the round's start head: a confirmed finding not resolved makes the change `failed`. The report says "review ran inline": an inline review is the session checking its own work.
 - **`agent`:** carry out the step's `prompt` under the rules above; you may commit on the feature branch, as `commits.md` says; you do not push. When you cannot carry it out under those rules, the change is `failed`.

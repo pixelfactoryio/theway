@@ -34,11 +34,13 @@ best_practices:
 For a `fix-` change, the reproduction. Reasoning about the code is not a reproduction.
 
 **Command:**
+
 ```bash
 [the exact command, run from the repository root or a `mktemp -d` directory]
 ```
 
 **Observed output:**
+
 ```text
 [the output it printed, quoted]
 ```
