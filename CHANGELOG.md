@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.13.0](https://github.com/pixelfactoryio/theway/compare/v0.12.0...v0.13.0) (2026-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* compose workflows in yaml, inline or through agents ([#60](https://github.com/pixelfactoryio/theway/issues/60))
+
+### Features
+
+* compose workflows in yaml, inline or through agents ([#60](https://github.com/pixelfactoryio/theway/issues/60)) ([d4824f4](https://github.com/pixelfactoryio/theway/commit/d4824f43c0caa0a820dca1637dd587c492ddfe17))
+
 ## [0.12.0](https://github.com/pixelfactoryio/theway/compare/v0.11.0...v0.12.0) (2026-11-02)
 
 
