@@ -117,9 +117,9 @@ const steps: Step[] = [
         type: 'session',
         entries: [
           { kind: 'prompt', text: '/theway:workflow --workflow agents add-rate-limit' },
-          { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'committed on add/rate-limit' },
-          { kind: 'tool', name: 'Agent', args: 'review add/rate-limit', result: '2 findings, 2 confirmed' },
-          { kind: 'tool', name: 'Agent', args: 'fix add/rate-limit', result: '2 resolved' },
+          { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'committed on add-rate-limit' },
+          { kind: 'tool', name: 'Agent', args: 'review add-rate-limit', result: '2 findings, 2 confirmed' },
+          { kind: 'tool', name: 'Agent', args: 'fix add-rate-limit', result: '2 resolved' },
           { kind: 'tool', name: 'Bash', args: 'gh pr create', result: 'PR #42 opened' },
           { kind: 'tool', name: 'Bash', args: 'gh pr checks 42', result: 'test  pass' },
           { kind: 'message', text: 'PR #42 is ready for you to merge.' },
@@ -466,7 +466,7 @@ export default function HomePage() {
       <Separator />
 
       <Band label="Commands" className="pt-20 md:pt-32">
-        <h2 className={`px-4 pb-12 text-center md:pb-16 ${h2}`}>Seven commands</h2>
+        <h2 className={`px-4 pb-12 text-center md:pb-16 ${h2}`}>Five commands</h2>
         <ul className="grid gap-px border-t bg-fd-border md:grid-cols-3">
           {commands.map((cmd) => (
             <li key={cmd.name} className="bg-fd-background">
