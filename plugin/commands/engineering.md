@@ -134,4 +134,4 @@ When a `fix-` change stopped in Step 3, report the stop as `<home>/standards/spe
 - from Step 3: no change folder was written; the user runs `/theway:engineering` with the original request, without `--light`;
 - from Step 6: the confirmed `decision` findings, and `/theway:engineering <change-id>: <original request>`, which writes over the light files.
 
-Report the review outcome as `<home>/standards/spec-review.md` sets it out. For a confirmed `decision`, its `Fix` column reads `escalated`. This paragraph replaces the open-question sentences of the Exit above and its `open question:` `Fix` rule; the Exit's sentence on the standards read in Step 1 applies with `--light` too.
+Report the review outcome as `<home>/standards/spec-review.md` sets it out. For a confirmed `decision`, its `Fix` column reads `escalated`. This paragraph replaces the full Exit's open-question sentences and its `open question:` `Fix` rule for a light run.
