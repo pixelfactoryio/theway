@@ -327,10 +327,11 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
   }
 });
 
-test("run-pipeline.js takes the commit type from the change verb and the lenses review a fix's root cause", () => {
-  const pipeline = read(PIPELINE);
-  for (const marker of ["{ add: 'feat', fix: 'fix', refactor: 'refactor' }", "BREAKING CHANGE:", "args.base", "type(scope): description"]) {
-    expect(pipeline).toContain(marker);
+test("commits.md sets the commit type from the change verb and the lenses review a fix's root cause", () => {
+  expect(read(PIPELINE)).toContain("args.base");
+  const commits = read(join(STANDARDS, "commits.md"));
+  for (const marker of ["`add-` → `feat`", "type(scope): description", "BREAKING CHANGE:", "`<change-id>`"]) {
+    expect(commits).toContain(marker);
   }
   expect(step(read(join(COMMANDS, "workflow.md")), "Step 3:")).toContain("`<base>` (Step 2)");
   expect(read(join(LENSES, "conformance.md"))).toContain("the Change section");
@@ -511,20 +512,21 @@ test("run-pipeline.js is a plugin workflow that compiles, with its four phases a
   expect(await run(undefined, null, null, null, () => {}, () => {})).toEqual({
     status: "failed",
     error: "run-pipeline is started by /theway:workflow with its args",
-    commitType: null,
     implementation: null,
     steps: [],
     pr: null,
     authorityReports: [],
   });
   for (const marker of [
-    "{ add: 'feat', fix: 'fix', refactor: 'refactor' }",
     "args.authority",
+    "args.commits",
+    "args.gitHost",
+    "never force-push",
+    "never push the default branch",
     "args.standards",
     "status: 'blocked'",
     "status: 'failed'",
     "status: 'succeeded'",
-    "BREAKING CHANGE:",
     "the regression check of develop.md",
     "does not look for new problems",
     "never merge",
@@ -534,7 +536,7 @@ test("run-pipeline.js is a plugin workflow that compiles, with its four phases a
   }
 });
 
-test("run-pipeline.js runs only a segment of consecutive agent steps, with commitType and head set after inline steps", async () => {
+test("run-pipeline.js runs only a segment of consecutive agent steps, with head set after inline steps", async () => {
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
   const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", read(PIPELINE).slice("export ".length));
   const steps = [
@@ -552,6 +554,8 @@ test("run-pipeline.js runs only a segment of consecutive agent steps, with commi
     light: false,
     develop: "/h/standards/develop.md",
     specReview: "/h/standards/spec-review.md",
+    commits: "/h/standards/commits.md",
+    gitHost: "/h/standards/git-host.md",
     standards: [],
     authority: "## Authority",
     workflow: { name: "w", file: "/h/workflows/w.yaml", steps },
@@ -560,34 +564,44 @@ test("run-pipeline.js runs only a segment of consecutive agent steps, with commi
   const exec = (args: Record<string, unknown>) => run(args, none, none, none, () => {}, () => {});
   const error = "run-pipeline is started by /theway:workflow with its args";
   const agentsAt0 = steps.map((s, i) => (i === 0 ? { ...s, agents: true, model: "opus" } : s));
+  const { commits: _, ...noCommits } = base;
+  const { gitHost: __, ...noGitHost } = base;
   const cases: Record<string, unknown>[] = [
-    { ...base, steps: [], commitType: "feat", head: "abc" },
-    { ...base, steps: [1, 3], commitType: "feat", head: "abc" },
-    { ...base, steps: [1, 2], commitType: "feat", head: "abc" },
-    { ...base, steps: [2], commitType: "feat", head: "abc" },
-    { ...base, steps: [1], commitType: null, head: "abc" },
-    { ...base, steps: [1], commitType: "feat", head: null },
-    { ...base, steps: [1], commitType: "feature", head: "abc" },
-    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], commitType: "feat", head: null },
-    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], commitType: null, head: "abc" },
+    { ...base, steps: [], head: "abc" },
+    { ...base, steps: [1, 3], head: "abc" },
+    { ...base, steps: [1, 2], head: "abc" },
+    { ...base, steps: [2], head: "abc" },
+    { ...base, steps: [1], head: null },
+    { ...base, steps: [1], head: "" },
+    { ...base, steps: [1] },
+    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], head: "abc" },
     { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1] },
+    { ...noCommits, steps: [1], head: "abc" },
+    { ...noGitHost, steps: [1], head: "abc" },
+    { ...base, gitHost: null, steps: [1], head: "abc" },
   ];
   for (const args of cases) {
     const res = await exec(args);
-    expect([args.steps, args.commitType, args.head, res.status, res.error]).toEqual([args.steps, args.commitType, args.head, "failed", error]);
+    expect([args, res.status, res.error]).toEqual([args, "failed", error]);
   }
-  const segment = await exec({ ...base, steps: [1], commitType: "feat!", head: "abc" });
+  const segment = await exec({ ...base, steps: [1], head: "abc" });
   expect(segment).toEqual({
     status: "failed",
     error: "agent:notes returned no result",
-    commitType: "feat!",
     implementation: null,
     steps: [{ step: "agent", label: "agent:notes", result: null }],
     pr: null,
     authorityReports: [],
   });
-  const first = await exec({ ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1], commitType: null, head: null });
-  expect([first.status, first.error, first.commitType]).toEqual(["blocked", "implement returned no result", "feat"]);
+  const first = await exec({ ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1], head: null });
+  expect(first).toEqual({
+    status: "blocked",
+    error: "implement returned no result",
+    implementation: null,
+    steps: [],
+    pr: null,
+    authorityReports: [],
+  });
 });
 
 test("workflow.md replaces develop-workflow.md and runs the change through theway:run-pipeline", () => {
@@ -602,11 +616,36 @@ test("workflow.md replaces develop-workflow.md and runs the change through thewa
     'name: "theway:run-pipeline"',
     "${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js",
     "--workflow <name>",
-    "gh pr merge <number> --squash",
+    "`git-host.md`",
+    "never bypass required reviews or checks",
   ]) {
     expect(text).toContain(marker);
   }
-  expect(text.replaceAll("never `--admin`", "")).not.toContain("--admin");
+  expect(text).not.toContain("--admin");
+});
+
+test("run-pipeline.js and workflow.md name no commit convention and no git host command, which the two standards hold", () => {
+  const banned = /(^|[^a-z])gh |git push|--squash|origin|Conventional|'feat'|commitType|main branch|sync main/m;
+  for (const path of [PIPELINE, join(COMMANDS, "workflow.md")]) {
+    const hits = read(path)
+      .split("\n")
+      .filter((l) => banned.test(l));
+    expect([relative(REPO, path), hits]).toEqual([relative(REPO, path), []]);
+  }
+  const headings = [...read(join(STANDARDS, "git-host.md")).matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+  expect(headings).toEqual([
+    "Default branch",
+    "Sync the default branch",
+    "Push the feature branch",
+    "Open the PR",
+    "Wait for the checks",
+    "Read a failed check's log",
+    "Re-run failed jobs",
+    "Diffstat",
+    "Merge",
+  ]);
+  const pipeline = read(PIPELINE);
+  for (const h of headings.slice(2, 7)) expect(pipeline).toContain(h as string);
 });
 
 test("workflow.md replaces develop.md and runs inline steps itself and agent segments through run-pipeline", () => {
@@ -615,7 +654,7 @@ test("workflow.md replaces develop.md and runs inline steps itself and agent seg
   for (const marker of [
     "agents: false",
     '"review ran inline"',
-    "`steps`, `commitType` and `head`",
+    "`steps` and `head`",
     "a series needs a workflow that commits",
   ]) {
     expect(text).toContain(marker);
