@@ -1,4 +1,4 @@
-# TheWay Commits
+# theway Commits
 
 How a change's branch, commits and PR are named: `/theway:workflow` and its agents follow this whenever they create the feature branch, commit or open the PR. Edit it, or replace it for one project with `<home>/projects/<key>/standards/commits.md`, to use your team's conventions.
 

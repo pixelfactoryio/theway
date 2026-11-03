@@ -1,4 +1,4 @@
-# TheWay Development Core
+# theway Development Core
 
 How a change is implemented, whoever implements it: the session follows this for an inline `implement`, the implementer agent of `/theway:workflow` otherwise.
 
