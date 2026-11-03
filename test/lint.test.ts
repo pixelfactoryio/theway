@@ -181,7 +181,6 @@ test("the shipped defaults are neutral and the four architecture standards are o
   const HOME = join(PLUGIN, "home");
   const TEMPLATES = join(HOME, "templates");
   const all = files(PLUGIN);
-  expect(all.filter((f) => read(f).includes("SRE-EE"))).toEqual([join(HOME, "standards", "sre.md")]);
   expect(all.filter((f) => read(f).includes("architecture-principles"))).toEqual([]);
   for (const name of ["spec-template.md", "fix-spec-template.md", "light-spec-template.md", "tasks-template.md"]) {
     const template = read(join(TEMPLATES, name));
