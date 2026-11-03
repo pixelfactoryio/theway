@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BookOpen,
   CircleCheck,
-  Feather,
   FileText,
   FolderClock,
   GitPullRequest,
@@ -194,7 +193,6 @@ const steps: Step[] = [
 
 const commandIcons: [string, LucideIcon][] = [
   ['engineering', FileText],
-  ['engineering-light', Feather],
   ['workflow', GitPullRequest],
   ['document', BookOpen],
   ['list', List],

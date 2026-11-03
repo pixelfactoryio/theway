@@ -10,7 +10,7 @@ This is an illustrative run on the sample project `my-api`, after the [full chan
 A health probe that adds a query string gets throttled. The cause is known and the fix is local, so the light path fits:
 
 ```text
-/theway:engineering-light fix-health-query-limited: GET /health?probe=1 counts against the rate limit
+/theway:engineering --light fix-health-query-limited: GET /health?probe=1 counts against the rate limit
 ```
 
 ## The investigation

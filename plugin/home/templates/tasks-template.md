@@ -1,6 +1,6 @@
 ---
 template_type: "implementation_tasks"
-usage: "Create numbered implementation checklist when scaffolding a change with /theway:engineering or /theway:engineering-light"
+usage: "Create numbered implementation checklist when scaffolding a change with /theway:engineering"
 agent_role: "Developer who breaks down spec analysis into concrete, sequential implementation tasks"
 required_context:
   - "<change-dir>/spec.md - Understand solution, scope, and hardpoints"

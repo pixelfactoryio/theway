@@ -7,7 +7,7 @@ A change goes through three commands.
 
 ```text
 /theway:engineering <request>        writes spec.md and tasks.md
-  or /theway:engineering-light <request>   writes a short spec for a small change
+  or /theway:engineering --light <request>   writes a short spec for a small change
 /theway:workflow <change-id>         implements the tasks inline, in your session
   or /theway:workflow --workflow agents <change-id>   implements them through agents and a PR
 /theway:archive <change-id>          moves the finished change to the archive
@@ -19,7 +19,7 @@ A change goes through three commands.
 
 A `fix-` change uses the fix template for `spec.md`, and the command reproduces the bug before it writes anything. When the bug cannot be reproduced, may already be covered by another active change, or turns out to be intended behavior, it stops and asks you, and writes no change folder.
 
-For a small change with nothing to decide, [`/theway:engineering-light`](./commands/engineering-light.mdx) writes a short spec (`**Mode:** light`) and 1 to 3 tasks, and one grounding critic reviews them. When it finds a decision, a contract change, a Medium or High risk or a series, it sends you to `/theway:engineering`.
+For a small change with nothing to decide, [`/theway:engineering --light`](./commands/engineering.mdx#light) writes a short spec (`**Mode:** light`) and 1 to 3 tasks, and one grounding critic reviews them. When it finds a decision, a contract change, a Medium or High risk or a series, it sends you to `/theway:engineering` without `--light`.
 
 It writes the change files only under `<home>/<project>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
 
