@@ -194,7 +194,7 @@ theway standards <project> develop
 theway standards <project> document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
 
 - A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
@@ -285,6 +285,8 @@ Which file:
 {
   "name": "agents",
   "file": "/home/you/.theway/workflows/agents.yaml",
+  "commits": "/home/you/.theway/standards/commits.md",
+  "git_host": "/home/you/.theway/standards/git-host.md",
   "steps": [
     { "step": "implement", "agents": true, "model": "opus" },
     { "step": "review", "agents": true, "rounds": 1, "lenses": [{ "name": "conformance", "path": "/home/you/.theway/lenses/conformance.md" }, { "name": "correctness", "path": "/home/you/.theway/lenses/correctness.md" }], "model": "opus", "fix_model": "opus" },
@@ -292,6 +294,8 @@ Which file:
   ]
 }
 ```
+
+`commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/<project>/standards/commits.md` and `git-host.md` when they are files (not for a project named `data`, `templates`, `standards`, `workflows` or `lenses`), else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
 
 Every field of every step is printed, `step` first, then `agents`: the step's own value, else the file's top-level `agents`, else `true`. A step with `agents: false` runs inline and has no `model` or `fix_model`; the shipped `develop` prints `"steps": [{ "step": "implement", "agents": false }]`. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the rule of [`path`](#path) for `<project>`, and these, where `<file>` is the path relative to the home:
 

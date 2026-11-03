@@ -87,7 +87,7 @@ steps:
 
 The first Workflow call of a run shows Claude Code's permission prompt for `theway:run-pipeline`: approve it once, or choose "don't ask again" for `theway:run-pipeline`. A workflow whose steps all run inline makes no Workflow call.
 
-Every agent gets the same fixed rules first, which no field changes: the `## Authority` section of `interaction.md`, commits only on the feature branch, no force-push, no push of the default branch, no merge, the change files read-only, and the commit type of the change verb.
+Every agent gets the same fixed rules first, which no field changes: the `## Authority` section of `interaction.md`, commits only on the feature branch, no force-push, no push of the default branch, no merge, and the change files read-only. How the branch, commits and PR are named, and the git host's commands, come from the [convention standards](./standards.mdx#convention-standards) `commits.md` and `git-host.md`, which every step follows.
 
 ## Rules
 
