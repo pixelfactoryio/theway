@@ -1,7 +1,6 @@
 export const meta = {
   name: 'run-pipeline',
   description: 'Run one theway change through a resolved theway workflow; started by /theway:workflow',
-  phases: [{ title: 'Implement' }, { title: 'Review' }, { title: 'Agent' }, { title: 'PR' }],
 }
 
 // run-pipeline is started by /theway:workflow with its args: the resolved workflow (theway workflow <project>), the
