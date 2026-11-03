@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { basename, join, relative } from "node:path";
-import { type Config, isLensList, isShared, load, loadConfig, NAME } from "./config";
+import { CONVENTIONS, type Config, isLensList, isShared, load, loadConfig, NAME } from "./config";
 import { isFile, thewayHome } from "./io";
 import { invalidSegments } from "./path";
 
@@ -227,6 +227,18 @@ export function cmdWorkflow(project: string, wanted: string | undefined): number
     process.stderr.write(`${result.error}\n`);
     return 1;
   }
-  process.stdout.write(`${JSON.stringify(result.workflow, null, 2)}\n`);
+  const conventions: string[] = [];
+  for (const file of CONVENTIONS) {
+    const global = join(home, "standards", file);
+    if (!isFile(global)) {
+      process.stderr.write(`theway: ${global} not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
+      return 1;
+    }
+    const own = join(home, project, "standards", file);
+    conventions.push(d.own && isFile(own) ? own : global);
+  }
+  const { name, file, steps } = result.workflow;
+  const doc = { name, file, commits: conventions[0], git_host: conventions[1], steps };
+  process.stdout.write(`${JSON.stringify(doc, null, 2)}\n`);
   return 0;
 }

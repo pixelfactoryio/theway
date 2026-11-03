@@ -1074,10 +1074,15 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   expect(past.stderr).toBe("theway: series add-thing would go past -99\n");
 });
 
-/** A home with an empty global config, the two shipped lenses, and a `develop.yaml` holding the steps of the shipped `agents.yaml`. */
+/**
+ * A home with an empty global config, the two convention standards, the two shipped lenses, and a `develop.yaml`
+ * holding the steps of the shipped `agents.yaml`.
+ */
 function workflowHome(): string {
   const dir = home();
   put(join(dir, "config.yaml"), "");
+  put(join(dir, "standards", "commits.md"), "# commits\n");
+  put(join(dir, "standards", "git-host.md"), "# git host\n");
   put(join(dir, "lenses", "conformance.md"), "# conformance\n");
   put(join(dir, "lenses", "correctness.md"), "# correctness\n");
   put(join(dir, "workflows", "develop.yaml"), "steps:\n  - implement:\n  - review:\n  - pr:\n");
@@ -1089,6 +1094,8 @@ function developJson(dir: string, file = join(dir, "workflows", "develop.yaml"),
   const doc = {
     name,
     file,
+    commits: join(dir, "standards", "commits.md"),
+    git_host: join(dir, "standards", "git-host.md"),
     steps: [
       { step: "implement", agents: true, model: "opus" },
       {
@@ -1136,6 +1143,8 @@ test("workflow fills every field in table order, an agent step included, and kee
       {
         name: "full",
         file: join(dir, "workflows", "full.yaml"),
+        commits: join(dir, "standards", "commits.md"),
+        git_host: join(dir, "standards", "git-host.md"),
         steps: [
           { step: "implement", agents: true, model: "sonnet" },
           {
@@ -1189,6 +1198,8 @@ test("workflow <name> takes the project file over the global one, and exits 1 wh
   expect(JSON.parse(res.stdout)).toEqual({
     name: "quick",
     file: join(dir, "p", "workflows", "quick.yaml"),
+    commits: join(dir, "standards", "commits.md"),
+    git_host: join(dir, "standards", "git-host.md"),
     steps: [{ step: "implement", agents: true, model: "haiku" }],
   });
   const missing = run(dir, "workflow", "p", "nope");
@@ -1391,11 +1402,19 @@ test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: p/workflows/w.yaml: cannot be read\n"]);
 });
 
-/** A home holding the shipped config, workflows and lenses. */
+/** A home holding the shipped config, convention standards, workflows and lenses. */
 function shippedHome(): string {
   const dir = home();
   const shipped = join(import.meta.dirname, "..", "plugin", "home");
-  for (const rel of ["config.yaml", "workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  for (const rel of [
+    "config.yaml",
+    "standards/commits.md",
+    "standards/git-host.md",
+    "workflows/develop.yaml",
+    "workflows/agents.yaml",
+    "lenses/conformance.md",
+    "lenses/correctness.md",
+  ]) {
     put(join(dir, rel), readFileSync(join(shipped, rel), "utf-8"));
   }
   return dir;
@@ -1409,7 +1428,13 @@ test("workflow prints the shipped agents for a home holding the shipped config, 
 
 test("workflow resolves the shipped develop, the fallback default, to one inline implement step", () => {
   const dir = shippedHome();
-  const doc = { name: "develop", file: join(dir, "workflows", "develop.yaml"), steps: [{ step: "implement", agents: false }] };
+  const doc = {
+    name: "develop",
+    file: join(dir, "workflows", "develop.yaml"),
+    commits: join(dir, "standards", "commits.md"),
+    git_host: join(dir, "standards", "git-host.md"),
+    steps: [{ step: "implement", agents: false }],
+  };
   const res = run(dir, "workflow", "theway");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, `${JSON.stringify(doc, null, 2)}\n`, ""]);
   expect(run(dir, "workflow", "theway", "develop").stdout).toBe(res.stdout);
@@ -1477,3 +1502,63 @@ test("workflow exits 1 for agents that is not a boolean and for an inline step t
     expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
   }
 }, 30_000);
+
+test("workflow prints commits and git_host after file, each the project file over the global one", () => {
+  const dir = workflowHome();
+  const keys = Object.keys(JSON.parse(run(dir, "workflow", "p").stdout));
+  expect(keys).toEqual(["name", "file", "commits", "git_host", "steps"]);
+  put(join(dir, "p", "standards", "commits.md"), "# mine\n");
+  const own = JSON.parse(run(dir, "workflow", "p").stdout);
+  expect([own.commits, own.git_host]).toEqual([join(dir, "p", "standards", "commits.md"), join(dir, "standards", "git-host.md")]);
+  put(join(dir, "p", "standards", "git-host.md"), "# GitLab\n");
+  expect(JSON.parse(run(dir, "workflow", "p").stdout).git_host).toBe(join(dir, "p", "standards", "git-host.md"));
+  expect(JSON.parse(run(dir, "workflow", "other").stdout).commits).toBe(join(dir, "standards", "commits.md"));
+  put(join(dir, "standards", "standards", "commits.md"), "# shared\n");
+  expect(JSON.parse(run(dir, "workflow", "standards").stdout).commits).toBe(join(dir, "standards", "commits.md"));
+});
+
+test("workflow exits 1 when a global convention standard is missing, after the workflow file is validated", () => {
+  const dir = workflowHome();
+  put(join(dir, "p", "standards", "commits.md"), "# mine\n");
+  put(join(dir, "p", "standards", "git-host.md"), "# mine\n");
+  const line = (file: string) =>
+    `theway: ${join(dir, "standards", file)} not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
+  rmSync(join(dir, "standards", "git-host.md"));
+  const host = run(dir, "workflow", "p");
+  expect([host.status, host.stdout, host.stderr]).toEqual([1, "", line("git-host.md")]);
+  rmSync(join(dir, "standards", "commits.md"));
+  const commits = run(dir, "workflow", "p");
+  expect([commits.status, commits.stdout, commits.stderr]).toEqual([1, "", line("commits.md")]);
+  put(join(dir, "workflows", "w.yaml"), "steps: []\n");
+  const invalid = run(dir, "workflow", "p", "w");
+  expect([invalid.status, invalid.stdout, invalid.stderr]).toEqual([1, "", "theway: workflows/w.yaml: steps must be a non-empty list\n"]);
+  rmSync(join(dir, "workflows", "w.yaml"));
+  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
+  expect(run(dir, "workflow", "p").stderr).toBe(`theway: warning: config.yaml: unknown key workflow.open_pr; ignored\n${line("commits.md")}`);
+});
+
+test("commits.md and git-host.md are never standards of theway context from either folder, and cannot be switched", () => {
+  const dir = home();
+  put(join(dir, "config.yaml"), "standards:\n  commits:\n    enabled: true\n  git_host:\n    enabled: false\n");
+  put(join(dir, ".shipped.json"), "{}\n");
+  for (const f of ["commits.md", "git-host.md", "mine.md"]) {
+    put(join(dir, "standards", f), "# x\n");
+    put(join(dir, "p", "standards", f), "# x\n");
+  }
+  for (const phase of ["engineering", "develop", "document"]) {
+    const res = run(dir, "context", "p", phase);
+    expect(res.status).toBe(0);
+    expect(res.stdout).not.toContain("commits.md");
+    expect(res.stdout).not.toContain("git-host.md");
+    expect(res.stdout).toContain(join(dir, "p", "standards", "mine.md"));
+  }
+  const config = run(dir, "config", "p");
+  expect(config.stdout).not.toMatch(/commits|git_host/);
+  expect(config.stderr).toBe(
+    [
+      "theway: warning: config.yaml: standards.commits cannot be switched; ignored",
+      "theway: warning: config.yaml: standards.git_host cannot be switched; ignored",
+      "",
+    ].join("\n"),
+  );
+});

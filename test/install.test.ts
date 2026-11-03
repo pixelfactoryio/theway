@@ -129,7 +129,14 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
     readFileSync(join(REPO, "plugin", "workflows", "run-pipeline.js"), "utf-8"),
   );
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true);
-  for (const rel of ["workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  for (const rel of [
+    "workflows/develop.yaml",
+    "workflows/agents.yaml",
+    "lenses/conformance.md",
+    "lenses/correctness.md",
+    "standards/commits.md",
+    "standards/git-host.md",
+  ]) {
     expect(existsSync(join(env.theway, rel))).toBe(true);
   }
   const old = join(env.claude, "skills", "theway", "commands", "develop-workflow.md");
@@ -623,8 +630,15 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(20);
-  for (const rel of ["workflows/develop.yaml", "workflows/agents.yaml", "lenses/conformance.md", "lenses/correctness.md"]) {
+  expect(SHIPPED_FILES).toHaveLength(22);
+  for (const rel of [
+    "workflows/develop.yaml",
+    "workflows/agents.yaml",
+    "lenses/conformance.md",
+    "lenses/correctness.md",
+    "standards/commits.md",
+    "standards/git-host.md",
+  ]) {
     expect(SHIPPED_FILES).toContain(rel);
   }
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
@@ -632,6 +646,20 @@ test("install into a fresh home writes every shipped file and a manifest of thei
   expect(manifest(env)["templates/fix-spec-template.md"]).toBe(sha256(shipped("templates/fix-spec-template.md")));
   expect(manifest(env)["templates/light-spec-template.md"]).toBe(sha256(shipped("templates/light-spec-template.md")));
   expect(walk(env.theway).filter((f) => /\/[^/]+\.default\.(md|yaml)$/.test(f) || f.endsWith(".bak"))).toEqual([]);
+});
+
+test("install writes commits.md and git-host.md, keeps an edited one with its .default.md, and theway workflow resolves them", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const workflow = () => spawnSync("node", [CLI, "workflow", "theway", "agents"], { encoding: "utf-8", env: vars(env) });
+  const doc = JSON.parse(workflow().stdout);
+  expect([doc.commits, doc.git_host]).toEqual([join(env.theway, "standards", "commits.md"), join(env.theway, "standards", "git-host.md")]);
+  put(join(env.theway, "standards", "git-host.md"), "# GitLab\n");
+  const res = run(env, "install");
+  expect(res.stdout).toContain("Kept your edited standards/git-host.md (shipped version: standards/git-host.default.md)\n");
+  expect(readFileSync(join(env.theway, "standards", "git-host.md"), "utf-8")).toBe("# GitLab\n");
+  expect(readFileSync(join(env.theway, "standards", "git-host.default.md"), "utf-8")).toBe(shipped("standards/git-host.md"));
+  expect(workflow().status).toBe(0);
 });
 
 const WF = "workflows/develop.yaml";

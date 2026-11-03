@@ -20,6 +20,11 @@ const model = (d: "opus" | "sonnet" | "haiku"): Leaf => ({ rule: "model", defaul
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
 const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.md", "spec-investigation.md"];
+/**
+ * The shipped convention standards `theway workflow` resolves by path, the project file over the global one: never
+ * listed from either folder nor switchable.
+ */
+export const CONVENTIONS = ["commits.md", "git-host.md"];
 
 /** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
 const SHARED = new Set(["data", "templates", "standards", "workflows", "lenses"]);
@@ -37,7 +42,8 @@ export const isLensList = (v: unknown): v is string[] =>
 /** The `standards.<key>` of a standard file: its stem with `-` turned into `_`. */
 const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_");
 export const OPT_IN_KEYS = OPT_IN.map(keyOf);
-const CORE_KEYS = new Set(CORE.map(keyOf));
+/** The `standards.<key>` names that warn `cannot be switched`: the core ones (unless a project file holds one) and the conventions. */
+const FIXED_KEYS = new Set([...CORE, ...CONVENTIONS].map(keyOf));
 
 /**
  * A standard a project can read: its path, its switch, whether it is a shipped opt-in one and, for a global file, the
@@ -58,7 +64,7 @@ function mdFiles(dir: string): string[] {
 
 /**
  * Every standard of a project before any phase filter: the global folder's files, sorted, then the project's, sorted.
- * A global file is classified by name: a core name is left out, an opt-in name is an opt-in standard, any other name
+ * A convention name is left out of both folders. A global file is classified by name: a core name is left out, an opt-in name is an opt-in standard, any other name
  * `.shipped.json` lists as `standards/<name>` and any `*.default.md` is left out, the rest are user standards. A project
  * file is a user standard; a global file with the same name is kept and records it in `shadowedBy`, so that the phase
  * filter drops the global file only for the phases the project file applies to. The shared projects read no project
@@ -67,11 +73,11 @@ function mdFiles(dir: string): string[] {
 export function standardsOf(home: string, project: string): Standard[] {
   const globalDir = join(home, "standards");
   const projectDir = join(home, project, "standards");
-  const projectNames = isShared(project) ? [] : mdFiles(projectDir);
+  const projectNames = isShared(project) ? [] : mdFiles(projectDir).filter((n) => !CONVENTIONS.includes(n));
   const shipped = readManifest(home) ?? {};
   const out: Standard[] = [];
   for (const name of mdFiles(globalDir)) {
-    if (CORE.includes(name)) continue;
+    if (CORE.includes(name) || CONVENTIONS.includes(name)) continue;
     const optIn = OPT_IN.includes(name);
     if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue;
     const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn };
@@ -170,7 +176,7 @@ function apply(file: string, schema: Schema, layer: Map<unknown, unknown>, into:
     const node = Object.hasOwn(schema, key) ? schema[key] : undefined;
     if (node === undefined) {
       if (prefix !== "standards") warn(file, `unknown key ${dotted}`);
-      else if (CORE_KEYS.has(key)) warn(file, `${dotted} cannot be switched`);
+      else if (FIXED_KEYS.has(key)) warn(file, `${dotted} cannot be switched`);
       else warn(file, `${dotted} has no standard file`);
     } else if (isLeaf(node)) {
       if (valid(node.rule, value)) into[key] = Array.isArray(value) ? [...(value as string[])] : (value as boolean | number | string);
