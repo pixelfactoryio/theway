@@ -8,7 +8,7 @@ allowed-tools: Bash(theway:*)
 
 You are now scaffolding a light Spec analysis using templates: the short spec of a small change with nothing to decide.
 
-> **What this command produces.** A short spec someone else can implement without guessing: the problem, the evidence, the change file by file, and 1 to 3 tasks. The code is written later, by `/theway:develop` or `/theway:develop-workflow`, from that spec. A change that needs decisions goes through `/theway:engineering` instead: this command escalates to it and never writes a full spec itself.
+> **What this command produces.** A short spec someone else can implement without guessing: the problem, the evidence, the change file by file, and 1 to 3 tasks. The code is written later, by `/theway:workflow`, from that spec. A change that needs decisions goes through `/theway:engineering` instead: this command escalates to it and never writes a full spec itself.
 >
 > Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critic's (Step 5), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >
@@ -34,7 +34,7 @@ Run `theway context <project> engineering`. Read these files from `<home>`:
 
 Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
-From its `config`, where every value is already valid, take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
+From its `config`, where every value is already valid, take `engineering.review.rounds` (maximum review rounds in Step 5) and `engineering.review.model`.
 
 ### Step 2: Create Change Folder
 
@@ -63,7 +63,7 @@ For each template below, read the template file, follow its frontmatter instruct
 | `<home>/templates/light-spec-template.md` | `spec.md` |
 | `<home>/templates/tasks-template.md` | `tasks.md` |
 
-`spec.md` keeps the `**Mode:** light` line directly under its H1 title: the develop commands read it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction.
+`spec.md` keeps the `**Mode:** light` line directly under its H1 title: `/theway:workflow` reads it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction.
 
 `tasks.md` follows `tasks-template.md`'s rule for a light change. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
 
@@ -71,9 +71,9 @@ A light change has no `design.md`.
 
 ### Step 5: Review
 
-Run up to `engineering.review_rounds` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
+Run up to `engineering.review.rounds` review rounds with one grounding critic. With `rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
 
-Review the change as `<home>/standards/spec-review.md` sets out, with the grounding lens only, which then also reports a spec or task that contradicts a standard. Spawn the critic with the Agent tool and `model` set to `engineering.models.critic`.
+Review the change as `<home>/standards/spec-review.md` sets out, with the grounding lens only, which then also reports a spec or task that contradicts a standard. Spawn the critic with the Agent tool and `model` set to `engineering.review.model`.
 
 A confirmed `decision` finding is an escalation, not an open question. Escalating after the review keeps the light files: tell the user to run `/theway:engineering <change-id>: <original request>`, which writes over them.
 

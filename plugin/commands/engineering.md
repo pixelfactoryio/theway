@@ -6,7 +6,7 @@ allowed-tools: Bash(theway:*)
 
 # TheWay: Engineering
 
-> **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:develop`, from that spec.
+> **What this command produces.** A spec someone else can implement without guessing: the problem, what you found out, the decisions and why, and the tasks. The code is written later, by `/theway:workflow`, from that spec.
 >
 > Write only under `<change-dir>`, the change folder `theway path <project> <change-id>` prints (Step 2). Throwaway probes, yours and the review critics' (Step 6), may also write to a temporary directory created with `mktemp -d`; the change files still go only under `<change-dir>`. Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 >
@@ -32,7 +32,7 @@ Run `theway context <project> engineering`. Read these files from `<home>`:
 
 Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
-From its `config`, where every value is already valid, take `engineering.review_rounds` (maximum review rounds in Step 6) and `engineering.models.critic`.
+From its `config`, where every value is already valid, take `engineering.review.rounds` (maximum review rounds in Step 6) and `engineering.review.model`.
 
 ### Step 2: Create Change Folder
 
@@ -83,9 +83,9 @@ If needed, create `<change-dir>/design.md` for:
 
 ### Step 6: Review
 
-Check that the change can be implemented without guessing, before it is reported ready. Run this step only when Steps 3-5 left no open question; an open point recorded in the spec counts as one. Otherwise do not run it: the spec is not ready, and the Exit report says the review was not run. With `review_rounds: 0`, skip this step.
+Check that the change can be implemented without guessing, before it is reported ready. Run this step only when Steps 3-5 left no open question; an open point recorded in the spec counts as one. Otherwise do not run it: the spec is not ready, and the Exit report says the review was not run. With `rounds: 0`, skip this step.
 
-Review the change as `<home>/standards/spec-review.md` sets out, for up to `review_rounds` rounds, with both lenses. Each round spawns the grounding and the implementability critic in parallel, in a single message, with the Agent tool and `model` set to `engineering.models.critic`. In a series, each round covers every member together.
+Review the change as `<home>/standards/spec-review.md` sets out, for up to `engineering.review.rounds` rounds, with both lenses. Each round spawns the grounding and the implementability critic in parallel, in a single message, with the Agent tool and `model` set to `engineering.review.model`. In a series, each round covers every member together.
 
 After a round's fixes, a confirmed `decision` finding ends the step: each one is an open question, and the spec is not ready.
 

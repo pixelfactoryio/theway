@@ -9,6 +9,7 @@ import { cmdNextId } from "./core/next-id";
 import { cmdPath } from "./core/path";
 import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
+import { cmdWorkflow } from "./core/workflow";
 import { install, uninstall } from "./install";
 
 const nonEmpty = (value: string): string => {
@@ -64,6 +65,11 @@ export function buildProgram(): Command {
     .argument("<phase>")
     .argument("[change-id]")
     .action((project: string, phase: string, change: string | undefined) => exit(cmdContext(project, phase, change)));
+  program
+    .command("workflow")
+    .argument("<project>")
+    .argument("[name]")
+    .action((project: string, name: string | undefined) => exit(cmdWorkflow(project, name)));
   program.command("authority").action(() => exit(cmdAuthority()));
   program
     .command("next-id")

@@ -1,0 +1,117 @@
+---
+title: /theway:workflow
+description: "Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so"
+---
+
+It runs a change through the steps a [workflow](../concepts/workflows.mdx) file lists. The default, the shipped `develop` workflow, implements the tasks inline in your session and commits nothing. Steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`: the shipped `agents` workflow implements, reviews and opens the PR that way, while your session orchestrates.
+
+## Usage
+
+```text
+/theway:workflow [--workflow <name>] <change-id> [<change-id> ...]
+```
+
+- `--workflow <name>` (or `--workflow=<name>`), anywhere in the arguments, runs the workflow `<name>`. Without it, the default workflow runs: the file that sets `default: true`, else `develop`. Every other argument is a change ID. `--workflow` with no name, or given twice, stops the command; so does a run with no change ID.
+- **One change ID:** runs the change and stops when its PR is ready for your validation (without a `pr` step, when its local branch is ready; with the shipped `develop`, when the change is done, uncommitted in your working tree). It never merges it.
+- **Several change IDs (a series):** runs each change in the given order. With a `pr` step, each PR is merged, after you confirm it, before the next change starts. Without one, nothing is merged: each change's branch is created from the previous one. A workflow whose only step is an inline `implement`, such as `develop`, commits nothing, so a series stops before any work with `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
+
+Running the command authorizes editing the repository, inline or through agents, committing only on each change's own feature branch (nothing for a workflow whose only step is an inline `implement`), the Workflow tool, and, when the workflow has a `pr` step, pushing each change's own branch (never force-pushing, never the default branch) and opening its PR; without a `pr` step, nothing is pushed. Each merge in a series needs your yes, and runs the command `git-host.md` gives, never bypassing required reviews or checks.
+
+## Example
+
+On `my-api`, the light fix of [A light fix](../examples/light-fix.mdx), with the default `develop` workflow:
+
+```text
+/theway:workflow fix-health-query-limited
+```
+
+```text
+Tasks done: 2/2.
+Success Criteria:
+- Regression test fails before the fix and passes with it: yes, both runs recorded in Notes › Discoveries.
+- The reproduction no longer reproduces: the curl loop prints 61 200.
+- npm test passes: 11 tests, 11 pass.
+The change is uncommitted in the working tree.
+Standards followed: none.
+```
+
+The change of the [full change example](../examples/full-change.mdx), through agents (see [Run through a workflow](../examples/workflow.mdx)):
+
+```text
+/theway:workflow --workflow agents add-rate-limiting
+```
+
+```text
+add-rate-limiting
+- Workflow: agents (/home/you/.theway/workflows/agents.yaml)
+- Branch: add-rate-limiting
+- PR: https://github.com/example/my-api/pull/12
+- Review: 1 round used.
+  Not confirmed: 2 false_positive "Retry-After can be 0 in the window's last millisecond".
+  Fix check: 0 resolved, 1 resolved.
+- PR step: CI green, 1 of 2 attempts used.
+- Merge: not merged, awaits your validation.
+- Standards given to the agents: none.
+```
+
+A series run asks before each merge: see [A series](../examples/series.mdx#the-develop-run).
+
+## Steps
+
+1. **Load:** once per run, [`theway workflow <project>`](../cli.mdx#workflow) (with `<name>` from `--workflow`) resolves and validates the workflow, filling every field from [`workflow.defaults`](../configuration.mdx#workflow) and giving each step its effective `agents`, with the paths of the [convention standards](../concepts/standards.mdx#convention-standards) `commits.md` and `git-host.md`, which every step follows; on an error, the command quotes it and no change starts. `theway authority` gives the `## Authority` section every agent gets. Per change, [`theway context <project> develop <change-id>`](../cli.mdx#context), then `standards/develop.md`, `standards/spec-review.md` for the triage verdicts, the change's `spec.md`, `tasks.md` and `design.md` (when present), `docs/architecture/coding-standards.md` (when present) and the [standards](../concepts/standards.mdx) it lists.
+2. **Branch:** finds and syncs the default branch with the commands of `git-host.md`, then creates or checks out the change's feature branch, named as `commits.md` says (`<change-id>` by default). Without a `pr` step, each later change of a series branches from the previous change's branch. The branch it is created from is the change's `<base>`. A workflow whose only step is an inline `implement` skips this: it creates no branch and the change stays uncommitted.
+3. **Run:** the steps run in order, in segments. Each run of consecutive steps with `agents: true` is one call of the Workflow tool to `theway:run-pipeline`, with the resolved workflow, the change's paths, the paths of `commits.md` and `git-host.md`, the segment's step indices, and, after inline steps, the branch head. Each step with `agents: false` is done by your session, under the rules the script gives that step's agents:
+   - **`implement`:** follows `develop.md` (including its [fix checks](#fix-checks) for a `fix-` change) and verifies the work. Inline and the only step, it commits nothing; otherwise it commits on the feature branch as `commits.md` says (see [Commits and the git host](#commits-and-the-git-host)) and does not push. When the spec does not fit the code, the change is blocked.
+   - **`review`**, up to `rounds` rounds: one reviewer per lens tries to refute the branch diff, following its lens file and checking the diff against the standards; a triage gives each finding a verdict (`confirmed`, `false_positive`, `duplicate`, `nit`, `out_of_scope`); one fix fixes the confirmed findings locally; a fix check answers `resolved` or `not resolved` for each, without looking for new problems, except that a fix that breaks a standard is not resolved. For a `fix-` change whose fix touched the regression test or the fix, the [regression check](#fix-checks) is re-run and must pass. Through agents, each of these is a separate agent. Inline, the session does them one after the other, and the report says "review ran inline": it is a self-check of the session's own work, not an independent review.
+   - **`agent`:** runs your `prompt`; it may commit and does not push.
+   - **`pr`:** pushes the branch once and opens the PR with the commands of `git-host.md`, its title and body as `commits.md` says. A failed CI run is triaged from its log, with the real error line quoted: a failure of the PR is fixed and pushed once; for a red base branch, its fix is ported when one exists there, otherwise it is reported and the failed jobs re-run once; flaky infrastructure gets one re-run. CI is driven until it is green or `ci_attempts` is used up.
+
+   The first blocked or failed segment or inline step stops the change. Without the Workflow tool in the session, the command runs an agent segment's steps with the Agent tool. When a Workflow call returns an error, the change fails with that error and there is no fallback, since agents may already have committed.
+4. **Record:** ticks the tasks done in `tasks.md` and records the discoveries, the choices, the `fix-` regression outputs and each review round's verdicts in the Notes, whether the steps ran inline or through agents.
+5. **Gate:**
+   - **Succeeded:** a single change stops with the PR ready for validation, its local branch without a `pr` step, or the uncommitted change for a single inline `implement`. In a series with a `pr` step, you are shown the PR, its diffstat and CI status and asked whether to merge it; on yes it is merged as `git-host.md` says (squash-merged by default), the default branch is synced, and the next change starts, otherwise the run stops. Without a `pr` step, a series continues on a branch created from it, without merging.
+   - **Blocked:** the implementation hit a spec that does not fit the code. Nothing is merged, the run stops and the blocker comes back to you with its options.
+   - **Failed:** an agent returned nothing, a confirmed finding is not resolved, an `agent` step could not do its task, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
+
+Every agent prompt starts with the same fixed rules, which no workflow field changes: the output of `theway authority`, the change's paths and the standards, the change files read-only, commits only on the feature branch, no force-push, no push of the default branch and no merge. An inline step follows the same rules, except that an inline `implement` updates `spec.md` and `tasks.md` once a decision it brought back is taken, as `develop.md` says. An agent's report of data that asked to change the steps or widen the authorization is quoted in the Exit report.
+
+## Permission prompt
+
+The first Workflow call of a run, for a workflow with an `agents: true` step, shows Claude Code's permission prompt for the plugin workflow `theway:run-pipeline`. Approve it once, or choose "don't ask again" for `theway:run-pipeline` so later runs start without asking. A workflow whose steps all run inline, such as `develop`, makes no Workflow call.
+
+## Fix checks
+
+A `fix-` change also proves its regression test, which `develop.md` Verify calls the regression check, and re-runs the reproduction:
+
+1. The base commit is `HEAD` when the change is uncommitted (a workflow whose only step is an inline `implement`), and `git merge-base <base> HEAD` otherwise.
+2. It creates a worktree of it with `git worktree add --detach` in a `mktemp -d` directory, and runs there the setup and build commands CI runs before its tests.
+3. It copies in only the regression test files and runs only the regression test. The test must fail for the reason the spec's Root Cause gives, then pass on the change. The worktree is then removed, also when the check stopped early.
+4. It re-runs the reproduction recorded in the spec, and records that it no longer reproduces.
+
+For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering-light`](./engineering-light.mdx)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the Discoveries of the `tasks.md` Notes. The reproduction is still re-run.
+
+Re-running the regression check on a new head, as a review fix does, means steps 1 to 3 again for a full spec, and only the run after the fix for a light spec.
+
+A regression test that does not fail on the base, or fails there for another reason (a compile error, a symbol only the fix adds), comes back to you as a spec gap. When the setup or the test cannot run locally, the criterion is reported as not verified.
+
+## Commits and the git host
+
+Neither the command nor `theway:run-pipeline` fixes a commit convention or a git host command: every step, inline or through agents, follows the two [convention standards](../concepts/standards.mdx#convention-standards) `theway workflow` resolves, your project's copy over the global one.
+
+- **`commits.md`** names the feature branch and sets the commit type from the change verb, for every commit made for the change and for the PR title:
+
+  | Verb | Type |
+  |---|---|
+  | `add-` | `feat` |
+  | `fix-` | `fix` |
+  | `refactor-` | `refactor` |
+  | `update-`, `remove-` | chosen with the first commit; every later commit and the PR title take it from the branch's commits |
+
+  Commits that change only tests use `test`, and commits that change only docs use `docs`. When the spec says the change breaks, the type gets `!` and the commit a `BREAKING CHANGE:` footer.
+- **`git-host.md`** gives the command of each operation by its heading: the default branch, syncing it, pushing the feature branch, opening the PR, waiting for the checks, reading a failed check's log, re-running failed jobs, the diffstat and the merge. The shipped file uses GitHub through `gh`; replace it to use another host.
+
+## Output
+
+For a workflow whose only step is an inline `implement`: the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided, anything still open, that the change is uncommitted in the working tree, and the standards followed (or "none").
+
+Otherwise, for each change: the workflow's name and file, the branch, the PR URL (or the local branch when nothing was pushed), each step's outcome in workflow order, inline ones marked "inline" (review: rounds used, findings not confirmed with their verdicts, the fix check per confirmed finding; agent: its summary; pr: CI attempts used, or "not run"), whether the PR was merged or awaits validation, the standards given (or "none"), any blocker, and every `theway: warning:` line. For a series, where it stopped and why.

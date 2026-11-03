@@ -29,8 +29,7 @@ Only the latest release is supported.
 ### What the commands may do
 
 - `engineering`: writes only the change folder, with throwaway probes in a `mktemp -d` directory.
-- `develop`: edits the repository to implement the change, and updates the change's `tasks.md` and `spec.md` in its change folder.
-- `develop-workflow`: commits locally; pushes the change's own feature branch and opens its PR only when `workflow.open_pr` is true; never force-pushes or pushes the default branch; merges only on your explicit yes, with `gh pr merge --squash`, never `--admin`.
+- `workflow`: edits the repository, inline or through agents, and updates the change's `tasks.md` in its change folder, plus its `spec.md` only for a decision taken during an inline `implement`; commits only on the change's feature branch (nothing for a workflow whose only step is an inline `implement`); pushes that branch and opens its PR only when its workflow has a `pr` step; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
 - `archive`: moves a change folder only when you name the change and say to archive it; may then update architecture docs in `docs/` and clean up temporary notes.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
 - `list`: reads only; runs `theway path` and `theway list`.

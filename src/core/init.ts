@@ -11,8 +11,16 @@ import {
   writeFileSync,
 } from "node:fs";
 
-/** The folders whose `.md` files install ships, relative to the source and the home. */
-const SHIPPED_DIRS = ["standards", "templates"];
+/**
+ * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
+ * shared with the user's own files, the noun a kept file becomes one of.
+ */
+const SHIPPED_DIRS: { dir: string; ext: string; shared?: string }[] = [
+  { dir: "standards", ext: ".md", shared: "standards" },
+  { dir: "templates", ext: ".md" },
+  { dir: "workflows", ext: ".yaml", shared: "workflows" },
+  { dir: "lenses", ext: ".md", shared: "lenses" },
+];
 const MANIFEST = ".shipped.json";
 
 type Manifest = Record<string, string>;
@@ -110,19 +118,21 @@ function migrateDataStandards(src: string, home: string): void {
 }
 
 /**
- * Writes the shipped standards and templates into `home`: a file the user has not edited is updated,
- * an edited one is kept and the shipped version goes next to it as `<base>.default.md`.
- * `standards/` is shared with the user's global standards: a user file with a shipped name is kept,
- * a standard theway stops shipping is removed when unedited, and an orphan `.default.md` copy is removed.
+ * Writes the shipped standards, templates, workflows and lenses into `home`: a file the user has not edited is updated,
+ * an edited one is kept and the shipped version goes next to it as `<stem>.default.<ext>`.
+ * `standards/`, `workflows/` and `lenses/` are shared with the user's own files: a user file with a shipped name is
+ * kept, a file theway stops shipping is removed when unedited, and an orphan `.default.<ext>` copy is removed.
  */
 function copyShipped(src: string, home: string): void {
   const previous = readManifest(home);
   const manifest: Manifest = {};
-  for (const dir of SHIPPED_DIRS) {
-    const isStandards = dir === "standards";
+  for (const { dir, ext, shared } of SHIPPED_DIRS) {
+    const isShared = shared !== undefined;
+    const stemOf = (name: string) => name.slice(0, -ext.length);
+    const defaultExt = `.default${ext}`;
     mkdirSync(`${home}/${dir}`, { recursive: true });
     const names = readdirSync(`${src}/${dir}`, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith(".md"))
+      .filter((e) => e.isFile() && e.name.endsWith(ext))
       .map((e) => e.name)
       .sort();
     for (const name of names) {
@@ -130,7 +140,7 @@ function copyShipped(src: string, home: string): void {
       const dst = `${home}/${rel}`;
       const shipped = readFileSync(`${src}/${rel}`);
       const old = previous?.[rel];
-      const sibling = `${dir}/${baseOf(name)}.default.md`;
+      const sibling = `${dir}/${stemOf(name)}${defaultExt}`;
       let removeSibling = true;
       let record = true;
       if (!existsSync(dst)) {
@@ -140,11 +150,11 @@ function copyShipped(src: string, home: string): void {
         if (!current.equals(shipped)) {
           if (typeof old === "string" && sha256(current) === old) {
             writeAtomic(dst, shipped);
-          } else if (typeof old === "string" || (isStandards && previous === undefined)) {
+          } else if (typeof old === "string" || (isShared && previous === undefined)) {
             removeSibling = false;
             writeAtomic(`${home}/${sibling}`, shipped);
             process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
-          } else if (isStandards) {
+          } else if (isShared) {
             removeSibling = false;
             record = false;
             writeAtomic(`${home}/${sibling}`, shipped);
@@ -163,22 +173,22 @@ function copyShipped(src: string, home: string): void {
       if (removeSibling) rmSync(`${home}/${sibling}`, { force: true });
       if (record) manifest[rel] = sha256(shipped);
     }
-    if (isStandards) {
+    if (isShared) {
       for (const [rel, hash] of Object.entries(previous ?? {})) {
-        if (!rel.startsWith("standards/") || names.includes(rel.slice("standards/".length))) continue;
+        if (!rel.startsWith(`${dir}/`) || names.includes(rel.slice(dir.length + 1))) continue;
         const path = `${home}/${rel}`;
         if (!existsSync(path)) continue;
         if (sha256(readFileSync(path)) === hash) {
           rmSync(path);
           process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
         } else {
-          process.stdout.write(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your standards\n`);
+          process.stdout.write(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your ${shared}\n`);
         }
       }
       for (const entry of readdirSync(`${home}/${dir}`, { withFileTypes: true })) {
         const file = entry.name;
-        if (!entry.isFile() || !file.endsWith(".default.md")) continue;
-        if (!names.includes(`${file.slice(0, -".default.md".length)}.md`)) rmSync(`${home}/${dir}/${file}`, { force: true });
+        if (!entry.isFile() || !file.endsWith(defaultExt)) continue;
+        if (!names.includes(`${file.slice(0, -defaultExt.length)}${ext}`)) rmSync(`${home}/${dir}/${file}`, { force: true });
       }
     }
   }
@@ -195,7 +205,7 @@ function enableStandards(text: string, enabled: readonly string[]): string {
   return lines.join("\n");
 }
 
-/** Copies the shipped config, standards and templates into `home`; a new `config.yaml` has the `enabled` standards on. */
+/** Copies the shipped config, standards, templates, workflows and lenses into `home`; a new `config.yaml` has the `enabled` standards on. */
 export function init(src: string, home: string, enabled: readonly string[] = []): number {
   try {
     mkdirSync(home, { recursive: true });

@@ -53,7 +53,7 @@ $ theway standards my-api engineering
 <home>/my-api/standards/api-style.md
 ```
 
-`/theway:develop` and `/theway:develop-workflow` load the develop phase:
+`/theway:workflow` loads the develop phase:
 
 ```text
 $ theway standards my-api develop
@@ -67,7 +67,7 @@ Why each file is or is not listed:
 - `test-first.md` is listed for develop only: its `applies_to` names only that phase. Global files come before the project's.
 - `quality.md` is listed in neither: the global config enables it, but the project config overrides the key with `false`.
 - `core-principles.md`, `sre.md` and `web-development.md` are shipped opt-in standards that nothing enables.
-- `develop.md`, `interaction.md`, `spec-review.md`, `spec-investigation.md` and `tamm-framework.md` are never listed: the commands read them by path.
+- `develop.md`, `interaction.md`, `spec-review.md`, `spec-investigation.md` and `tamm-framework.md` are never listed: the commands read them by path. Neither are `commits.md` and `git-host.md`, the convention standards `theway workflow` resolves.
 
 ## The context a command loads
 
@@ -95,20 +95,28 @@ config:
     test_first:
       enabled: true
   engineering:
-    review_rounds: 1
-    models:
-      critic: opus
+    review:
+      rounds: 1
+      model: opus
   workflow:
-    review_rounds: 1
-    ci_attempts: 2
-    open_pr: true
-    models:
-      implementer: opus
-      reviewer: opus
-      fix: opus
-      ci: sonnet
+    defaults:
+      implement:
+        model: opus
+      review:
+        rounds: 1
+        lenses:
+          - conformance
+          - correctness
+        model: opus
+        fix_model: opus
+      pr:
+        ci_attempts: 2
+        model: sonnet
+        fix_model: opus
+      agent:
+        model: sonnet
 ```
 
-`change_dir` is printed even though `add-x` has no folder yet. Every agent of `/theway:develop-workflow` gets the two paths of `standards`, and its reports name them: `test-first.md, api-style.md`.
+`change_dir` is printed even though `add-x` has no folder yet. Every agent of `/theway:workflow` gets the two paths of `standards`, and its reports name them: `test-first.md, api-style.md`.
 
 See [Configuration](../configuration.mdx#standards) for every key.

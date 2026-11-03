@@ -26,6 +26,7 @@ Both folders are optional. Install never touches your files in them.
 `<home>/standards/` also holds the standards theway ships. Their names decide what they are, whatever `.shipped.json` says:
 
 - `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are always read by the commands that need them, never listed and never switchable. Do not name a file of yours `spec-review.md` or `spec-investigation.md`: these names are reserved, and when install keeps such a file in `<home>/standards/`, the commands read it as theway's own procedure.
+- `commits.md` and `git-host.md` are the [convention standards](#convention-standards): `/theway:workflow` reads them by path, they are never listed, from either folder, and never switchable.
 - `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards: off by default and, when switched on, read by every command that reads standards, like yours. A file of yours kept at one of these names counts as that opt-in standard.
 - Any other name `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
 
@@ -47,11 +48,11 @@ For example, `<home>/standards/tdd.md`:
 Write the failing test before the code that makes it pass.
 ```
 
-Without frontmatter, it applies to the engineering commands, the develop commands and `/theway:document`.
+Without frontmatter, it applies to the engineering commands, `/theway:workflow` and `/theway:document`.
 
 ## applies_to
 
-An optional `applies_to` in the file's frontmatter limits a standard, yours or a shipped opt-in one, to some phases. The values are `engineering` (`/theway:engineering`, `/theway:engineering-light`), `develop` (`/theway:develop`, `/theway:develop-workflow`) and `document` (`/theway:document`). It takes a flow list or a block list:
+An optional `applies_to` in the file's frontmatter limits a standard, yours or a shipped opt-in one, to some phases. The values are `engineering` (`/theway:engineering`, `/theway:engineering-light`), `develop` (`/theway:workflow`) and `document` (`/theway:document`). It takes a flow list or a block list:
 
 ```markdown
 ---
@@ -101,16 +102,42 @@ standards:
 
 `theway config legacy-app` then prints `tdd` with `enabled: false`, and `theway standards legacy-app engineering` no longer lists `tdd.md`. Every other project still reads it.
 
+## Convention standards
+
+Two shipped standards hold the team conventions and the git host commands that [`/theway:workflow`](../commands/workflow.mdx) and its agents follow, so that neither the command nor its pipeline fixes them:
+
+- `commits.md`: the feature branch name (`<change-id>`), the commit type from the change ID's verb (`add-` → `feat`, `fix-` → `fix`, `refactor-` → `refactor`), Conventional Commit messages, and the PR title and body.
+- `git-host.md`: one `## ` heading per git host operation (`Default branch`, `Sync the default branch`, `Push the feature branch`, `Open the PR`, `Wait for the checks`, `Read a failed check's log`, `Re-run failed jobs`, `Diffstat`, `Merge`), each with its command; the shipped file uses GitHub through the `gh` CLI. The command and its agents name an operation by its heading, never a command.
+
+They differ from the other standards:
+
+- **Always read:** [`theway workflow`](../cli.mdx#workflow) prints their paths as `commits` and `git_host`, and every step of `/theway:workflow` gets them. They are never in `theway context`'s `standards`.
+- **Editable:** edit `<home>/standards/commits.md` or `git-host.md`; install keeps your edited file and writes the shipped one next to it as `commits.default.md` or `git-host.default.md`.
+- **Project override:** `<home>/<project>/standards/commits.md` or `git-host.md` replaces the global file for that project. A project file with one of these names that was one of your standards becomes that override. The global file must still exist: without it, `theway workflow` exits 1 and tells you to run the install.
+- **Not switchable:** `standards.commits` and `standards.git_host` give a `cannot be switched` warning.
+
+For example, a project on GitLab replaces `git-host.md` with `<home>/<project>/standards/git-host.md`, which keeps the nine headings and gives the [`glab`](https://gitlab.com/gitlab-org/cli) command under each, such as:
+
+```md
+## Open the PR
+
+`glab mr create --source-branch <branch> --target-branch <base> --title <title> --description <body>`.
+
+## Merge
+
+`glab mr merge <number> --squash`. Never bypass required reviews or checks.
+```
+
 ## Projects named data, templates or standards
 
-`<home>/templates/` and `<home>/standards/` hold theway's own files, and `<home>/data/` can still hold the standards of an older layout, so the `standards/` folder of a project named `data`, `templates` or `standards` is never read. Such a project still gets the global standards, and its `config.yaml` still switches them.
+`<home>/templates/`, `<home>/standards/`, `<home>/workflows/` and `<home>/lenses/` hold theway's own files, and `<home>/data/` can still hold the standards of an older layout, so the `standards/` folder of a project named `data`, `templates`, `standards`, `workflows` or `lenses` is never read. Such a project still gets the global standards, and its `config.yaml` still switches them.
 
 ## Who reads them
 
 The commands get them from the `standards` list of [`theway context <project> <engineering|develop|document>`](../cli.mdx#context), the paths [`theway standards`](../cli.mdx#standards) prints for that phase, and read every file it lists: for each phase, the enabled standards, shipped opt-in or yours, that apply to it; each applies to every phase unless its `applies_to` narrows it. When the installed `theway` is too old to know `context`, the command tells you to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stops; when `theway context` exits 1 for another reason, it quotes the error and stops. Standards are binding, not guidance:
 
 - [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
-- [`/theway:develop`](../commands/develop.mdx) and the implementers of [`/theway:develop-workflow`](../commands/develop-workflow.mdx) follow them. When one contradicts the spec, the implementer stops and brings it back.
-- In `/theway:develop-workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
+- [`/theway:workflow`](../commands/workflow.mdx) follows them, in your session for an inline `implement` and through its implementer agent otherwise. When one contradicts the spec, the implementation stops and brings it back.
+- In `/theway:workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
 
 Every report of these commands names the standards used, by file name, or "none". [`/theway:document`](../commands/document.mdx) follows the standards that apply to `document` when it writes the docs.
