@@ -52,7 +52,7 @@ If the Agent tool is not available in the session, run the lenses yourself, one 
 ## Report
 
 The review outcome:
-- how it ran: the rounds used, off (`review_rounds: 0`), or inline;
+- how it ran: the rounds used, off (`rounds: 0`), or inline;
 - every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding:
   - `#` is the round and the triage index, as `R<round>-<index>`, for example `R1-0`;
   - `Finding` is one line saying what is wrong;

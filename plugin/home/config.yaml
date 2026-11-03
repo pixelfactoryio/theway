@@ -18,12 +18,12 @@ standards:
 
 # Engineering - spec review for /theway:engineering and /theway:engineering-light (absent or invalid key means the default)
 engineering:
-  # Maximum review rounds per scaffold; 0 skips the review
-  review_rounds: 1
-  # Model of the critic agents (two in /theway:engineering, one in /theway:engineering-light): opus, sonnet or haiku (absent or invalid means the default)
-  # Lower cost: sonnet
-  models:
-    critic: opus
+  # The spec review
+  review:
+    # Maximum review rounds per scaffold; 0 skips the review
+    rounds: 1
+    # The critic agents (two in /theway:engineering, one in /theway:engineering-light): opus, sonnet or haiku; lower cost: sonnet
+    model: opus
 
 # Workflow - defaults for /theway:workflow: a field a step of a workflow file leaves out takes its value here (absent or invalid key means the default)
 # Models: opus, sonnet or haiku

@@ -24,13 +24,14 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-`<rule>` is `a non-negative integer`, `a positive integer`, `true or false`, `opus, sonnet or haiku` or `a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `models`, `defaults` or a step under it that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
+`<rule>` is `a non-negative integer`, `a positive integer`, `true or false`, `opus, sonnet or haiku` or `a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `review`, `defaults` or a step under it that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
 
 For example, with the shipped global `config.yaml`, this `<home>/my-site/config.yaml`:
 
 ```yaml
 engineering:
-  review_rounds: 0
+  review:
+    rounds: 0
 workflow:
   defaults:
     implement:
@@ -52,9 +53,9 @@ standards:
   quality:
     enabled: false
 engineering:
-  review_rounds: 0
-  models:
-    critic: opus
+  review:
+    rounds: 0
+    model: opus
 workflow:
   defaults:
     implement:
@@ -102,10 +103,10 @@ The spec review of [`/theway:engineering`](./commands/engineering.mdx#steps) (st
 
 | Key | Default | Meaning |
 |-----|---------|---------|
-| `engineering.review_rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
-| `engineering.models.critic` | `opus` | Model of the engineering commands' critic agents (two in `/theway:engineering`, one in `/theway:engineering-light`): `opus`, `sonnet` or `haiku`. Any other value is ignored with a warning. |
+| `engineering.review.rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
+| `engineering.review.model` | `opus` | Model of the engineering commands' critic agents (two in `/theway:engineering`, one in `/theway:engineering-light`): `opus`, `sonnet` or `haiku`. Any other value is ignored with a warning. |
 
-Each round spawns two critics. [`/theway:engineering-light`](./commands/engineering-light.mdx) reads the same keys and runs up to `engineering.review_rounds` rounds, with one grounding critic. To lower the cost, put `engineering.models.critic` on `sonnet`, or set `review_rounds: 0` to skip the review.
+Each round spawns two critics. [`/theway:engineering-light`](./commands/engineering-light.mdx) reads the same keys and runs up to `engineering.review.rounds` rounds, with one grounding critic. To lower the cost, put `engineering.review.model` on `sonnet`, or set `engineering.review.rounds: 0` to skip the review.
 
 ## workflow
 

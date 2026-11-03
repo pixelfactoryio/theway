@@ -34,7 +34,7 @@ Run `theway context <project> engineering`. Read these files from `<home>`:
 
 Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
 
-From its `config`, where every value is already valid, take `engineering.review_rounds` (maximum review rounds in Step 5) and `engineering.models.critic`.
+From its `config`, where every value is already valid, take `engineering.review.rounds` (maximum review rounds in Step 5) and `engineering.review.model`.
 
 ### Step 2: Create Change Folder
 
@@ -71,9 +71,9 @@ A light change has no `design.md`.
 
 ### Step 5: Review
 
-Run up to `engineering.review_rounds` review rounds with one grounding critic. With `review_rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
+Run up to `engineering.review.rounds` review rounds with one grounding critic. With `rounds: 0`, skip this step. An open question would have escalated in Step 3, so there is none to wait for.
 
-Review the change as `<home>/standards/spec-review.md` sets out, with the grounding lens only, which then also reports a spec or task that contradicts a standard. Spawn the critic with the Agent tool and `model` set to `engineering.models.critic`.
+Review the change as `<home>/standards/spec-review.md` sets out, with the grounding lens only, which then also reports a spec or task that contradicts a standard. Spawn the critic with the Agent tool and `model` set to `engineering.review.model`.
 
 A confirmed `decision` finding is an escalation, not an open question. Escalating after the review keeps the light files: tell the user to run `/theway:engineering <change-id>: <original request>`, which writes over them.
 

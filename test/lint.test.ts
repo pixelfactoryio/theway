@@ -151,13 +151,13 @@ test("every workflow action is pinned to a commit SHA", () => {
 test("engineering.md runs the spec review the shipped config.yaml sets up", () => {
   const engineering = read(join(COMMANDS, "engineering.md"));
   expect(engineering).toMatch(/^### Step 6: Review$/m);
-  expect(engineering).toContain("engineering.review_rounds");
-  expect(engineering).toContain("engineering.models.critic");
+  expect(engineering).toContain("engineering.review.rounds");
+  expect(engineering).toContain("engineering.review.model");
   const config = Bun.YAML.parse(read(join(PLUGIN, "home", "config.yaml"))) as {
-    engineering?: { review_rounds?: unknown; models?: { critic?: unknown } };
+    engineering?: { review?: { rounds?: unknown; model?: unknown } };
   };
-  expect(config.engineering?.review_rounds).toBe(1);
-  expect(config.engineering?.models?.critic).toBe("opus");
+  expect(config.engineering?.review?.rounds).toBe(1);
+  expect(config.engineering?.review?.model).toBe("opus");
 });
 
 test("the shipped defaults are neutral and the four architecture standards are opt-in", () => {
@@ -374,7 +374,7 @@ test("engineering-light.md validates a standalone ID and writes the light spec",
   expect(light).toContain("`<home>/templates/tasks-template.md` | `tasks.md`");
   expect(step(light, "Step 3: Investigate")).toContain("`<home>/standards/spec-investigation.md`");
   expect(section(light, "Exit")).toContain("`/theway:engineering-light`");
-  expect(light).toContain("engineering.models.critic");
+  expect(light).toContain("engineering.review.model");
 });
 
 test("run-pipeline.js checks a fix- test by the regression check and triages by spec-review.md", () => {
@@ -432,8 +432,8 @@ test("engineering and engineering-light take their keys from the config of thewa
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
     expect(step1.split("\n\n")[1]).toStartWith("Run `theway context <project> engineering`");
-    expect(step1).toContain(`take \`engineering.review_rounds\` (maximum review rounds in Step ${n})`);
-    expect(step1).toContain("and `engineering.models.critic`.");
+    expect(step1).toContain(`take \`engineering.review.rounds\` (maximum review rounds in Step ${n})`);
+    expect(step1).toContain("and `engineering.review.model`.");
   }
   const workflow = read(join(COMMANDS, "workflow.md"));
   expect(step(workflow, "Step 1:")).toContain("`theway workflow <project>`");

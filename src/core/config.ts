@@ -108,8 +108,10 @@ function standardsSchema(standards: Standard[]): Schema {
 const SCHEMA: Schema = {
   standards: {},
   engineering: {
-    review_rounds: { rule: "non-negative", default: 1 },
-    models: { critic: model("opus") },
+    review: {
+      rounds: { rule: "non-negative", default: 1 },
+      model: model("opus"),
+    },
   },
   workflow: {
     defaults: {
