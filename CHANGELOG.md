@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/pixelfactoryio/theway/compare/v0.14.0...v0.14.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* write the name theway in lowercase ([#66](https://github.com/pixelfactoryio/theway/issues/66)) ([9395f49](https://github.com/pixelfactoryio/theway/commit/9395f493caa091c993b401a4d46eb0f46bd3d195))
+
 ## [0.14.0](https://github.com/pixelfactoryio/theway/compare/v0.13.0...v0.14.0) (2026-11-03)
 
 
