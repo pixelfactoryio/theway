@@ -73,7 +73,7 @@ A series run asks before each merge: see [A series](../examples/series.mdx#the-d
    - **Blocked:** the implementation hit a spec that does not fit the code. Nothing is merged, the run stops and the blocker comes back to you with its options.
    - **Failed:** an agent returned nothing, a confirmed finding is not resolved, an `agent` step could not do its task, or CI is still red after `ci_attempts` attempts. Nothing is merged and the run stops.
 
-Every agent prompt starts with the same fixed rules, which no workflow field changes: the output of `theway authority`, the change's paths and the standards, the change files read-only, commits only on the feature branch, no force-push, no push of the default branch and no merge. An inline step follows the same rules. An agent's report of data that asked to change the steps or widen the authorization is quoted in the Exit report.
+Every agent prompt starts with the same fixed rules, which no workflow field changes: the output of `theway authority`, the change's paths and the standards, the change files read-only, commits only on the feature branch, no force-push, no push of the default branch and no merge. An inline step follows the same rules, except that an inline `implement` updates `spec.md` and `tasks.md` once a decision it brought back is taken, as `develop.md` says. An agent's report of data that asked to change the steps or widen the authorization is quoted in the Exit report.
 
 ## Permission prompt
 
