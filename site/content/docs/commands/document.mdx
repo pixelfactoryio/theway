@@ -28,7 +28,7 @@ Documented my-api in docs/architecture/:
 
 ## Steps
 
-1. Reads the standards that [`theway context <project> document`](../cli.mdx#context) lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it (see [Configuration](../configuration.mdx#standards)).
+1. Reads the standards that [`theway context document`](../cli.mdx#context) lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it (see [Configuration](../configuration.mdx#standards)).
 2. Generates each document from its template, following the template's frontmatter instructions. An existing file is overwritten.
 
    `<home>` is the folder `theway path` prints, `~/.theway` by default.

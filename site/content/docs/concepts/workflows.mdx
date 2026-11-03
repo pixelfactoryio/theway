@@ -9,13 +9,12 @@ A workflow is a YAML file that lists the steps [`/theway:workflow`](../commands/
 
 | What | Global | Project (wins by name) | Shipped |
 |---|---|---|---|
-| Workflows | `<home>/workflows/<name>.yaml` | `<home>/<project>/workflows/<name>.yaml` | `develop.yaml`, `agents.yaml` |
-| Lenses | `<home>/lenses/<name>.md` | `<home>/<project>/lenses/<name>.md` | `conformance.md`, `correctness.md` |
+| Workflows | `<home>/workflows/<name>.yaml` | `<home>/projects/<key>/workflows/<name>.yaml` | `develop.yaml`, `agents.yaml` |
+| Lenses | `<home>/lenses/<name>.md` | `<home>/projects/<key>/lenses/<name>.md` | `conformance.md`, `correctness.md` |
 
 - A workflow's name is its file stem; the file has no `name` key. A name is lowercase letters and digits in words separated by single hyphens (`develop-secure`).
 - A project file wins over a global file of the same name.
 - Install writes the shipped files into `<home>/workflows/` and `<home>/lenses/` and treats them as it treats the shipped [standards](./standards.mdx): it updates a file you have not edited, keeps one you have and writes the shipped version next to it as `<name>.default.yaml` or `<lens>.default.md`, keeps your own file when theway starts shipping one with its name, and removes an unedited file theway stops shipping. A `*.default.yaml` or `*.default.md` file is never a workflow or a lens.
-- A project named `data`, `templates`, `standards`, `workflows` or `lenses` has no workflows or lenses of its own: only the global ones apply.
 
 ## The shipped workflows
 
@@ -106,7 +105,7 @@ A lens is the brief of one reviewer: what to look for in the diff. The reviewer 
 - `conformance.md`: checks the diff against `spec.md`: each Success Criterion met, nothing outside Scope or in Out of Scope, nothing the spec did not ask for; for a light spec, against its Change section.
 - `correctness.md`: checks correctness, edge cases and convention violations; for a `fix-` change, that the diff fixes the root cause the spec names and that the regression test would fail without the fix.
 
-Write a new lens as `<home>/lenses/<name>.md`, or `<home>/<project>/lenses/<name>.md` for one project, and name it in a `review` step's `lenses`. A project lens replaces the global lens of the same name for that project.
+Write a new lens as `<home>/lenses/<name>.md`, or `<home>/projects/<key>/lenses/<name>.md` for one project, and name it in a `review` step's `lenses`. A project lens replaces the global lens of the same name for that project.
 
 ## Which workflow runs
 
@@ -140,7 +139,7 @@ With `default: true`, every project without a default of its own runs it.
 
 ## Example: a project workflow without a PR
 
-For a project whose changes you push yourself, `<home>/my-api/workflows/local.yaml` stops at the reviewed local branch, with cheaper models:
+For a project whose changes you push yourself, `<home>/projects/-home-you-code-my-api/workflows/local.yaml` stops at the reviewed local branch, with cheaper models:
 
 ```yaml
 default: true

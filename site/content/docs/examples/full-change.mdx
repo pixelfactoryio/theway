@@ -13,7 +13,7 @@ description: "One change from request to passing tests: rate limiting for a smal
 
 ## The spec
 
-`/theway:engineering` read the code first, then wrote this file to `~/.theway/my-api/changes/add-rate-limiting/spec.md`. Three things to notice:
+`/theway:engineering` read the code first, then wrote this file to `~/.theway/projects/-home-you-code-my-api/changes/add-rate-limiting/spec.md`. Three things to notice:
 
 - The findings: it read the README and found "single instance, no proxy", so in-memory state and the socket address are the correct choices.
 - The decisions and their accepted trade-offs: a fixed window allows up to 120 requests across a window boundary, and `X-Forwarded-For` is never read.

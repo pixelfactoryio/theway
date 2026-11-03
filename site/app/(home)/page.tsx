@@ -59,10 +59,10 @@ const steps: Step[] = [
         input: true,
         entries: [
           { kind: 'prompt', text: '/theway:engineering add rate limiting to the public API' },
-          { kind: 'tool', name: 'Bash', args: 'theway context my-api engineering' },
+          { kind: 'tool', name: 'Bash', args: 'theway context engineering' },
           { kind: 'tool', name: 'Read', args: 'src/api/router.ts' },
-          { kind: 'tool', name: 'Write', args: '~/.theway/my-api/changes/add-rate-limit/spec.md' },
-          { kind: 'tool', name: 'Write', args: '~/.theway/my-api/changes/add-rate-limit/tasks.md' },
+          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/spec.md' },
+          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/tasks.md' },
           {
             kind: 'message',
             text: 'Spec and tasks written. Review them before developing.',
@@ -160,8 +160,8 @@ const steps: Step[] = [
           {
             kind: 'tool',
             name: 'Bash',
-            args: 'theway archive my-api add-rate-limit',
-            result: 'Archived: ~/.theway/my-api/changes/archive/2026-10-28-add-rate-limit',
+            args: 'theway archive add-rate-limit',
+            result: 'Archived: ~/.theway/projects/-home-you-code-my-api/changes/archive/2026-10-28-add-rate-limit',
           },
         ],
       },

@@ -20,7 +20,7 @@ This is an illustrative run on the sample project `my-api`. It shows how global 
   Write the failing test before the code it covers.
   ```
 
-- `<home>/my-api/standards/api-style.md`, a project standard with no frontmatter:
+- `<home>/projects/-home-you-code-my-api/standards/api-style.md`, a project standard with no frontmatter:
 
   ```md
   # API Style
@@ -36,7 +36,7 @@ This is an illustrative run on the sample project `my-api`. It shows how global 
       enabled: true
   ```
 
-- `<home>/my-api/config.yaml`, which turns it off again for `my-api`:
+- `<home>/projects/-home-you-code-my-api/config.yaml`, which turns it off again for `my-api`:
 
   ```yaml
   standards:
@@ -49,16 +49,16 @@ This is an illustrative run on the sample project `my-api`. It shows how global 
 `/theway:engineering`, with or without `--light`, loads the engineering phase:
 
 ```text
-$ theway standards my-api engineering
-<home>/my-api/standards/api-style.md
+$ theway standards engineering
+<home>/projects/-home-you-code-my-api/standards/api-style.md
 ```
 
 `/theway:workflow` loads the develop phase:
 
 ```text
-$ theway standards my-api develop
+$ theway standards develop
 <home>/standards/test-first.md
-<home>/my-api/standards/api-style.md
+<home>/projects/-home-you-code-my-api/standards/api-style.md
 ```
 
 Why each file is or is not listed:
@@ -74,12 +74,12 @@ Why each file is or is not listed:
 A command's first step runs `theway context`, which prints the same `standards` list next to the config it uses:
 
 ```text
-$ theway context my-api develop add-x
+$ theway context develop add-x
 home: <home>
-change_dir: <home>/my-api/changes/add-x
+change_dir: <home>/projects/-home-you-code-my-api/changes/add-x
 standards:
   - <home>/standards/test-first.md
-  - <home>/my-api/standards/api-style.md
+  - <home>/projects/-home-you-code-my-api/standards/api-style.md
 config:
   standards:
     core_principles:

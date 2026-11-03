@@ -1,23 +1,24 @@
 ---
 title: CLI
-description: The theway command line and its twelve subcommands.
+description: The theway command line and its thirteen subcommands.
 ---
 
-The `theway` program has twelve subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has thirteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
 theway uninstall
-theway list <project>
-theway archive <project> <change-id> [--force]
-theway path [<project> [<change-id>]] [--verbose]
-theway config <project>
-theway standards <project> <engineering|develop|document>
-theway context <project> <engineering|develop|document> [<change-id>]
-theway workflow <project> [<name>]
+theway list [--project <key>]
+theway archive <change-id> [--force] [--project <key>]
+theway path [<change-id>] [--verbose] [--project <key>]
+theway project [--project <key>]
+theway config [--project <key>]
+theway standards <engineering|develop|document> [--project <key>]
+theway context <engineering|develop|document> [<change-id>] [--project <key>]
+theway workflow [<name>] [--project <key>]
 theway authority
 theway validate-id <id> [--series]
-theway next-id <project> <series-id> [--count <n>]
+theway next-id <series-id> [--count <n>] [--project <key>]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
@@ -32,7 +33,9 @@ The data home holds the config, the standards, the templates and the change fold
 
 [`theway path --verbose`](#path) says which one it used.
 
-[User standards](./concepts/standards.mdx) live in `<home>/standards/` (every project) and `<home>/<project>/standards/` (one project). Install never touches them.
+Every subcommand that uses a project derives its key from the current directory (see [`project`](#project)); `--project <key>` replaces it. A project's files live in `<home>/projects/<key>/`.
+
+[User standards](./concepts/standards.mdx) live in `<home>/standards/` (every project) and `<home>/projects/<key>/standards/` (one project). Install never touches them.
 
 Other environment variables:
 
@@ -74,24 +77,24 @@ Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway bin
 ## list
 
 ```bash
-theway list <project>
+theway list
 ```
 
-Prints the active changes of `<project>`, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
+Prints a header line, `theway changes — <key>`, then the active changes of the project, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
 
-`<project>` must follow the same rule as for [`path`](#path); otherwise it exits 1 with one reason on stderr.
+A `--project` value must follow the rule of [`project`](#project), and a derived key must be at most 200 characters; otherwise it exits 1 with one line on stderr.
 
 ## archive
 
 ```bash
-theway archive <project> <change-id> [--force]
+theway archive <change-id> [--force]
 ```
 
-Moves `<home>/<project>/changes/<change-id>` to `<home>/<project>/changes/archive/YYYY-MM-DD-<change-id>`, with today's local date, and prints `Archived: <path>`.
+Moves `<home>/projects/<key>/changes/<change-id>` to `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>`, with today's local date, and prints `Archived: <path>`.
 
 It exits 1 and moves nothing when:
 
-- `<project>` or `<change-id>` does not follow the rules of [`path`](#path);
+- the key is invalid (see [`project`](#project)) or `<change-id>` does not follow the rule of [`path`](#path);
 - the change folder does not exist;
 - the archive folder already exists;
 - `tasks.md` has unticked numbered tasks. It prints each one with its line number.
@@ -102,15 +105,13 @@ It exits 1 and moves nothing when:
 
 ```bash
 theway path
-theway path <project>
-theway path <project> <change-id>
+theway path <change-id>
 ```
 
 Prints one line on stdout:
 
-- `theway path`: the data home, such as `/home/you/.theway`.
-- `theway path <project>`: `<home>/<project>`.
-- `theway path <project> <change-id>`: `<home>/<project>/changes/<change-id>`, whether or not the folder exists yet.
+- `theway path`: the data home, such as `/home/you/.theway`. It derives no key; a given `--project` is still validated.
+- `theway path <change-id>`: `<home>/projects/<key>/changes/<change-id>`, whether or not the folder exists yet, such as `/home/you/.theway/projects/-home-you-code-my-api/changes/add-x` in `/home/you/code/my-api`. A single argument is always a change ID.
 
 The slash commands run it to find the home (for the config, standards and templates) and the change folder they read and write.
 
@@ -122,21 +123,61 @@ theway: home /data/tw (from pointer)
 
 The source is `env`, `pointer` or `default`. When `THEWAY_HOME` is set and differs from the pointer file, it prints the `THEWAY_HOME` value and one warning on stderr that names both values and their sources. Run install again with the new `THEWAY_HOME` to update the pointer.
 
-A change id must be lowercase letters and digits in words separated by single hyphens (as `validate-id` produces); a project must be letters, digits, `.`, `_` or `-`, not starting with `.` or `-`; both at most 200 characters. Any other value exits 1 with one reason on stderr:
+A change id must be lowercase letters and digits in words separated by single hyphens (as `validate-id` produces), at most 200 characters. Any other value exits 1 with one reason on stderr:
 
 ```text
 theway: invalid change id '..': must be lowercase letters and digits in words separated by single hyphens
 ```
 
+The key is checked first, as [`project`](#project) says.
+
+## project
+
+```bash
+theway project
+theway project --project <key>
+```
+
+Prints the project key and the project folder, in `/home/you/code/my-api`:
+
+```text
+key: -home-you-code-my-api
+dir: /home/you/.theway/projects/-home-you-code-my-api
+```
+
+The key is the project root's absolute path with every character outside `[A-Za-z0-9]` replaced by `-`, as Claude Code names its `~/.claude/projects/` folders. The project root is:
+
+- in a git repository, any of its subfolders or a linked worktree: the main repository's root (git's common directory, `.git`, without its last segment), so every worktree shares one key;
+- in a bare repository or one with a separate git dir: the worktree root (`git rev-parse --show-toplevel`), else the current directory;
+- outside git, or without `git` on `PATH`: the current directory.
+
+The root is resolved to its physical path (symlinks followed) before the key is built. A linked worktree of a `--separate-git-dir` repository and a submodule get their own worktree root, so they do not share the main repository's key. See [Project key](./concepts/changes.mdx#project-key).
+
+`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
+
+- the `--project` value is not letters, digits and `-`, 1 to 200 characters:
+
+  ```text
+  theway: invalid project 'a/b': must be letters, digits and "-", at most 200 characters
+  ```
+
+- the derived key is longer than 200 characters:
+
+  ```text
+  theway: project key for <root> is longer than 200 characters; pass --project <key>
+  ```
+
+Every subcommand checks the key first, then its other arguments.
+
 ## config
 
 ```bash
-theway config <project>
+theway config
 ```
 
-Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, with or without `--light`, takes its keys from the same config, through [`context`](#context), and [`workflow`](#workflow) takes `workflow.defaults` from it.
+Prints the effective [configuration](./configuration.mdx) of the project as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/projects/<key>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, with or without `--light`, takes its keys from the same config, through [`context`](#context), and [`workflow`](#workflow) takes `workflow.defaults` from it.
 
-The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/<project>/standards/`, sorted. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, only the global ones are listed.
+The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/projects/<key>/standards/`, sorted.
 
 ```text
 standards:
@@ -152,7 +193,7 @@ workflow:
       fix_model: opus
 ```
 
-An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `<project>/config.yaml`:
+An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `projects/<key>/config.yaml`:
 
 ```text
 theway: warning: <file>: <key> must be <rule>; ignored
@@ -167,7 +208,7 @@ The last two name a `standards` key that no standard file of the project gives, 
 
 It exits 1 and prints nothing on stdout when:
 
-- `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;
+- the key is invalid, with the line of [`project`](#project) on stderr;
 - `<home>/config.yaml` is missing:
 
   ```text
@@ -189,22 +230,21 @@ It exits 1 and prints nothing on stdout when:
 ## standards
 
 ```bash
-theway standards <project> engineering
-theway standards <project> develop
-theway standards <project> document
+theway standards engineering
+theway standards develop
+theway standards document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/<project>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/projects/<key>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
 
 - A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
-- For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, the project's `standards/` folder is not read: those folders of the home hold theway's own files, and `data/` can still hold the standards of an [older layout](./installation.mdx#from-the-old-layout). The global standards are still listed.
 
 With nothing to print, it prints nothing and exits 0.
 
 ```text
 /home/you/.theway/standards/tdd.md
-/home/you/.theway/my-repo/standards/review.md
+/home/you/.theway/projects/-home-you-code-my-api/standards/review.md
 ```
 
 An enabled file whose `applies_to` has any other value or form is skipped for every phase, with a warning on stderr; the exit code stays 0:
@@ -221,7 +261,7 @@ theway: warning: <path>: cannot be read; skipped
 
 It exits 1 and prints nothing on stdout when:
 
-- `<project>` does not follow the rule of [`path`](#path), with the same reason on stderr;
+- the key is invalid, with the line of [`project`](#project) on stderr;
 - the phase is not `engineering`, `develop` or `document`:
 
   ```text
@@ -235,20 +275,24 @@ The commands get the same list through [`context`](#context).
 ## context
 
 ```bash
-theway context <project> <engineering|develop|document>
-theway context <project> <engineering|develop|document> <change-id>
+theway context <engineering|develop|document>
+theway context <engineering|develop|document> <change-id>
 ```
 
 Prints what a command loads in its first step, as one YAML document with these keys, in this order:
 
 - `home`: the data home, as [`path`](#path) prints it;
-- `change_dir`: only with `<change-id>`, the folder `theway path <project> <change-id>` prints;
+- `project`: the project key, as [`project`](#project) prints it;
+- `project_dir`: the project folder, `<home>/projects/<key>`;
+- `change_dir`: only with `<change-id>`, the folder `theway path <change-id>` prints;
 - `standards`: the paths [`standards`](#standards) prints for the phase, as a list, `[]` when there are none;
 - `config`: the effective config [`config`](#config) prints.
 
 ```text
 home: /home/you/.theway
-change_dir: /home/you/.theway/my-repo/changes/add-redis-cache
+project: -home-you-code-my-api
+project_dir: /home/you/.theway/projects/-home-you-code-my-api
+change_dir: /home/you/.theway/projects/-home-you-code-my-api/changes/add-redis-cache
 standards:
   - /home/you/.theway/standards/tdd.md
 config:
@@ -256,30 +300,30 @@ config:
     ...
 ```
 
-It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when `<project>` or `<change-id>` does not follow the rule of [`path`](#path), when the phase is invalid (the message of [`standards`](#standards)), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
+It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when the key is invalid (see [`project`](#project)), when the phase is invalid (the message of [`standards`](#standards)), when `<change-id>` does not follow the rule of [`path`](#path), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
 
 `/theway:engineering`, with or without `--light`, runs it with `engineering`, `/theway:document` with `document`, and `/theway:workflow` with `develop` and the change ID, taking `change_dir` as the change folder.
 
 ## workflow
 
 ```bash
-theway workflow <project>
-theway workflow <project> <name>
+theway workflow
+theway workflow <name>
 ```
 
 Resolves one [workflow](./concepts/workflows.mdx), validates it, fills every field its steps leave out from [`workflow.defaults`](./configuration.mdx#workflow), and prints it as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it once per run and passes the result to its pipeline.
 
 Which file:
 
-- **With `<name>`:** `<home>/<project>/workflows/<name>.yaml` when it is a file, else `<home>/workflows/<name>.yaml`.
+- **With `<name>`:** `<home>/projects/<key>/workflows/<name>.yaml` when it is a file, else `<home>/workflows/<name>.yaml`.
 - **Without `<name>`, the default:**
   1. The project's folder: every workflow file in it is validated, in file-name order, and the one that sets `default: true` is the default.
   2. Only when the project has none, the global folder: the same, over the global files that no project file of the same name shadows. A shadowed global file is not read.
   3. When neither has one, `develop` (the shipped one runs a single inline `implement`), looked up as with `<name>`.
 - A `<name>` matches `^[a-z0-9]+(-[a-z0-9]+)*$`; the workflow's name is its file stem. A `*.default.yaml` file is the shipped copy install writes next to an edited file, never a workflow. While it scans a folder for the default, a `.yaml` file whose stem is not a valid name is skipped with `theway: warning: <file>: not a valid workflow name; ignored`.
-- Each lens of a `review` step is `<home>/<project>/lenses/<lens>.md` when it is a file, else `<home>/lenses/<lens>.md`. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, no project folder is read.
+- Each lens of a `review` step is `<home>/projects/<key>/lenses/<lens>.md` when it is a file, else `<home>/lenses/<lens>.md`.
 
-`theway workflow my-api agents`, with the shipped `agents.yaml`:
+`theway workflow agents`, with the shipped `agents.yaml`:
 
 ```json
 {
@@ -295,13 +339,13 @@ Which file:
 }
 ```
 
-`commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/<project>/standards/commits.md` and `git-host.md` when they are files (not for a project named `data`, `templates`, `standards`, `workflows` or `lenses`), else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
+`commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/projects/<key>/standards/commits.md` and `git-host.md` when they are files, else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
 
-Every field of every step is printed, `step` first, then `agents`: the step's own value, else the file's top-level `agents`, else `true`. A step with `agents: false` runs inline and has no `model` or `fix_model`; the shipped `develop` prints `"steps": [{ "step": "implement", "agents": false }]`. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the rule of [`path`](#path) for `<project>`, and these, where `<file>` is the path relative to the home:
+Every field of every step is printed, `step` first, then `agents`: the step's own value, else the file's top-level `agents`, else `true`. A step with `agents: false` runs inline and has no `model` or `fix_model`; the shipped `develop` prints `"steps": [{ "step": "implement", "agents": false }]`. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the lines of [`project`](#project) for the key, and these, where `<file>` is the path relative to the home:
 
 ```text
 theway: invalid workflow name '<name>'
-theway: no workflow '<name>' in <home>/<project>/workflows or <home>/workflows
+theway: no workflow '<name>' in <home>/projects/<key>/workflows or <home>/workflows
 theway: workflows/a.yaml and workflows/b.yaml both set default: true
 theway: <file>: steps[1]: pr must be the last step
 theway: <file>: steps[0].implement.model has no effect when the step runs inline (agents: false)
@@ -350,8 +394,8 @@ invalid change id '<id>': must start with a verb prefix: add-, update-, refactor
 ## next-id
 
 ```bash
-theway next-id <project> <series-id>
-theway next-id <project> <series-id> --count <n>
+theway next-id <series-id>
+theway next-id <series-id> --count <n>
 ```
 
 Prints the next `<n>` free member IDs of a [series](./concepts/changes.mdx#series), one per line (`--count` defaults to 1):
@@ -367,7 +411,7 @@ add-user-auth-05
   invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number
   ```
 
-- It counts the folders `<home>/<project>/changes/<series-id>-NN` and the archived `<home>/<project>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.
+- It counts the folders `<home>/projects/<key>/changes/<series-id>-NN` and the archived `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.
 - A `--count` that is not a positive integer is rejected with `must be a positive integer`. When the last ID would be past `-99`, it exits 1:
 
   ```text

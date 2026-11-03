@@ -29,12 +29,24 @@ add-user-auth-03
 
 `/theway:workflow` takes the members in order. With a `pr` step in its workflow, it asks you before merging each PR and starts the next change once it is merged; without one, it stacks each change on a local branch created from the previous one.
 
+## Project key
+
+Every project has a key, and its files live in `<home>/projects/<key>/`. The CLI derives the key from the current directory, the way Claude Code names its `~/.claude/projects/` folders: the project root's absolute path with every character outside `[A-Za-z0-9]` replaced by `-`. `/home/you/code/my-api` gives `-home-you-code-my-api`.
+
+- **In a git repository:** the root is the main repository's root, from the repository itself, any of its subfolders and every linked worktree, so they all share one key. A bare repository or one with a separate git dir uses its worktree root; a linked worktree of a `--separate-git-dir` repository and a submodule get their own key.
+- **Outside git:** the root is the current directory.
+- **Physical path:** symlinks in the root are resolved first, so a repository reached through a symlink has the key of its real path.
+- **Moving or re-cloning** a repository changes its path, so it starts a new, empty project. Two clones of the same repository are two projects.
+- **`--project <key>`** replaces the derived key on every subcommand that uses a project: letters, digits and `-`, at most 200 characters. A derived key longer than 200 characters is an error that asks for `--project`.
+
+[`theway project`](../cli.mdx#project) prints the key and the folder; the commands run it and never compute the key themselves.
+
 ## Folder layout
 
-`<project>` is the name of your project directory.
+`<key>` is the [project key](#project-key).
 
 ```text
-~/.theway/<project>/changes/
+~/.theway/projects/<key>/changes/
 ├── add-redis-cache/
 │   ├── spec.md      # required: why, what, risks and Success Criteria
 │   ├── tasks.md     # required: numbered tasks
@@ -50,7 +62,7 @@ In `tasks.md`, only numbered checkbox lines are tasks: `- [ ] 1. …` or `- [x] 
 An archived change keeps its whole folder and is named `YYYY-MM-DD-<change-id>`, with the local date of the archive:
 
 ```text
-~/.theway/<project>/changes/archive/
+~/.theway/projects/<key>/changes/archive/
 ├── 2025-10-10-add-logging-framework/
 └── 2025-10-15-update-auth-middleware/
 ```

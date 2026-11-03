@@ -18,7 +18,7 @@ In `my-api`, after the [series](../examples/series.mdx) and the archive of `add-
 ```
 
 ```text
-theway changes — my-api
+theway changes — -home-you-code-my-api
 
 Active changes
 
@@ -35,15 +35,15 @@ Summary: 3 active change(s), 1 archived.
 
 ## Steps
 
-It takes the name of the current working directory as `<project>`, runs the CLI and shows the output as it is:
+It runs the CLI, which derives the [project key](../concepts/changes.mdx#project-key) from the current directory, and shows the output as it is:
 
 ```bash
-theway list <project>
+theway list
 ```
 
 ## Output
 
-Each line of `theway list <project>`, as in the example above:
+Each line of `theway list`, as in the example above:
 
 - An active change shows its number of `.md` files and its ticked numbered tasks out of all numbered tasks.
 - Archived changes are listed by folder name.
