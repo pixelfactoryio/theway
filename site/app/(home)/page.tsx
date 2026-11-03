@@ -145,6 +145,51 @@ const steps: Step[] = [
     ],
   },
   {
+    title: 'Compose your own workflow',
+    subline: (
+      <>
+        Write a workflow as a YAML file of steps — <code>implement</code>, <code>review</code>, <code>agent</code>, <code>pr</code> — and
+        choose for each one whether it runs in your session or through agents.{' '}
+        <code className="text-accent-text">/theway:workflow --workflow &lt;name&gt;</code> runs it.
+      </>
+    ),
+    mocks: [
+      {
+        type: 'file',
+        title: 'workflows/develop-secure.yaml',
+        lines: [
+          { text: 'agents: false' },
+          { text: 'steps:' },
+          { text: '  - implement:' },
+          { text: '  - review:' },
+          { text: '      agents: true' },
+          { text: '      rounds: 2' },
+          { text: '      lenses: [conformance, correctness, security]' },
+          { text: '  - pr:' },
+          { text: '      agents: true' },
+        ],
+      },
+    ],
+    features: [
+      {
+        icon: Hand,
+        title: 'Inline or through agents',
+        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it and open the PR.',
+      },
+      {
+        icon: Search,
+        title: 'Review lenses you write',
+        body: 'One reviewer per lens file, then each round triages the findings, fixes the confirmed ones and checks the fixes. Add a security.md lens, name it in the review step, and every change that workflow runs gets a security review.',
+      },
+      {
+        icon: BookOpen,
+        title: 'Your conventions, your git host',
+        href: '/docs/concepts/standards/#convention-standards',
+        body: 'Commit messages, branch names and the git host commands live in commits.md and git-host.md, which you replace per project.',
+      },
+    ],
+  },
+  {
     title: 'Keep the history',
     subline: (
       <>

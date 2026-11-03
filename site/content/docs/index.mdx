@@ -21,6 +21,10 @@ theway keeps its files in a data home, `~/.theway` by default, or the folder cho
 
 Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is your repository's path with every non-alphanumeric character turned into `-` (`/home/you/code/my-api` gives `-home-you-code-my-api`). The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
 
+## Your own workflows
+
+`/theway:workflow` runs a workflow: a YAML file listing the steps of a change (`implement`, `review`, `agent`, `pr`), each run inline in your session or through agents. theway ships two, `develop` (inline) and `agents` (implement, review and pull request through agents); you add your own in `<home>/workflows/`, or per project, with your own review lenses, rounds and steps. See [Workflows](./concepts/workflows.mdx).
+
 ## Next steps
 
 - [Install theway](./installation.mdx).
