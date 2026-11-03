@@ -88,7 +88,7 @@ A `fix-` change also proves its regression test, which `develop.md` Verify calls
 3. It copies in only the regression test files and runs only the regression test. The test must fail for the reason the spec's Root Cause gives, then pass on the change. The worktree is then removed, also when the check stopped early.
 4. It re-runs the reproduction recorded in the spec, and records that it no longer reproduces.
 
-For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering-light`](./engineering-light.mdx)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the Discoveries of the `tasks.md` Notes. The reproduction is still re-run.
+For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering --light`](./engineering.mdx#light)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the Discoveries of the `tasks.md` Notes. The reproduction is still re-run.
 
 Re-running the regression check on a new head, as a review fix does, means steps 1 to 3 again for a full spec, and only the run after the fix for a light spec.
 

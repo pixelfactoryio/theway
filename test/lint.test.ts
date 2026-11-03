@@ -73,7 +73,7 @@ test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () =>
 });
 
 test("every command that reads theway data has the same Locate the home step", () => {
-  const readers = ["archive.md", "document.md", "engineering-light.md", "engineering.md", "list.md", "workflow.md"];
+  const readers = ["archive.md", "document.md", "engineering.md", "list.md", "workflow.md"];
   const reference = locateStep(read(join(COMMANDS, "engineering.md")));
   for (const marker of [
     "Run `theway path`",
@@ -89,14 +89,14 @@ test("every command that reads theway data has the same Locate the home step", (
 
 test("the engineering commands get the change folder from theway path, workflow from theway context", () => {
   const missing = [
-    ...["engineering.md", "engineering-light.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`")),
+    ...["engineering.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway path <project> <change-id>`")),
     ...["workflow.md"].filter((f) => !read(join(COMMANDS, f)).includes("`theway context <project> develop <change-id>`")),
   ];
   expect(missing).toEqual([]);
 });
 
 test("the four loading commands call theway context, not theway config or theway standards", () => {
-  for (const f of ["engineering.md", "engineering-light.md", "workflow.md", "document.md"]) {
+  for (const f of ["engineering.md", "workflow.md", "document.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("context");
     expect(text).not.toContain("theway config <project>");
@@ -109,7 +109,7 @@ test("engineering.md takes a series' member IDs from theway next-id", () => {
   expect(text).toContain("`theway next-id <project> <series-id> --count <N>`");
   expect(text).toContain("`would go past -99`");
   expect(text).not.toContain("changes/archive/*-");
-  expect(text).not.toContain("--series");
+  expect(text).not.toContain("validate-id <change-id> --series");
 });
 
 test("plugin.json and package.json carry the same semver version", () => {
@@ -230,10 +230,10 @@ test("every spawned agent gets the Authority rule", () => {
   for (const f of [...files(join(PLUGIN, "commands")), ...files(join(PLUGIN, "home", "standards"))]) {
     expect(read(f)).not.toContain("interaction.default.md");
   }
-  for (const f of ["engineering-light.md", "engineering.md"]) {
+  for (const f of ["engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/spec-review.md`");
   }
-  for (const f of ["archive.md", "workflow.md", "document.md", "engineering-light.md", "engineering.md"]) {
+  for (const f of ["archive.md", "workflow.md", "document.md", "engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/interaction.md`");
   }
 });
@@ -359,22 +359,36 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
   ]);
 });
 
-test("engineering-light.md validates a standalone ID and writes the light spec", () => {
-  const light = read(join(COMMANDS, "engineering-light.md"));
+test("engineering.md takes --light and states the light path in each step it changes", () => {
+  const text = read(join(COMMANDS, "engineering.md"));
+  const invocation = section(text, "Invocation");
+  expect(invocation).toContain("/theway:engineering [--light] <request>");
+  expect(invocation).toContain("a series is not a light change");
+  const light = "**With `--light`:**";
+  for (const prefix of ["Step 2:", "Step 3:", "Step 4:", "Step 5:", "Step 6:"]) expect(step(text, prefix)).toContain(light);
+  expect(section(text, "Exit")).toContain(light);
   for (const marker of [
-    "`theway validate-id <change-id>`",
+    "`theway validate-id <change-id>`, never with `--series`",
+    "`<home>/templates/light-spec-template.md` | `spec.md`",
+    "without `--light`",
+    "a light change has no `design.md`",
+    "with the grounding lens only",
     "`/theway:engineering <change-id>: <original request>`",
   ]) {
-    expect(light).toContain(marker);
+    expect(text).toContain(marker);
   }
-  expect(light).not.toContain("validate-id <change-id> --series");
-  expect(light).not.toContain("min(");
-  expect(light).not.toContain("Implementability critic");
-  expect(light).toContain("`<home>/templates/light-spec-template.md` | `spec.md`");
-  expect(light).toContain("`<home>/templates/tasks-template.md` | `tasks.md`");
-  expect(step(light, "Step 3: Investigate")).toContain("`<home>/standards/spec-investigation.md`");
-  expect(section(light, "Exit")).toContain("`/theway:engineering-light`");
-  expect(light).toContain("engineering.review.model");
+  expect(text).not.toContain("validate-id <change-id> --series");
+  expect(text).not.toContain("min(");
+  expect(section(text, "Exit")).toContain("`/theway:engineering --light`");
+  expect(section(text, "Exit")).toContain("`Fix` column reads `escalated`");
+});
+
+test("no light command remains and no file in plugin/, src/, site/content/ or site/app/ names it", () => {
+  const removed = "engineering" + "-light";
+  expect(existsSync(join(COMMANDS, `${removed}.md`))).toBe(false);
+  const searched = ["plugin", "src", join("site", "content"), join("site", "app")].flatMap((p) => files(join(REPO, p)));
+  expect(searched.length).toBeGreaterThan(0);
+  expect(searched.filter((f) => read(f).includes(removed)).map((f) => relative(REPO, f))).toEqual([]);
 });
 
 test("run-pipeline.js checks a fix- test by the regression check and triages by spec-review.md", () => {
@@ -389,8 +403,8 @@ test("run-pipeline.js checks a fix- test by the regression check and triages by 
 
 const OPT_IN_PATHS = ["core-principles.md", "sre.md", "web-development.md", "quality.md"].map((n) => `<home>/standards/${n}`);
 
-test("engineering and engineering-light read the standards from theway context and report them", () => {
-  for (const f of ["engineering.md", "engineering-light.md"]) {
+test("engineering reads the standards from theway context and reports them", () => {
+  for (const f of ["engineering.md"]) {
     const text = read(join(COMMANDS, f));
     const step1 = step(text, "Step 1:");
     expect(step1).toContain("- `<home>/standards/tamm-framework.md` - TAMM framework");
@@ -424,11 +438,8 @@ test("the develop standard has a Standards section and the Authority rule names 
   for (const folder of ["`<home>/standards/`", "`<home>/<project>/standards/`"]) expect(first).toContain(folder);
 });
 
-test("engineering and engineering-light take their keys from the config of theway context, workflow from theway workflow", () => {
-  for (const [f, n] of [
-    ["engineering.md", 6],
-    ["engineering-light.md", 5],
-  ] as const) {
+test("engineering takes its keys from the config of theway context, workflow from theway workflow", () => {
+  for (const [f, n] of [["engineering.md", 6]] as const) {
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
     expect(step1.split("\n\n")[1]).toStartWith("Run `theway context <project> engineering`");
@@ -438,7 +449,7 @@ test("engineering and engineering-light take their keys from the config of thewa
   const workflow = read(join(COMMANDS, "workflow.md"));
   expect(step(workflow, "Step 1:")).toContain("`theway workflow <project>`");
   expect(workflow).not.toMatch(/\bworkflow\.[a-z_]/);
-  for (const f of ["engineering.md", "engineering-light.md", "workflow.md"]) {
+  for (const f of ["engineering.md", "workflow.md"]) {
     const text = read(join(COMMANDS, f));
     expect(calls(text)).toContain("context");
   }
@@ -488,7 +499,7 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
   for (const outcome of ["Not reproduced", "Possibly already covered", "Works as intended"]) {
     expect(section(investigation, "A `fix-` change")).toContain(`- **${outcome}:**`);
   }
-  for (const f of ["engineering.md", "engineering-light.md"]) {
+  for (const f of ["engineering.md"]) {
     const text = read(join(COMMANDS, f));
     expect(text).toContain("`<home>/standards/spec-review.md`");
     expect(text).toContain("`<home>/standards/spec-investigation.md`");

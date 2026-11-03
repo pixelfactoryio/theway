@@ -48,11 +48,11 @@ For example, `<home>/standards/tdd.md`:
 Write the failing test before the code that makes it pass.
 ```
 
-Without frontmatter, it applies to the engineering commands, `/theway:workflow` and `/theway:document`.
+Without frontmatter, it applies to `/theway:engineering`, `/theway:workflow` and `/theway:document`.
 
 ## applies_to
 
-An optional `applies_to` in the file's frontmatter limits a standard, yours or a shipped opt-in one, to some phases. The values are `engineering` (`/theway:engineering`, `/theway:engineering-light`), `develop` (`/theway:workflow`) and `document` (`/theway:document`). It takes a flow list or a block list:
+An optional `applies_to` in the file's frontmatter limits a standard, yours or a shipped opt-in one, to some phases. The values are `engineering` (`/theway:engineering`, with or without `--light`), `develop` (`/theway:workflow`) and `document` (`/theway:document`). It takes a flow list or a block list:
 
 ```markdown
 ---
@@ -136,7 +136,7 @@ For example, a project on GitLab replaces `git-host.md` with `<home>/<project>/s
 
 The commands get them from the `standards` list of [`theway context <project> <engineering|develop|document>`](../cli.mdx#context), the paths [`theway standards`](../cli.mdx#standards) prints for that phase, and read every file it lists: for each phase, the enabled standards, shipped opt-in or yours, that apply to it; each applies to every phase unless its `applies_to` narrows it. When the installed `theway` is too old to know `context`, the command tells you to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stops; when `theway context` exits 1 for another reason, it quotes the error and stops. Standards are binding, not guidance:
 
-- [`/theway:engineering`](../commands/engineering.mdx) and [`/theway:engineering-light`](../commands/engineering-light.mdx) write the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question in `/theway:engineering`, and an escalation in `/theway:engineering-light`. The critics get their paths: the implementability critic (the grounding critic in the light command) reports a spec or task that contradicts one.
+- [`/theway:engineering`](../commands/engineering.mdx), with or without [`--light`](../commands/engineering.mdx#light), writes the spec and tasks with them, the enabled opt-in standards included. A request that contradicts one is an open question without `--light`, and an escalation with it. The critics get their paths: the implementability critic (the grounding critic with `--light`) reports a spec or task that contradicts one.
 - [`/theway:workflow`](../commands/workflow.mdx) follows them, in your session for an inline `implement` and through its implementer agent otherwise. When one contradicts the spec, the implementation stops and brings it back.
 - In `/theway:workflow`, the reviewers check the diff against them: a violation is a finding that names the standard file and the rule it breaks. The fix agents get them too, and the fix check marks a finding `not resolved` when its fix breaks one. The CI polling and log-fetch agents do not get them.
 

@@ -1,6 +1,6 @@
 ---
 template_type: "light"
-usage: "Create the short spec of a change with nothing to decide, written by /theway:engineering-light"
+usage: "Create the short spec of a change with nothing to decide, written by /theway:engineering --light"
 agent_role: "Spec Analyst who writes the smallest spec a cold-start implementer can follow"
 required_context:
   - "The standards the command gave you"

@@ -134,7 +134,7 @@ theway: invalid change id '..': must be lowercase letters and digits in words se
 theway config <project>
 ```
 
-Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering` and `/theway:engineering-light` take their keys from the same config, through [`context`](#context), and [`workflow`](#workflow) takes `workflow.defaults` from it.
+Prints the effective [configuration](./configuration.mdx) of `<project>` as YAML on stdout: the defaults, then `<home>/config.yaml`, then `<home>/<project>/config.yaml` when it exists, merged key by key (see [Layering](./configuration.mdx#layering)). It prints every key, sections in the order `standards`, `engineering`, `workflow`, without comments, and every value it prints is valid. `/theway:engineering`, with or without `--light`, takes its keys from the same config, through [`context`](#context), and [`workflow`](#workflow) takes `workflow.defaults` from it.
 
 The `standards` section lists every switchable [standard](./concepts/standards.mdx#switching-a-standard) of the project, each as `<key>:` with its effective `enabled`: the four opt-in keys `core_principles`, `sre`, `web_development` and `quality` first, then the keys of the user standards of `<home>/standards/` and `<home>/<project>/standards/`, sorted. For a project named `data`, `templates`, `standards`, `workflows` or `lenses`, only the global ones are listed.
 
@@ -258,7 +258,7 @@ config:
 
 It writes the warnings of `config` to stderr once. It exits 1 and prints nothing on stdout when `<project>` or `<change-id>` does not follow the rule of [`path`](#path), when the phase is invalid (the message of [`standards`](#standards)), or when `<home>/config.yaml` is missing or a config file cannot be read or is not valid YAML (the messages of [`config`](#config)).
 
-The engineering commands run it with `engineering`, `/theway:document` with `document`, and `/theway:workflow` with `develop` and the change ID, taking `change_dir` as the change folder.
+`/theway:engineering`, with or without `--light`, runs it with `engineering`, `/theway:document` with `document`, and `/theway:workflow` with `develop` and the change ID, taking `change_dir` as the change folder.
 
 ## workflow
 
@@ -345,7 +345,7 @@ invalid change id '<id>': must start with a verb prefix: add-, update-, refactor
 - **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
 - **With `--series`** (a series member): the ID must end in a two-digit ordinal from `01`, such as `add-user-auth-01`. Letter suffixes, `-00` and double ordinals are rejected.
 
-`/theway:engineering` and `/theway:engineering-light` run it before they write a standalone change folder; [`next-id`](#next-id) validates the members of a series.
+`/theway:engineering`, with or without `--light`, runs it before it writes a standalone change folder; [`next-id`](#next-id) validates the members of a series.
 
 ## next-id
 

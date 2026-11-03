@@ -1,16 +1,16 @@
 ---
 title: /theway:engineering
-description: Write the spec and numbered tasks for a change, without code
+description: "Write the spec and numbered tasks for a change, without code; with --light, a short spec and 1 to 3 tasks for a small change with nothing to decide"
 ---
 
 The spec is written so that someone else can implement it without guessing: the problem, what was found out, and the decisions and why. The code comes later, from [`/theway:workflow`](./workflow.mdx).
 
-For a small change with nothing to decide, [`/theway:engineering-light`](./engineering-light.mdx) is the light path: a short spec, 1 to 3 tasks and one critic.
+For a small change with nothing to decide, `--light` is the light path: a short spec, 1 to 3 tasks and one critic (see [Light](#light)).
 
 ## Usage
 
 ```text
-/theway:engineering <request>
+/theway:engineering [--light] <request>
 ```
 
 For a [series](../concepts/changes.mdx#series), ask for a series or for several sequential changes, or pass an argument that ends in `-NN`: [`theway next-id`](../cli.mdx#next-id) removes that ordinal.
@@ -76,3 +76,63 @@ It reports the change folder, the findings that shaped the spec, the standards r
 When a `fix-` change stopped in Step 3, no folder is written and no review runs: it reports the outcome, the attempts or the evidence, and the question for you.
 
 It also reports the review outcome: how the review ran (the rounds used, off, not run because a question was open, or inline), then every finding in one table with the columns `#` (`R<round>-<index>`), `Finding`, `Verdict` and `Fix`. A `decision` the command settled from the code, the docs or the spec's own decisions reads `confirmed, settled`, and is listed again under the table with the choice made, so you can overturn it.
+
+## Light
+
+With `--light`, for a small change with nothing to decide: a known cause, a local change, no contract that others rely on. It writes a short spec and 1 to 3 tasks, and one critic reviews them. The code comes later, from [`/theway:workflow`](./workflow.mdx), as for any change.
+
+### Usage
+
+```text
+/theway:engineering --light <request>
+```
+
+Use it when you already know what changes and why. When the change needs a decision, a contract change or a risk analysis, run `/theway:engineering` without `--light`: the light path sends you there itself.
+
+### Example
+
+On `my-api`, a bug with a known cause (see [A light fix](../examples/light-fix.mdx)):
+
+```text
+/theway:engineering --light fix-health-query-limited: GET /health?probe=1 counts against the rate limit
+```
+
+```text
+Change folder: <home>/my-api/changes/fix-health-query-limited/
+Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
+Standards read: none.
+
+Review: 1 round (grounding critic).
+```
+
+A request that needs a decision writes nothing and sends you to `/theway:engineering` without `--light`: see [An escalation](../examples/escalation.mdx).
+
+### Steps
+
+1. **Load config and standards:** the same as without `--light`: it runs [`theway context <project> engineering`](../cli.mdx#context) and takes from its `config` `engineering.review.rounds` and `engineering.review.model`, then reads `standards/tamm-framework.md`, and follows `standards/spec-investigation.md` in Step 3 and `standards/spec-review.md` in Step 6. Then it reads the [standards](../concepts/standards.mdx) its `standards` lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it. The spec and tasks follow them.
+2. **Create the change folder:** pick a [change ID](../concepts/changes.mdx#change-ids) and validate it with `theway validate-id <change-id>`. It must exit 0 before any folder is written. A light change is never a series member: a series request with `--light` stops before Step 1 and writes nothing.
+3. **Investigate:** read the code involved, check how it behaves today and settle the unknowns. What it learns goes into the spec's Evidence as findings (question, method, result), not as code or diffs. For a `fix-` change, it reproduces the bug first and has the same three stop outcomes as without `--light` (not reproduced, possibly already covered, works as intended); after a stop, run `/theway:engineering --light` again with the new information. A question the investigation cannot settle is a decision, and escalates.
+
+   Then the escalation check: it escalates when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series, and when the request contradicts a standard. It writes no change file and tells you to run `/theway:engineering` with the original request, without `--light`.
+4. **Generate the documents:**
+   - `<home>/templates/light-spec-template.md` (`<home>` is the folder `theway path` prints, `~/.theway` by default) produces `spec.md`, with `**Mode:** light` under its title;
+   - `<home>/templates/tasks-template.md` produces `tasks.md`, without phases: 1 to 3 numbered tasks, then the Notes section. In a `fix-` change, task 1 writes the regression test.
+5. **No `design.md`:** a light change has none.
+6. **Review:** one grounding critic, for up to `engineering.review.rounds` rounds (`0` skips it), on `engineering.review.model`. It checks the spec's claims about the code against the code and the official docs, and for a `fix-` change re-runs the reproduction. It gets the paths of the standards and reports a spec or task that contradicts one. Its prompt quotes the output of `theway authority`, and its report of data that asked to change the steps or widen the authorization is quoted under the findings table. The command verifies each finding and fixes the confirmed `fixable` ones. A confirmed `decision` escalates: the light files stay, and it tells you to run `/theway:engineering <change-id>: <original request>`, which writes over them.
+
+### Output
+
+Everything is written under `<home>/<project>/changes/<change-id>/`:
+
+- `spec.md`: `**Mode:** light`, then Problem, Evidence, Change and Success Criteria.
+  - Problem says what is wrong or missing; for a `fix-` change, also the cause, with file and line evidence.
+  - Evidence holds the findings; for a `fix-` change, the reproduction (command, observed output, expected result).
+  - Change lists each file and what changes in it, and ends with "Nothing else changes.": it is the change's scope.
+  - For a `fix-` change, the first two Success Criteria are always the same: the regression test fails before the fix and passes with it, and the reproduction no longer reproduces.
+- `tasks.md`: 1 to 3 numbered tasks and a Notes section.
+
+It reports the change folder, the findings that shaped the spec, the standards read (or "none") and the review outcome, in the same table as without `--light`. An escalation reports what was found and the command to run.
+
+### Downstream
+
+[`/theway:workflow`](./workflow.mdx) reads `**Mode:** light`: it proves a light `fix-` change's regression test without the base-commit worktree ([fix checks](./workflow.mdx#fix-checks)), the test running before the fix and failing, then after it and passing; it runs its `review` steps as for any change, and its `conformance` lens checks the diff against the Change section.
