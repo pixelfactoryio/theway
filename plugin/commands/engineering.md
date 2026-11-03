@@ -15,6 +15,7 @@ allowed-tools: Bash(theway:*)
 ## Locate the home
 
 Run `theway path` and use the folder it prints as `<home>`, never a path from elsewhere: theway files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.
+
 - If `theway` is not found, tell the user to add the folder theway is installed in (`~/.local/bin` by default) to their `PATH`, or to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins`, and stop.
 - If any `theway` subcommand fails with `error: unknown command '<name>'`, the installed `theway` is older than these commands: tell the user to run `npx --yes @pixelfactoryio/theway@latest install` then `/reload-plugins` and stop.
 - If a `theway` subcommand exits 1 otherwise, quote the error line it wrote to stderr and stop, unless the step that runs it says what to do instead. The steps that do are `validate-id` (fix the ID), `next-id` (fix the series ID) and `archive` (open tasks, `--force` on explicit acceptance). Not every error line starts with `theway:`: `validate-id` and `next-id` write `invalid change id '…'` and `archive` writes `Error: …`.
@@ -42,6 +43,7 @@ Every step below states the full rule; a **With `--light`:** paragraph replaces 
 ### Step 1: Load Config and Standards
 
 Run `theway context engineering`. Read these files from `<home>`:
+
 - `<home>/standards/tamm-framework.md` - TAMM framework
 
 Then read every file its `standards` lists: these are the standards, the shipped opt-in ones that are enabled and yours, and the spec follows them.
@@ -106,6 +108,7 @@ For a series, each member's `spec.md` carries one line directly under its H1 tit
 ### Step 5: Optional Technical Design
 
 If needed, create `<change-dir>/design.md` for:
+
 - API contracts and data models
 - Architecture decisions
 - Technical diagrams and specs
@@ -131,6 +134,7 @@ Report the review outcome as `<home>/standards/spec-review.md` sets it out. It c
 When a `fix-` change stopped in Step 3, report the stop as `<home>/standards/spec-investigation.md` sets it out: the user re-runs `/theway:engineering` with the new information.
 
 **With `--light`:** Report the change folder, the findings that shaped the spec, and the review outcome. When a `fix-` change stopped in Step 3, report the stop as `<home>/standards/spec-investigation.md` sets it out: the user re-runs `/theway:engineering --light` with the new information. When the change escalated, report what was found and the command to run instead:
+
 - from Step 3: no change folder was written; the user runs `/theway:engineering` with the original request, without `--light`;
 - from Step 6: the confirmed `decision` findings, and `/theway:engineering <change-id>: <original request>`, which writes over the light files.
 

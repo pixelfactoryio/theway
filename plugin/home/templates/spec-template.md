@@ -39,6 +39,7 @@ best_practices:
 [2-3 paragraphs describing the technical solution. Focus on what you're building/changing and how it addresses the problem.]
 
 **Key Components:**
+
 - **[Component 1]:** Brief description
 - **[Component 2]:** Brief description
 - **[Component 3]:** Brief description
@@ -46,6 +47,7 @@ best_practices:
 ## Technical Approach
 
 **Technical Decisions:**
+
 - **[Decision 1]:** [Rationale]
 - **[Decision 2]:** [Rationale]
 - **[Decision 3]:** [Rationale]
@@ -62,11 +64,13 @@ best_practices:
 ## Scope
 
 **In Scope:**
+
 - [What will be included]
 - [What will be addressed]
 - [What will be built]
 
 **Out of Scope:**
+
 - [What will not be included]
 - [What will be deferred]
 - [What is explicitly excluded]
@@ -83,6 +87,7 @@ best_practices:
 | Machine (M) | Med/High | [How this limitation constrains the solution] | 1. [Countermeasure]<br>2. [Countermeasure] |
 
 **TAMM Legend:**
+
 - **Time**: Timeline constraints, dependencies, blocking risks
 - **Autonomy**: Decision authority, organizational constraints, approval needs
 - **Mastery**: Skill gaps, knowledge requirements, learning curves
@@ -93,18 +98,22 @@ best_practices:
 **Phases:**
 
 **Phase 1: [Phase Name]**
+
 - [High-level milestone]
 - [High-level milestone]
 
 **Phase 2: [Phase Name]**
+
 - [High-level milestone]
 - [High-level milestone]
 
 **Phase 3: [Phase Name]**
+
 - [High-level milestone]
 - [High-level milestone]
 
 **Success Criteria:**
+
 - [ ] [Criterion 1]
 - [ ] [Criterion 2]
 - [ ] [Criterion 3]

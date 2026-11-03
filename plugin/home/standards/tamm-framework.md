@@ -7,24 +7,28 @@ The **Time/Autonomy/Mastery/Machine (TAMM)** framework identifies potential obst
 ## Quick Reference
 
 **Time Hardpoints:**
+
 - Timeline pressures, compressed schedules, external deadlines
 - Dependencies and blocking, critical path bottlenecks
 - Resource contention, competing priorities
 - Countermeasures: Timeline buffering, parallel work, resource reallocation
 
 **Autonomy Hardpoints:**
+
 - Decision-making constraints, approval bottlenecks
 - Organizational dependencies, policy constraints
 - Communication barriers, stakeholder alignment
 - Countermeasures: Pre-approval, delegation, streamlined processes
 
 **Mastery Hardpoints:**
+
 - Skill gaps, technology unfamiliarity, domain expertise
 - Learning curves, complex systems, best practices
 - Knowledge transfer, documentation gaps, key person dependencies
 - Countermeasures: Training, pair programming, expert consultation
 
 **Machine Hardpoints:**
+
 - Performance constraints, scalability limits, latency requirements
 - Infrastructure limitations, legacy systems, security constraints
 - Integration challenges, API limitations, protocol mismatches
@@ -34,21 +38,25 @@ The **Time/Autonomy/Mastery/Machine (TAMM)** framework identifies potential obst
 ## Analysis Questions
 
 **Time Questions:**
+
 - "What could cause delays in this timeline?"
 - "Where are the critical path bottlenecks?"
 - "What external factors could impact timing?"
 
 **Autonomy Questions:**
+
 - "Who needs to approve this decision?"
 - "What organizational constraints exist?"
 - "Where might we get blocked by process?"
 
 **Mastery Questions:**
+
 - "What skills are required that we don't have?"
 - "What knowledge gaps exist?"
 - "Where might we struggle technically?"
 
 **Machine Questions:**
+
 - "What are the system limitations?"
 - "Where might performance be an issue?"
 - "What technical constraints exist?"

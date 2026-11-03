@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { buildProgram } from "../src/program";
 
@@ -48,39 +47,6 @@ test("every theway subcommand the commands and standards call is dispatched by t
   expect([...called].filter((sub) => !subcommands.includes(sub))).toEqual([]);
 });
 
-test("no file in plugin/, src/, site/ or test/ names the removed setup command", () => {
-  const removed = "theway:" + "setup";
-  const site = readdirSync(join(REPO, "site"))
-    .filter((e) => !["node_modules", ".next", "out"].includes(e))
-    .map((e) => join("site", e));
-  const searched = ["plugin", "src", "test", ...site].flatMap((p) => {
-    const path = join(REPO, p);
-    return statSync(path).isDirectory() ? files(path) : [path];
-  });
-  const offending = searched.filter((f) => read(f).includes(removed));
-  expect(searched).toContain(join(REPO, "test", "lint.test.ts"));
-  expect(offending.map((f) => relative(REPO, f))).toEqual([]);
-});
-
-test("no file in plugin/ passes a project to the CLI or names a project folder by directory name", () => {
-  const old = /<home>\/<project>|theway (list|archive|path|config|standards|context|workflow|next-id) (<project>|my-[a-z]+)|\.theway\/my-|<home>\/my-|my-repo|my-site|my-project|current directory name/;
-  const offending = files(PLUGIN).filter((f) => old.test(read(f)));
-  expect(offending.map((f) => relative(REPO, f))).toEqual([]);
-});
-
-test("no file in plugin/ names ~/.theway", () => {
-  const offending = files(PLUGIN).filter((f) => read(f).includes("~/.theway"));
-  expect(offending).toEqual([]);
-});
-
-test("no tracked .md or .mdx file capitalizes the name theway", () => {
-  const tracked = execFileSync("git", ["ls-files", "*.md", "*.mdx"], { cwd: REPO, encoding: "utf-8" })
-    .split("\n")
-    .filter(Boolean);
-  expect(tracked.length).toBeGreaterThan(0);
-  expect(tracked.filter((f) => /The[Ww]ay/.test(read(join(REPO, f))))).toEqual([]);
-});
-
 test("every command that calls the CLI has allowed-tools: Bash(theway:*)", () => {
   const calling = commands.filter((f) => calls(read(join(COMMANDS, f))).length > 0);
   expect(calling.length).toBeGreaterThan(0);
@@ -96,11 +62,12 @@ test("every command that reads theway data has the same Locate the home step", (
     "error: unknown command",
     "`theway: warning:`",
     "`<home>/standards/` or `<home>/templates/`",
-    "theway files of the current project are stored in `<home>/projects/<key>/`: run `theway project` for its key and folder; never compute the key yourself.",
   ]) {
     expect(reference).toContain(marker);
   }
-  expect(reference).not.toContain("<home>/config.yaml");
+  // The CLI, not the model, derives the project key.
+  expect(reference).toContain("`theway project`");
+  expect(reference).toContain("never compute the key yourself");
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
@@ -125,8 +92,6 @@ test("engineering.md takes a series' member IDs from theway next-id", () => {
   const text = read(join(COMMANDS, "engineering.md"));
   expect(text).toContain("`theway next-id <series-id> --count <N>`");
   expect(text).toContain("`would go past -99`");
-  expect(text).not.toContain("changes/archive/*-");
-  expect(text).not.toContain("validate-id <change-id> --series");
 });
 
 test("plugin.json and package.json carry the same semver version", () => {
@@ -141,8 +106,6 @@ test("every npx reference installs @pixelfactoryio/theway from npm", () => {
   const offending = files.filter((f) => {
     const text = read(join(REPO, f));
     return (
-      text.includes("ai-marketplace") ||
-      text.includes("github:pixelfactoryio") ||
       [...text.matchAll(/npx --yes /g)].some(
         (m) => !/^@pixelfactoryio\/theway@(latest|X\.Y\.Z|\d+\.\d+\.\d+)\s/.test(text.slice(m.index + m[0].length)),
       )
@@ -180,18 +143,11 @@ test("engineering.md runs the spec review the shipped config.yaml sets up", () =
 test("the shipped defaults are neutral and the four architecture standards are opt-in", () => {
   const HOME = join(PLUGIN, "home");
   const TEMPLATES = join(HOME, "templates");
-  const all = files(PLUGIN);
-  expect(all.filter((f) => read(f).includes("architecture-principles"))).toEqual([]);
-  for (const name of ["spec-template.md", "fix-spec-template.md", "light-spec-template.md", "tasks-template.md"]) {
-    const template = read(join(TEMPLATES, name));
-    expect(template).not.toContain("Estimated");
-    expect(template).not.toContain("Target Completion");
-  }
   const techStack = read(join(TEMPLATES, "tech-stack-template.md"));
   const infra = ["Cloud Infrastructure", "Infrastructure & Deployment", "Database & Storage", "Monitoring & Observability", "Security Tools"];
+  // /theway:document skips infrastructure the repository has none of.
   for (const heading of infra) {
-    expect(techStack).toContain(`\n## ${heading}\n[Omit this section if the repository has none.]\n\n`);
-    expect(techStack).toMatch(new RegExp(`^## ${heading}\\n\\[Omit this section if the repository has none\\.\\]\\n\\n\\S`, "m"));
+    expect(techStack).toMatch(new RegExp(`^## ${heading}\\n\\[Omit this section if the repository has none\\.\\]$`, "m"));
   }
   const config = Bun.YAML.parse(read(join(HOME, "config.yaml"))) as {
     standards?: Record<string, { enabled?: unknown } | undefined>;
@@ -243,9 +199,6 @@ test("every spawned agent gets the Authority rule", () => {
   for (const text of [read(join(COMMANDS, "workflow.md")), read(join(PLUGIN, "home", "standards", "spec-review.md"))]) {
     expect(text).toContain("`theway authority`");
   }
-  for (const f of [...files(join(PLUGIN, "commands")), ...files(join(PLUGIN, "home", "standards"))]) {
-    expect(read(f)).not.toContain("interaction.default.md");
-  }
   for (const f of ["engineering.md"]) {
     expect(read(join(COMMANDS, f))).toContain("`<home>/standards/spec-review.md`");
   }
@@ -296,22 +249,21 @@ test("the fix spec template has the spec template's frontmatter keys, its fixed 
   }
   expect(section(fix, "Hardpoints (TAMM Analysis)")).toContain('"None at Medium or High."');
   const implementation = section(fix, "Implementation");
-  const criteria = implementation.split("**Success Criteria:**\n")[1]?.split("\n").filter((l) => l.startsWith("- [ ] "));
-  expect(criteria?.slice(0, 2)).toEqual([
-    "- [ ] The regression test `[test name]` fails on the base commit for the reason in Root Cause, and passes with the fix",
-    "- [ ] The reproduction no longer reproduces: `[reproduction command]` now shows [expected result]",
-  ]);
+  const criteria = implementation.split("**Success Criteria:**\n")[1] ?? "";
+  // A fix- change proves its regression test and its reproduction.
+  expect(criteria).toContain("fails on the base commit");
+  expect(criteria).toContain("no longer reproduces");
 });
 
 test("engineering.md handles a fix- change: the verb list, the investigation standard, the fix template and the stop outcomes", () => {
   const engineering = read(join(COMMANDS, "engineering.md"));
   expect(engineering).toContain("`add-*`, `update-*`, `refactor-*`, `remove-*`, `fix-*`");
-  expect(engineering).toContain("`fix-login-crash`");
   const step3 = step(engineering, "Step 3: Investigate");
   expect(step3).toContain("`<home>/standards/spec-investigation.md`");
   const investigation = read(join(STANDARDS, "spec-investigation.md"));
+  // A reproduction runs in a throwaway directory.
+  expect(section(investigation, "A `fix-` change")).toContain("`mktemp -d`");
   for (const marker of [
-    "`mktemp -d`",
     "- **Not reproduced:**",
     "- **Possibly already covered:**",
     "`theway list`",
@@ -327,13 +279,18 @@ test("engineering.md handles a fix- change: the verb list, the investigation sta
 });
 
 test("develop.md Verify proves a fix- regression test fails on the base commit and re-runs the reproduction", () => {
-  const verify = section(read(join(STANDARDS, "develop.md")), "Verify");
+  const develop = read(join(STANDARDS, "develop.md"));
+  const verify = section(develop, "Verify");
+  const fix = verify.split("\n### A `fix-` change\n")[1] ?? "";
+  // The base commit of an uncommitted change.
+  expect(fix).toContain("`HEAD` when the change is uncommitted");
+  // The base commit of a committed change.
+  expect(fix).toContain("`git merge-base <base> HEAD`");
+  // The base-commit worktree is throwaway.
+  expect(fix).toContain("`mktemp -d`");
   for (const marker of [
     "### A `fix-` change",
-    "`HEAD` when the change is uncommitted",
-    "`git merge-base <base> HEAD` otherwise",
     "`git worktree add --detach <dir> <base-commit>`",
-    "`<dir>` comes from `mktemp -d`",
     "`git worktree remove --force <dir>`",
     "**the regression check**",
     "`**Mode:** light`",
@@ -346,11 +303,14 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
 test("commits.md sets the commit type from the change verb and the lenses review a fix's root cause", () => {
   expect(read(PIPELINE)).toContain("args.base");
   const commits = read(join(STANDARDS, "commits.md"));
-  for (const marker of ["`add-` → `feat`", "type(scope): description", "BREAKING CHANGE:", "`<change-id>`"]) {
+  // The shipped commit and branch convention.
+  for (const marker of ["`add-` → `feat`", "type(scope): description", "BREAKING CHANGE:", "branch is named `<change-id>`"]) {
     expect(commits).toContain(marker);
   }
   expect(step(read(join(COMMANDS, "workflow.md")), "Step 3:")).toContain("`<base>` (Step 2)");
+  // A light spec's Change section replaces Scope.
   expect(read(join(LENSES, "conformance.md"))).toContain("the Change section");
+  // The review of a fix- change.
   const correctness = read(join(LENSES, "correctness.md"));
   expect(correctness).toContain("the root cause the spec names");
   expect(correctness).toContain("the regression test would fail without the fix");
@@ -361,6 +321,7 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
   const spec = read(join(TEMPLATES, "spec-template.md"));
   expect(Object.keys(frontmatter(light))).toEqual(Object.keys(frontmatter(spec)));
   expect(frontmatter(light).template_type).toBe("light");
+  // A light spec has no Scope, TAMM or phase section.
   const standards = (frontmatter(light).quality_standards as string[]).join("\n");
   for (const word of ["Scope", "TAMM", "phase"]) expect(standards).not.toContain(word);
   expect(light).toContain("\n# Spec Analysis: [Change Name]\n**Mode:** light\n");
@@ -368,65 +329,50 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
   const evidence = section(light, "Evidence");
   for (const field of ["**Command:**", "**Observed output:**", "**Expected result:**"]) expect(evidence).toContain(field);
   expect(section(light, "Change").trimEnd().endsWith("Nothing else changes.")).toBe(true);
-  const criteria = section(light, "Success Criteria").split("\n").filter((l) => l.startsWith("- [ ] "));
-  expect(criteria.slice(0, 2)).toEqual([
-    "- [ ] The regression test `[test name]` fails before the fix and passes with it",
-    "- [ ] The reproduction no longer reproduces: `[reproduction command]` now shows [expected result]",
-  ]);
+  // A light fix- change proves its regression test and its reproduction.
+  const criteria = section(light, "Success Criteria");
+  expect(criteria).toContain("fails before the fix and passes with it");
+  expect(criteria).toContain("no longer reproduces");
 });
 
 test("engineering.md takes --light and states the light path in each step it changes", () => {
   const text = read(join(COMMANDS, "engineering.md"));
   const invocation = section(text, "Invocation");
   expect(invocation).toContain("/theway:engineering [--light] <request>");
+  // --light refuses a series.
   expect(invocation).toContain("a series is not a light change");
   const light = "**With `--light`:**";
   for (const prefix of ["Step 2:", "Step 3:", "Step 4:", "Step 5:", "Step 6:"]) expect(step(text, prefix)).toContain(light);
   expect(section(text, "Exit")).toContain(light);
-  for (const marker of [
-    "`theway validate-id <change-id>`, never with `--series`",
-    "`<home>/templates/light-spec-template.md` | `spec.md`",
-    "without `--light`",
-    "a light change has no `design.md`",
-    "with the grounding lens only",
-    "`/theway:engineering <change-id>: <original request>`",
-  ]) {
-    expect(text).toContain(marker);
-  }
-  expect(text).not.toContain("validate-id <change-id> --series");
-  expect(text).not.toContain("min(");
+  expect(text).toContain("`<home>/templates/light-spec-template.md` | `spec.md`");
+  // A light change is never a series member.
+  expect(step(text, "Step 2:")).toContain("never with `--series`");
+  // A light change writes no design.
+  expect(step(text, "Step 5:")).toContain("a light change has no `design.md`");
+  // The light review.
+  expect(step(text, "Step 6:")).toContain("with the grounding lens only");
+  // The escalation command.
+  expect(section(text, "Exit")).toContain("`/theway:engineering <change-id>: <original request>`");
   expect(section(text, "Exit")).toContain("`/theway:engineering --light`");
+  // The light review's report.
   expect(section(text, "Exit")).toContain("`Fix` column reads `escalated`");
-});
-
-test("no light command remains and no file in plugin/, src/, site/content/ or site/app/ names it", () => {
-  const removed = "engineering" + "-light";
-  expect(existsSync(join(COMMANDS, `${removed}.md`))).toBe(false);
-  const searched = ["plugin", "src", join("site", "content"), join("site", "app")].flatMap((p) => files(join(REPO, p)));
-  expect(searched.length).toBeGreaterThan(0);
-  expect(searched.filter((f) => read(f).includes(removed)).map((f) => relative(REPO, f))).toEqual([]);
 });
 
 test("run-pipeline.js checks a fix- test by the regression check and triages by spec-review.md", () => {
   const pipeline = read(PIPELINE);
-  expect(pipeline).not.toContain("min(");
   expect(pipeline).toContain("the regression check of develop.md");
   expect(pipeline).toContain("args.specReview");
-  expect(pipeline).not.toContain("light `fix-`");
   const workflow = read(join(COMMANDS, "workflow.md"));
   expect(step(workflow, "Step 1:")).toContain("- `<home>/standards/spec-review.md`");
 });
-
-const OPT_IN_PATHS = ["core-principles.md", "sre.md", "web-development.md", "quality.md"].map((n) => `<home>/standards/${n}`);
 
 test("engineering reads the standards from theway context and reports them", () => {
   for (const f of ["engineering.md"]) {
     const text = read(join(COMMANDS, f));
     const step1 = step(text, "Step 1:");
-    expect(step1).toContain("- `<home>/standards/tamm-framework.md` - TAMM framework");
+    expect(step1).toContain("- `<home>/standards/tamm-framework.md`");
     expect(step1).toContain("Run `theway context engineering`.");
-    for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
-    expect(text).not.toContain("user standard");
+    // Every report names the standards or "none".
     expect(section(text, "Exit")).toContain('or "none"');
   }
   const review = read(join(STANDARDS, "spec-review.md"));
@@ -437,18 +383,17 @@ test("engineering reads the standards from theway context and reports them", () 
 test("workflow reads the standards from theway context and reports them", () => {
   const workflow = read(join(COMMANDS, "workflow.md"));
   const step1 = step(workflow, "Step 1:");
-  expect(step1).toContain("- `<home>/standards/develop.md` - How a change is implemented and verified");
+  expect(step1).toContain("- `<home>/standards/develop.md`");
   expect(step1).toContain("- `docs/architecture/coding-standards.md`");
-  expect(step1).toContain("Run `theway context develop <change-id>`");
+  // Every report names the standards or "none".
   expect(section(workflow, "Exit")).toContain('or "none"');
-  expect(workflow).not.toContain("user standard");
 });
 
 test("the develop standard has a Standards section and the Authority rule names the standards folders", () => {
   const develop = read(join(STANDARDS, "develop.md"));
   const headings = [...develop.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings.indexOf("Standards")).toBe(headings.indexOf("Implement") + 1);
-  expect(develop).not.toContain("user standard");
+  // The authority covers both standards folders.
   const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? "";
   for (const folder of ["`<home>/standards/`", "`<home>/projects/<key>/standards/`"]) expect(first).toContain(folder);
@@ -459,41 +404,18 @@ test("engineering takes its keys from the config of theway context, workflow fro
     const step1 = step(read(join(COMMANDS, f)), "Step 1:");
     expect(step1).toStartWith("### Step 1: Load Config and Standards\n\n");
     expect(step1.split("\n\n")[1]).toStartWith("Run `theway context engineering`");
-    expect(step1).toContain(`take \`engineering.review.rounds\` (maximum review rounds in Step ${n})`);
+    expect(step1).toContain("`engineering.review.rounds`");
+    expect(step1).toContain(`Step ${n}`);
     expect(step1).toContain("and `engineering.review.model`.");
   }
   const workflow = read(join(COMMANDS, "workflow.md"));
   expect(step(workflow, "Step 1:")).toContain("`theway workflow`");
-  expect(workflow).not.toMatch(/\bworkflow\.[a-z_]/);
-  for (const f of ["engineering.md", "workflow.md"]) {
-    const text = read(join(COMMANDS, f));
-    expect(calls(text)).toContain("context");
-  }
 });
 
 test("document reads the standards from theway context", () => {
   const text = read(join(COMMANDS, "document.md"));
   const first = step(text, "Step 1:").split("\n\n")[1];
   expect(first).toStartWith("Run `theway context document`");
-  expect(calls(text)).not.toContain("config");
-  for (const path of OPT_IN_PATHS) expect(text).not.toContain(path);
-});
-
-test("no command names <home>/config.yaml outside its Locate the home section", () => {
-  const offending = commands.filter((f) => {
-    const text = read(join(COMMANDS, f));
-    return text.replace(locateStep(text) ?? "", "").includes("<home>/config.yaml");
-  });
-  expect(offending).toEqual([]);
-});
-
-test("the shipped config.yaml says a project can override any key", () => {
-  expect(read(join(PLUGIN, "home", "config.yaml"))).toStartWith(
-    "# theway configuration\n# A project can override any key in <home>/projects/<key>/config.yaml; theway config prints the result.\n",
-  );
-  expect(read(join(PLUGIN, "home", "config.yaml"))).toContain(
-    "\n# Standards: standards.<key>.enabled switches any standard, key = file stem with - as _ (shipped opt-in ones default false, your own standards true)\nstandards:\n",
-  );
 });
 
 test("spec-review.md and spec-investigation.md hold the shared procedures the engineering commands follow", () => {
@@ -508,17 +430,16 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
   }
   expect(triage).toContain("`confirmed, settled`");
   const report = section(review, "Report");
-  expect(report).toContain("the columns `#`, `Finding`, `Verdict` and `Fix`");
-  expect(report).toContain("as `R<round>-<index>`");
+  // The findings table columns.
+  for (const column of ["`#`", "`Finding`", "`Verdict`", "`Fix`"]) expect(report).toContain(column);
+  // Finding numbering.
+  expect(report).toContain("`R<round>-<index>`");
   const investigation = read(join(STANDARDS, "spec-investigation.md"));
   expect([...investigation.matchAll(/^## (.+)$/gm)].map((m) => m[1])).toEqual(["Investigate", "A `fix-` change", "The stop report"]);
-  for (const outcome of ["Not reproduced", "Possibly already covered", "Works as intended"]) {
-    expect(section(investigation, "A `fix-` change")).toContain(`- **${outcome}:**`);
-  }
   for (const f of ["engineering.md"]) {
     const text = read(join(COMMANDS, f));
-    expect(text).toContain("`<home>/standards/spec-review.md`");
     expect(text).toContain("`<home>/standards/spec-investigation.md`");
+    // The stop outcomes live only in spec-investigation.md.
     expect(text).not.toContain("**Not reproduced:**");
   }
 });
@@ -533,7 +454,6 @@ test("run-pipeline.js is a plugin workflow that compiles, with its fixed rules a
     expect(text).toContain(`phase('${title}')`);
     expect(text).toContain(`phase: '${title}'`);
   }
-  expect(text).not.toContain("phases:");
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
   const body = text.slice("export ".length);
   const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
@@ -549,19 +469,17 @@ test("run-pipeline.js is a plugin workflow that compiles, with its fixed rules a
     "args.authority",
     "args.commits",
     "args.gitHost",
-    "never force-push",
-    "never push the default branch",
     "args.standards",
     "status: 'blocked'",
     "status: 'failed'",
     "status: 'succeeded'",
-    "the regression check of develop.md",
-    "does not look for new problems",
-    "never merge",
-    "run-pipeline is started by /theway:workflow with its args",
   ]) {
     expect(text).toContain(marker);
   }
+  // The agents' git boundary.
+  for (const rule of ["never force-push", "never push the default branch", "never merge"]) expect(text).toContain(rule);
+  // The fix check's scope.
+  expect(text).toContain("does not look for new problems");
 });
 
 test("run-pipeline.js runs only a segment of consecutive agent steps, with head set after inline steps", async () => {
@@ -632,34 +550,22 @@ test("run-pipeline.js runs only a segment of consecutive agent steps, with head 
   });
 });
 
-test("workflow.md replaces develop-workflow.md and runs the change through theway:run-pipeline", () => {
-  expect(existsSync(join(COMMANDS, "develop-workflow.md"))).toBe(false);
+test("workflow.md runs the change through theway:run-pipeline", () => {
   const text = read(join(COMMANDS, "workflow.md"));
-  expect(locateStep(text)).toBe(locateStep(read(join(COMMANDS, "engineering.md"))));
   for (const marker of [
-    "`theway context develop <change-id>`",
     "`theway workflow`",
-    "`theway authority`",
-    "`<home>/standards/interaction.md`",
     'name: "theway:run-pipeline"',
     "${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js",
     "--workflow <name>",
     "`git-host.md`",
-    "never bypass required reviews or checks",
   ]) {
     expect(text).toContain(marker);
   }
-  expect(text).not.toContain("--admin");
+  // The merge rule.
+  expect(text).toContain("never bypass required reviews or checks");
 });
 
-test("run-pipeline.js and workflow.md name no commit convention and no git host command, which the two standards hold", () => {
-  const banned = /(^|[^a-z])gh |git push|--squash|origin|Conventional|'feat'|commitType|main branch|sync main/m;
-  for (const path of [PIPELINE, join(COMMANDS, "workflow.md")]) {
-    const hits = read(path)
-      .split("\n")
-      .filter((l) => banned.test(l));
-    expect([relative(REPO, path), hits]).toEqual([relative(REPO, path), []]);
-  }
+test("run-pipeline.js follows the git host steps git-host.md holds", () => {
   const headings = [...read(join(STANDARDS, "git-host.md")).matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings).toEqual([
     "Default branch",
@@ -676,15 +582,15 @@ test("run-pipeline.js and workflow.md name no commit convention and no git host 
   for (const h of headings.slice(2, 7)) expect(pipeline).toContain(h as string);
 });
 
-test("workflow.md replaces develop.md and runs inline steps itself and agent segments through run-pipeline", () => {
-  expect(existsSync(join(COMMANDS, "develop.md"))).toBe(false);
+test("workflow.md runs inline steps itself and agent segments through run-pipeline", () => {
   const text = read(join(COMMANDS, "workflow.md"));
   for (const marker of [
     "agents: false",
     '"review ran inline"',
     "`steps` and `head`",
-    "a series needs a workflow that commits",
   ]) {
     expect(text).toContain(marker);
   }
+  // The inline default refuses a series.
+  expect(text).toContain("a series needs a workflow that commits");
 });

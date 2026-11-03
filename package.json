@@ -25,12 +25,14 @@
   "scripts": {
     "build": "bun build src/cli.ts --target=node --outfile dist/theway.js",
     "typecheck": "tsc --noEmit -p .",
-    "test": "bun test"
+    "test": "bun test",
+    "lint:md": "git ls-files -z '*.md' ':!:CHANGELOG.md' | xargs -0 markdownlint-cli2"
   },
   "devDependencies": {
     "@clack/prompts": "1.8.1",
     "@types/node": "^22",
     "commander": "15.0.0",
+    "markdownlint-cli2": "0.24.0",
     "typescript": "^5",
     "yaml": "2.9.1"
   }

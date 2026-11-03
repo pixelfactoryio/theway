@@ -44,10 +44,13 @@ best_practices:
 ## Notes
 
 **Blockers:**
+
 - [List any blocking issues as they arise]
 
 **Discoveries:**
+
 - [Document any findings that affect the plan]
 
 **Adjustments:**
+
 - [Note any changes to the original plan]

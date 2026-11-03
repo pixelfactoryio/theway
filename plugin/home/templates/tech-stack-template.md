@@ -70,6 +70,7 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 ```
 
 **Key Libraries:**
+
 - **{{LIBRARY_1}}** ({{VERSION}}) - {{LIBRARY_1_PURPOSE}}
 - **{{LIBRARY_2}}** ({{VERSION}}) - {{LIBRARY_2_PURPOSE}}
 - **{{LIBRARY_3}}** ({{VERSION}}) - {{LIBRARY_3_PURPOSE}}
@@ -86,11 +87,13 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 [Omit this section if the repository has none.]
 
 ### Deployment Tools
+
 - **Container Runtime:** {{CONTAINER_RUNTIME}} {{VERSION}}
 - **Orchestration:** {{ORCHESTRATION}} {{VERSION}}
 - **CI/CD:** {{CICD_PLATFORM}}
 
 ### Infrastructure as Code
+
 - **Tool:** {{IAC_TOOL}} {{VERSION}}
 - **State Management:** {{STATE_MANAGEMENT}}
 - **Module Structure:** {{MODULE_STRUCTURE}}
@@ -99,12 +102,14 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 [Omit this section if the repository has none.]
 
 ### Primary Database
+
 - **Type:** {{DB_TYPE}}
 - **Technology:** {{DB_TECH}} {{VERSION}}
 - **Driver:** {{DB_DRIVER}} {{VERSION}}
 - **Migration Tool:** {{MIGRATION_TOOL}}
 
 ### Storage Solutions
+
 - **Object Storage:** {{OBJECT_STORAGE}}
 - **File Storage:** {{FILE_STORAGE}}
 - **Cache:** {{CACHE_SOLUTION}} {{VERSION}}
@@ -128,11 +133,13 @@ Technology choices, dependencies, and rationale for {{PROJECT_NAME}}.
 ## Version Constraints
 
 ### Compatibility Requirements
+
 - {{CONSTRAINT_1}}
 - {{CONSTRAINT_2}}
 - {{CONSTRAINT_3}}
 
 ### Update Policy
+
 - **Major Versions:** {{MAJOR_VERSION_POLICY}}
 - **Minor Versions:** {{MINOR_VERSION_POLICY}}
 - **Patch Versions:** {{PATCH_VERSION_POLICY}}
