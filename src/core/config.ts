@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import { readManifest } from "./init";
 import { isFile, thewayHome } from "./io";
-import { invalidSegments } from "./path";
+import { projectDir, resolveKey } from "./project";
 
 /** A leaf's type: the rule its value must follow. */
 type Rule = "boolean" | "non-negative" | "positive" | "model" | "lenses";
@@ -25,12 +25,6 @@ const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.
  * listed from either folder nor switchable.
  */
 export const CONVENTIONS = ["commits.md", "git-host.md"];
-
-/** Project names whose folder under the home holds theway's own files, or the folder the old layout kept its standards in. */
-const SHARED = new Set(["data", "templates", "standards", "workflows", "lenses"]);
-
-/** Whether `project` names one of theway's own folders under the home, so that it has no project folder of its own. */
-export const isShared = (project: string): boolean => SHARED.has(project);
 
 /** A workflow or lens name: lowercase letters and digits in words separated by single hyphens. */
 export const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -67,13 +61,12 @@ function mdFiles(dir: string): string[] {
  * A convention name is left out of both folders. A global file is classified by name: a core name is left out, an opt-in name is an opt-in standard, any other name
  * `.shipped.json` lists as `standards/<name>` and any `*.default.md` is left out, the rest are user standards. A project
  * file is a user standard; a global file with the same name is kept and records it in `shadowedBy`, so that the phase
- * filter drops the global file only for the phases the project file applies to. The shared projects read no project
- * folder.
+ * filter drops the global file only for the phases the project file applies to.
  */
-export function standardsOf(home: string, project: string): Standard[] {
+export function standardsOf(home: string, key: string): Standard[] {
   const globalDir = join(home, "standards");
-  const projectDir = join(home, project, "standards");
-  const projectNames = isShared(project) ? [] : mdFiles(projectDir).filter((n) => !CONVENTIONS.includes(n));
+  const ownDir = join(projectDir(home, key), "standards");
+  const projectNames = mdFiles(ownDir).filter((n) => !CONVENTIONS.includes(n));
   const shipped = readManifest(home) ?? {};
   const out: Standard[] = [];
   for (const name of mdFiles(globalDir)) {
@@ -81,10 +74,10 @@ export function standardsOf(home: string, project: string): Standard[] {
     const optIn = OPT_IN.includes(name);
     if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue;
     const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn };
-    if (projectNames.includes(name)) global.shadowedBy = join(projectDir, name);
+    if (projectNames.includes(name)) global.shadowedBy = join(ownDir, name);
     out.push(global);
   }
-  for (const name of projectNames) out.push({ path: join(projectDir, name), key: keyOf(name), optIn: false });
+  for (const name of projectNames) out.push({ path: join(ownDir, name), key: keyOf(name), optIn: false });
   return out;
 }
 
@@ -217,10 +210,11 @@ export type Effective = Loaded | { error: string };
  * The effective config of a project: per key, the project file's valid value, else the global file's valid value,
  * else the default. A missing global file counts as an empty layer; `loud` prints the warnings.
  */
-export function effectiveConfig(home: string, project: string, loud: boolean): Effective {
+export function effectiveConfig(home: string, key: string, loud: boolean): Effective {
   const files: string[] = [];
+  const own = join("projects", key, "config.yaml");
   if (isFile(join(home, "config.yaml"))) files.push("config.yaml");
-  if (isFile(join(home, project, "config.yaml"))) files.push(join(project, "config.yaml"));
+  if (isFile(join(home, own))) files.push(own);
 
   const roots: [string, unknown][] = [];
   for (const file of files) {
@@ -229,7 +223,7 @@ export function effectiveConfig(home: string, project: string, loud: boolean): E
     roots.push([file, loaded.root]);
   }
 
-  const standards = standardsOf(home, project);
+  const standards = standardsOf(home, key);
   const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) });
   const warn = loud ? warnLoud : warnQuiet;
   const config = defaults(schema);
@@ -251,12 +245,12 @@ export function enabled(config: Config, key: string): boolean {
  * A project's effective config as `theway config` loads it, its warnings on stderr; `null` once the line that stops it
  * (a missing global `config.yaml`, an unreadable or invalid file) is written.
  */
-export function loadConfig(home: string, project: string): Loaded | null {
+export function loadConfig(home: string, key: string): Loaded | null {
   if (!isFile(join(home, "config.yaml"))) {
     process.stderr.write(`theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
     return null;
   }
-  const result = effectiveConfig(home, project, true);
+  const result = effectiveConfig(home, key, true);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return null;
@@ -264,10 +258,11 @@ export function loadConfig(home: string, project: string): Loaded | null {
   return result;
 }
 
-/** `theway config <project>`: the effective config of a project, as YAML on stdout. */
-export function cmdConfig(project: string): number {
-  if (invalidSegments([["project", project]])) return 1;
-  const loaded = loadConfig(thewayHome(), project);
+/** `theway config [--project <key>]`: the effective config of the project, as YAML on stdout. */
+export function cmdConfig(override: string | undefined): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
+  const loaded = loadConfig(thewayHome(), key);
   if (loaded === null) return 1;
   process.stdout.write(stringify(loaded.config));
   return 0;

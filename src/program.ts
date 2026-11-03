@@ -7,6 +7,7 @@ import { cmdContext } from "./core/context";
 import { cmdList } from "./core/list";
 import { cmdNextId } from "./core/next-id";
 import { cmdPath } from "./core/path";
+import { cmdProject } from "./core/project";
 import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
 import { cmdWorkflow } from "./core/workflow";
@@ -34,49 +35,53 @@ export function buildProgram(): Command {
   program.command("uninstall").action(() => exit(uninstall()));
   program
     .command("list")
-    .argument("<project>", "", nonEmpty)
-    .action((project: string) => exit(cmdList(project)));
+    .option("--project <key>")
+    .action((o: { project?: string }) => exit(cmdList(o.project)));
   program
     .command("archive")
-    .argument("<project>", "", nonEmpty)
     .argument("<change-id>", "", nonEmpty)
+    .option("--project <key>")
     .option("--force")
-    .action((project: string, change: string, o: { force?: boolean }) => exit(cmdArchive(project, change, o.force === true)));
+    .action((change: string, o: { project?: string; force?: boolean }) => exit(cmdArchive(change, o.project, o.force === true)));
   program
     .command("path")
-    .argument("[project]")
     .argument("[change-id]")
+    .option("--project <key>")
     .option("--verbose")
-    .action((project: string | undefined, change: string | undefined, o: { verbose?: boolean }) =>
-      exit(cmdPath(project, change, o.verbose === true)),
+    .action((change: string | undefined, o: { project?: string; verbose?: boolean }) =>
+      exit(cmdPath(change, o.project, o.verbose === true)),
     );
   program
+    .command("project")
+    .option("--project <key>")
+    .action((o: { project?: string }) => exit(cmdProject(o.project)));
+  program
     .command("config")
-    .argument("<project>")
-    .action((project: string) => exit(cmdConfig(project)));
+    .option("--project <key>")
+    .action((o: { project?: string }) => exit(cmdConfig(o.project)));
   program
     .command("standards")
-    .argument("<project>")
     .argument("<phase>")
-    .action((project: string, phase: string) => exit(cmdStandards(project, phase)));
+    .option("--project <key>")
+    .action((phase: string, o: { project?: string }) => exit(cmdStandards(phase, o.project)));
   program
     .command("context")
-    .argument("<project>")
     .argument("<phase>")
     .argument("[change-id]")
-    .action((project: string, phase: string, change: string | undefined) => exit(cmdContext(project, phase, change)));
+    .option("--project <key>")
+    .action((phase: string, change: string | undefined, o: { project?: string }) => exit(cmdContext(phase, change, o.project)));
   program
     .command("workflow")
-    .argument("<project>")
     .argument("[name]")
-    .action((project: string, name: string | undefined) => exit(cmdWorkflow(project, name)));
+    .option("--project <key>")
+    .action((name: string | undefined, o: { project?: string }) => exit(cmdWorkflow(name, o.project)));
   program.command("authority").action(() => exit(cmdAuthority()));
   program
     .command("next-id")
-    .argument("<project>")
     .argument("<series-id>")
+    .option("--project <key>")
     .option("--count <n>", "", positive, 1)
-    .action((project: string, series: string, o: { count: number }) => exit(cmdNextId(project, series, o.count)));
+    .action((series: string, o: { project?: string; count: number }) => exit(cmdNextId(series, o.count, o.project)));
   program
     .command("validate-id")
     .argument("<id>")

@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync } from "node:fs";
 import { isDir, isFile, thewayHome } from "./io";
 import { UNCHECKED } from "./list";
-import { invalidSegments } from "./path";
+import { invalidChangeId } from "./path";
+import { projectDir, resolveKey } from "./project";
 
 function localDate(): string {
   const d = new Date();
@@ -16,17 +17,14 @@ function uncheckedLines(path: string): string[] {
     .flatMap((line, i) => (UNCHECKED.test(line) ? [`${i + 1}:${line}`] : []));
 }
 
-export function cmdArchive(project: string, changeId: string, force: boolean): number {
-  if (
-    invalidSegments([
-      ["project", project],
-      ["change id", changeId],
-    ])
-  )
-    return 1;
-  const home = thewayHome();
-  const src = `${home}/${project}/changes/${changeId}`;
-  const dst = `${home}/${project}/changes/archive/${localDate()}-${changeId}`;
+/** `theway archive <change-id> [--project <key>] [--force]`: moves a change to `changes/archive/<date>-<change-id>`. */
+export function cmdArchive(changeId: string, override: string | undefined, force: boolean): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
+  if (invalidChangeId(changeId)) return 1;
+  const dir = projectDir(thewayHome(), key);
+  const src = `${dir}/changes/${changeId}`;
+  const dst = `${dir}/changes/archive/${localDate()}-${changeId}`;
   if (!isDir(src)) {
     process.stderr.write(`Error: ${src} not found\n`);
     return 1;
@@ -51,7 +49,7 @@ export function cmdArchive(project: string, changeId: string, force: boolean): n
   }
 
   try {
-    mkdirSync(`${home}/${project}/changes/archive`, { recursive: true });
+    mkdirSync(`${dir}/changes/archive`, { recursive: true });
     renameSync(src, dst);
   } catch (e) {
     process.stderr.write(`mv: ${(e as Error).message}\n`);

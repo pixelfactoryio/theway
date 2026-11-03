@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { isDir, isFile, thewayHome } from "./io";
-import { invalidSegments } from "./path";
+import { projectDir, resolveKey } from "./project";
 
 // Only numbered lines (`N.` or `Na.`) are tasks; other checkboxes are not.
 const CHECKED = /^\s*-\s*\[x\]\s+[0-9]+[a-z]?\./;
@@ -27,13 +27,13 @@ function filesEndingWith(dir: string, suffix: string): string[] {
 }
 
 /** The active change ids of a project, in `theway list` order (archive excluded). */
-function activeIds(home: string, project: string): string[] {
-  return subdirs(`${home}/${project}/changes`).filter((n) => n !== "archive");
+function activeIds(dir: string): string[] {
+  return subdirs(`${dir}/changes`).filter((n) => n !== "archive");
 }
 
 /** The archived change folder names of a project, oldest first. */
-function archiveDirs(home: string, project: string): string[] {
-  return subdirs(`${home}/${project}/changes/archive`);
+function archiveDirs(dir: string): string[] {
+  return subdirs(`${dir}/changes/archive`);
 }
 
 function taskCounts(dir: string): [number, number] {
@@ -51,23 +51,25 @@ function taskCounts(dir: string): [number, number] {
   return [checked, total];
 }
 
-export function cmdList(project: string): number {
-  if (invalidSegments([["project", project]])) return 1;
-  const home = thewayHome();
-  const base = `${home}/${project}/changes`;
-  let text = `theway changes — ${project}\n\nActive changes\n\n`;
+/** `theway list [--project <key>]`: the active and archived changes of the project. */
+export function cmdList(override: string | undefined): number {
+  const key = resolveKey(override);
+  if (key === null) return 1;
+  const dir = projectDir(thewayHome(), key);
+  const base = `${dir}/changes`;
+  let text = `theway changes — ${key}\n\nActive changes\n\n`;
 
-  const active = activeIds(home, project);
+  const active = activeIds(dir);
   for (const name of active) {
-    const dir = `${base}/${name}`;
-    const files = filesEndingWith(dir, ".md").length;
-    const [checked, total] = taskCounts(dir);
+    const change = `${base}/${name}`;
+    const files = filesEndingWith(change, ".md").length;
+    const [checked, total] = taskCounts(change);
     text += `  ${name.padEnd(20)} ${files} files   ${checked}/${total} tasks done\n`;
   }
   if (active.length === 0) text += "  No active changes.\n";
   text += "\n";
 
-  const archived = archiveDirs(home, project);
+  const archived = archiveDirs(dir);
   text += `Archived changes (${archived.length})\n\n`;
   if (archived.length > 0) {
     for (const name of archived) text += `  ${name}\n`;
