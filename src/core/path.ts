@@ -1,5 +1,5 @@
 import { join, resolve } from "node:path";
-import { pointerPath, readPointer, resolveHome } from "./io";
+import { escaped, pointerPath, readPointer, resolveHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 
 const CHANGE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -17,7 +17,7 @@ export function invalidChangeId(changeId: string | undefined): boolean {
   if (changeId === undefined) return false;
   const reason = changeIdReason(changeId);
   if (reason === "") return false;
-  const shown = changeId.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+  const shown = escaped(changeId);
   process.stderr.write(`theway: invalid change id '${shown}': ${reason}\n`);
   return true;
 }

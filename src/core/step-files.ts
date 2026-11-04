@@ -1,11 +1,8 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Loaded, Warn } from "./config";
-import { isFile } from "./io";
+import { isFile, NAME } from "./io";
 import { projectDir } from "./project";
-
-/** A workflow, step or prompt name (the `NAME` rule of config.ts). */
-const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** The kinds of named files the resolver reads: workflows and steps as `.yaml`, prompts as `.md`. */
 export type Kind = "workflows" | "steps" | "prompts";
@@ -26,8 +23,11 @@ export function fileOf(home: string, key: string, kind: Kind, name: string): str
   return null;
 }
 
-/** The valid names of the regular `kind` files directly in `dir`, `.default` copies left out, sorted. */
-export function namesIn(dir: string, kind: Kind): string[] {
+/**
+ * The valid names of the regular `kind` files directly in `dir`, `.default` copies left out, sorted; `rejected` is
+ * called, in sorted order, with the path of each such file whose stem is not a valid name.
+ */
+export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => void): string[] {
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -35,11 +35,14 @@ export function namesIn(dir: string, kind: Kind): string[] {
     return [];
   }
   const ext = EXT[kind];
-  return entries
-    .filter((n) => n.endsWith(ext) && !n.endsWith(`.default${ext}`) && isFile(join(dir, n)))
-    .map((n) => n.slice(0, -ext.length))
-    .filter((n) => NAME.test(n))
-    .sort();
+  const out: string[] = [];
+  for (const n of entries.sort()) {
+    if (!n.endsWith(ext) || n.endsWith(`.default${ext}`) || !isFile(join(dir, n))) continue;
+    const stem = n.slice(0, -ext.length);
+    if (NAME.test(stem)) out.push(stem);
+    else rejected?.(join(dir, n));
+  }
+  return out.sort();
 }
 
 /** The step names that resolve for a project, sorted; `gate` is reserved and never one. */

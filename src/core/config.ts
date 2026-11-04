@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import { readManifest } from "./init";
 import { warnUnknownDefaults } from "./step-files";
-import { isFile, thewayHome } from "./io";
+import { isFile, isNameList, MODELS, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 
 /** A leaf's type: the rule its value must follow. */
@@ -15,7 +15,7 @@ type Schema = { [key: string]: Leaf | Schema };
 const dict = <T>(): T => Object.create(null) as T;
 
 const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
-const model = (d: "opus" | "sonnet" | "haiku"): Leaf => ({ rule: "model", default: d });
+const model = (d: (typeof MODELS)[number]): Leaf => ({ rule: "model", default: d });
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
@@ -26,13 +26,6 @@ const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.
  * listed from either folder nor switchable.
  */
 export const CONVENTIONS = ["commits.md", "git-host.md"];
-
-/** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
-export const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** Whether `v` is a non-empty list of names without duplicates. */
-export const isNameList = (v: unknown): v is string[] =>
-  Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === "string" && NAME.test(n)) && new Set(v).size === v.length;
 
 /** A param value: a string, an integer, a boolean or a non-empty list of names without duplicates. */
 export type ParamValue = string | number | boolean | string[];
@@ -146,7 +139,7 @@ function valid(rule: Rule, v: unknown): boolean {
     case "positive":
       return typeof v === "number" && Number.isInteger(v) && v >= 1;
     case "model":
-      return v === "opus" || v === "sonnet" || v === "haiku";
+      return (MODELS as readonly unknown[]).includes(v);
   }
 }
 
@@ -231,16 +224,22 @@ function apply(
 /** The hint an invalid step file gets when the failing line holds a `${…}` reference. */
 const QUOTE_HINT = '; quote ${…} references, for example model: "${model}"';
 
+/** The parsed root of `<home>/<file>`, or an error line when it cannot be read or is not valid YAML. */
+export function load(home: string, file: string): { root: unknown } | { error: string } {
+  const parsed = parseFile(home, file);
+  return "reason" in parsed ? { error: `theway: ${file}: ${parsed.reason}` } : parsed;
+}
+
 /**
- * The parsed root of `<home>/<file>`, or an error line when it cannot be read or is not valid YAML; with `refs`, the
- * error line of a failing line that holds `${` gets the quoting hint.
+ * The parsed root of `<home>/<file>`, or why it cannot be read or is not valid YAML, the reason of `load`'s error line;
+ * with `refs`, the reason of a failing line that holds `${` gets the quoting hint.
  */
-export function load(home: string, file: string, refs = false): { root: unknown } | { error: string } {
+export function parseFile(home: string, file: string, refs = false): { root: unknown } | { reason: string } {
   let text: string;
   try {
     text = readFileSync(join(home, file), "utf-8");
   } catch {
-    return { error: `theway: ${file}: cannot be read` };
+    return { reason: "cannot be read" };
   }
   try {
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
@@ -249,7 +248,7 @@ export function load(home: string, file: string, refs = false): { root: unknown 
     const line = (e as { linePos?: { line: number }[] }).linePos?.[0]?.line;
     const failing = line === undefined ? "" : (text.split("\n")[line - 1] ?? "");
     const hint = refs && failing.includes("${") ? QUOTE_HINT : "";
-    return { error: `theway: ${file}: invalid YAML: ${first.replace(/:$/, "")}${hint}` };
+    return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` };
   }
 }
 

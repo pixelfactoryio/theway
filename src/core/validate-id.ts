@@ -1,3 +1,5 @@
+import { escaped } from "./io";
+
 const VERB = /^(add|update|refactor|remove|fix)-/;
 const KEBAB = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*$/;
 const SERIES = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*-[0-9]{2}$/;
@@ -43,7 +45,7 @@ export function seriesReason(id: string): string {
 export function cmdValidateId(id: string, series: boolean): number {
   const reason = series ? seriesReason(id) : standaloneReason(id);
   if (reason !== "") {
-    const shown = id.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+    const shown = escaped(id);
     process.stderr.write(`invalid change id '${shown}': ${reason}\n`);
     return 1;
   }

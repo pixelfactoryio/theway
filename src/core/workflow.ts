@@ -1,31 +1,32 @@
-import { readdirSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import {
   CONVENTIONS,
   type DefaultsLayer,
   kindOf,
   type Loaded,
-  load,
   loadConfig,
-  NAME,
   PARAM_VALUE_TEXT,
   type ParamValue,
+  parseFile,
   warnLoud,
 } from "./config";
-import { isFile, thewayHome } from "./io";
+import { invalidName, isFile, MODELS, NAME, thewayHome } from "./io";
 import { projectDir as projectOf, resolveKey } from "./project";
 import { dirsOf, fileOf, knownSteps, namesIn, searched, suggest, warnUnknownDefaults } from "./step-files";
 
-const WORKFLOW_VERSION = "theway.workflow/v1";
-const STEP_VERSION = "theway.step/v1";
+export const WORKFLOW_VERSION = "theway.workflow/v1";
+export const STEP_VERSION = "theway.step/v1";
+/** The top-level keys of a workflow file and of a step file. */
+export const WORKFLOW_KEYS = ["version", "default", "agents", "steps"];
+export const STEP_KEYS = ["version", "description", "params", "do"];
 
-const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis"] as const;
+export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis"] as const;
 type ResultType = (typeof TYPES)[number];
-const CONDITIONS = ["findings", "no-findings", "confirmed", "no-confirmed", "green", "red", "fixable", "more"] as const;
+export const CONDITIONS = ["findings", "no-findings", "confirmed", "no-confirmed", "green", "red", "fixable", "more"] as const;
 type Condition = (typeof CONDITIONS)[number];
-const ACCESS = ["read", "commit", "push"] as const;
+export const ACCESS = ["read", "commit", "push"] as const;
 type Access = (typeof ACCESS)[number];
-const MODELS = ["opus", "sonnet", "haiku"];
+export const EXHAUSTED = ["continue", "fail"] as const;
 const CONSTRUCTS = ["agent", "foreach", "loop", "when"] as const;
 
 /** The type whose agent sets each condition; `more` is set by the loop. */
@@ -45,7 +46,8 @@ const READS: Partial<Record<ResultType, ResultType[]>> = {
   diagnosis: ["ci"],
 };
 
-const FIELDS = {
+/** The fields of each construct. */
+export const FIELDS = {
   agent: ["prompt", "returns", "model", "access"],
   foreach: ["parallel", "do"],
   loop: ["max", "until", "exhausted", "do"],
@@ -57,7 +59,7 @@ const RULE = {
   condition: `one of ${CONDITIONS.join(", ")}`,
   access: "read, commit or push",
   exhausted: "continue or fail",
-  model: "one of opus, sonnet, haiku",
+  model: `one of ${MODELS.join(", ")}`,
   positive: "a positive integer",
   bool: "true or false",
   fail: "true",
@@ -68,14 +70,36 @@ const RULE = {
 };
 
 /** A param name: snake_case. */
-const PARAM = /^[a-z][a-z0-9_]*$/;
-const RESERVED = ["agents", "item"];
+export const PARAM = /^[a-z][a-z0-9_]*$/;
+export const RESERVED = ["agents", "item"];
 /** A whole-value reference, `${name}`. */
 const REF = /^\$\{([^}]*)\}$/;
 
-/** Stops the resolution with one error line. */
+/** Stops the resolution with one error: the file, relative to the home, and the reason. */
 class Fail {
-  constructor(readonly line: string) {}
+  constructor(
+    readonly file: string,
+    readonly reason: string,
+  ) {}
+
+  /** The error line, `theway: <file>: <reason>`. */
+  get line(): string {
+    return `theway: ${this.file}: ${this.reason}`;
+  }
+}
+
+/** A fail function for `file`: it throws the `Fail` of a reason. */
+const failIn =
+  (file: string) =>
+  (reason: string): never => {
+    throw new Fail(file, reason);
+  };
+
+/** The root of a file under the home, or the `Fail` of why it cannot be read or parsed. */
+function rootOf(home: string, file: string, refs = false): unknown {
+  const parsed = parseFile(home, file, refs);
+  if ("reason" in parsed) throw new Fail(file, parsed.reason);
+  return parsed.root;
 }
 
 /** The text a value of each kind is named by in a kind error. */
@@ -135,18 +159,14 @@ const isMap = (v: unknown): v is Map<unknown, unknown> => v instanceof Map;
 /** Reads a step file's version, description and params, and that its `do` is a non-empty list. */
 function readStep(d: Dirs, name: string, path: string, full: boolean): StepFile {
   const file = rel(d, path);
-  const fail = (reason: string): never => {
-    throw new Fail(`theway: ${file}: ${reason}`);
-  };
-  const loaded = load(d.home, file, true);
-  if ("error" in loaded) throw new Fail(loaded.error);
-  const root = loaded.root;
+  const fail = failIn(file);
+  const root = rootOf(d.home, file, true);
   if (!isMap(root)) return fail("not a map");
   if (!root.has("version")) fail(`version is required (${STEP_VERSION})`);
   if (root.get("version") !== STEP_VERSION) fail(`version must be ${STEP_VERSION}`);
   if (full) {
     for (const k of root.keys()) {
-      if (!["version", "description", "params", "do"].includes(k as string)) fail(`unknown key ${String(k)}`);
+      if (!STEP_KEYS.includes(k as string)) fail(`unknown key ${String(k)}`);
     }
   }
   const params = new Map<string, ParamDef>();
@@ -234,7 +254,7 @@ function effectiveParams(d: Dirs, step: StepFile, given: Map<string, ParamValue>
       out.set(p, { value: given.get(p) as ParamValue, from: entryOrigin, origin: entryOrigin });
       continue;
     }
-    const layer = [...valid].reverse().find((l) => l.has(p));
+    const layer = valid.findLast((l) => l.has(p));
     if (layer !== undefined) {
       const { value, file } = layer.get(p) as { value: ParamValue; file: string };
       out.set(p, { value, from: file, origin: file });
@@ -269,7 +289,7 @@ type Ctx = {
 
 /** Fails with `<reason>`, plus ` (value from <origin>)` when the value came from a substitution. */
 function fail(ctx: Ctx, reason: string, origin?: string): never {
-  throw new Fail(`theway: ${ctx.step.rel}: ${reason}${origin === undefined ? "" : ` (value from ${origin})`}`);
+  return failIn(ctx.step.rel)(`${reason}${origin === undefined ? "" : ` (value from ${origin})`}`);
 }
 
 /** The types visible at the current node: the current loop's inside a loop, else the step's. */
@@ -401,7 +421,7 @@ function agent(ctx: Ctx, path: string, map: Map<unknown, unknown>): AgentOut {
       returns = v as ResultType;
     } else if (k === "model") {
       const s = subst(ctx, at, v);
-      if (!MODELS.includes(s.value as string)) fail(ctx, `${at} must be ${RULE.model}`, s.origin);
+      if (!(MODELS as readonly unknown[]).includes(s.value)) fail(ctx, `${at} must be ${RULE.model}`, s.origin);
       model = { value: s.value as string, origin: s.origin };
     } else {
       noRef(ctx, at, v);
@@ -428,7 +448,7 @@ function agent(ctx: Ctx, path: string, map: Map<unknown, unknown>): AgentOut {
   const out: AgentOut = { name: prompt.names[prompt.names.length - 1] as string, label: "", prompt: paths, returns, access };
   if (!ctx.inline) {
     const fallback = ctx.params.get("model");
-    if (model === undefined && fallback !== undefined && !MODELS.includes(fallback.value as string)) {
+    if (model === undefined && fallback !== undefined && !(MODELS as readonly unknown[]).includes(fallback.value)) {
       fail(ctx, `${path}.model must be ${RULE.model}`, fallback.origin);
     }
     out.model = model?.value ?? (fallback === undefined ? "sonnet" : (fallback.value as string));
@@ -487,7 +507,7 @@ function loop(ctx: Ctx, path: string, map: Map<unknown, unknown>): Out {
       until = conditions(ctx, at, v);
     } else if (k === "exhausted") {
       noRef(ctx, at, v);
-      if (v !== "continue" && v !== "fail") fail(ctx, `${at} must be ${RULE.exhausted}`);
+      if (!(EXHAUSTED as readonly unknown[]).includes(v)) fail(ctx, `${at} must be ${RULE.exhausted}`);
       exhausted = v as string;
     }
   }
@@ -571,19 +591,12 @@ function name(tree: Out[], id: string): void {
     if ("agent" in n) literal.add(n.agent.name);
   });
   const unique = uniqueNames(literal);
-  const visit = (n: Out): void => {
-    if ("agent" in n) {
-      n.agent.name = unique(n.agent.name);
-      const { name: agentName, ...rest } = n.agent;
-      // Field order: name, label, prompt, returns, access, model.
-      const ordered: AgentOut = { name: agentName, label: `${id}:${agentName}`, prompt: rest.prompt, returns: rest.returns, access: rest.access };
-      if (rest.model !== undefined) ordered.model = rest.model;
-      n.agent = ordered;
-    } else if ("parallel" in n) n.parallel.forEach(visit);
-    else if ("loop" in n) n.loop.do.forEach(visit);
-    else if ("do" in n) n.do.forEach(visit);
-  };
-  tree.forEach(visit);
+  walk(tree, (n) => {
+    if (!("agent" in n)) return;
+    // agent() creates name and label first, so the field order stays name, label, prompt, returns, access, model.
+    n.agent.name = unique(n.agent.name);
+    n.agent.label = `${id}:${n.agent.name}`;
+  });
 }
 
 /** A step resolved for one entry: its params substituted, its `foreach` expanded and every agent field filled. */
@@ -603,15 +616,11 @@ function resolveStep(d: Dirs, step: StepFile, id: string, agents: boolean, given
 /** Whether a resolved step has an agent that pushes. */
 function pushes(entry: Entry): boolean {
   if (!("do" in entry)) return false;
-  const visit = (n: Out): boolean =>
-    "agent" in n
-      ? n.agent.access === "push"
-      : "parallel" in n
-        ? n.parallel.some(visit)
-        : "loop" in n
-          ? n.loop.do.some(visit)
-          : "do" in n && n.do.some(visit);
-  return entry.do.some(visit);
+  let push = false;
+  walk(entry.do, (n) => {
+    if ("agent" in n && n.agent.access === "push") push = true;
+  });
+  return push;
 }
 
 /** Whether the workflow is one inline entry whose tree is a single `work` agent with `access: commit`. */
@@ -635,17 +644,13 @@ function validate(d: Dirs, path: string): { workflow: Workflow; isDefault: boole
 
 function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault: boolean } {
   const file = rel(d, path);
-  const fail = (reason: string): never => {
-    throw new Fail(`theway: ${file}: ${reason}`);
-  };
-  const loaded = load(d.home, file);
-  if ("error" in loaded) throw new Fail(loaded.error);
-  const root = loaded.root;
+  const fail = failIn(file);
+  const root = rootOf(d.home, file);
   if (!isMap(root)) return fail("not a map");
   if (!root.has("version")) fail(`version is required (${WORKFLOW_VERSION})`);
   if (root.get("version") !== WORKFLOW_VERSION) fail(`version must be ${WORKFLOW_VERSION}`);
   for (const key of root.keys()) {
-    if (!["version", "default", "agents", "steps"].includes(key as string)) fail(`unknown key ${String(key)}`);
+    if (!WORKFLOW_KEYS.includes(key as string)) fail(`unknown key ${String(key)}`);
   }
   const topAgents = typeof root.get("agents") === "boolean" ? (root.get("agents") as boolean) : true;
   const steps: Entry[] = [];
@@ -717,22 +722,8 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
 
 /** The workflow files of a folder, sorted, with a warning for each `.yaml` file whose stem is not a valid name. */
 function scan(d: Dirs, dir: string): string[] {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  const out: string[] = [];
-  for (const n of names.sort()) {
-    if (!n.endsWith(".yaml") || n.endsWith(".default.yaml") || !isFile(join(dir, n))) continue;
-    if (!NAME.test(n.slice(0, -".yaml".length))) {
-      process.stderr.write(`theway: warning: ${relative(d.home, join(dir, n))}: not a valid workflow name; ignored\n`);
-      continue;
-    }
-    out.push(n);
-  }
-  return out;
+  const names = namesIn(dir, "workflows", (path) => warnLoud(rel(d, path), "not a valid workflow name"));
+  return names.map((n) => `${n}.yaml`).sort();
 }
 
 /** `a`, `a and b`, `a, b and c`. */
@@ -803,11 +794,7 @@ function dirsFor(home: string, key: string): Dirs | null {
 export function cmdWorkflow(wanted: string | undefined, override: string | undefined): number {
   const key = resolveKey(override);
   if (key === null) return 1;
-  if (wanted !== undefined && !NAME.test(wanted)) {
-    const shown = wanted.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
-    process.stderr.write(`theway: invalid workflow name '${shown}'\n`);
-    return 1;
-  }
+  if (invalidName("workflow", wanted)) return 1;
   const home = thewayHome();
   const d = dirsFor(home, key);
   if (d === null) return 1;
@@ -850,11 +837,7 @@ const shown = (v: ParamValue) => (Array.isArray(v) ? v.join(",") : String(v));
 export function cmdSteps(wanted: string | undefined, override: string | undefined): number {
   const key = resolveKey(override);
   if (key === null) return 1;
-  if (wanted !== undefined && !NAME.test(wanted)) {
-    const text = wanted.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
-    process.stderr.write(`theway: invalid step name '${text}'\n`);
-    return 1;
-  }
+  if (invalidName("step", wanted)) return 1;
   const home = thewayHome();
   const d = dirsFor(home, key);
   if (d === null) return 1;
@@ -890,8 +873,7 @@ export function cmdSteps(wanted: string | undefined, override: string | undefine
       step = readStep(d, n, path, false);
     } catch (e) {
       if (!(e instanceof Fail)) throw e;
-      const prefix = `theway: ${rel(d, path)}: `;
-      d.warn(rel(d, path), e.line.startsWith(prefix) ? e.line.slice(prefix.length) : e.line);
+      d.warn(e.file, e.reason);
       continue;
     }
     lines.push(`${n}  ${origin}  ${step.description}`);
