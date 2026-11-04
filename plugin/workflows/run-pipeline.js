@@ -24,7 +24,7 @@ function validSegment(a) {
     if (!Number.isInteger(n) || n < 0 || n >= all.length) return false
     if (i > 0 && n !== s[i - 1] + 1) return false
     const entry = all[n]
-    if (!isObject(entry) || entry.agents !== true || 'gate' in entry) return false
+    if (!isObject(entry) || entry.agents !== true) return false
     if (!isString(entry.id) || !Array.isArray(entry.do) || !isObject(entry.params)) return false
   }
   return isString(a.head) && a.head !== ''
@@ -367,9 +367,6 @@ function apply(a, result, ctx) {
     case 'diagnosis':
       s.diagnosis = r
       if (!fixable(r) && more(ctx) && (!Array.isArray(r.rerun) || r.rerun.length === 0)) throw failed(`${a.label}: re-run did not start`)
-      return
-    default:
-      throw failed(`${a.label}: unknown result type ${a.returns}`)
   }
 }
 
@@ -383,21 +380,11 @@ async function runNode(n, ctx) {
   if ('agent' in n) {
     apply(n.agent, await call(n.agent, ctx), ctx)
   } else if ('parallel' in n) {
-    // parallel() turns a throw into null, so each agent catches its own stop to keep its message.
-    const outcomes = await parallel(
-      n.parallel.map((m) => async () => {
-        try {
-          return { ok: true, value: await call(m.agent, ctx) }
-        } catch (e) {
-          return { ok: false, error: e }
-        }
-      }),
-    )
+    // parallel() turns a throw into null, so each agent returns its own stop to keep its message.
+    const outcomes = await parallel(n.parallel.map((m) => () => call(m.agent, ctx).catch((e) => e)))
     for (const [i, o] of outcomes.entries()) {
-      const a = n.parallel[i].agent
-      if (o === null || o === undefined) throw noResult(a, `${a.label} returned no result`)
-      if (!o.ok) throw o.error instanceof Stop ? o.error : noResult(a, `${a.label} threw: ${reasonOf(o.error)}`)
-      apply(a, o.value, ctx)
+      if (o instanceof Stop) throw o
+      apply(n.parallel[i].agent, o, ctx)
     }
   } else if ('loop' in n) {
     const l = n.loop
