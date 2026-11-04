@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
+version: theway.step/v1
+description: Investigate a small request and write its light spec and tasks, or escalate
+params:
+  model: {default: opus, description: The scaffolder when the step runs through agents}
+do:
+  - agent: {prompt: [tamm-framework, spec-investigation, scaffold-rules, light-spec-template, tasks-template, scaffold-light], returns: scaffold}

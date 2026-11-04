@@ -625,7 +625,7 @@ const manifest = (env: Env): Record<string, string> =>
   JSON.parse(readFileSync(join(env.theway, ".shipped.json"), "utf-8"));
 const STD = "standards/develop.md";
 const STD_DEFAULT = "standards/develop.default.md";
-const TPL = "templates/spec-template.md";
+const TPL = "templates/tech-stack-template.md";
 
 /** Every file under `dir`, relative to it. */
 function walk(dir: string, prefix = ""): string[] {
@@ -637,7 +637,7 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(36);
+  expect(SHIPPED_FILES).toHaveLength(49);
   for (const rel of [
     "workflows/develop.yaml",
     "workflows/agents.yaml",
@@ -655,8 +655,15 @@ test("install into a fresh home writes every shipped file and a manifest of thei
   }
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
   expect(manifest(env)).toEqual(Object.fromEntries(SHIPPED_FILES.map((rel) => [rel, sha256(shipped(rel))])));
-  expect(manifest(env)["templates/fix-spec-template.md"]).toBe(sha256(shipped("templates/fix-spec-template.md")));
-  expect(manifest(env)["templates/light-spec-template.md"]).toBe(sha256(shipped("templates/light-spec-template.md")));
+  expect(manifest(env)["prompts/fix-spec-template.md"]).toBe(sha256(shipped("prompts/fix-spec-template.md")));
+  expect(manifest(env)["prompts/light-spec-template.md"]).toBe(sha256(shipped("prompts/light-spec-template.md")));
+  // The standards and templates that moved to prompts/ are no longer shipped there.
+  for (const rel of ["standards/tamm-framework.md", "standards/spec-review.md", "templates/spec-template.md", "templates/tasks-template.md"]) {
+    expect(SHIPPED_FILES).not.toContain(rel);
+  }
+  for (const rel of ["templates/coding-standards-template.md", "templates/source-tree-template.md", "templates/tech-stack-template.md"]) {
+    expect(SHIPPED_FILES).toContain(rel);
+  }
   expect(walk(env.theway).filter((f) => /\/[^/]+\.default\.(md|yaml)$/.test(f) || f.endsWith(".bak"))).toEqual([]);
 });
 
@@ -763,6 +770,72 @@ test("install removes lenses/ when only unedited shipped lenses are left", () =>
   expect(existsSync(join(env.theway, "lenses"))).toBe(false);
 });
 
+const MOVED = [
+  "standards/tamm-framework.md",
+  "standards/spec-investigation.md",
+  "standards/spec-review.md",
+  "templates/spec-template.md",
+  "templates/fix-spec-template.md",
+  "templates/light-spec-template.md",
+  "templates/tasks-template.md",
+];
+
+test("install removes the unedited standards and templates that moved to prompts/, their .default.md copies and manifest keys", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const old = Object.fromEntries(MOVED.map((rel) => [rel, `# old ${rel}\n`]));
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), ...Object.fromEntries(MOVED.map((rel) => [rel, sha256(old[rel] as string)])) }));
+  for (const rel of MOVED) {
+    put(join(env.theway, rel), old[rel] as string);
+    put(join(env.theway, rel.replace(/\.md$/, ".default.md")), "# shipped\n");
+  }
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  for (const rel of MOVED) {
+    expect(res.stdout).toContain(`Removed ${rel}: theway no longer ships it\n`);
+    expect([rel, existsSync(join(env.theway, rel)), existsSync(join(env.theway, rel.replace(/\.md$/, ".default.md")))]).toEqual([rel, false, false]);
+    expect(manifest(env)[rel]).toBeUndefined();
+  }
+  // Each is reported once: copyShipped never sees them.
+  expect(res.stdout.match(/standards\/spec-review\.md/g)).toHaveLength(1);
+  for (const rel of ["templates/coding-standards-template.md", "templates/source-tree-template.md", "templates/tech-stack-template.md"]) {
+    expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel));
+  }
+  const again = run(env, "install");
+  expect([again.status, again.stdout.includes("theway no longer ships it")]).toEqual([0, false]);
+});
+
+test("install renames an edited moved standard or template to .bak, naming the prompts that now hold it", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), "standards/spec-review.md": sha256("# old\n"), "templates/spec-template.md": sha256("# old\n") }));
+  put(join(env.theway, "standards", "spec-review.md"), "# my review\n");
+  put(join(env.theway, "standards", "spec-review.default.md"), "# old\n");
+  put(join(env.theway, "templates", "spec-template.md"), "# my template\n");
+  put(join(env.theway, "templates", "spec-template.md.bak"), "# earlier\n");
+  // Not in the manifest: kept as edited.
+  put(join(env.theway, "standards", "tamm-framework.md"), "# my tamm\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  for (const line of [
+    "Moved your edited standards/spec-review.md to standards/spec-review.md.bak: theway now reads prompts/spec-reviewer.md, grounding.md, implementability.md, verdicts.md, spec-triage.md and spec-fix.md\n",
+    "Moved your edited templates/spec-template.md to templates/spec-template.md.bak.1: theway now reads prompts/spec-template.md\n",
+    "Moved your edited standards/tamm-framework.md to standards/tamm-framework.md.bak: theway now reads prompts/tamm-framework.md\n",
+  ]) {
+    expect(res.stdout).toContain(line);
+  }
+  expect(readFileSync(join(env.theway, "standards", "spec-review.md.bak"), "utf-8")).toBe("# my review\n");
+  expect(readFileSync(join(env.theway, "templates", "spec-template.md.bak.1"), "utf-8")).toBe("# my template\n");
+  expect(readFileSync(join(env.theway, "templates", "spec-template.md.bak"), "utf-8")).toBe("# earlier\n");
+  for (const rel of ["standards/spec-review.md", "standards/spec-review.default.md", "templates/spec-template.md", "standards/tamm-framework.md"]) {
+    expect([rel, existsSync(join(env.theway, rel))]).toEqual([rel, false]);
+  }
+  expect(Object.keys(manifest(env)).filter((k) => MOVED.includes(k))).toEqual([]);
+  // A renamed standard is no standard of theway context.
+  const ctx = spawnSync("node", [CLI, "standards", "--project", "theway", "engineering"], { encoding: "utf-8", env: vars(env) });
+  expect([ctx.status, ctx.stdout]).toEqual([0, ""]);
+});
+
 test("install ships schemas/ with the templates rules: an edited schema is kept with the shipped one next to it", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
@@ -846,7 +919,7 @@ test("install keeps an edited file and writes the shipped version next to it", (
 
 test("install over a home without a manifest backs up a differing template, then follows the manifest", () => {
   const env = setup();
-  const TPL_DEFAULT = "templates/spec-template.default.md";
+  const TPL_DEFAULT = "templates/tech-stack-template.default.md";
   put(join(env.theway, TPL), "# my spec template\n");
   const res = run(env, "install");
   expect(res.status).toBe(0);

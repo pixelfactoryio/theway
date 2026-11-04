@@ -23,6 +23,20 @@ const SHIPPED_DIRS: { dir: string; ext: string; shared?: string }[] = [
   { dir: "prompts", ext: ".md", shared: "prompts" },
   { dir: "schemas", ext: ".json" },
 ];
+/**
+ * The standards and templates theway shipped before they became prompts, with the prompts that now hold them: retired
+ * by `retireMoved`.
+ */
+const MOVED: Record<string, string> = {
+  "standards/tamm-framework.md": "prompts/tamm-framework.md",
+  "standards/spec-investigation.md": "prompts/spec-investigation.md",
+  "standards/spec-review.md":
+    "prompts/spec-reviewer.md, grounding.md, implementability.md, verdicts.md, spec-triage.md and spec-fix.md",
+  "templates/spec-template.md": "prompts/spec-template.md",
+  "templates/fix-spec-template.md": "prompts/fix-spec-template.md",
+  "templates/light-spec-template.md": "prompts/light-spec-template.md",
+  "templates/tasks-template.md": "prompts/tasks-template.md",
+};
 /** The folder theway shipped review lenses in before they became prompts: retired by `retireLenses`. */
 const LENSES = "lenses";
 const MANIFEST = ".shipped.json";
@@ -157,6 +171,36 @@ function retireLenses(home: string, previous: Manifest | undefined): void {
 }
 
 /**
+ * Retires the standards and templates that moved to `prompts/`, before `copyShipped` reads the manifest: an unedited
+ * one is removed, an edited one (or one the manifest does not list) is renamed to its backup path, so that a kept file
+ * never becomes a standard every agent gets; their `.default.md` copies are removed and their keys dropped.
+ */
+function retireMoved(home: string): void {
+  const previous = readManifest(home);
+  let changed = false;
+  for (const [rel, now] of Object.entries(MOVED)) {
+    const path = `${home}/${rel}`;
+    if (existsSync(path) && statSync(path).isFile()) {
+      const current = readFileSync(path);
+      if (previous?.[rel] === sha256(current)) {
+        rmSync(path);
+        process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+      } else {
+        const bak = backupPath(home, rel, current);
+        renameSync(path, `${home}/${bak}`);
+        process.stdout.write(`Moved your edited ${rel} to ${bak}: theway now reads ${now}\n`);
+      }
+    }
+    rmSync(`${home}/${rel.slice(0, -".md".length)}.default.md`, { force: true });
+    if (previous !== undefined && rel in previous) {
+      delete previous[rel];
+      changed = true;
+    }
+  }
+  if (changed && previous !== undefined) writeManifest(home, previous);
+}
+
+/**
  * Writes the shipped standards, templates, workflows, steps, prompts and schemas into `home`: a file the user has not edited is updated,
  * an edited one is kept and the shipped version goes next to it as `<stem>.default.<ext>`.
  * `standards/`, `workflows/`, `steps/` and `prompts/` are shared with the user's own files: a user file with a shipped name is
@@ -258,6 +302,7 @@ export function init(src: string, home: string, enabled: readonly string[] = [])
       writeFileSync(`${home}/config.yaml`, enableStandards(readFileSync(`${src}/config.yaml`, "utf-8"), enabled));
     }
     migrateDataStandards(src, home);
+    retireMoved(home);
     copyShipped(src, home);
   } catch (e) {
     process.stderr.write(`theway: ${(e as Error).message}\n`);

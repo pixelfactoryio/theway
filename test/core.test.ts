@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { changeIdReason } from "../src/core/path";
@@ -302,7 +302,7 @@ test("standards prints global files before project files, each sorted, a project
 test("standards skips the files install ships into the global folder and their .default.md copies", () => {
   const dir = home();
   const g = join(dir, "standards");
-  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/sre.md": "x", "templates/spec-template.md": "y" })}\n`);
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/sre.md": "x", "templates/tech-stack-template.md": "y" })}\n`);
   put(join(g, "sre.md"), "# shipped\n");
   put(join(g, "sre.default.md"), "# shipped default\n");
   put(join(g, "develop.default.md"), "# another default copy\n");
@@ -424,7 +424,7 @@ test("standards lists the enabled opt-in and user standards per phase, from the 
   const dir = home();
   const g = join(dir, "standards");
   const p = join(dir, "projects", "p", "standards");
-  for (const name of ["interaction.md", "develop.md", "tamm-framework.md", "core-principles.md", "sre.md", "quality.md"]) {
+  for (const name of ["interaction.md", "develop.md", "core-principles.md", "sre.md", "quality.md"]) {
     put(join(g, name), "---\napplies_to: [develop]\n---\n");
   }
   put(join(g, "alpha.md"), "---\napplies_to: [engineering]\n---\n");
@@ -558,7 +558,7 @@ test("standards replaces an enabled global sre.md by a project sre.md with appli
 test("standards exits 1 with config's message for invalid YAML in either config", () => {
   const dir = home();
   put(join(dir, "standards", "tdd.md"), "x\n");
-  put(join(dir, "projects", "p", "config.yaml"), "engineering:\n  review_rounds: 1\n  review_rounds: 2\n");
+  put(join(dir, "projects", "p", "config.yaml"), "standards:\n  sre: 1\n  sre: 2\n");
   const res = run(dir, "standards", "--project", "p", "engineering");
   expect([res.status, res.stdout, res.stderr]).toEqual([
     1,
@@ -588,10 +588,6 @@ function effective(over: Record<string, string> = {}, user: [string, boolean][] 
     "  quality:",
     `    enabled: ${v("standards.quality.enabled", "false")}`,
     ...user.flatMap(([key, on]) => [`  ${key}:`, `    enabled: ${on}`]),
-    "engineering:",
-    "  review:",
-    `    rounds: ${v("engineering.review.rounds", "1")}`,
-    `    model: ${v("engineering.review.model", "opus")}`,
     "workflow:",
     ...defaults,
     "",
@@ -610,12 +606,12 @@ test("config prints the global values, defaults for the keys it lacks, every key
   seedSteps(dir);
   put(
     join(dir, "config.yaml"),
-    "# c\nworkflow:\n  defaults:\n    pr:\n      model: opus\n    review:\n      lenses: [security, correctness]\nstandards:\n  sre:\n    enabled: true\nengineering:\n  review:\n    rounds: 0\n",
+    "# c\nworkflow:\n  defaults:\n    pr:\n      model: opus\n    review:\n      lenses: [security, correctness]\nstandards:\n  sre:\n    enabled: true\n",
   );
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
   expect(res.stdout).toBe(
-    effective({ "standards.sre.enabled": "true", "engineering.review.rounds": "0" }, [], [
+    effective({ "standards.sre.enabled": "true" }, [], [
       "  defaults:",
       "    pr:",
       "      model: opus",
@@ -634,16 +630,16 @@ test("config merges workflow.defaults per param, the project file over the globa
   expect(run(dir, "config", "--project", "p").stdout).toBe(effective());
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review:\n    rounds: 3\n    model: sonnet\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 5\n      model: haiku\n    review:\n      lenses: [conformance]\n",
+    "workflow:\n  defaults:\n    pr:\n      ci_attempts: 5\n      model: haiku\n    review:\n      lenses: [conformance]\n",
   );
   put(
     join(dir, "projects", "p", "config.yaml"),
-    "standards:\n  quality:\n    enabled: true\nengineering:\n  review:\n    model: opus\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 1\n    implement:\n      model: sonnet\n",
+    "standards:\n  quality:\n    enabled: true\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 1\n    implement:\n      model: sonnet\n",
   );
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
   expect(res.stdout).toBe(
-    effective({ "standards.quality.enabled": "true", "engineering.review.rounds": "3", "engineering.review.model": "opus" }, [], [
+    effective({ "standards.quality.enabled": "true" }, [], [
       "  defaults:",
       "    pr:",
       "      ci_attempts: 1",
@@ -656,7 +652,7 @@ test("config merges workflow.defaults per param, the project file over the globa
     ]),
   );
   expect(run(dir, "config", "--project", "other").stdout).toBe(
-    effective({ "engineering.review.rounds": "3", "engineering.review.model": "sonnet" }, [], [
+    effective({}, [], [
       "  defaults:",
       "    pr:",
       "      ci_attempts: 5",
@@ -673,7 +669,7 @@ test("config warns about a workflow.defaults value of another shape and drops it
   seedSteps(dir);
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review:\n    rounds: -1\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 1.5\n    review: 3\n    reviews:\n      rounds: 2\n    deploy:\n      model: opus\n    agent:\n      model: sonnet\n",
+    "workflow:\n  defaults:\n    pr:\n      ci_attempts: 1.5\n    review: 3\n    reviews:\n      rounds: 2\n    deploy:\n      model: opus\n    agent:\n      model: sonnet\n",
   );
   put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      lenses: [a, a]\n      rounds: {x: 1}\n      model: opus\n");
   const res = run(dir, "config", "--project", "p");
@@ -696,7 +692,6 @@ test("config warns about a workflow.defaults value of another shape and drops it
   const list = "a non-empty list of names without duplicates";
   expect(res.stderr).toBe(
     [
-      "theway: warning: config.yaml: engineering.review.rounds must be a non-negative integer; ignored",
       `theway: warning: config.yaml: workflow.defaults.pr.ci_attempts must be a string, an integer, a boolean or ${list}; ignored`,
       "theway: warning: config.yaml: workflow.defaults.review must be a map; ignored",
       `theway: warning: projects/p/config.yaml: workflow.defaults.review.lenses must be a string, an integer, a boolean or ${list}; ignored`,
@@ -725,32 +720,29 @@ test("config warns about the removed workflow keys as unknown keys and keeps the
   );
 });
 
-test("config warns about the removed engineering keys as unknown keys and keeps the defaults", () => {
+test("config warns about the removed engineering section and the retired engineering standards as unknown, and keeps the defaults", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review_rounds: 2\n");
-  put(join(dir, "projects", "p", "config.yaml"), "engineering:\n  models:\n    critic: sonnet\n");
+  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 2\n    model: sonnet\n");
+  put(
+    join(dir, "projects", "p", "config.yaml"),
+    "standards:\n  tamm_framework:\n    enabled: true\n  spec_review:\n    enabled: true\n  spec_investigation:\n    enabled: false\n",
+  );
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stdout]).toEqual([0, effective()]);
   expect(res.stderr).toBe(
     [
-      "theway: warning: config.yaml: unknown key engineering.review_rounds; ignored",
-      "theway: warning: projects/p/config.yaml: unknown key engineering.models; ignored",
+      "theway: warning: config.yaml: unknown key engineering; ignored",
+      "theway: warning: projects/p/config.yaml: standards.tamm_framework has no standard file; ignored",
+      "theway: warning: projects/p/config.yaml: standards.spec_review has no standard file; ignored",
+      "theway: warning: projects/p/config.yaml: standards.spec_investigation has no standard file; ignored",
       "",
     ].join("\n"),
   );
 });
 
-test("config accepts haiku as a model with no warning", () => {
-  const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    model: haiku\n");
-  const res = run(dir, "config", "--project", "p");
-  expect([res.status, res.stderr]).toEqual([0, ""]);
-  expect(res.stdout).toBe(effective({ "engineering.review.model": "haiku" }));
-});
-
 test("config ignores an unknown key once at its highest level, a section that is not a map, and a root that is not a map", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "changes:\n  a: 1\n  b: 2\nengineering:\n  extra: 1\n  review: opus\n");
+  put(join(dir, "config.yaml"), "changes:\n  a: 1\n  b: 2\nworkflow:\n  extra: 1\n  defaults: opus\n");
   put(join(dir, "projects", "p", "config.yaml"), "- workflow\n");
   const res = run(dir, "config", "--project", "p");
   expect(res.status).toBe(0);
@@ -758,8 +750,8 @@ test("config ignores an unknown key once at its highest level, a section that is
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: unknown key changes; ignored",
-      "theway: warning: config.yaml: unknown key engineering.extra; ignored",
-      "theway: warning: config.yaml: engineering.review must be a map; ignored",
+      "theway: warning: config.yaml: unknown key workflow.extra; ignored",
+      "theway: warning: config.yaml: workflow.defaults must be a map; ignored",
       "theway: warning: projects/p/config.yaml: not a map; ignored",
       "",
     ].join("\n"),
@@ -787,15 +779,15 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
   ];
   const badGlobal = home();
   put(join(badGlobal, "config.yaml"), "a: [1\n");
-  put(join(badGlobal, "projects", "p", "config.yaml"), "engineering:\n  review:\n    rounds: 2\n");
+  put(join(badGlobal, "projects", "p", "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
   cases.push([
     badGlobal,
     "p",
     "theway: config.yaml: invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1\n",
   ]);
   const badProject = home();
-  put(join(badProject, "config.yaml"), "engineering:\n  review:\n    rounds: 2\n");
-  put(join(badProject, "projects", "p", "config.yaml"), "engineering:\n  review_rounds: 1\n  review_rounds: 2\n");
+  put(join(badProject, "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  put(join(badProject, "projects", "p", "config.yaml"), "standards:\n  sre: 1\n  sre: 2\n");
   cases.push([
     badProject,
     "p",
@@ -809,8 +801,8 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
 
 test.skipIf(process.getuid?.() === 0)("config exits 1 with nothing on stdout for a project file that cannot be read", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 2\n");
-  put(join(dir, "projects", "p", "config.yaml"), "engineering:\n  review:\n    rounds: 3\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: true\n");
+  put(join(dir, "projects", "p", "config.yaml"), "standards:\n  sre:\n    enabled: false\n");
   chmodSync(join(dir, "projects", "p", "config.yaml"), 0o000);
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: projects/p/config.yaml: cannot be read\n"]);
@@ -827,20 +819,11 @@ test("config prints only its own warning for a value yaml warns about", () => {
   ]);
 });
 
-test("config rejects a non-integer number for an integer key", () => {
-  const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 1.5\n");
-  const res = run(dir, "config", "--project", "p");
-  expect(res.status).toBe(0);
-  expect(res.stdout).toBe(effective());
-  expect(res.stderr).toBe("theway: warning: config.yaml: engineering.review.rounds must be a non-negative integer; ignored\n");
-});
-
 test("config lists every switchable standard after the opt-in keys, with its effective value and its warnings", () => {
   const dir = home();
   const g = join(dir, "standards");
   put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/shipped.md": "x" })}\n`);
-  for (const name of ["interaction.md", "develop.md", "tamm-framework.md", "sre.md", "shipped.md", "tdd.default.md"]) {
+  for (const name of ["interaction.md", "develop.md", "sre.md", "shipped.md", "tdd.default.md"]) {
     put(join(g, name), "x\n");
   }
   for (const name of ["zeta.md", "alpha.md", "tdd.md", "a-b.md", "a_b.md"]) put(join(g, name), "x\n");
@@ -905,7 +888,7 @@ test("config reads a project named data, templates or standards from its own fol
 test("a project file with a core name is a user standard that the project config switches", () => {
   const dir = home();
   const g = join(dir, "standards");
-  for (const name of ["interaction.md", "develop.md", "tamm-framework.md"]) put(join(g, name), "x\n");
+  for (const name of ["interaction.md", "develop.md"]) put(join(g, name), "x\n");
   const own = join(dir, "projects", "p", "standards", "develop.md");
   put(own, "---\napplies_to: [develop]\n---\n");
   put(join(dir, "config.yaml"), "");
@@ -926,11 +909,11 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
-test("standards does not list the global spec-review.md and spec-investigation.md, which .shipped.json does not list", () => {
+test("standards does not list the global interaction.md and develop.md, which .shipped.json does not list", () => {
   const dir = home();
   const g = join(dir, "standards");
   put(join(dir, ".shipped.json"), "{}\n");
-  for (const name of ["spec-review.md", "spec-investigation.md", "own.md"]) put(join(g, name), "x\n");
+  for (const name of ["interaction.md", "develop.md", "own.md"]) put(join(g, name), "x\n");
   put(join(dir, "config.yaml"), "");
   const res = run(dir, "standards", "--project", "p", "engineering");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
@@ -985,7 +968,7 @@ test("a user standard sharing an opt-in key defaults to false with it", () => {
 
 test("context prints home, project, project_dir, change_dir, standards and config in that order, matching path, project, standards and config", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 3\n");
+  put(join(dir, "config.yaml"), "standards:\n  sre:\n    enabled: false\n");
   put(join(dir, "standards", "tdd.md"), "# tdd\n");
   const res = run(dir, "context", "--project", "p", "develop", "add-x");
   expect(res.status).toBe(0);
@@ -1108,7 +1091,7 @@ const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
 const shippedText = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
 const WF_HEAD = "version: theway.workflow/v1\n";
 const STEP_HEAD = "version: theway.step/v1\n";
-const PROMPTS = ["implement", "reviewer", "conformance", "correctness", "triage", "fix", "fix-check", "open-pr", "ci-wait", "ci-diagnose", "ci-fix"];
+const PROMPTS = ["implement", "reviewer", "conformance", "correctness", "verdicts", "triage", "fix", "fix-check", "open-pr", "ci-wait", "ci-diagnose", "ci-fix"];
 
 /**
  * A home with an empty global config, the two convention standards, the shipped steps and prompts, and a
@@ -1128,13 +1111,16 @@ function workflowHome(): string {
 /** A home holding the shipped config, convention standards, workflows, steps and prompts. */
 function shippedHome(): string {
   const dir = home();
-  for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md", "workflows/develop.yaml", "workflows/agents.yaml"]) {
-    put(join(dir, rel), shippedText(rel));
+  for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md"]) put(join(dir, rel), shippedText(rel));
+  for (const folder of ["workflows", "steps", "prompts"]) {
+    for (const f of readdirSync(join(SHIPPED_HOME, folder))) put(join(dir, folder, f), shippedText(`${folder}/${f}`));
   }
-  for (const n of ["implement", "review", "pr"]) put(join(dir, "steps", `${n}.yaml`), shippedText(`steps/${n}.yaml`));
-  for (const n of PROMPTS) put(join(dir, "prompts", `${n}.md`), shippedText(`prompts/${n}.md`));
   return dir;
 }
+
+/** The fixture of the shipped `engineering` workflow, with `<home>` replaced by `dir`. */
+const engineeringJson = (dir: string): string =>
+  `${JSON.stringify(JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "engineering-workflow.json"), "utf-8").replaceAll("<home>", dir)), null, 2)}\n`;
 
 /** The fixture of the shipped `agents` workflow, with `<home>` replaced by `dir` and its file by `file`. */
 function agentsJson(dir: string, file = join(dir, "workflows", "agents.yaml"), name = "agents"): string {
@@ -1150,8 +1136,45 @@ test("workflow prints the shipped agents, matching the fixture: foreach expanded
   const res = run(dir, "workflow", "--project", "theway", "agents");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir), ""]);
   const doc = JSON.parse(res.stdout);
-  expect(Object.keys(doc)).toEqual(["name", "file", "commits", "git_host", "pushes", "working_tree", "steps"]);
+  expect(Object.keys(doc)).toEqual(["name", "file", "input", "commits", "git_host", "pushes", "working_tree", "steps"]);
   expect([doc.pushes, doc.working_tree]).toEqual([true, false]);
+});
+
+test("workflow prints the shipped engineering workflows: input request, nothing pushed, scaffold inline and spec-review through agents", () => {
+  const dir = shippedHome();
+  const res = run(dir, "workflow", "--project", "theway", "engineering");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, engineeringJson(dir), ""]);
+  const doc = JSON.parse(res.stdout);
+  expect([doc.input, doc.pushes, doc.working_tree]).toEqual(["request", false, false]);
+  expect(doc.steps.map((s: { id: string; agents: boolean }) => [s.id, s.agents])).toEqual([
+    ["scaffold", false],
+    ["spec-review", true],
+  ]);
+  const light = run(dir, "workflow", "--project", "theway", "engineering-light");
+  expect([light.status, light.stderr]).toEqual([0, ""]);
+  const lightDoc = JSON.parse(light.stdout);
+  expect([lightDoc.input, lightDoc.pushes, lightDoc.working_tree]).toEqual(["request", false, false]);
+  expect(lightDoc.steps[0].do[0].agent).toEqual({
+    name: "scaffold-light",
+    label: "scaffold-light:scaffold-light",
+    prompt: ["tamm-framework", "spec-investigation", "scaffold-rules", "light-spec-template", "tasks-template", "scaffold-light"].map((n) =>
+      join(dir, "prompts", `${n}.md`),
+    ),
+    returns: "scaffold",
+    access: "spec",
+  });
+  // The light review: one grounding critic, and the escalation message as the block.
+  const review = JSON.parse(JSON.stringify(doc.steps[1]));
+  review.params.lenses = { value: ["grounding"], from: "workflows/engineering-light.yaml steps[1]" };
+  const message = "escalated: run /theway:engineering <change-id>: <request> without --light";
+  review.params.on_decision = { value: message, from: "workflows/engineering-light.yaml steps[1]" };
+  review.do[0].loop.do[0].parallel = review.do[0].loop.do[0].parallel.slice(0, 1);
+  review.do[0].loop.do[3].block = message;
+  expect(lightDoc.steps[1]).toEqual(review);
+  // workflow.defaults.spec-review sets the rounds.
+  put(join(dir, "projects", "theway", "config.yaml"), "workflow:\n  defaults:\n    spec-review: {rounds: 2}\n");
+  const two = JSON.parse(run(dir, "workflow", "--project", "theway", "engineering").stdout);
+  expect([two.steps[1].params.rounds, two.steps[1].do[0].loop.max]).toEqual([{ value: 2, from: "projects/theway/config.yaml" }, 2]);
 });
 
 test("workflow resolves the shipped develop, the fallback default, to one inline work agent: a working-tree workflow", () => {
@@ -1500,6 +1523,39 @@ test("workflow exits 1 with the first error of a workflow file, in the documente
   for (const [text, reason] of cases) expect(workflowError(dir, text)).toBe(`theway: workflows/w.yaml: ${reason}\n`);
 }, 60_000);
 
+test("workflow exits 1 on the rules of each input, with the agent's path", () => {
+  const dir = workflowHome();
+  put(join(dir, "prompts", "x.md"), "# x\n");
+  put(join(dir, "steps", "s.yaml"), `${STEP_HEAD}description: Scaffold\ndo:\n  - agent: {prompt: x, returns: scaffold}\n`);
+  put(
+    join(dir, "steps", "e.yaml"),
+    `${STEP_HEAD}description: Edit\ndo:\n  - agent: {prompt: x, returns: findings}\n  - agent: {prompt: x, returns: verdicts}\n  - when: confirmed\n    do:\n      - agent: {prompt: x, returns: edits}\n  - when: decision\n    block: true\n`,
+  );
+  put(join(dir, "steps", "a.yaml"), `${STEP_HEAD}description: Audit\ndo:\n  - agent: {prompt: x, returns: findings, access: spec}\n`);
+  const req = `${WF_HEAD}input: request\nsteps:\n`;
+  const cases: [string, string][] = [
+    [`${WF_HEAD}input: other\nsteps:\n  - implement:\n`, "input must be changes or request"],
+    [`${req}  - s:\ndefault: true\n`, "default: true is only for an input: changes workflow"],
+    [`${req}  - implement:\n`, "steps[0]: an input: request workflow starts with a step whose first agent returns scaffold"],
+    [`${req}  - gate: Go?\n  - s:\n`, "steps[0]: an input: request workflow starts with a step whose first agent returns scaffold"],
+    [`${req}  - e:\n`, "steps[0]: an input: request workflow starts with a step whose first agent returns scaffold"],
+    [`${req}  - s:\n  - s:\n`, "steps[1]: only one agent may return scaffold"],
+    [`${req}  - s:\n  - implement:\n`, "steps[1]: do[0].agent: access commit is not allowed in an input: request workflow"],
+    [`${req}  - s:\n  - pr:\n`, "steps[1]: do[0].agent: access push is not allowed in an input: request workflow"],
+    [`${WF_HEAD}steps:\n  - s:\n`, "steps[0]: do[0].agent: returns scaffold and access spec are only for an input: request workflow"],
+    [`${WF_HEAD}steps:\n  - implement:\n  - e:\n`, "steps[1]: do[2].when.do[0].agent: returns edits and access spec are only for an input: request workflow"],
+    [`${WF_HEAD}input: changes\nsteps:\n  - a:\n`, "steps[0]: do[0].agent: access spec is only for an input: request workflow"],
+  ];
+  for (const [text, reason] of cases) expect(workflowError(dir, text)).toBe(`theway: workflows/w.yaml: ${reason}\n`);
+  put(join(dir, "workflows", "w.yaml"), `${req}  - s:\n  - e:\n  - a:\n  - gate: More?\n  - e:\n`);
+  const ok = run(dir, "workflow", "--project", "p", "w");
+  expect([ok.status, ok.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(ok.stdout);
+  expect([doc.input, doc.pushes, doc.working_tree]).toEqual(["request", false, false]);
+  expect(doc.steps[1].do[3]).toEqual({ when: ["decision"], block: true });
+  expect(doc.steps[1].do[2].do[0].agent.access).toBe("spec");
+}, 60_000);
+
 test("workflow names the value's origin on an error after substitution: the workflow entry, a config file or the step default", () => {
   const dir = workflowHome();
   const head = `${WF_HEAD}steps:\n  - implement:\n`;
@@ -1568,10 +1624,10 @@ test("workflow exits 1 with the first error of a step file, in the documented or
     ["do:\n  - parallel: []\n", "do[0]: parallel is output only; write foreach: … with parallel: true"],
     ["do:\n  - agent: {returns: work, name: y}\n", "do[0].agent.name is not a field of agent (fields: prompt, returns, model, access)"],
     ["do:\n  - agent: {returns: work}\n    model: opus\n", "do[0].model is not a field of agent (fields: prompt, returns, model, access)"],
-    ["do:\n  - agent:\n", "do[0].agent.returns is required (one of work, findings, verdicts, resolutions, pr, ci, diagnosis)"],
-    ["do:\n  - agent: {returns: nope}\n", "do[0].agent.returns must be one of work, findings, verdicts, resolutions, pr, ci, diagnosis"],
+    ["do:\n  - agent:\n", "do[0].agent.returns is required (one of work, findings, verdicts, resolutions, pr, ci, diagnosis, scaffold, edits)"],
+    ["do:\n  - agent: {returns: nope}\n", "do[0].agent.returns must be one of work, findings, verdicts, resolutions, pr, ci, diagnosis, scaffold, edits"],
     ["do:\n  - agent: {returns: work, model: gpt}\n", "do[0].agent.model must be one of opus, sonnet, haiku"],
-    ["do:\n  - agent: {returns: work, access: write}\n", "do[0].agent.access must be read, commit or push"],
+    ["do:\n  - agent: {returns: work, access: write}\n", "do[0].agent.access must be read, commit, push or spec"],
     ["do:\n  - agent: {returns: work, prompt: []}\n", "do[0].agent.prompt must be a name or a non-empty list of names"],
     ["do:\n  - agent: {returns: work, prompt: Bad}\n", "do[0].agent.prompt must be a name or a non-empty list of names"],
     ["do:\n  - agent: {returns: work, access: read}\n", "do[0].agent.access must be commit or push for returns: work"],
@@ -1607,8 +1663,8 @@ test("workflow exits 1 with the first error of a step file, in the documented or
     ["do:\n  - loop: {until: more, exhausted: continue, do: []}\n", "do[0].loop.max is required (a positive integer)"],
     ["do:\n  - loop: {max: 0, until: more, exhausted: continue, do: []}\n", "do[0].loop.max must be a positive integer"],
     ['do:\n  - loop: {max: "2", until: more, exhausted: continue, do: []}\n', "do[0].loop.max must be a positive integer"],
-    ["do:\n  - loop: {max: 1, exhausted: continue, do: []}\n", "do[0].loop.until is required (one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more)"],
-    ["do:\n  - loop: {max: 1, until: done, exhausted: continue, do: []}\n", "do[0].loop.until must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more"],
+    ["do:\n  - loop: {max: 1, exhausted: continue, do: []}\n", "do[0].loop.until is required (one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more, decision, no-decision)"],
+    ["do:\n  - loop: {max: 1, until: done, exhausted: continue, do: []}\n", "do[0].loop.until must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more, decision, no-decision"],
     [
       "do:\n  - loop: {max: 1, until: more, do: []}\n",
       "do[0].loop.exhausted is required (continue or fail); say what happens when the loop ends without until",
@@ -1618,11 +1674,24 @@ test("workflow exits 1 with the first error of a step file, in the documented or
     ["do:\n  - loop: {max: 1, until: more, exhausted: fail, do: [], every: 1}\n", "do[0].loop.every is not a field of loop (fields: max, until, exhausted, do)"],
     ['do:\n  - loop: {max: 1, until: "${x}", exhausted: fail, do: []}\n', "do[0].loop.until does not take a reference"],
     ["do:\n  - when: more\n    do: [agent: {returns: work}]\n", "do[0].when: more outside a loop"],
-    ["do:\n  - when: done\n    do: []\n", "do[0].when must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more"],
-    ["do:\n  - agent: {returns: findings}\n  - when: findings\n", "do[1].when: when needs do or fail: true, not both"],
-    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n    do: [agent: {returns: work}]\n", "do[1].when: when needs do or fail: true, not both"],
+    ["do:\n  - when: done\n    do: []\n", "do[0].when must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more, decision, no-decision"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n", "do[1].when: when needs exactly one of do, fail or block"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n    do: [agent: {returns: work}]\n", "do[1].when: when needs exactly one of do, fail or block"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n    block: true\n", "do[1].when: when needs exactly one of do, fail or block"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    block: false\n", "do[1].when.block must be true or a non-empty string"],
+    ['do:\n  - agent: {returns: findings}\n  - when: findings\n    block: ""\n', "do[1].when.block must be true or a non-empty string"],
+    [
+      "params:\n  n: {default: 2, description: x}\ndo:\n  - agent: {returns: findings}\n  - when: findings\n    block: \"${n}\"\n",
+      "do[1].when.block must be true or a non-empty string (value from params.n)",
+    ],
+    ['do:\n  - agent: {returns: findings}\n  - when: findings\n    block: "stop ${n}"\n', "do[1].when.block: ${…} must be the whole value; there is no string templating"],
+    ["do:\n  - agent: {returns: scaffold, access: read}\n", "do[0].agent.access must be spec for returns: scaffold"],
+    ["do:\n  - agent: {returns: findings}\n  - agent: {returns: verdicts}\n  - agent: {returns: edits, access: commit}\n", "do[2].agent.access must be spec for returns: edits"],
+    ["do:\n  - agent: {returns: edits}\n", "do[0].agent: returns edits needs an earlier verdicts agent in this step"],
+    ["do:\n  - agent: {returns: work, access: spec}\n", "do[0].agent.access must be commit or push for returns: work"],
+    ["do:\n  - when: decision\n    block: true\n", "do[0].when: decision needs an earlier verdicts agent in this step"],
     ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: false\n", "do[1].when.fail must be true"],
-    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    then: []\n", "do[1].when.then is not a field of when (fields: do, fail)"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    then: []\n", "do[1].when.then is not a field of when (fields: do, fail, block)"],
     ["do:\n  - when: findings\n    fail: true\n", "do[0].when: findings needs an earlier findings agent in this step"],
     ["do:\n  - when: [findings, red]\n    fail: true\n  - agent: {returns: findings}\n", "do[0].when: findings needs an earlier findings agent in this step"],
     ["do:\n  - agent: {returns: findings}\n  - when: [findings, red]\n    fail: true\n", "do[1].when: red needs an earlier ci agent in this step"],
@@ -1760,6 +1829,15 @@ test("steps lists the steps with origin, description and each param's effective 
       "    lenses=conformance,correctness  One reviewer per lens, by prompt name",
       "    model=opus  The reviewers, the triage and the fix check",
       "    fix_model=opus  The fix agent of each round",
+      "scaffold  global  Investigate the request and write the change's spec, tasks and design",
+      "    model=opus  The scaffolder when the step runs through agents",
+      "scaffold-light  global  Investigate a small request and write its light spec and tasks, or escalate",
+      "    model=opus  The scaffolder when the step runs through agents",
+      "spec-review  global  Review the change's spec through each lens, triage, fix the confirmed findings and stop on a decision",
+      "    rounds=1  Maximum review rounds",
+      "    lenses=grounding,implementability  One critic per lens, by prompt name",
+      "    model=opus  The critics, the triage and the fix agent",
+      "    on_decision=open question  The message a confirmed decision stops the run with",
       "",
     ].join("\n"),
   );
@@ -1774,7 +1852,7 @@ test("steps <name> prints the step object of theway workflow, and exits 1 for an
   expect(JSON.parse(res.stdout)).toEqual(review);
   const steps = `${join(dir, "projects", "theway", "steps")} or ${join(dir, "steps")}`;
   for (const [name, line] of [
-    ["nope", `theway: no step 'nope' in ${steps} (steps: implement, pr, review)\n`],
+    ["nope", `theway: no step 'nope' in ${steps} (steps: implement, pr, review, scaffold, scaffold-light, spec-review)\n`],
     ["revew", `theway: no step 'revew' in ${steps}; did you mean 'review'?\n`],
     ["Bad", "theway: invalid step name 'Bad'\n"],
   ] as const) {

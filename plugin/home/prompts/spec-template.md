@@ -4,7 +4,7 @@ usage: "Create Spec analysis when planning medium-to-large changes requiring TAM
 agent_role: "Spec Analyst who analyzes solutions using the TAMM framework (Time/Autonomy/Mastery/Machine)"
 required_context:
   - "The standards the command gave you"
-  - "<home>/standards/tamm-framework.md - TAMM framework"
+  - "The tamm-framework prompt - TAMM framework"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "TAMM table includes only Medium/High risk hardpoints (skip low-risk items)"

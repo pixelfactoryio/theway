@@ -4,7 +4,7 @@ usage: "Create the short spec of a change with nothing to decide, written by /th
 agent_role: "Spec Analyst who writes the smallest spec a cold-start implementer can follow"
 required_context:
   - "The standards the command gave you"
-  - "<home>/standards/tamm-framework.md - TAMM framework"
+  - "The tamm-framework prompt - TAMM framework"
   - "docs/architecture/coding-standards.md - Project coding standards (if exists)"
 quality_standards:
   - "The Change section lists every file the change touches and ends with \"Nothing else changes.\""
