@@ -215,7 +215,7 @@
       "description": "A foreach node: one copy of do per item.",
       "properties": {
         "foreach": {
-          "description": "The items: a list of names, normally a param reference.",
+          "description": "The items: a non-empty list of names, normally a param reference.",
           "anyOf": [
             {
               "type": "array",
@@ -224,7 +224,8 @@
                 "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
                 "description": "An item: a name."
               },
-              "description": "A list of names."
+              "minItems": 1,
+              "description": "A non-empty list of names."
             },
             {
               "type": "string",

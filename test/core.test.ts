@@ -1533,6 +1533,7 @@ test("workflow exits 1 with the first error of a step file, in the documented or
   expect(set(`${STEP_HEAD}other: 1\n`)).toBe("theway: steps/x.yaml: unknown key other\n");
   expect(set(`${STEP_HEAD}do:\n  - agent: {returns: work}\n`)).toBe("theway: steps/x.yaml: description must be a non-empty string\n");
   expect(set(`${STEP_HEAD}description: ""\n`)).toBe("theway: steps/x.yaml: description must be a non-empty string\n");
+  expect(set(`${STEP_HEAD}description: "\${x}"\n`)).toBe("theway: steps/x.yaml: description does not take a reference\n");
   const cases: [string, string][] = [
     ["", "do must be a non-empty list"],
     ["do: []\n", "do must be a non-empty list"],
@@ -1572,7 +1573,9 @@ test("workflow exits 1 with the first error of a step file, in the documented or
     ['do:\n  - agent: {returns: work, prompt: "x-${item}"}\n', "do[0].agent.prompt: ${…} must be the whole value; there is no string templating"],
     ['do:\n  - agent: {returns: work, prompt: [x, "${a}${b}"]}\n', "do[0].agent.prompt[1]: ${…} must be the whole value; there is no string templating"],
     ["do:\n  - foreach: [a]\n    do:\n      - foreach: [b]\n        do: []\n", "do[0].foreach[item=a].do[0].foreach: no foreach inside a foreach"],
-    ["do:\n  - foreach: x\n    do: []\n", "do[0].foreach must be a list of names"],
+    ["do:\n  - foreach: x\n    do: []\n", "do[0].foreach must be a non-empty list of names"],
+    ["do:\n  - foreach: []\n    do: [agent: {returns: findings}]\n", "do[0].foreach must be a non-empty list of names"],
+    ["do:\n  - foreach: []\n    parallel: true\n    do: [agent: {returns: findings}]\n", "do[0].foreach must be a non-empty list of names"],
     ["do:\n  - foreach: [x]\n    parallel: yes\n    do: []\n", "do[0].foreach.parallel must be true or false"],
     ["do:\n  - foreach: [x]\n", "do[0].foreach.do is required (a non-empty list)"],
     ["do:\n  - foreach: [x]\n    do: []\n", "do[0].foreach[item=x].do must be a non-empty list"],

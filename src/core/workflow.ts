@@ -61,7 +61,7 @@ const RULE = {
   positive: "a positive integer",
   bool: "true or false",
   fail: "true",
-  names: "a list of names",
+  names: "a non-empty list of names",
   prompt: "a name or a non-empty list of names",
   nonEmpty: "a non-empty string",
   nodes: "a non-empty list",
@@ -154,6 +154,7 @@ function readStep(d: Dirs, name: string, path: string, full: boolean): StepFile 
     if (k === "description") {
       const v = root.get(k);
       if (typeof v !== "string" || v.trim() === "") fail("description must be a non-empty string");
+      if ((v as string).includes("${")) fail("description does not take a reference");
     } else if (k === "params") {
       const v = root.get(k);
       if (!isMap(v)) return fail("params must be a map");
@@ -439,7 +440,9 @@ function foreach(ctx: Ctx, path: string, map: Map<unknown, unknown>): Out[] {
   siblings(ctx, path.slice(0, -".foreach".length), map, "foreach");
   if (ctx.inForeach) fail(ctx, `${path}: no foreach inside a foreach`);
   const s = subst(ctx, path, map.get("foreach"));
-  if (!Array.isArray(s.value) || !s.value.every((n) => typeof n === "string" && NAME.test(n))) fail(ctx, `${path} must be ${RULE.names}`, s.origin);
+  if (!Array.isArray(s.value) || s.value.length === 0 || !s.value.every((n) => typeof n === "string" && NAME.test(n))) {
+    fail(ctx, `${path} must be ${RULE.names}`, s.origin);
+  }
   const items = s.value as string[];
   let parallel = false;
   if (map.has("parallel")) {
