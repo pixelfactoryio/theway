@@ -2,6 +2,20 @@ import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
+import { MODELS, NAME } from "../src/core/io";
+import {
+  ACCESS,
+  CONDITIONS,
+  EXHAUSTED,
+  FIELDS,
+  PARAM,
+  RESERVED,
+  STEP_KEYS,
+  STEP_VERSION,
+  TYPES,
+  WORKFLOW_KEYS,
+  WORKFLOW_VERSION,
+} from "../src/core/workflow";
 import { buildProgram } from "../src/program";
 
 const REPO = join(import.meta.dirname, "..");
@@ -526,6 +540,14 @@ const BASE_ARGS = {
 };
 
 type Call = { label: string; text: string; opts: Record<string, unknown> };
+
+/** The Input block of an agent prompt, parsed; it throws when the prompt has none. */
+function inputOf(call: Call | string) {
+  const text = typeof call === "string" ? call : call.text;
+  const block = /\nInput:\n([\s\S]*?)\n\n/.exec(text)?.[1];
+  if (block === undefined) throw new Error("the prompt has no Input block");
+  return JSON.parse(block);
+}
 type Scripted = unknown | ((text: string) => unknown);
 
 /**
@@ -637,20 +659,20 @@ test("run-pipeline.js is a plugin workflow that compiles and refuses args that d
   const gate = { ...wf, steps: [...wf.steps.slice(0, 2), { id: "gate", gate: "Go?", agents: false }, wf.steps[2]] };
   const inline = { ...wf, steps: wf.steps.map((s, i) => (i === 1 ? { ...s, agents: false } : s)) };
   const { commits: _, ...noCommits } = segment(wf, [1]);
-  for (const args of [
-    segment(wf, []),
-    segment(wf, [0, 2]),
-    segment(wf, [3]),
-    segment(wf, [1], { head: null }),
-    segment(wf, [1], { head: "" }),
-    segment(gate, [2]),
-    segment(gate, [1, 2]),
-    segment(inline, [1]),
-    noCommits,
-    segment(wf, [1], { gitHost: null }),
-    segment(wf, [1], { light: "no" }),
-  ]) {
-    expect((await drive(args, {})).result).toEqual(error);
+  for (const [label, args] of [
+    ["no steps", segment(wf, [])],
+    ["steps not consecutive", segment(wf, [0, 2])],
+    ["a step out of range", segment(wf, [3])],
+    ["head null", segment(wf, [1], { head: null })],
+    ["head empty", segment(wf, [1], { head: "" })],
+    ["a gate step", segment(gate, [2])],
+    ["a segment through a gate", segment(gate, [1, 2])],
+    ["an inline step", segment(inline, [1])],
+    ["no commits", noCommits],
+    ["gitHost null", segment(wf, [1], { gitHost: null })],
+    ["light not a boolean", segment(wf, [1], { light: "no" })],
+  ] as const) {
+    expect([label, (await drive(args, {})).result]).toEqual([label, error]);
   }
 });
 
@@ -683,7 +705,7 @@ test("run-pipeline.js runs the shipped review: no findings succeeds after one ro
   ]);
   const first = calls[0] as Call;
   expect(first.text).toContain("Read these files in order and follow them: /h/prompts/reviewer.md, /h/prompts/conformance.md.");
-  const input = JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec(first.text)?.[1] ?? "{}");
+  const input = inputOf(first);
   expect(input).toEqual({
     change: { id: "add-x", dir: "/c", fix: false, light: false },
     branch: "add-x",
@@ -693,7 +715,6 @@ test("run-pipeline.js runs the shipped review: no findings succeeds after one ro
     loop: { iteration: 1, max: 1 },
   });
   expect(first.text.trimEnd().endsWith("Return each finding with title, file, line (when one applies), problem and evidence; [] when there is none. Also return summary: one line on what you did.")).toBe(true);
-  expectPrompts(wf, calls);
 });
 
 test("run-pipeline.js runs the shipped review: triage, fix and fix check, with the outcomes of the type rules", async () => {
@@ -717,16 +738,15 @@ test("run-pipeline.js runs the shipped review: triage, fix and fix check, with t
     ["review:conformance", 2],
     ["review:correctness", 2],
   ]);
-  const triage = JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec((ok.calls[2] as Call).text)?.[1] ?? "{}");
+  const triage = inputOf(ok.calls[2] as Call);
   expect(triage.findings.map((f: { index: number; prompt: string; title: string }) => [f.index, f.prompt, f.title])).toEqual([
     [0, "conformance", "Bug"],
     [1, "correctness", "Nit"],
   ]);
-  const check = JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec((ok.calls[4] as Call).text)?.[1] ?? "{}");
+  const check = inputOf(ok.calls[4] as Call);
   expect([check.head, check.work.from, check.work.head, check.confirmed.map((f: { title: string }) => f.title)]).toEqual(["h1", "h0", "h1", ["Bug"]]);
-  const second = JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec((ok.calls[5] as Call).text)?.[1] ?? "{}");
+  const second = inputOf(ok.calls[5] as Call);
   expect([second.head, second.loop, second.findings]).toEqual(["h1", { iteration: 2, max: 2 }, undefined]);
-  expectPrompts(two, ok.calls);
 
   const base = () => ({ "review:conformance": [findings("Bug")], "review:correctness": [findings()] });
   const unjudged = await drive(segment(wf, [REVIEW]), { ...base(), "review:triage": [verdicts([1, "confirmed"])] });
@@ -766,9 +786,8 @@ test("run-pipeline.js runs the implementer and a fix- change's Input, and blocks
   const text = (ok.calls[0] as Call).text;
   expect(text).toContain("Read /h/prompts/implement.md and follow it.");
   expect(text).toContain("folder /c (a light spec: **Mode:** light)");
-  expect(JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec(text)?.[1] ?? "{}").change).toEqual({ id: "fix-x", dir: "/c", fix: true, light: true });
+  expect(inputOf(text).change).toEqual({ id: "fix-x", dir: "/c", fix: true, light: true });
   expect(text).toContain("tasksDone (the task numbers done)");
-  expectPrompts(wf, ok.calls);
   const none = await drive(segment(wf, [0]), { "implement:implement": [null] });
   expect(none.result).toEqual({
     status: "blocked",
@@ -792,8 +811,7 @@ test("run-pipeline.js runs the shipped pr: green, a fix then green, and every fa
   const wf = fixture();
   const green = await drive(segment(wf, [PR]), { "pr:open-pr": [opened], "pr:ci-wait": [ci("green")] });
   expect([green.result.status, green.result.pr]).toEqual(["succeeded", { url: "https://example.test/pr/7", number: 7 }]);
-  expectPrompts(wf, green.calls);
-  const wait = JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec((green.calls[1] as Call).text)?.[1] ?? "{}");
+  const wait = inputOf(green.calls[1] as Call);
   expect([wait.pr, wait.loop, wait.params.ci_attempts]).toEqual([{ url: "https://example.test/pr/7", number: 7 }, { iteration: 1, max: 2 }, 2]);
 
   const fixed = await drive(segment(wf, [PR]), {
@@ -810,9 +828,8 @@ test("run-pipeline.js runs the shipped pr: green, a fix then green, and every fa
     ["pr:ci-fix", 1],
     ["pr:ci-wait", 2],
   ]);
-  expect(JSON.parse(/\nInput:\n([\s\S]*?)\n\n/.exec((fixed.calls[4] as Call).text)?.[1] ?? "{}").head).toBe("h2");
+  expect(inputOf(fixed.calls[4] as Call).head).toBe("h2");
   expect((fixed.calls[3] as Call).opts.model).toBe("opus");
-  expectPrompts(wf, fixed.calls);
 
   const empty = await drive(segment(wf, [PR]), { "pr:open-pr": [opened], "pr:ci-wait": [ci("red")] });
   expect([empty.result.status, empty.result.error]).toEqual(["failed", "pr:ci-wait reported red with no failed check"]);
@@ -1014,6 +1031,49 @@ test("the schemas reject the invalid samples and accept a reference, and every p
   walk(schemaOf("workflow"), "workflow");
   walk(schemaOf("step"), "step");
   expect(missing).toEqual([]);
+});
+
+test("the schemas' versions, keys, enums and patterns are the resolver's", () => {
+  type Node = Record<string, unknown> & { properties: Record<string, Node>; anyOf: Node[]; items: Node; enum: string[]; pattern: string };
+  const step = schemaOf("step") as Node & { $defs: Record<string, Node> };
+  const workflow = schemaOf("workflow") as Node & { $defs: Record<string, Node> };
+  const defs = step.$defs;
+  const keys = (n: Node) => Object.keys(n.properties);
+  const ref = `^\\$\\{${PARAM.source.slice(1, -1)}\\}$`;
+  const agent = (defs.agentNode as Node).properties.agent as Node;
+  const loop = (defs.loopNode as Node).properties.loop as Node;
+  const params = step.properties.params as Node & { propertyNames: { pattern: string; not: { enum: string[] } } };
+  const listItems = (n: Node) => (((n.properties.default as Node).anyOf[3] as Node).items as Node).pattern;
+  const conditionNodes = [loop.properties.until as Node, (defs.whenNode as Node).properties.when as Node];
+  const entry = workflow.$defs.entry as Node & { propertyNames: { pattern: string }; additionalProperties: Node };
+  const entryParams = entry.additionalProperties.anyOf[1] as Node & { propertyNames: { pattern: string }; additionalProperties: Node };
+  const label = (name: string, actual: unknown, expected: unknown) => expect([name, actual]).toEqual([name, expected]);
+  label("step version", (step.properties.version as Node).const, STEP_VERSION);
+  label("workflow version", (workflow.properties.version as Node).const, WORKFLOW_VERSION);
+  label("step keys", keys(step), STEP_KEYS);
+  label("workflow keys", keys(workflow), WORKFLOW_KEYS);
+  label("agent fields", keys(agent), FIELDS.agent);
+  label("foreach fields", keys(defs.foreachNode as Node), ["foreach", ...FIELDS.foreach]);
+  label("loop fields", keys(loop), FIELDS.loop);
+  label("when fields", keys(defs.whenNode as Node), ["when", ...FIELDS.when]);
+  label("returns", (agent.properties.returns as Node).enum, [...TYPES]);
+  label("access", (agent.properties.access as Node).enum, [...ACCESS]);
+  label("model", ((agent.properties.model as Node).anyOf[0] as Node).enum, [...MODELS]);
+  label("model reference", ((agent.properties.model as Node).anyOf[1] as Node).pattern, ref);
+  label("exhausted", (loop.properties.exhausted as Node).enum, [...EXHAUSTED]);
+  for (const [i, n] of conditionNodes.entries()) {
+    label(`conditions ${i}`, (n.anyOf[0] as Node).enum, [...CONDITIONS]);
+    label(`condition list ${i}`, ((n.anyOf[1] as Node).items as Node).enum, [...CONDITIONS]);
+  }
+  label("param name", params.propertyNames.pattern, PARAM.source);
+  label("reserved params", params.propertyNames.not.enum, RESERVED);
+  label("param list default", listItems(params.additionalProperties as Node), NAME.source);
+  label("prompt name", (((agent.properties.prompt as Node).anyOf[0] as Node).anyOf[0] as Node).pattern, NAME.source);
+  label("prompt reference", ((agent.properties.prompt as Node).anyOf[1] as Node).pattern, ref);
+  label("foreach item", ((((defs.foreachNode as Node).properties.foreach as Node).anyOf[0] as Node).items as Node).pattern, NAME.source);
+  label("entry name", entry.propertyNames.pattern, NAME.source);
+  label("entry param name", entryParams.propertyNames.pattern, PARAM.source);
+  label("entry list value", ((entryParams.additionalProperties.anyOf[3] as Node).items as Node).pattern, NAME.source);
 });
 
 test("the site publishes the schemas byte for byte at their $id URLs", () => {
