@@ -148,8 +148,8 @@ const steps: Step[] = [
     title: 'Compose your own workflow',
     subline: (
       <>
-        Write a workflow as a YAML file of steps — <code>implement</code>, <code>review</code>, <code>agent</code>, <code>pr</code> — and
-        choose for each one whether it runs in your session or through agents.{' '}
+        Write a workflow as a YAML file of steps and gates. Each step is a small tree of agents reading your Markdown
+        prompts, and runs in your session or through agents.{' '}
         <code className="text-accent-text">/theway:workflow --workflow &lt;name&gt;</code> runs it.
       </>
     ),
@@ -158,15 +158,13 @@ const steps: Step[] = [
         type: 'file',
         title: 'workflows/develop-secure.yaml',
         lines: [
-          { text: 'agents: false' },
+          { text: 'version: theway.workflow/v1' },
           { text: 'steps:' },
-          { text: '  - implement:' },
-          { text: '  - review:' },
-          { text: '      agents: true' },
-          { text: '      rounds: 2' },
-          { text: '      lenses: [conformance, correctness, security]' },
+          { text: '  - implement: {agents: false}' },
+          { text: '  - review: {rounds: 2, lenses: [conformance, correctness, security]}' },
+          { text: '  - security-audit:' },
+          { text: '  - gate: "Diff OK? Open the PR?"' },
           { text: '  - pr:' },
-          { text: '      agents: true' },
         ],
       },
     ],
@@ -174,12 +172,12 @@ const steps: Step[] = [
       {
         icon: Hand,
         title: 'Inline or through agents',
-        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it and open the PR.',
+        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it, stop at a gate, and open the PR.',
       },
       {
         icon: Search,
-        title: 'Review lenses you write',
-        body: 'One reviewer per lens file, then each round triages the findings, fixes the confirmed ones and checks the fixes. Add a security.md lens, name it in the review step, and every change that workflow runs gets a security review.',
+        title: 'Steps and prompts you write',
+        body: 'A step file chains agents with foreach, loop and when; each agent reads your prompts and returns a typed result. Add a security-audit step, or a security.md lens to the review, and every change that workflow runs gets it.',
       },
       {
         icon: BookOpen,

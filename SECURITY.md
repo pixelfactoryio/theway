@@ -12,7 +12,7 @@ Only the latest release is supported.
 - The data home is `~/.theway`, or `THEWAY_HOME`. Install refuses a home that is your home folder, one of its parents or `/`, and a custom home with a glob character or a line break.
 - Install writes into the data home:
   - `config.yaml`, only when absent, and `config.default.yaml`, always;
-  - the shipped standards, templates, workflows and lenses: an unedited one is updated, an edited one is kept with the shipped version next to it as `<stem>.default.md` (`<stem>.default.yaml` for a workflow); in `standards/`, `workflows/` and `lenses/`, a file of yours with a shipped name is kept and an unedited file theway stops shipping is removed; in `templates/`, on a first install without a manifest a differing file is backed up to `.bak` before being replaced;
+  - the shipped standards, templates, workflows, steps, prompts and schemas: an unedited one is updated, an edited one is kept with the shipped version next to it as `<stem>.default.<ext>`; in `standards/`, `workflows/`, `steps/` and `prompts/`, a file of yours with a shipped name is kept and an unedited file theway stops shipping is removed; in `templates/`, on a first install without a manifest a differing file is backed up to `.bak` before being replaced;
   - the `.shipped.json` manifest.
 - A pointer file is written for a custom home only, at `$XDG_CONFIG_HOME/theway/home` (`~/.config/theway/home` when unset).
 - Two rules are added to `permissions.allow` in `$CLAUDE_CONFIG_DIR/settings.json` (`~/.claude/settings.json` when unset):
@@ -30,7 +30,7 @@ Only the latest release is supported.
 ### What the commands may do
 
 - `engineering`: writes only the change folder, with throwaway probes in a `mktemp -d` directory.
-- `workflow`: edits the repository, inline or through agents, and updates the change's `tasks.md` in its change folder, plus its `spec.md` only for a decision taken during an inline `implement`; commits only on the change's feature branch (nothing for a workflow whose only step is an inline `implement`); pushes that branch and opens its PR only when its workflow has a `pr` step; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
+- `workflow`: edits the repository, inline or through agents, and updates the change's `tasks.md` in its change folder, plus its `spec.md` only for a decision taken during an inline `work` agent; commits only on the change's feature branch (nothing for a working-tree workflow); pushes that branch and opens its PR only when `theway workflow` prints `pushes: true` for its workflow; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
 - `archive`: moves a change folder to `changes/archive/<date>-<change-id>/` only when you name the change and say to archive it; with `--force` only when you accept its open tasks.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
 - `list`: reads only; runs `theway path`, `theway project` and `theway list`.

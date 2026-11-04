@@ -1,4 +1,7 @@
-# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, nothing committed.
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
+# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, on the
+# working tree, nothing committed.
+version: theway.workflow/v1
 agents: false
 steps:
   - implement:

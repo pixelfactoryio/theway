@@ -124,6 +124,13 @@ const ENTRIES: Entry[] = [
     allow: [],
   },
   {
+    // Review lenses are prompts now, and a one-off agent is a step file.
+    term: literal("lenses" + "/") + "|" + literal("workflow.defaults." + "agent"),
+    flags: "",
+    files: ["site/content/", "README.md", "SECURITY.md", "plugin/"],
+    allow: [],
+  },
+  {
     term: literal("ai-" + "marketplace") + "|" + literal("github:" + "pixelfactoryio"),
     flags: "",
     files: ["README.md", "plugin/commands/"],

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json",
+  "title": "theway workflow",
+  "description": "A theway workflow: the ordered steps /theway:workflow runs for a change. theway workflow is the authority for the rules this schema cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "steps"
+  ],
+  "properties": {
+    "version": {
+      "const": "theway.workflow/v1",
+      "description": "The format of this file: theway.workflow/v1."
+    },
+    "default": {
+      "type": "boolean",
+      "description": "Whether /theway:workflow runs this workflow when no --workflow is given."
+    },
+    "agents": {
+      "type": "boolean",
+      "description": "Whether the steps run through agents (true, the default) or inline in the session (false), unless an entry sets its own."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The entries, in run order: each a step name or gate.",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "description": "One entry: a map with exactly one key, a step name or gate.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "properties": {
+        "gate": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A question /theway:workflow asks the user before the next entry; any answer but Continue stops the change."
+        }
+      },
+      "additionalProperties": {
+        "description": "A step, resolved by name from the project's steps folder, else the global one; its value is nothing or a map of agents and the step's params.",
+        "anyOf": [
+          {
+            "type": "null",
+            "description": "No param set: every param takes its effective default."
+          },
+          {
+            "type": "object",
+            "description": "agents and the step's params, as literal values.",
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "properties": {
+              "agents": {
+                "type": "boolean",
+                "description": "Whether this step runs through agents (true) or inline in the session (false)."
+              }
+            },
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "A string."
+                },
+                {
+                  "type": "integer",
+                  "description": "An integer."
+                },
+                {
+                  "type": "boolean",
+                  "description": "A boolean."
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                    "description": "A name: lowercase letters and digits in words separated by single hyphens."
+                  },
+                  "description": "A non-empty list of names without duplicates."
+                }
+              ],
+              "description": "A param of the step: a string, an integer, a boolean or a non-empty list of names without duplicates, of the kind of its default."
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -11,7 +11,7 @@ This is an illustrative run on the sample project `my-api`. It takes the `add-ra
 /theway:workflow --workflow agents add-rate-limiting
 ```
 
-`--workflow agents` picks the shipped `agents` workflow, with the default [`workflow.defaults`](../configuration.mdx#workflow): one review round with the `conformance` and `correctness` lenses, then a PR with two CI attempts. `theway workflow agents` printed it with every field filled, each step with `agents: true`.
+`--workflow agents` picks the shipped `agents` workflow, with the shipped step defaults and no [`workflow.defaults`](../configuration.mdx#workflow): one review round through the `conformance` and `correctness` lens prompts, then a PR with two CI attempts. `theway workflow agents` printed its three steps with their trees expanded, every agent with its prompts, result type, access and model, and `pushes: true`.
 
 ## Implement
 
@@ -38,10 +38,11 @@ add-rate-limiting
 - Workflow: agents (/home/you/.theway/workflows/agents.yaml)
 - Branch: add-rate-limiting
 - PR: https://github.com/example/my-api/pull/12
-- Review: 1 round used.
-  Not confirmed: 2 false_positive "Retry-After can be 0 in the window's last millisecond".
+- implement: tasks 1-4 done; npm test 10 pass.
+- review: 1 iteration used.
+  Findings: 0 confirmed, 1 confirmed, 2 false_positive "Retry-After can be 0 in the window's last millisecond".
   Fix check: finding 0 resolved, finding 1 resolved.
-- PR step: CI green, 1 of 2 attempts used.
+- pr: PR #12 opened; CI green, 1 of 2 iterations used.
 - Merge: not merged, awaits your validation.
 - Standards given to the agents: none.
 - Blockers: none.

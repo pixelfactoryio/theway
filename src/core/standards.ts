@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { effectiveConfig, enabled, type Loaded } from "./config";
-import { thewayHome } from "./io";
+import { escaped, thewayHome } from "./io";
 import { resolveKey } from "./project";
 
 const PHASES = ["engineering", "develop", "document"] as const;
@@ -54,7 +54,7 @@ function phasesOf(path: string): readonly Phase[] {
 /** Whether `phase` is a phase; writes the reason line when it is not. */
 export function checkPhase(phase: string): phase is Phase {
   if (isPhase(phase)) return true;
-  const shown = phase.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+  const shown = escaped(phase);
   process.stderr.write(`theway: invalid phase '${shown}': must be engineering, develop or document\n`);
   return false;
 }

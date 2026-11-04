@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { isDir, thewayHome } from "./io";
+import { escaped, isDir, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 import { formatReason } from "./validate-id";
 
@@ -32,7 +32,7 @@ export function cmdNextId(seriesId: string, count: number, override: string | un
   const rest = seriesId.replace(/-[0-9]{2}$/, "");
   const reason = seriesIdReason(rest);
   if (reason !== "") {
-    const shown = rest.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+    const shown = escaped(rest);
     process.stderr.write(`invalid change id '${shown}': ${reason}\n`);
     return 1;
   }

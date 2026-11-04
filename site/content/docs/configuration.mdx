@@ -5,7 +5,7 @@ description: Every key of <home>/config.yaml and <home>/projects/<key>/config.ya
 
 The configuration lives in `<home>/config.yaml`, where `<home>` is the data home: `~/.theway` by default, or the folder chosen at install (with `--home` or the install question) or set by `THEWAY_HOME` (see [Locations](./cli.mdx#locations); `theway path` prints it). Install writes it once and keeps your copy on later installs; the shipped version is always written to `<home>/config.default.yaml`, so you can compare the two.
 
-A project can have its own `<home>/projects/<key>/config.yaml`, where `<key>` is the [project key](./concepts/changes.mdx#project-key) that `theway project` prints. It takes the same keys as the global file and can override any of them; install never writes it. `/theway:engineering`, with or without `--light`, does not read either file itself: it runs [`theway context <phase>`](./cli.mdx#context) and takes its keys from the `config` it prints. `/theway:workflow` takes its `workflow.defaults` through [`theway workflow`](./cli.mdx#workflow), which fills every field a workflow file leaves out. When the global `config.yaml` is missing, it fails and the commands tell you to run [`npx --yes @pixelfactoryio/theway@latest install`](./installation.mdx#install-and-update), then `/reload-plugins`. The `standards` keys reach the commands through the `standards` list of the same output, which applies the same layers. `/theway:document`, `/theway:archive` and `/theway:list` read no other key.
+A project can have its own `<home>/projects/<key>/config.yaml`, where `<key>` is the [project key](./concepts/changes.mdx#project-key) that `theway project` prints. It takes the same keys as the global file and can override any of them; install never writes it. `/theway:engineering`, with or without `--light`, does not read either file itself: it runs [`theway context <phase>`](./cli.mdx#context) and takes its keys from the `config` it prints. `/theway:workflow` takes its `workflow.defaults` through [`theway workflow`](./cli.mdx#workflow), which fills every step param a workflow file leaves out. When the global `config.yaml` is missing, it fails and the commands tell you to run [`npx --yes @pixelfactoryio/theway@latest install`](./installation.mdx#install-and-update), then `/reload-plugins`. The `standards` keys reach the commands through the `standards` list of the same output, which applies the same layers. `/theway:document`, `/theway:archive` and `/theway:list` read no other key.
 
 A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections, and `file` and `description` keys: each one gives an `unknown key` warning from `theway config`. It may also have `interaction`, `develop` and `tamm_framework` entries under `standards:`: those standards cannot be switched, and each entry gives a `cannot be switched` warning. You can delete them all.
 
@@ -24,7 +24,7 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-`<rule>` is `a non-negative integer`, `a positive integer`, `true or false`, `opus, sonnet or haiku` or `a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `review`, `defaults` or a step under it that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
+`<rule>` is `a non-negative integer`, `true or false`, `opus, sonnet or haiku`, or, for a `workflow.defaults` param, `a string, an integer, a boolean or a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `review`, `defaults` or a step under `defaults` that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
 
 For example, with the shipped global `config.yaml`, this `<home>/projects/-home-you-code-my-api/config.yaml` of the project at `/home/you/code/my-api`:
 
@@ -36,11 +36,10 @@ workflow:
   defaults:
     implement:
       model: sonnet
-    pr:
-      model: gpt
+    review: 2
 ```
 
-makes `theway config`, run in `my-api`, print this, with one warning on stderr, `theway: warning: projects/-home-you-code-my-api/config.yaml: workflow.defaults.pr.model must be opus, sonnet or haiku; ignored`:
+makes `theway config`, run in `my-api`, print this, with one warning on stderr, `theway: warning: projects/-home-you-code-my-api/config.yaml: workflow.defaults.review must be a map; ignored`:
 
 ```yaml
 standards:
@@ -59,19 +58,6 @@ engineering:
 workflow:
   defaults:
     implement:
-      model: sonnet
-    review:
-      rounds: 1
-      lenses:
-        - conformance
-        - correctness
-      model: opus
-      fix_model: opus
-    pr:
-      ci_attempts: 2
-      model: sonnet
-      fix_model: opus
-    agent:
       model: sonnet
 ```
 
@@ -110,20 +96,34 @@ Each round spawns two critics. [`/theway:engineering --light`](./commands/engine
 
 ## workflow
 
-`workflow.defaults` holds the default of every field of a [workflow](./concepts/workflows.mdx) step: a field a step of a workflow file leaves out takes its value here, from the project file, then the global file, then the default below (see [Layering](#layering)). [`theway workflow`](./cli.mdx#workflow) applies them, and [`/theway:workflow`](./commands/workflow.mdx) runs what it prints. A key that is absent or invalid takes the value of the layer below. Whether a step runs inline or through agents is the workflow file's `agents` field, not a default here; an inline step takes no model.
+`workflow.defaults.<step>.<param>` sets a param of a [step](./concepts/workflows.mdx#step-files) for every workflow: an entry of that step that leaves the param out takes its value from the project file, then the global file, then the step file's default. A value written in the workflow entry wins. [`theway workflow`](./cli.mdx#workflow) applies them, prints each param's value and where it came from, and [`/theway:workflow`](./commands/workflow.mdx) runs what it prints. The shipped `config.yaml` sets none, `defaults: {}`: the step files hold the defaults, and [`theway steps`](./cli.mdx#steps) lists every step with its params and their effective values.
 
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `workflow.defaults.implement.model` | `opus` | The implementer |
-| `workflow.defaults.review.rounds` | `1` | Maximum review rounds of a `review` step. A positive integer; leave the `review` step out of a workflow to skip the review. |
-| `workflow.defaults.review.lenses` | `[conformance, correctness]` | The lenses of a `review` step, one reviewer each: a non-empty list of names without duplicates. Whether each has a lens file is checked by `theway workflow`, not here. |
-| `workflow.defaults.review.model` | `opus` | The reviewers, the triage agent and the fix check |
-| `workflow.defaults.review.fix_model` | `opus` | The fix agent of each round |
-| `workflow.defaults.pr.ci_attempts` | `2` | CI attempts to reach green, re-runs included. A positive integer. |
-| `workflow.defaults.pr.model` | `sonnet` | The push and PR agent, CI polling and log fetching |
-| `workflow.defaults.pr.fix_model` | `opus` | The CI fix agent |
-| `workflow.defaults.agent.model` | `sonnet` | An `agent` step |
+```yaml
+workflow:
+  defaults:
+    review: {rounds: 2, model: sonnet}
+    pr: {ci_attempts: 3}
+```
 
-Each model is `opus`, `sonnet` or `haiku`; any other value is ignored with a warning. To lower the cost of a run, put `implement.model`, `review.fix_model` and `pr.fix_model` on `sonnet` and keep `review.model` on `opus`, so the review still catches what a cheaper implementer misses.
+- Defaults are keyed by step name and apply to every entry of that step (`review` and `review-2` alike); a value for one entry goes in the workflow entry.
+- A param value is a string, an integer, a boolean or a non-empty list of names without duplicates; `theway config` warns about any other value and drops it.
+- `theway workflow` and `theway steps` check each value against its step: a value of another kind than the param's default (`workflow.defaults.<step>.<param> must be <kind>`) or a param the step does not declare (`workflow.defaults.<step>.<param> is not a param of <step>`) is warned about and dropped, and the next source applies.
+- A step name that resolves to no step file gives `workflow.defaults.<step>: no step '<step>' in <dirs>`, with a did-you-mean suggestion, from `theway config`, `theway workflow` and `theway steps`.
+- A param that sets an agent's model is ignored for an inline step (`agents: false`), which takes no model.
+
+The shipped steps' params:
+
+| Step | Param | Default | Used by |
+|---|---|---|---|
+| `implement` | `model` | `opus` | the implementer |
+| `review` | `rounds` | `1` | maximum review rounds |
+| | `lenses` | `[conformance, correctness]` | one reviewer per lens, by prompt name |
+| | `model` | `opus` | the reviewers, the triage and the fix check |
+| | `fix_model` | `opus` | the fix agent of each round |
+| `pr` | `ci_attempts` | `2` | CI attempts to reach green, re-runs included |
+| | `model` | `sonnet` | the push and PR agent, CI polling and log fetching |
+| | `fix_model` | `opus` | the CI fix agent |
+
+To lower the cost of a run, put `implement.model`, `review.fix_model` and `pr.fix_model` on `sonnet` and keep `review.model` on `opus`, so the review still catches what a cheaper implementer misses.
 
 A `config.yaml` written by an earlier install has its caps and models directly under `workflow:`, outside `defaults`: each of those keys gives an `unknown key` warning and is ignored. To skip the review or the PR, leave the `review` or `pr` step out of the workflow file.

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { thewayHome } from "./io";
+import { escaped, thewayHome } from "./io";
 
 const KEY = /^[A-Za-z0-9-]{1,200}$/;
 
@@ -58,7 +58,7 @@ export function resolveKey(override: string | undefined): string | null {
   if (override !== undefined) {
     const reason = projectReason(override);
     if (reason === "") return override;
-    const shown = override.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+    const shown = escaped(override);
     process.stderr.write(`theway: invalid project '${shown}': ${reason}\n`);
     return null;
   }

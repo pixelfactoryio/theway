@@ -574,8 +574,8 @@ test("standards exits 1 with config's message for invalid YAML in either config"
   ]);
 });
 
-/** The effective config `theway config` prints, from the defaults with `over` replacing leaves. */
-function effective(over: Record<string, string> = {}, user: [string, boolean][] = []): string {
+/** The effective config `theway config` prints, from the defaults with `over` replacing leaves and `defaults` the workflow.defaults lines. */
+function effective(over: Record<string, string> = {}, user: [string, boolean][] = [], defaults: string[] = ["  defaults: {}"]): string {
   const v = (key: string, d: string): string => over[key] ?? d;
   return [
     "standards:",
@@ -593,29 +593,21 @@ function effective(over: Record<string, string> = {}, user: [string, boolean][] 
     `    rounds: ${v("engineering.review.rounds", "1")}`,
     `    model: ${v("engineering.review.model", "opus")}`,
     "workflow:",
-    "  defaults:",
-    "    implement:",
-    `      model: ${v("workflow.defaults.implement.model", "opus")}`,
-    "    review:",
-    `      rounds: ${v("workflow.defaults.review.rounds", "1")}`,
-    "      lenses:",
-    ...v("workflow.defaults.review.lenses", "conformance,correctness")
-      .split(",")
-      .map((lens) => `        - ${lens}`),
-    `      model: ${v("workflow.defaults.review.model", "opus")}`,
-    `      fix_model: ${v("workflow.defaults.review.fix_model", "opus")}`,
-    "    pr:",
-    `      ci_attempts: ${v("workflow.defaults.pr.ci_attempts", "2")}`,
-    `      model: ${v("workflow.defaults.pr.model", "sonnet")}`,
-    `      fix_model: ${v("workflow.defaults.pr.fix_model", "opus")}`,
-    "    agent:",
-    `      model: ${v("workflow.defaults.agent.model", "sonnet")}`,
+    ...defaults,
     "",
   ].join("\n");
 }
 
+/** Copies the shipped step files into a home, so that workflow.defaults names steps that resolve. */
+function seedSteps(dir: string): void {
+  for (const n of ["implement", "review", "pr"]) {
+    put(join(dir, "steps", `${n}.yaml`), readFileSync(join(import.meta.dirname, "..", "plugin", "home", "steps", `${n}.yaml`), "utf-8"));
+  }
+}
+
 test("config prints the global values, defaults for the keys it lacks, every key in schema order", () => {
   const dir = home();
+  seedSteps(dir);
   put(
     join(dir, "config.yaml"),
     "# c\nworkflow:\n  defaults:\n    pr:\n      model: opus\n    review:\n      lenses: [security, correctness]\nstandards:\n  sre:\n    enabled: true\nengineering:\n  review:\n    rounds: 0\n",
@@ -623,20 +615,26 @@ test("config prints the global values, defaults for the keys it lacks, every key
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
   expect(res.stdout).toBe(
-    effective({
-      "workflow.defaults.pr.model": "opus",
-      "workflow.defaults.review.lenses": "security,correctness",
-      "standards.sre.enabled": "true",
-      "engineering.review.rounds": "0",
-    }),
+    effective({ "standards.sre.enabled": "true", "engineering.review.rounds": "0" }, [], [
+      "  defaults:",
+      "    pr:",
+      "      model: opus",
+      "    review:",
+      "      lenses:",
+      "        - security",
+      "        - correctness",
+    ]),
   );
 });
 
-test("config lets a project file override keys of every section, nested models included", () => {
+test("config merges workflow.defaults per param, the project file over the global one, and prints {} when no file sets any", () => {
   const dir = home();
+  seedSteps(dir);
+  put(join(dir, "config.yaml"), "");
+  expect(run(dir, "config", "--project", "p").stdout).toBe(effective());
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review:\n    rounds: 3\n    model: sonnet\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 5\n    review:\n      lenses: [conformance]\n",
+    "engineering:\n  review:\n    rounds: 3\n    model: sonnet\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 5\n      model: haiku\n    review:\n      lenses: [conformance]\n",
   );
   put(
     join(dir, "projects", "p", "config.yaml"),
@@ -645,46 +643,67 @@ test("config lets a project file override keys of every section, nested models i
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
   expect(res.stdout).toBe(
-    effective({
-      "standards.quality.enabled": "true",
-      "engineering.review.rounds": "3",
-      "engineering.review.model": "opus",
-      "workflow.defaults.pr.ci_attempts": "1",
-      "workflow.defaults.implement.model": "sonnet",
-      "workflow.defaults.review.lenses": "conformance",
-    }),
+    effective({ "standards.quality.enabled": "true", "engineering.review.rounds": "3", "engineering.review.model": "opus" }, [], [
+      "  defaults:",
+      "    pr:",
+      "      ci_attempts: 1",
+      "      model: haiku",
+      "    review:",
+      "      lenses:",
+      "        - conformance",
+      "    implement:",
+      "      model: sonnet",
+    ]),
   );
   expect(run(dir, "config", "--project", "other").stdout).toBe(
-    effective({
-      "engineering.review.rounds": "3",
-      "engineering.review.model": "sonnet",
-      "workflow.defaults.pr.ci_attempts": "5",
-      "workflow.defaults.review.lenses": "conformance",
-    }),
+    effective({ "engineering.review.rounds": "3", "engineering.review.model": "sonnet" }, [], [
+      "  defaults:",
+      "    pr:",
+      "      ci_attempts: 5",
+      "      model: haiku",
+      "    review:",
+      "      lenses:",
+      "        - conformance",
+    ]),
   );
 });
 
-test("config falls back from an invalid project value to the global one, and from an invalid global value to the default", () => {
+test("config warns about a workflow.defaults value of another shape and drops it, and about a step that does not resolve", () => {
   const dir = home();
+  seedSteps(dir);
   put(
     join(dir, "config.yaml"),
-    "engineering:\n  review:\n    rounds: -1\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 4\n    review:\n      rounds: 3\n      model: gpt\n",
+    "engineering:\n  review:\n    rounds: -1\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 1.5\n    review: 3\n    reviews:\n      rounds: 2\n    deploy:\n      model: opus\n    agent:\n      model: sonnet\n",
   );
-  put(
-    join(dir, "projects", "p", "config.yaml"),
-    "workflow:\n  defaults:\n    pr:\n      ci_attempts: 0\n    review:\n      rounds: [1]\n      lenses: []\nstandards:\n  sre:\n    enabled: yes\n",
-  );
+  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      lenses: [a, a]\n      rounds: {x: 1}\n      model: opus\n");
   const res = run(dir, "config", "--project", "p");
   expect(res.status).toBe(0);
-  expect(res.stdout).toBe(effective({ "workflow.defaults.pr.ci_attempts": "4", "workflow.defaults.review.rounds": "3" }));
+  expect(res.stdout).toBe(
+    effective({}, [], [
+      "  defaults:",
+      "    pr: {}",
+      "    reviews:",
+      "      rounds: 2",
+      "    deploy:",
+      "      model: opus",
+      "    agent:",
+      "      model: sonnet",
+      "    review:",
+      "      model: opus",
+    ]),
+  );
+  const steps = `${join(dir, "projects", "p", "steps")} or ${join(dir, "steps")}`;
+  const list = "a non-empty list of names without duplicates";
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: engineering.review.rounds must be a non-negative integer; ignored",
-      "theway: warning: config.yaml: workflow.defaults.review.model must be opus, sonnet or haiku; ignored",
-      "theway: warning: projects/p/config.yaml: workflow.defaults.pr.ci_attempts must be a positive integer; ignored",
-      "theway: warning: projects/p/config.yaml: workflow.defaults.review.rounds must be a positive integer; ignored",
-      "theway: warning: projects/p/config.yaml: workflow.defaults.review.lenses must be a non-empty list of names without duplicates; ignored",
-      "theway: warning: projects/p/config.yaml: standards.sre.enabled must be true or false; ignored",
+      `theway: warning: config.yaml: workflow.defaults.pr.ci_attempts must be a string, an integer, a boolean or ${list}; ignored`,
+      "theway: warning: config.yaml: workflow.defaults.review must be a map; ignored",
+      `theway: warning: projects/p/config.yaml: workflow.defaults.review.lenses must be a string, an integer, a boolean or ${list}; ignored`,
+      `theway: warning: projects/p/config.yaml: workflow.defaults.review.rounds must be a string, an integer, a boolean or ${list}; ignored`,
+      `theway: warning: config.yaml: workflow.defaults.reviews: no step 'reviews' in ${steps}; did you mean 'review'?; ignored`,
+      `theway: warning: config.yaml: workflow.defaults.deploy: no step 'deploy' in ${steps} (steps: implement, pr, review); ignored`,
+      `theway: warning: config.yaml: workflow.defaults.agent: no step 'agent' in ${steps} (steps: implement, pr, review); ignored`,
       "",
     ].join("\n"),
   );
@@ -692,10 +711,7 @@ test("config falls back from an invalid project value to the global one, and fro
 
 test("config warns about the removed workflow keys as unknown keys and keeps the defaults", () => {
   const dir = home();
-  put(
-    join(dir, "config.yaml"),
-    "workflow:\n  review_rounds: 2\n  ci_attempts: 3\n  open_pr: false\n  models:\n    implementer: sonnet\n  defaults:\n    review:\n      lenses: [a, a]\n      extra: 1\n    deploy:\n      model: opus\n",
-  );
+  put(join(dir, "config.yaml"), "workflow:\n  review_rounds: 2\n  ci_attempts: 3\n  open_pr: false\n  models:\n    implementer: sonnet\n");
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stdout]).toEqual([0, effective()]);
   expect(res.stderr).toBe(
@@ -704,9 +720,6 @@ test("config warns about the removed workflow keys as unknown keys and keeps the
       "theway: warning: config.yaml: unknown key workflow.ci_attempts; ignored",
       "theway: warning: config.yaml: unknown key workflow.open_pr; ignored",
       "theway: warning: config.yaml: unknown key workflow.models; ignored",
-      "theway: warning: config.yaml: workflow.defaults.review.lenses must be a non-empty list of names without duplicates; ignored",
-      "theway: warning: config.yaml: unknown key workflow.defaults.review.extra; ignored",
-      "theway: warning: config.yaml: unknown key workflow.defaults.deploy; ignored",
       "",
     ].join("\n"),
   );
@@ -729,10 +742,10 @@ test("config warns about the removed engineering keys as unknown keys and keeps 
 
 test("config accepts haiku as a model with no warning", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    model: haiku\nworkflow:\n  defaults:\n    agent:\n      model: haiku\n");
+  put(join(dir, "config.yaml"), "engineering:\n  review:\n    model: haiku\n");
   const res = run(dir, "config", "--project", "p");
   expect([res.status, res.stderr]).toEqual([0, ""]);
-  expect(res.stdout).toBe(effective({ "engineering.review.model": "haiku", "workflow.defaults.agent.model": "haiku" }));
+  expect(res.stdout).toBe(effective({ "engineering.review.model": "haiku" }));
 });
 
 test("config ignores an unknown key once at its highest level, a section that is not a map, and a root that is not a map", () => {
@@ -816,17 +829,11 @@ test("config prints only its own warning for a value yaml warns about", () => {
 
 test("config rejects a non-integer number for an integer key", () => {
   const dir = home();
-  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 1.5\nworkflow:\n  defaults:\n    pr:\n      ci_attempts: 2.5\n");
+  put(join(dir, "config.yaml"), "engineering:\n  review:\n    rounds: 1.5\n");
   const res = run(dir, "config", "--project", "p");
   expect(res.status).toBe(0);
   expect(res.stdout).toBe(effective());
-  expect(res.stderr).toBe(
-    [
-      "theway: warning: config.yaml: engineering.review.rounds must be a non-negative integer; ignored",
-      "theway: warning: config.yaml: workflow.defaults.pr.ci_attempts must be a positive integer; ignored",
-      "",
-    ].join("\n"),
-  );
+  expect(res.stderr).toBe("theway: warning: config.yaml: engineering.review.rounds must be a non-negative integer; ignored\n");
 });
 
 test("config lists every switchable standard after the opt-in keys, with its effective value and its warnings", () => {
@@ -1097,140 +1104,241 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   expect(past.stderr).toBe("theway: series add-thing would go past -99\n");
 });
 
+const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
+const shippedText = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
+const WF_HEAD = "version: theway.workflow/v1\n";
+const STEP_HEAD = "version: theway.step/v1\n";
+const PROMPTS = ["implement", "reviewer", "conformance", "correctness", "triage", "fix", "fix-check", "open-pr", "ci-wait", "ci-diagnose", "ci-fix"];
+
 /**
- * A home with an empty global config, the two convention standards, the two shipped lenses, and a `develop.yaml`
- * holding the steps of the shipped `agents.yaml`.
+ * A home with an empty global config, the two convention standards, the shipped steps and prompts, and a
+ * `develop.yaml` holding the steps of the shipped `agents.yaml`.
  */
 function workflowHome(): string {
   const dir = home();
   put(join(dir, "config.yaml"), "");
   put(join(dir, "standards", "commits.md"), "# commits\n");
   put(join(dir, "standards", "git-host.md"), "# git host\n");
-  put(join(dir, "lenses", "conformance.md"), "# conformance\n");
-  put(join(dir, "lenses", "correctness.md"), "# correctness\n");
-  put(join(dir, "workflows", "develop.yaml"), "steps:\n  - implement:\n  - review:\n  - pr:\n");
+  for (const n of ["implement", "review", "pr"]) put(join(dir, "steps", `${n}.yaml`), shippedText(`steps/${n}.yaml`));
+  for (const n of PROMPTS) put(join(dir, "prompts", `${n}.md`), `# ${n}\n`);
+  put(join(dir, "workflows", "develop.yaml"), `${WF_HEAD}steps:\n  - implement:\n  - review:\n  - pr:\n`);
   return dir;
 }
 
-/** The `develop` workflow `theway workflow` prints for a home with the default config. */
-function developJson(dir: string, file = join(dir, "workflows", "develop.yaml"), name = "develop"): string {
-  const doc = {
-    name,
-    file,
-    commits: join(dir, "standards", "commits.md"),
-    git_host: join(dir, "standards", "git-host.md"),
-    steps: [
-      { step: "implement", agents: true, model: "opus" },
-      {
-        step: "review",
-        agents: true,
-        rounds: 1,
-        lenses: [
-          { name: "conformance", path: join(dir, "lenses", "conformance.md") },
-          { name: "correctness", path: join(dir, "lenses", "correctness.md") },
-        ],
-        model: "opus",
-        fix_model: "opus",
-      },
-      { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
-    ],
-  };
-  return `${JSON.stringify(doc, null, 2)}\n`;
+/** A home holding the shipped config, convention standards, workflows, steps and prompts. */
+function shippedHome(): string {
+  const dir = home();
+  for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md", "workflows/develop.yaml", "workflows/agents.yaml"]) {
+    put(join(dir, rel), shippedText(rel));
+  }
+  for (const n of ["implement", "review", "pr"]) put(join(dir, "steps", `${n}.yaml`), shippedText(`steps/${n}.yaml`));
+  for (const n of PROMPTS) put(join(dir, "prompts", `${n}.md`), shippedText(`prompts/${n}.md`));
+  return dir;
 }
 
-test("workflow prints develop with every field from the defaults when no file sets default: true", () => {
-  const dir = workflowHome();
-  const res = run(dir, "workflow", "--project", "p");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
-  expect(run(dir, "workflow", "--project", "p", "develop").stdout).toBe(developJson(dir));
+/** The fixture of the shipped `agents` workflow, with `<home>` replaced by `dir` and its file by `file`. */
+function agentsJson(dir: string, file = join(dir, "workflows", "agents.yaml"), name = "agents"): string {
+  const doc = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "agents-workflow.json"), "utf-8").replaceAll("<home>", dir));
+  return `${JSON.stringify({ ...doc, name, file }, null, 2)}\n`;
+}
+
+type Doc = { steps: Record<string, unknown>[]; pushes: boolean; working_tree: boolean };
+const workflowDoc = (dir: string, ...args: string[]): Doc => JSON.parse(run(dir, "workflow", "--project", "p", ...args).stdout) as Doc;
+
+test("workflow prints the shipped agents, matching the fixture: foreach expanded, absolute prompts, every field filled and pushes", () => {
+  const dir = shippedHome();
+  const res = run(dir, "workflow", "--project", "theway", "agents");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir), ""]);
+  const doc = JSON.parse(res.stdout);
+  expect(Object.keys(doc)).toEqual(["name", "file", "commits", "git_host", "pushes", "working_tree", "steps"]);
+  expect([doc.pushes, doc.working_tree]).toEqual([true, false]);
 });
 
-test("workflow fills every field in table order, an agent step included, and keeps the fields a step sets", () => {
+test("workflow resolves the shipped develop, the fallback default, to one inline work agent: a working-tree workflow", () => {
+  const dir = shippedHome();
+  const res = run(dir, "workflow", "--project", "theway");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(res.stdout);
+  expect([doc.name, doc.pushes, doc.working_tree]).toEqual(["develop", false, true]);
+  expect(doc.steps).toEqual([
+    {
+      id: "implement",
+      step: "implement",
+      agents: false,
+      file: join(dir, "steps", "implement.yaml"),
+      description: "Implement the change's tasks as its spec says",
+      params: {},
+      do: [
+        {
+          agent: {
+            name: "implement",
+            label: "implement:implement",
+            prompt: [join(dir, "prompts", "implement.md")],
+            returns: "work",
+            access: "commit",
+          },
+        },
+      ],
+    },
+  ]);
+  expect(run(dir, "workflow", "--project", "theway", "develop").stdout).toBe(res.stdout);
+});
+
+test("workflow prints develop when no file sets default: true", () => {
   const dir = workflowHome();
-  put(join(dir, "lenses", "security.md"), "# security\n");
-  put(
-    join(dir, "workflows", "full.yaml"),
+  const res = run(dir, "workflow", "--project", "p");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop"), ""]);
+});
+
+test("workflow takes each param from the entry, else the project config, else the global config, else the step file, and prints from", () => {
+  const dir = workflowHome();
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 3\n      model: sonnet\n      fix_model: haiku\n    pr:\n      ci_attempts: 4\n");
+  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 2\n      lenses: [correctness]\n");
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - implement:\n  - review: {fix_model: opus}\n  - pr:\n`);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const steps = JSON.parse(res.stdout).steps;
+  expect(steps[1].params).toEqual({
+    rounds: { value: 2, from: "projects/p/config.yaml" },
+    lenses: { value: ["correctness"], from: "projects/p/config.yaml" },
+    model: { value: "sonnet", from: "config.yaml" },
+    fix_model: { value: "opus", from: "workflows/w.yaml steps[1]" },
+  });
+  expect(steps[2].params.ci_attempts).toEqual({ value: 4, from: "config.yaml" });
+  expect(steps[2].params.model).toEqual({ value: "sonnet", from: "steps/pr.yaml" });
+  const loop = steps[1].do[0].loop;
+  expect(loop.max).toBe(2);
+  expect(loop.do[0].parallel.map((n: { agent: { name: string; model: string } }) => [n.agent.name, n.agent.model])).toEqual([["correctness", "sonnet"]]);
+  // The fix agent's model field references fix_model; the others inherit model.
+  expect(loop.do[2].do.map((n: { agent: { name: string; model: string } }) => [n.agent.name, n.agent.model])).toEqual([
+    ["fix", "opus"],
+    ["fix-check", "sonnet"],
+  ]);
+  expect(JSON.parse(run(dir, "workflow", "--project", "other", "w").stdout).steps[1].params.rounds).toEqual({ value: 3, from: "config.yaml" });
+});
+
+test("workflow warns about a config default of another kind or an undeclared param, and falls back to the next source", () => {
+  const dir = workflowHome();
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 3\n      fix_model: [a]\n");
+  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: two\n      round: 2\n      extra: x\n");
+  const res = run(dir, "workflow", "--project", "p");
+  expect(res.status).toBe(0);
+  const review = JSON.parse(res.stdout).steps[1];
+  expect([review.params.rounds, review.params.fix_model]).toEqual([
+    { value: 3, from: "config.yaml" },
+    { value: "opus", from: "steps/review.yaml" },
+  ]);
+  expect(res.stderr).toBe(
     [
-      "steps:",
-      "  - implement: {model: sonnet}",
-      "  - review: {fix_model: haiku, lenses: [security], rounds: 2}",
-      "  - agent: {prompt: Add a changelog entry., name: changelog}",
-      "  - pr: {}",
+      "theway: warning: config.yaml: workflow.defaults.review.fix_model must be a string; ignored",
+      "theway: warning: projects/p/config.yaml: workflow.defaults.review.rounds must be an integer; ignored",
+      "theway: warning: projects/p/config.yaml: workflow.defaults.review.round is not a param of review; did you mean 'rounds'?; ignored",
+      "theway: warning: projects/p/config.yaml: workflow.defaults.review.extra is not a param of review (params: rounds, lenses, model, fix_model); ignored",
       "",
     ].join("\n"),
   );
-  const res = run(dir, "workflow", "--project", "p", "full");
-  expect([res.status, res.stderr]).toEqual([0, ""]);
-  expect(res.stdout).toBe(
-    `${JSON.stringify(
-      {
-        name: "full",
-        file: join(dir, "workflows", "full.yaml"),
-        commits: join(dir, "standards", "commits.md"),
-        git_host: join(dir, "standards", "git-host.md"),
-        steps: [
-          { step: "implement", agents: true, model: "sonnet" },
-          {
-            step: "review",
-            agents: true,
-            rounds: 2,
-            lenses: [{ name: "security", path: join(dir, "lenses", "security.md") }],
-            model: "opus",
-            fix_model: "haiku",
-          },
-          { step: "agent", agents: true, name: "changelog", prompt: "Add a changelog entry.", model: "sonnet" },
-          { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
-        ],
-      },
-      null,
-      2,
-    )}\n`,
-  );
 });
 
-test("workflow takes absent fields from the project workflow.defaults over the global ones over the built-in values", () => {
+test("workflow warns about a config default for a step that does not resolve, and about a reserved steps/gate.yaml", () => {
+  const dir = workflowHome();
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    agent:\n      model: sonnet\n    reveiw:\n      rounds: 2\n    implement: x\n");
+  put(join(dir, "projects", "p", "steps", "gate.yaml"), `${STEP_HEAD}description: x\ndo:\n  - agent: {returns: work}\n`);
+  const res = run(dir, "workflow", "--project", "p");
+  expect([res.status, res.stdout]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop")]);
+  const steps = `${join(dir, "projects", "p", "steps")} or ${join(dir, "steps")}`;
+  expect(res.stderr).toBe(
+    [
+      "theway: warning: config.yaml: workflow.defaults.implement must be a map; ignored",
+      "theway: warning: projects/p/steps/gate.yaml: gate is reserved for the gate entry; ignored",
+      `theway: warning: config.yaml: workflow.defaults.agent: no step 'agent' in ${steps} (steps: implement, pr, review); ignored`,
+      `theway: warning: config.yaml: workflow.defaults.reveiw: no step 'reveiw' in ${steps}; did you mean 'review'?; ignored`,
+      "",
+    ].join("\n"),
+  );
+  expect(run(dir, "steps", "--project", "p").stderr).toBe(res.stderr);
+});
+
+test("workflow gives repeated entries the ids <id>-2, <id>-3 and their agents those labels, and runs a gate inline", () => {
   const dir = workflowHome();
   put(
-    join(dir, "config.yaml"),
-    "workflow:\n  defaults:\n    review:\n      rounds: 3\n      model: sonnet\n    pr:\n      ci_attempts: 4\n",
+    join(dir, "workflows", "w.yaml"),
+    `${WF_HEAD}steps:\n  - implement:\n  - review:\n  - gate: Review again?\n  - review: {rounds: 2}\n  - gate: Open the PR?\n  - review:\n  - pr:\n`,
   );
-  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 2\n      lenses: [correctness]\n");
-  const res = run(dir, "workflow", "--project", "p");
+  const res = run(dir, "workflow", "--project", "p", "w");
   expect([res.status, res.stderr]).toEqual([0, ""]);
-  const doc = JSON.parse(res.stdout) as { steps: Record<string, unknown>[] };
-  expect(doc.steps[1]).toEqual({
-    step: "review",
-    agents: true,
-    rounds: 2,
-    lenses: [{ name: "correctness", path: join(dir, "lenses", "correctness.md") }],
-    model: "sonnet",
-    fix_model: "opus",
-  });
-  expect(doc.steps[2]).toEqual({ step: "pr", agents: true, ci_attempts: 4, model: "sonnet", fix_model: "opus" });
-  const other = JSON.parse(run(dir, "workflow", "--project", "other").stdout) as { steps: Record<string, unknown>[] };
-  expect((other.steps[1] as { rounds: number }).rounds).toBe(3);
+  const steps = JSON.parse(res.stdout).steps;
+  expect(steps.map((s: { id: string }) => s.id)).toEqual(["implement", "review", "gate", "review-2", "gate-2", "review-3", "pr"]);
+  expect(steps[2]).toEqual({ id: "gate", gate: "Review again?", agents: false });
+  expect(steps[3].do[0].loop.do[0].parallel[0].agent.label).toBe("review-2:conformance");
+  expect(steps[5].do[0].loop.do[1].do[0].agent.label).toBe("review-3:triage");
+});
+
+test("workflow skips a generated id or agent name that a step or prompt already holds", () => {
+  const dir = workflowHome();
+  for (const n of ["a", "a-2", "review-2"]) put(join(dir, "prompts", `${n}.md`), `# ${n}\n`);
+  put(join(dir, "steps", "review-2.yaml"), `${STEP_HEAD}description: x\ndo:\n  - agent: {returns: findings, prompt: [a, a, a-2]}\n`);
+  put(join(dir, "steps", "names.yaml"), `${STEP_HEAD}description: x\ndo:\n  - foreach: [a, a, a-2]\n    do: [agent: {returns: findings, prompt: "\${item}"}]\n`);
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - review:\n  - review:\n  - review-2:\n  - names:\n`);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const steps = JSON.parse(res.stdout).steps;
+  expect(steps.map((s: { id: string }) => s.id)).toEqual(["review", "review-3", "review-2", "names"]);
+  expect(steps[1].do[0].loop.do[0].parallel[0].agent.label).toBe("review-3:conformance");
+  expect(steps[2].do[0].agent.label).toBe("review-2:a-2");
+  expect(steps[3].do.map((n: { agent: { name: string } }) => n.agent.name)).toEqual(["a", "a-3", "a-2"]);
+});
+
+test("workflow gives every step its own agents, else the top-level one, else true, and inline agents no model", () => {
+  const dir = workflowHome();
+  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    implement:\n      model: haiku\n");
+  put(join(dir, "workflows", "mixed.yaml"), `${WF_HEAD}agents: false\nsteps:\n  - implement:\n  - review: {agents: true}\n  - review: {rounds: 2}\n  - pr: {agents: true}\n`);
+  const res = run(dir, "workflow", "--project", "p", "mixed");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(res.stdout);
+  expect(doc.steps.map((s: { agents: boolean }) => s.agents)).toEqual([false, true, false, true]);
+  expect(doc.steps[0].params).toEqual({});
+  expect(doc.steps[0].do[0].agent.model).toBeUndefined();
+  expect(doc.steps[1].do[0].loop.do[0].parallel[0].agent.model).toBe("opus");
+  // An inline step prints no param that sets a model.
+  expect(Object.keys(doc.steps[2].params)).toEqual(["rounds", "lenses"]);
+  expect(doc.steps[2].do[0].loop.do[2].do[0].agent.model).toBeUndefined();
+  expect([doc.pushes, doc.working_tree]).toEqual([true, false]);
+  put(join(dir, "workflows", "on.yaml"), `${WF_HEAD}agents: true\nsteps:\n  - implement: {agents: false}\n`);
+  expect(workflowDoc(dir, "on").working_tree).toBe(true);
+  put(join(dir, "workflows", "two.yaml"), `${WF_HEAD}agents: false\nsteps:\n  - implement:\n  - implement:\n`);
+  expect(workflowDoc(dir, "two").working_tree).toBe(false);
+  put(join(dir, "workflows", "agent.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
+  expect([workflowDoc(dir, "agent").working_tree, workflowDoc(dir, "agent").pushes]).toEqual([false, false]);
 });
 
 test("workflow <name> takes the project file over the global one, and exits 1 when neither exists", () => {
   const dir = workflowHome();
-  put(join(dir, "workflows", "quick.yaml"), "steps:\n  - implement:\n");
+  put(join(dir, "workflows", "quick.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
   expect(JSON.parse(run(dir, "workflow", "--project", "p", "quick").stdout).file).toBe(join(dir, "workflows", "quick.yaml"));
-  put(join(dir, "projects", "p", "workflows", "quick.yaml"), "steps:\n  - implement: {model: haiku}\n");
+  put(join(dir, "projects", "p", "workflows", "quick.yaml"), `${WF_HEAD}steps:\n  - implement: {model: haiku}\n`);
   const res = run(dir, "workflow", "--project", "p", "quick");
   expect([res.status, res.stderr]).toEqual([0, ""]);
-  expect(JSON.parse(res.stdout)).toEqual({
-    name: "quick",
-    file: join(dir, "projects", "p", "workflows", "quick.yaml"),
-    commits: join(dir, "standards", "commits.md"),
-    git_host: join(dir, "standards", "git-host.md"),
-    steps: [{ step: "implement", agents: true, model: "haiku" }],
-  });
+  const doc = JSON.parse(res.stdout);
+  expect(doc.file).toBe(join(dir, "projects", "p", "workflows", "quick.yaml"));
+  expect(doc.steps[0].do[0].agent.model).toBe("haiku");
   const missing = run(dir, "workflow", "--project", "p", "nope");
   expect([missing.status, missing.stdout, missing.stderr]).toEqual([
     1,
     "",
     `theway: no workflow 'nope' in ${join(dir, "projects", "p", "workflows")} or ${join(dir, "workflows")}\n`,
   ]);
+});
+
+test("workflow takes a project step and prompt over the global ones", () => {
+  const dir = workflowHome();
+  put(join(dir, "projects", "p", "prompts", "correctness.md"), "# mine\n");
+  put(join(dir, "projects", "p", "steps", "implement.yaml"), `${STEP_HEAD}description: Mine\ndo:\n  - agent: {returns: work, prompt: correctness}\n`);
+  const doc = workflowDoc(dir);
+  expect(doc.steps[0]).toMatchObject({ file: join(dir, "projects", "p", "steps", "implement.yaml"), description: "Mine", params: {} });
+  expect((doc.steps[0].do as { agent: { prompt: string[]; model: string } }[])[0]?.agent).toMatchObject({
+    prompt: [join(dir, "projects", "p", "prompts", "correctness.md")],
+    model: "sonnet",
+  });
 });
 
 test("workflow exits 1 on an invalid name, an invalid project and a missing config.yaml, and prints config warnings", () => {
@@ -1246,11 +1354,7 @@ test("workflow exits 1 on an invalid name, an invalid project and a missing conf
   }
   put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
   const warned = run(dir, "workflow", "--project", "p");
-  expect([warned.status, warned.stdout, warned.stderr]).toEqual([
-    0,
-    developJson(dir),
-    "theway: warning: config.yaml: unknown key workflow.open_pr; ignored\n",
-  ]);
+  expect([warned.status, warned.stderr]).toEqual([0, "theway: warning: config.yaml: unknown key workflow.open_pr; ignored\n"]);
   rmSync(join(dir, "config.yaml"));
   const res = run(dir, "workflow", "--project", "p");
   expect([res.status, res.stdout, res.stderr]).toEqual([
@@ -1262,24 +1366,24 @@ test("workflow exits 1 on an invalid name, an invalid project and a missing conf
 
 test("workflow picks the project's default: true file, else the global one not shadowed by a project file, else develop", () => {
   const dir = workflowHome();
-  const one = "default: true\nsteps:\n  - implement:\n";
+  const one = `${WF_HEAD}default: true\nsteps:\n  - implement:\n`;
+  const file = (d: string) => JSON.parse(run(dir, "workflow", "--project", d).stdout).file;
   put(join(dir, "workflows", "global-one.yaml"), one);
-  put(join(dir, "workflows", "plain.yaml"), "default: false\nsteps:\n  - implement:\n");
-  expect(JSON.parse(run(dir, "workflow", "--project", "p").stdout).file).toBe(join(dir, "workflows", "global-one.yaml"));
+  put(join(dir, "workflows", "plain.yaml"), `${WF_HEAD}default: false\nsteps:\n  - implement:\n`);
+  expect(file("p")).toBe(join(dir, "workflows", "global-one.yaml"));
   put(join(dir, "projects", "p", "workflows", "mine.yaml"), one);
-  expect(JSON.parse(run(dir, "workflow", "--project", "p").stdout).file).toBe(join(dir, "projects", "p", "workflows", "mine.yaml"));
-  expect(JSON.parse(run(dir, "workflow", "--project", "other").stdout).file).toBe(join(dir, "workflows", "global-one.yaml"));
+  expect(file("p")).toBe(join(dir, "projects", "p", "workflows", "mine.yaml"));
+  expect(file("other")).toBe(join(dir, "workflows", "global-one.yaml"));
   rmSync(join(dir, "projects", "p", "workflows", "mine.yaml"));
-  put(join(dir, "projects", "p", "workflows", "global-one.yaml"), "steps:\n  - implement:\n");
-  const res = run(dir, "workflow", "--project", "p");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
-  put(join(dir, "projects", "p", "workflows", "develop.yaml"), "steps:\n  - implement:\n  - review:\n  - pr:\n");
-  expect(run(dir, "workflow", "--project", "p").stdout).toBe(developJson(dir, join(dir, "projects", "p", "workflows", "develop.yaml")));
+  put(join(dir, "projects", "p", "workflows", "global-one.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
+  expect(file("p")).toBe(join(dir, "workflows", "develop.yaml"));
+  put(join(dir, "projects", "p", "workflows", "develop.yaml"), `${WF_HEAD}steps:\n  - implement:\n  - review:\n  - pr:\n`);
+  expect(run(dir, "workflow", "--project", "p").stdout).toBe(agentsJson(dir, join(dir, "projects", "p", "workflows", "develop.yaml"), "develop"));
 });
 
 test("workflow exits 1 naming every file that sets default: true in the folder it reads", () => {
   const dir = workflowHome();
-  const one = "default: true\nsteps:\n  - implement:\n";
+  const one = `${WF_HEAD}default: true\nsteps:\n  - implement:\n`;
   put(join(dir, "workflows", "b.yaml"), one);
   put(join(dir, "workflows", "a.yaml"), one);
   const two = run(dir, "workflow", "--project", "p");
@@ -1292,14 +1396,14 @@ test("workflow exits 1 naming every file that sets default: true in the folder i
 
 test("workflow validates every file of the folder it reads for the default, and skips a shadowed global file", () => {
   const dir = workflowHome();
-  put(join(dir, "workflows", "broken.yaml"), "steps: []\n");
+  put(join(dir, "workflows", "broken.yaml"), `${WF_HEAD}steps: []\n`);
   const res = run(dir, "workflow", "--project", "p");
   expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: workflows/broken.yaml: steps must be a non-empty list\n"]);
-  put(join(dir, "projects", "p", "workflows", "broken.yaml"), "steps:\n  - implement:\n");
-  expect([run(dir, "workflow", "--project", "p").status, run(dir, "workflow", "--project", "p").stdout]).toEqual([0, developJson(dir)]);
-  put(join(dir, "projects", "p", "workflows", "aaa.yaml"), "steps:\n  - review:\n");
-  put(join(dir, "projects", "p", "workflows", "zzz.yaml"), "default: true\nsteps:\n  - implement:\n");
-  expect(run(dir, "workflow", "--project", "p").stderr).toBe("theway: projects/p/workflows/aaa.yaml: steps[0] must be implement\n");
+  put(join(dir, "projects", "p", "workflows", "broken.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
+  expect(run(dir, "workflow", "--project", "p").status).toBe(0);
+  put(join(dir, "projects", "p", "workflows", "aaa.yaml"), `${WF_HEAD}steps:\n  - pr:\n  - review:\n`);
+  put(join(dir, "projects", "p", "workflows", "zzz.yaml"), `${WF_HEAD}default: true\nsteps:\n  - implement:\n`);
+  expect(run(dir, "workflow", "--project", "p").stderr).toBe("theway: projects/p/workflows/aaa.yaml: steps[0]: a pushing step must be the last step\n");
   expect(run(dir, "workflow", "--project", "p", "zzz").status).toBe(0);
 });
 
@@ -1312,7 +1416,7 @@ test("workflow skips .default.yaml copies and warns about invalid stems only whi
   put(join(dir, "projects", "p", "workflows", "notes.md"), "x\n");
   mkdirSync(join(dir, "projects", "p", "workflows", "dir.yaml"));
   const res = run(dir, "workflow", "--project", "p");
-  expect([res.status, res.stdout]).toEqual([0, developJson(dir)]);
+  expect(res.status).toBe(0);
   expect(res.stderr).toBe(
     [
       "theway: warning: projects/p/workflows/also bad.yaml: not a valid workflow name; ignored",
@@ -1324,207 +1428,293 @@ test("workflow skips .default.yaml copies and warns about invalid stems only whi
   expect([named.status, named.stderr]).toEqual([0, ""]);
 });
 
-test("workflow reads a project named lenses or standards from projects/, never theway's own folders", () => {
+test("workflow reads a project named steps, prompts or standards from projects/, never theway's own folders", () => {
   const dir = workflowHome();
-  put(join(dir, "standards", "workflows", "mine.yaml"), "default: true\nsteps:\n  - review:\n");
-  put(join(dir, "lenses", "lenses", "conformance.md"), "# old\n");
-  const res = run(dir, "workflow", "--project", "lenses");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir), ""]);
-  expect(run(dir, "workflow", "--project", "standards").stdout).toBe(developJson(dir));
+  put(join(dir, "standards", "workflows", "mine.yaml"), `${WF_HEAD}default: true\nsteps:\n  - review:\n`);
+  put(join(dir, "steps", "steps", "implement.yaml"), "bad\n");
+  put(join(dir, "prompts", "prompts", "implement.md"), "# old\n");
+  for (const project of ["steps", "prompts", "standards"]) {
+    const res = run(dir, "workflow", "--project", project);
+    expect([res.status, res.stderr]).toEqual([0, ""]);
+    expect(JSON.parse(res.stdout).steps[0].do[0].agent.prompt).toEqual([join(dir, "prompts", "implement.md")]);
+  }
   const mine = join(dir, "projects", "standards", "workflows", "mine.yaml");
-  put(mine, "default: true\nsteps:\n  - implement:\n");
+  put(mine, `${WF_HEAD}default: true\nsteps:\n  - implement:\n`);
   expect(JSON.parse(run(dir, "workflow", "--project", "standards").stdout).file).toBe(mine);
 });
 
-test("workflow takes a project lens over the global one, and exits 1 for a lens with no file", () => {
-  const dir = workflowHome();
-  put(join(dir, "projects", "p", "lenses", "correctness.md"), "# mine\n");
-  const doc = JSON.parse(run(dir, "workflow", "--project", "p").stdout) as { steps: { lenses?: { path: string }[] }[] };
-  expect(doc.steps[1]?.lenses?.map((l) => l.path)).toEqual([
-    join(dir, "lenses", "conformance.md"),
-    join(dir, "projects", "p", "lenses", "correctness.md"),
-  ]);
-  put(join(dir, "workflows", "sec.yaml"), "steps:\n  - implement:\n  - review: {lenses: [correctness, security, other]}\n");
-  const res = run(dir, "workflow", "--project", "p", "sec");
-  expect([res.status, res.stdout, res.stderr]).toEqual([
-    1,
-    "",
-    `theway: workflows/sec.yaml: steps[1].review lens 'security' has no file in ${join(dir, "projects", "p", "lenses")} or ${join(dir, "lenses")}\n`,
-  ]);
-  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    review:\n      lenses: [missing]\n");
-  expect(run(dir, "workflow", "--project", "p").stderr).toBe(
-    `theway: workflows/develop.yaml: steps[1].review lens 'missing' has no file in ${join(dir, "projects", "p", "lenses")} or ${join(dir, "lenses")}\n`,
-  );
-});
+/** The error line `theway workflow w` exits 1 with, for a workflow file `text`. */
+function workflowError(dir: string, text: string): string {
+  put(join(dir, "workflows", "w.yaml"), text);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([text, res.status, res.stdout]).toEqual([text, 1, ""]);
+  return res.stderr;
+}
 
-test("workflow exits 1 with the first validation error of a file, in the documented order", () => {
+test("workflow exits 1 with the first error of a workflow file, in the documented order", () => {
   const dir = workflowHome();
-  const head = "steps:\n  - implement:\n";
+  const head = `${WF_HEAD}steps:\n  - implement:\n`;
+  const steps = `${join(dir, "projects", "p", "steps")} or ${join(dir, "steps")}`;
   const cases: [string, string][] = [
     ["a: [1\n", "invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1"],
     ["steps: 1\nsteps: 2\n", "invalid YAML: Map keys must be unique at line 2, column 1"],
     ["", "not a map"],
     ["- implement\n", "not a map"],
-    ["steps: x\nname: y\nother: z\n", "unknown key name"],
-    ["default: yes\nsteps:\n  - implement:\n", "default must be true or false"],
-    ["default: true\n", "steps must be a non-empty list"],
-    ["steps: {implement: {}}\n", "steps must be a non-empty list"],
-    ["steps: []\n", "steps must be a non-empty list"],
-    ["steps:\n  - implement\n", "steps[0] must be one of implement, review, agent, pr"],
-    ["steps:\n  - {implement: {}, pr: {}}\n", "steps[0] must be one of implement, review, agent, pr"],
-    [`${head}  - deploy: {}\n`, "steps[1] must be one of implement, review, agent, pr"],
+    ["steps: x\nname: y\n", "version is required (theway.workflow/v1)"],
+    ["version: theway.workflow/v2\nname: y\n", "version must be theway.workflow/v1"],
+    ["version: theway.step/v1\n", "version must be theway.workflow/v1"],
+    [`${WF_HEAD}steps: x\nname: y\nother: z\n`, "unknown key name"],
+    [`${WF_HEAD}$schema: x\nsteps: x\n`, "unknown key $schema"],
+    [`${WF_HEAD}default: yes\nsteps:\n  - implement:\n`, "default must be true or false"],
+    [`${WF_HEAD}agents: no\nsteps: x\n`, "agents must be true or false"],
+    [`${WF_HEAD}steps: x\nagents: no\n`, "steps must be a non-empty list"],
+    [`${WF_HEAD}default: true\n`, "steps must be a non-empty list"],
+    [`${WF_HEAD}steps: []\n`, "steps must be a non-empty list"],
+    [`${WF_HEAD}steps:\n  - implement\n`, "steps[0] must be a map with one key: a step name or gate"],
+    [`${WF_HEAD}steps:\n  - {implement: {}, pr: {}}\n`, "steps[0] must be a map with one key: a step name or gate"],
+    [`${head}  - deploy: {}\n`, `steps[1]: no step 'deploy' in ${steps} (steps: implement, pr, review)`],
+    [`${head}  - reviews:\n`, `steps[1]: no step 'reviews' in ${steps}; did you mean 'review'?`],
+    [`${head}  - agent: {name: x, prompt: y}\n`, `steps[1]: no step 'agent' in ${steps} (steps: implement, pr, review)`],
+    [`${head}  - Review:\n`, `steps[1]: no step 'Review' in ${steps}; did you mean 'review'?`],
+    [`${head}  - gate:\n  - pr:\n`, "steps[1].gate must be a non-empty question"],
+    [`${head}  - gate: {q: x}\n  - pr:\n`, "steps[1].gate must be a non-empty question"],
     [`${head}  - review: [1]\n`, "steps[1].review must be a map"],
-    [`${head}  - review: x\n`, "steps[1].review must be a map"],
-    [`${head}  - review: {rounds: 0, extra: 1, other: 2}\n`, "steps[1].review.extra is not a field of review"],
-    [`${head}  - pr: {model: opus, ci_attempts: 0}\n`, "steps[1].pr.ci_attempts must be a positive integer"],
-    [`${head}  - review: {rounds: 1.5}\n`, "steps[1].review.rounds must be a positive integer"],
-    ["steps:\n  - implement: {model: gpt}\n", "steps[0].implement.model must be opus, sonnet or haiku"],
-    [`${head}  - review: {fix_model: Opus}\n`, "steps[1].review.fix_model must be opus, sonnet or haiku"],
+    [`${head}  - review: {round: 2, extra: 1}\n`, "steps[1].review.round is not a param of review; did you mean 'rounds'?"],
+    [`${head}  - review: {extra: 1}\n`, "steps[1].review.extra is not a param of review (params: rounds, lenses, model, fix_model)"],
+    [`${head}  - review: {agents: 1, x: 1}\n`, "steps[1].review.x is not a param of review (params: rounds, lenses, model, fix_model)"],
+    [`${head}  - review: {agents: 1}\n`, "steps[1].review.agents must be true or false"],
+    [`${head}  - review: {rounds: two}\n`, "steps[1].review.rounds must be an integer"],
+    [`${head}  - review: {rounds: 1.5}\n`, "steps[1].review.rounds must be an integer"],
+    [`${head}  - review: {model: 1}\n`, "steps[1].review.model must be a string"],
     [`${head}  - review: {lenses: []}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
     [`${head}  - review: {lenses: [a, a]}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
-    [`${head}  - review: {lenses: [Bad]}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
-    [`${head}  - agent: {name: Change Log, prompt: x}\n`, "steps[1].agent.name must be a name (lowercase letters, digits and -)"],
-    [`${head}  - agent: {name: x, prompt: ""}\n`, "steps[1].agent.prompt must be a non-empty string"],
-    [`${head}  - agent: {name: x, prompt: 3}\n`, "steps[1].agent.prompt must be a non-empty string"],
-    [`${head}  - agent:\n`, "steps[1].agent.name is required"],
-    [`${head}  - agent: {prompt: x}\n`, "steps[1].agent.name is required"],
-    [`${head}  - agent: {name: x}\n`, "steps[1].agent.prompt is required"],
-    ["steps:\n  - review:\n  - implement:\n", "steps[0] must be implement"],
-    ["steps:\n  - review: {rounds: 0}\n", "steps[0].review.rounds must be a positive integer"],
-    [`${head}  - implement:\n`, "steps[1]: implement may appear only once"],
-    [`${head}  - pr:\n  - review:\n`, "steps[1]: pr must be the last step"],
-    [`${head}  - pr:\n  - pr:\n`, "steps[1]: pr must be the last step"],
-    [`${head}  - review: {lenses: [nope]}\n  - pr: {bad: 1}\n`, `steps[1].review lens 'nope' has no file in ${join(dir, "projects", "p", "lenses")} or ${join(dir, "lenses")}`],
-    [`${head}  - pr: {}\n  - review: {bad: 1}\n`, "steps[1]: pr must be the last step"],
+    [`${head}  - review: {lenses: conformance}\n`, "steps[1].review.lenses must be a non-empty list of names without duplicates"],
+    [`${WF_HEAD}steps:\n  - implement: {agents: false, model: opus}\n`, "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
+    [`${WF_HEAD}agents: false\nsteps:\n  - implement: {model: opus}\n`, "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
+    [`${WF_HEAD}agents: false\n${head.slice(WF_HEAD.length)}  - review: {fix_model: opus}\n`, "steps[1].review.fix_model has no effect when the step runs inline (agents: false)"],
+    [`${head}  - pr:\n  - review:\n`, "steps[1]: a pushing step must be the last step"],
+    [`${head}  - pr:\n  - pr:\n`, "steps[2]: only one step may push"],
+    [`${head}  - gate: Open the PR?\n`, "steps[1]: a gate cannot be the last step"],
+    [`${WF_HEAD}steps:\n  - gate: Start?\n`, "steps[0]: a gate cannot be the last step"],
   ];
-  for (const [text, reason] of cases) {
-    put(join(dir, "workflows", "w.yaml"), text);
-    const res = run(dir, "workflow", "--project", "p", "w");
-    expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
-  }
-}, 30_000);
+  for (const [text, reason] of cases) expect(workflowError(dir, text)).toBe(`theway: workflows/w.yaml: ${reason}\n`);
+}, 60_000);
 
-test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that cannot be read", () => {
+test("workflow names the value's origin on an error after substitution: the workflow entry, a config file or the step default", () => {
   const dir = workflowHome();
-  put(join(dir, "projects", "p", "workflows", "w.yaml"), "steps:\n  - implement:\n");
-  chmodSync(join(dir, "projects", "p", "workflows", "w.yaml"), 0o000);
-  const res = run(dir, "workflow", "--project", "p", "w");
-  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: projects/p/workflows/w.yaml: cannot be read\n"]);
+  const head = `${WF_HEAD}steps:\n  - implement:\n`;
+  expect(workflowError(dir, `${head}  - review: {rounds: 0}\n`)).toBe(
+    "theway: steps/review.yaml: do[0].loop.max must be a positive integer (value from workflows/w.yaml steps[1])\n",
+  );
+  expect(workflowError(dir, `${head}  - review: {fix_model: gpt}\n`)).toBe(
+    "theway: steps/review.yaml: do[0].loop.do[2].when.do[0].agent.model must be one of opus, sonnet, haiku (value from workflows/w.yaml steps[1])\n",
+  );
+  expect(workflowError(dir, `${head}  - review: {lenses: [conformance, securty]}\n`)).toBe(
+    `theway: steps/review.yaml: do[0].loop.do[0].foreach[item=securty].do[0].agent.prompt: prompt 'securty' has no file in ${join(dir, "projects", "p", "prompts")} or ${join(dir, "prompts")} (value from workflows/w.yaml steps[1])\n`,
+  );
+  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      model: gpt\n");
+  expect(workflowError(dir, `${head}  - review:\n`)).toBe(
+    "theway: steps/review.yaml: do[0].loop.do[0].foreach[item=conformance].do[0].agent.model must be one of opus, sonnet, haiku (value from projects/p/config.yaml)\n",
+  );
+  rmSync(join(dir, "projects", "p", "config.yaml"));
+  put(join(dir, "prompts", "audit.md"), "# audit\n");
+  put(join(dir, "steps", "audit.yaml"), `${STEP_HEAD}description: x\nparams:\n  model: {default: gpt, description: x}\ndo:\n  - agent: {returns: findings}\n`);
+  expect(workflowError(dir, `${WF_HEAD}steps:\n  - audit:\n`)).toBe("theway: steps/audit.yaml: do[0].agent.model must be one of opus, sonnet, haiku (value from params.model)\n");
 });
 
-/** A home holding the shipped config, convention standards, workflows and lenses. */
-function shippedHome(): string {
-  const dir = home();
-  const shipped = join(import.meta.dirname, "..", "plugin", "home");
-  for (const rel of [
-    "config.yaml",
-    "standards/commits.md",
-    "standards/git-host.md",
-    "workflows/develop.yaml",
-    "workflows/agents.yaml",
-    "lenses/conformance.md",
-    "lenses/correctness.md",
-  ]) {
-    put(join(dir, rel), readFileSync(join(shipped, rel), "utf-8"));
-  }
-  return dir;
+/** The error line `theway workflow w` exits 1 with, for a step file `x.yaml` holding `body` after its version and description. */
+function stepError(dir: string, body: string, entry = "x:"): string {
+  put(join(dir, "steps", "x.yaml"), `${STEP_HEAD}description: Test\n${body}`);
+  return workflowError(dir, `${WF_HEAD}steps:\n  - ${entry}\n`).replace(/^theway: steps\/x\.yaml: /, "");
 }
 
-test("workflow prints the shipped agents for a home holding the shipped config, workflows and lenses", () => {
-  const dir = shippedHome();
-  const res = run(dir, "workflow", "--project", "theway", "agents");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, developJson(dir, join(dir, "workflows", "agents.yaml"), "agents"), ""]);
-});
-
-test("workflow resolves the shipped develop, the fallback default, to one inline implement step", () => {
-  const dir = shippedHome();
-  const doc = {
-    name: "develop",
-    file: join(dir, "workflows", "develop.yaml"),
-    commits: join(dir, "standards", "commits.md"),
-    git_host: join(dir, "standards", "git-host.md"),
-    steps: [{ step: "implement", agents: false }],
+test("workflow exits 1 with the first error of a step file, in the documented order", () => {
+  const dir = workflowHome();
+  put(join(dir, "prompts", "x.md"), "# x\n");
+  const prompts = `${join(dir, "projects", "p", "prompts")} or ${join(dir, "prompts")}`;
+  const set = (text: string) => {
+    put(join(dir, "steps", "x.yaml"), text);
+    return workflowError(dir, `${WF_HEAD}steps:\n  - x:\n`);
   };
-  const res = run(dir, "workflow", "--project", "theway");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${JSON.stringify(doc, null, 2)}\n`, ""]);
-  expect(run(dir, "workflow", "--project", "theway", "develop").stdout).toBe(res.stdout);
-});
-
-test("workflow gives every step its own agents, else the top-level one, else true, and inline steps no models", () => {
-  const dir = workflowHome();
-  put(
-    join(dir, "workflows", "mixed.yaml"),
-    [
-      "agents: false",
-      "steps:",
-      "  - implement:",
-      "  - review: {agents: true, model: sonnet}",
-      "  - review: {rounds: 2}",
-      "  - agent: {name: notes, prompt: Write the notes.}",
-      "  - pr: {agents: true}",
-      "",
-    ].join("\n"),
+  expect(set("a: [1\n")).toBe(
+    "theway: steps/x.yaml: invalid YAML: Flow sequence in block collection must be sufficiently indented and end with a ] at line 2, column 1\n",
   );
-  const res = run(dir, "workflow", "--project", "p", "mixed");
-  expect([res.status, res.stderr]).toEqual([0, ""]);
-  const lensList = [
-    { name: "conformance", path: join(dir, "lenses", "conformance.md") },
-    { name: "correctness", path: join(dir, "lenses", "correctness.md") },
+  expect(set(`${STEP_HEAD}description: x\ndo:\n  - agent: {returns: work, model: \${model}}\n`)).toMatch(
+    /^theway: steps\/x\.yaml: invalid YAML: .*; quote \$\{…\} references, for example model: "\$\{model\}"\n$/,
+  );
+  expect(set("- x\n")).toBe("theway: steps/x.yaml: not a map\n");
+  expect(set("description: x\nother: 1\n")).toBe("theway: steps/x.yaml: version is required (theway.step/v1)\n");
+  expect(set("version: theway.workflow/v1\n")).toBe("theway: steps/x.yaml: version must be theway.step/v1\n");
+  expect(set(`${STEP_HEAD}other: 1\n`)).toBe("theway: steps/x.yaml: unknown key other\n");
+  expect(set(`${STEP_HEAD}do:\n  - agent: {returns: work}\n`)).toBe("theway: steps/x.yaml: description must be a non-empty string\n");
+  expect(set(`${STEP_HEAD}description: ""\n`)).toBe("theway: steps/x.yaml: description must be a non-empty string\n");
+  expect(set(`${STEP_HEAD}description: "\${x}"\n`)).toBe("theway: steps/x.yaml: description does not take a reference\n");
+  const cases: [string, string][] = [
+    ["", "do must be a non-empty list"],
+    ["do: []\n", "do must be a non-empty list"],
+    ["params:\n  agents: {default: 1, description: x}\ndo: []\n", "params.agents: agents and item are reserved"],
+    ["params:\n  item: {default: 1, description: x}\n", "params.item: agents and item are reserved"],
+    ["params:\n  Rounds: {default: 1, description: x}\n", "params.Rounds must be a param name (lowercase letters, digits and _, starting with a letter)"],
+    ["params:\n  rounds: 1\n", "params.rounds must be {default, description}"],
+    ["params:\n  rounds: {default: 1}\n", "params.rounds must be {default, description}"],
+    ["params:\n  rounds: {default: 1, description: x, extra: 1}\n", "params.rounds must be {default, description}"],
+    ["params:\n  rounds: {default: 1.5, description: x}\n", `params.rounds.default must be a string, an integer, a boolean or a non-empty list of names without duplicates`],
+    ["params:\n  rounds: {default: [a, a], description: x}\n", `params.rounds.default must be a string, an integer, a boolean or a non-empty list of names without duplicates`],
+    ['params:\n  rounds: {default: "${x}", description: x}\n', "params.rounds.default does not take a reference"],
+    ["do:\n  - x\n", "do[0] must have exactly one of agent, foreach, loop, when"],
+    ["do:\n  - {}\n", "do[0] must have exactly one of agent, foreach, loop, when"],
+    ["do:\n  - {agent: {returns: work}, loop: {}}\n", "do[0] must have exactly one of agent, foreach, loop, when"],
+    ["do:\n  - gate: Continue?\n", "do[0]: gate is a workflow entry; a step cannot ask the user"],
+    ["do:\n  - parallel: []\n", "do[0]: parallel is output only; write foreach: … with parallel: true"],
+    ["do:\n  - agent: {returns: work, name: y}\n", "do[0].agent.name is not a field of agent (fields: prompt, returns, model, access)"],
+    ["do:\n  - agent: {returns: work}\n    model: opus\n", "do[0].model is not a field of agent (fields: prompt, returns, model, access)"],
+    ["do:\n  - agent:\n", "do[0].agent.returns is required (one of work, findings, verdicts, resolutions, pr, ci, diagnosis)"],
+    ["do:\n  - agent: {returns: nope}\n", "do[0].agent.returns must be one of work, findings, verdicts, resolutions, pr, ci, diagnosis"],
+    ["do:\n  - agent: {returns: work, model: gpt}\n", "do[0].agent.model must be one of opus, sonnet, haiku"],
+    ["do:\n  - agent: {returns: work, access: write}\n", "do[0].agent.access must be read, commit or push"],
+    ["do:\n  - agent: {returns: work, prompt: []}\n", "do[0].agent.prompt must be a name or a non-empty list of names"],
+    ["do:\n  - agent: {returns: work, prompt: Bad}\n", "do[0].agent.prompt must be a name or a non-empty list of names"],
+    ["do:\n  - agent: {returns: work, access: read}\n", "do[0].agent.access must be commit or push for returns: work"],
+    ["do:\n  - agent: {returns: pr, access: commit}\n", "do[0].agent.access must be push for returns: pr"],
+    ["do:\n  - agent: {returns: work, prompt: nope}\n", `do[0].agent.prompt: prompt 'nope' has no file in ${prompts}`],
+    ['do:\n  - agent: {returns: "${kind}"}\n', "do[0].agent.returns does not take a reference"],
+    ['do:\n  - agent: {returns: work, access: "${a}"}\n', "do[0].agent.access does not take a reference"],
+    ['do:\n  - agent: {returns: work, model: "${modle}"}\n', "do[0].agent.model: ${modle} is not a param of x; x declares no params"],
+    [
+      'params:\n  model: {default: opus, description: x}\ndo:\n  - agent: {returns: work, model: "${modle}"}\n',
+      "do[0].agent.model: ${modle} is not a param of x; did you mean 'model'?",
+    ],
+    ['do:\n  - agent: {returns: work, prompt: "${item}"}\n', "do[0].agent.prompt: ${item} outside foreach"],
+    ['do:\n  - agent: {returns: work, prompt: "x-${item}"}\n', "do[0].agent.prompt: ${…} must be the whole value; there is no string templating"],
+    ['do:\n  - agent: {returns: work, prompt: [x, "${a}${b}"]}\n', "do[0].agent.prompt[1]: ${…} must be the whole value; there is no string templating"],
+    ["do:\n  - foreach: [a]\n    do:\n      - foreach: [b]\n        do: []\n", "do[0].foreach[item=a].do[0].foreach: no foreach inside a foreach"],
+    ["do:\n  - foreach: x\n    do: []\n", "do[0].foreach must be a non-empty list of names"],
+    ["do:\n  - foreach: []\n    do: [agent: {returns: findings}]\n", "do[0].foreach must be a non-empty list of names"],
+    ["do:\n  - foreach: []\n    parallel: true\n    do: [agent: {returns: findings}]\n", "do[0].foreach must be a non-empty list of names"],
+    ["do:\n  - foreach: [x]\n    parallel: yes\n    do: []\n", "do[0].foreach.parallel must be true or false"],
+    ["do:\n  - foreach: [x]\n", "do[0].foreach.do is required (a non-empty list)"],
+    ["do:\n  - foreach: [x]\n    do: []\n", "do[0].foreach[item=x].do must be a non-empty list"],
+    ["do:\n  - foreach: [x]\n    each: 1\n    do: []\n", "do[0].foreach.each is not a field of foreach (fields: parallel, do)"],
+    [
+      "do:\n  - foreach: [x]\n    parallel: true\n    do:\n      - agent: {returns: work}\n",
+      "do[0].foreach: a parallel foreach may hold only agents with access: read",
+    ],
+    [
+      "do:\n  - foreach: [x]\n    parallel: true\n    do:\n      - loop: {max: 1, until: more, exhausted: continue, do: [agent: {returns: findings}]}\n",
+      "do[0].foreach: a parallel foreach may hold only agents with access: read",
+    ],
+    ["do:\n  - loop: {max: 1, until: more, exhausted: continue, do: [loop: {}]}\n", "do[0].loop.do[0].loop: no loop inside a loop"],
+    ["do:\n  - loop: {until: more, exhausted: continue, do: []}\n", "do[0].loop.max is required (a positive integer)"],
+    ["do:\n  - loop: {max: 0, until: more, exhausted: continue, do: []}\n", "do[0].loop.max must be a positive integer"],
+    ['do:\n  - loop: {max: "2", until: more, exhausted: continue, do: []}\n', "do[0].loop.max must be a positive integer"],
+    ["do:\n  - loop: {max: 1, exhausted: continue, do: []}\n", "do[0].loop.until is required (one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more)"],
+    ["do:\n  - loop: {max: 1, until: done, exhausted: continue, do: []}\n", "do[0].loop.until must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more"],
+    [
+      "do:\n  - loop: {max: 1, until: more, do: []}\n",
+      "do[0].loop.exhausted is required (continue or fail); say what happens when the loop ends without until",
+    ],
+    ["do:\n  - loop: {max: 1, until: more, exhausted: stop, do: []}\n", "do[0].loop.exhausted must be continue or fail"],
+    ["do:\n  - loop: {max: 1, until: more, exhausted: fail}\n", "do[0].loop.do is required (a non-empty list)"],
+    ["do:\n  - loop: {max: 1, until: more, exhausted: fail, do: [], every: 1}\n", "do[0].loop.every is not a field of loop (fields: max, until, exhausted, do)"],
+    ['do:\n  - loop: {max: 1, until: "${x}", exhausted: fail, do: []}\n', "do[0].loop.until does not take a reference"],
+    ["do:\n  - when: more\n    do: [agent: {returns: work}]\n", "do[0].when: more outside a loop"],
+    ["do:\n  - when: done\n    do: []\n", "do[0].when must be one of findings, no-findings, confirmed, no-confirmed, green, red, fixable, more"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n", "do[1].when: when needs do or fail: true, not both"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n    do: [agent: {returns: work}]\n", "do[1].when: when needs do or fail: true, not both"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: false\n", "do[1].when.fail must be true"],
+    ["do:\n  - agent: {returns: findings}\n  - when: findings\n    then: []\n", "do[1].when.then is not a field of when (fields: do, fail)"],
+    ["do:\n  - when: findings\n    fail: true\n", "do[0].when: findings needs an earlier findings agent in this step"],
+    ["do:\n  - when: [findings, red]\n    fail: true\n  - agent: {returns: findings}\n", "do[0].when: findings needs an earlier findings agent in this step"],
+    ["do:\n  - agent: {returns: findings}\n  - when: [findings, red]\n    fail: true\n", "do[1].when: red needs an earlier ci agent in this step"],
+    ["do:\n  - agent: {returns: verdicts}\n", "do[0].agent: returns verdicts needs an earlier findings agent in this step"],
+    ["do:\n  - agent: {returns: findings}\n  - agent: {returns: resolutions}\n", "do[1].agent: returns resolutions needs an earlier verdicts agent in this step"],
+    [
+      "do:\n  - agent: {returns: findings}\n  - agent: {returns: verdicts}\n  - agent: {returns: resolutions}\n",
+      "do[2].agent: returns resolutions needs an earlier work agent in this step",
+    ],
+    ["do:\n  - agent: {returns: diagnosis}\n", "do[0].agent: returns diagnosis needs an earlier ci agent in this step"],
+    [
+      "do:\n  - foreach: [x, y]\n    parallel: true\n    do:\n      - agent: {returns: findings}\n  - when: findings\n    fail: true\n",
+      "",
+    ],
+    [
+      "do:\n  - agent: {returns: ci}\n  - loop: {max: 2, until: green, exhausted: fail, do: [when: red, do: [agent: {returns: work}]]}\n",
+      "do[1].loop.do[0].when: red needs an earlier ci agent in this step",
+    ],
+    [
+      "do:\n  - loop:\n      max: 2\n      until: fixable\n      exhausted: continue\n      do: [agent: {returns: ci}]\n",
+      "do[0].loop.until: fixable needs an earlier diagnosis agent in this step",
+    ],
+    [
+      "do:\n  - loop: {max: 2, until: green, exhausted: continue, do: [agent: {returns: ci}]}\n  - when: red\n    fail: true\n",
+      "do[1].when: red is set only inside the loop at do[0].loop; use exhausted: fail",
+    ],
   ];
-  expect(JSON.parse(res.stdout).steps).toEqual([
-    { step: "implement", agents: false },
-    { step: "review", agents: true, rounds: 1, lenses: lensList, model: "sonnet", fix_model: "opus" },
-    { step: "review", agents: false, rounds: 2, lenses: lensList },
-    { step: "agent", agents: false, name: "notes", prompt: "Write the notes." },
-    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
+  for (const [body, reason] of cases) {
+    if (reason === "") {
+      put(join(dir, "steps", "x.yaml"), `${STEP_HEAD}description: Test\n${body}`);
+      put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - x:\n`);
+      expect([body, run(dir, "workflow", "--project", "p", "w").status]).toEqual([body, 0]);
+      continue;
+    }
+    expect([body, stepError(dir, body)]).toEqual([body, `${reason}\n`]);
+  }
+}, 120_000);
+
+test("workflow warns about a loop with exhausted: fail whose work agent is not guarded by more", () => {
+  const dir = workflowHome();
+  put(join(dir, "prompts", "lint.md"), "# lint\n");
+  put(join(dir, "prompts", "lint-fix.md"), "# fix\n");
+  const step = (guard: string) =>
+    `${STEP_HEAD}description: Lint\ndo:\n  - loop:\n      max: 3\n      until: no-findings\n      exhausted: fail\n      do:\n        - agent: {prompt: lint, returns: findings}\n        - when: ${guard}\n          do:\n            - agent: {prompt: lint-fix, returns: work}\n`;
+  put(join(dir, "steps", "lint.yaml"), step("findings"));
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - lint:\n`);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stderr]).toEqual([
+    0,
+    "theway: warning: steps/lint.yaml: do[0].loop: exhausted: fail with a work agent not guarded by more; its last fix is never checked (guard it with when: [findings, more]); ignored\n",
   ]);
-  expect(Object.keys(JSON.parse(res.stdout).steps[2])).toEqual(["step", "agents", "rounds", "lenses"]);
-  put(join(dir, "workflows", "on.yaml"), "agents: true\nsteps:\n  - implement: {agents: false}\n  - pr:\n");
-  expect(JSON.parse(run(dir, "workflow", "--project", "p", "on").stdout).steps).toEqual([
-    { step: "implement", agents: false },
-    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
-  ]);
-  put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    implement:\n      model: haiku\n");
-  expect(JSON.parse(run(dir, "workflow", "--project", "p", "on").stdout).steps[0]).toEqual({ step: "implement", agents: false });
+  put(join(dir, "steps", "lint.yaml"), step("[findings, more]"));
+  expect(run(dir, "workflow", "--project", "p", "w").stderr).toBe("");
 });
 
-test("workflow exits 1 for agents that is not a boolean and for an inline step that sets a model, in the documented order", () => {
+test("workflow runs a user step from a single prompt, and a failing audit", () => {
   const dir = workflowHome();
-  const head = "steps:\n  - implement:\n";
-  const cases: [string, string][] = [
-    ["agents: no\nsteps: x\n", "agents must be true or false"],
-    ["default: 1\nagents: 1\n", "default must be true or false"],
-    ["agents: 1\nsteps: []\n", "agents must be true or false"],
-    ["steps:\n  - implement: {agents: 1}\n", "steps[0].implement.agents must be true or false"],
-    ["steps:\n  - implement: {agents: 1, x: 1}\n", "steps[0].implement.x is not a field of implement"],
-    ["steps:\n  - implement: {agents: false, model: opus}\n", "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
-    ["agents: false\nsteps:\n  - implement: {model: opus}\n", "steps[0].implement.model has no effect when the step runs inline (agents: false)"],
-    ["agents: false\nsteps:\n  - implement: {model: gpt}\n", "steps[0].implement.model must be opus, sonnet or haiku"],
-    [`agents: false\n${head}  - review: {fix_model: opus, model: opus}\n`, "steps[1].review.fix_model has no effect when the step runs inline (agents: false)"],
-    [`agents: false\n${head}  - pr: {fix_model: opus}\n`, "steps[1].pr.fix_model has no effect when the step runs inline (agents: false)"],
-    [`agents: false\n${head}  - agent: {model: haiku}\n`, "steps[1].agent.model has no effect when the step runs inline (agents: false)"],
-    [`${head}  - agent: {agents: false, model: haiku}\n`, "steps[1].agent.model has no effect when the step runs inline (agents: false)"],
-    [`agents: false\n${head}  - implement: {model: opus}\n`, "steps[1].implement.model has no effect when the step runs inline (agents: false)"],
-  ];
-  for (const [text, reason] of cases) {
-    put(join(dir, "workflows", "w.yaml"), text);
-    const res = run(dir, "workflow", "--project", "p", "w");
-    expect([text, res.status, res.stdout, res.stderr]).toEqual([text, 1, "", `theway: workflows/w.yaml: ${reason}\n`]);
-  }
-}, 30_000);
+  put(join(dir, "prompts", "changelog.md"), "# changelog\n");
+  put(join(dir, "prompts", "security-audit.md"), "# audit\n");
+  put(join(dir, "steps", "changelog.yaml"), `${STEP_HEAD}description: Add this change to CHANGELOG.md\ndo:\n  - agent: {returns: work}\n`);
+  put(
+    join(dir, "steps", "security-audit.yaml"),
+    `${STEP_HEAD}description: Fail the change on any security finding\nparams:\n  model: {default: opus, description: The auditor}\ndo:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n`,
+  );
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - implement:\n  - changelog:\n  - security-audit:\n  - gate: Open the PR?\n  - pr:\n`);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const steps = JSON.parse(res.stdout).steps;
+  expect(steps[1].do).toEqual([
+    {
+      agent: {
+        name: "changelog",
+        label: "changelog:changelog",
+        prompt: [join(dir, "prompts", "changelog.md")],
+        returns: "work",
+        access: "commit",
+        model: "sonnet",
+      },
+    },
+  ]);
+  expect(steps[2].do[1]).toEqual({ when: ["findings"], fail: true });
+  expect(steps[2].do[0].agent.model).toBe("opus");
+});
 
 test("workflow prints commits and git_host after file, each the project file over the global one", () => {
   const dir = workflowHome();
-  const keys = Object.keys(JSON.parse(run(dir, "workflow", "--project", "p").stdout));
-  expect(keys).toEqual(["name", "file", "commits", "git_host", "steps"]);
   put(join(dir, "projects", "p", "standards", "commits.md"), "# mine\n");
   const own = JSON.parse(run(dir, "workflow", "--project", "p").stdout);
   expect([own.commits, own.git_host]).toEqual([join(dir, "projects", "p", "standards", "commits.md"), join(dir, "standards", "git-host.md")]);
   put(join(dir, "projects", "p", "standards", "git-host.md"), "# GitLab\n");
   expect(JSON.parse(run(dir, "workflow", "--project", "p").stdout).git_host).toBe(join(dir, "projects", "p", "standards", "git-host.md"));
   expect(JSON.parse(run(dir, "workflow", "--project", "other").stdout).commits).toBe(join(dir, "standards", "commits.md"));
-  put(join(dir, "standards", "standards", "commits.md"), "# shared\n");
-  expect(JSON.parse(run(dir, "workflow", "--project", "standards").stdout).commits).toBe(join(dir, "standards", "commits.md"));
 });
 
 test("workflow exits 1 when a global convention standard is missing, after the workflow file is validated", () => {
@@ -1539,12 +1729,61 @@ test("workflow exits 1 when a global convention standard is missing, after the w
   rmSync(join(dir, "standards", "commits.md"));
   const commits = run(dir, "workflow", "--project", "p");
   expect([commits.status, commits.stdout, commits.stderr]).toEqual([1, "", line("commits.md")]);
-  put(join(dir, "workflows", "w.yaml"), "steps: []\n");
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps: []\n`);
   const invalid = run(dir, "workflow", "--project", "p", "w");
   expect([invalid.status, invalid.stdout, invalid.stderr]).toEqual([1, "", "theway: workflows/w.yaml: steps must be a non-empty list\n"]);
-  rmSync(join(dir, "workflows", "w.yaml"));
-  put(join(dir, "config.yaml"), "workflow:\n  open_pr: false\n");
-  expect(run(dir, "workflow", "--project", "p").stderr).toBe(`theway: warning: config.yaml: unknown key workflow.open_pr; ignored\n${line("commits.md")}`);
+});
+
+test.skipIf(process.getuid?.() === 0)("workflow exits 1 for a workflow file that cannot be read", () => {
+  const dir = workflowHome();
+  put(join(dir, "projects", "p", "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
+  chmodSync(join(dir, "projects", "p", "workflows", "w.yaml"), 0o000);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: projects/p/workflows/w.yaml: cannot be read\n"]);
+});
+
+test("steps lists the steps with origin, description and each param's effective value and description, project first", () => {
+  const dir = shippedHome();
+  put(join(dir, "projects", "p", "config.yaml"), "workflow:\n  defaults:\n    review:\n      rounds: 2\n");
+  put(join(dir, "projects", "p", "steps", "pr.yaml"), `${STEP_HEAD}description: My PR\ndo:\n  - agent: {prompt: open-pr, returns: pr}\n`);
+  put(join(dir, "steps", "broken.yaml"), "description: x\n");
+  put(join(dir, "steps", "pr.default.yaml"), "x\n");
+  const res = run(dir, "steps", "--project", "p");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toBe(
+    [
+      "implement  global  Implement the change's tasks as its spec says",
+      "    model=opus  The implementer",
+      "pr  project  My PR",
+      "review  global  Review the diff through each lens, triage the findings, fix the confirmed ones and check the fixes",
+      "    rounds=2  Maximum review rounds",
+      "    lenses=conformance,correctness  One reviewer per lens, by prompt name",
+      "    model=opus  The reviewers, the triage and the fix check",
+      "    fix_model=opus  The fix agent of each round",
+      "",
+    ].join("\n"),
+  );
+  expect(res.stderr).toBe("theway: warning: steps/broken.yaml: version is required (theway.step/v1); ignored\n");
+});
+
+test("steps <name> prints the step object of theway workflow, and exits 1 for an unknown or invalid step", () => {
+  const dir = shippedHome();
+  const res = run(dir, "steps", "--project", "theway", "review");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const review = JSON.parse(agentsJson(dir)).steps[1];
+  expect(JSON.parse(res.stdout)).toEqual(review);
+  const steps = `${join(dir, "projects", "theway", "steps")} or ${join(dir, "steps")}`;
+  for (const [name, line] of [
+    ["nope", `theway: no step 'nope' in ${steps} (steps: implement, pr, review)\n`],
+    ["revew", `theway: no step 'revew' in ${steps}; did you mean 'review'?\n`],
+    ["Bad", "theway: invalid step name 'Bad'\n"],
+  ] as const) {
+    const r = run(dir, "steps", "--project", "theway", name);
+    expect([r.status, r.stdout, r.stderr]).toEqual([1, "", line]);
+  }
+  put(join(dir, "steps", "pr.yaml"), `${STEP_HEAD}description: x\ndo:\n  - agent: {returns: pr, access: read}\n`);
+  const bad = run(dir, "steps", "--project", "theway", "pr");
+  expect([bad.status, bad.stdout, bad.stderr]).toEqual([1, "", "theway: steps/pr.yaml: do[0].agent.access must be push for returns: pr\n"]);
 });
 
 test("commits.md and git-host.md are never standards of theway context from either folder, and cannot be switched", () => {

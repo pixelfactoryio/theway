@@ -1,13 +1,28 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import Ajv2020 from "ajv/dist/2020";
+import { MODELS, NAME } from "../src/core/io";
+import {
+  ACCESS,
+  CONDITIONS,
+  EXHAUSTED,
+  FIELDS,
+  PARAM,
+  RESERVED,
+  STEP_KEYS,
+  STEP_VERSION,
+  TYPES,
+  WORKFLOW_KEYS,
+  WORKFLOW_VERSION,
+} from "../src/core/workflow";
 import { buildProgram } from "../src/program";
 
 const REPO = join(import.meta.dirname, "..");
 const PLUGIN = join(REPO, "plugin");
 const COMMANDS = join(PLUGIN, "commands");
 const PIPELINE = join(PLUGIN, "workflows", "run-pipeline.js");
-const LENSES = join(PLUGIN, "home", "lenses");
+const PROMPTS = join(PLUGIN, "home", "prompts");
 const commands = readdirSync(COMMANDS).filter((f) => f.endsWith(".md"));
 const read = (path: string) => readFileSync(path, "utf-8");
 
@@ -172,7 +187,10 @@ test("plugin/home holds only what install reads", () => {
   const HOME = join(PLUGIN, "home");
   const unused = files(HOME)
     .map((f) => relative(HOME, f))
-    .filter((f) => !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md|workflows\/[^/]+\.yaml|lenses\/[^/]+\.md)$/.test(f));
+    .filter(
+      (f) =>
+        !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md|workflows\/[^/]+\.yaml|steps\/[^/]+\.yaml|prompts\/[^/]+\.md|schemas\/[^/]+\.json)$/.test(f),
+    );
   expect(unused).toEqual([]);
 });
 
@@ -300,7 +318,7 @@ test("develop.md Verify proves a fix- regression test fails on the base commit a
   }
 });
 
-test("commits.md sets the commit type from the change verb and the lenses review a fix's root cause", () => {
+test("commits.md sets the commit type from the change verb and the lens prompts review a fix's root cause", () => {
   expect(read(PIPELINE)).toContain("args.base");
   const commits = read(join(STANDARDS, "commits.md"));
   // The shipped commit and branch convention.
@@ -309,9 +327,9 @@ test("commits.md sets the commit type from the change verb and the lenses review
   }
   expect(step(read(join(COMMANDS, "workflow.md")), "Step 3:")).toContain("`<base>` (Step 2)");
   // A light spec's Change section replaces Scope.
-  expect(read(join(LENSES, "conformance.md"))).toContain("the Change section");
+  expect(read(join(PROMPTS, "conformance.md"))).toContain("the Change section");
   // The review of a fix- change.
-  const correctness = read(join(LENSES, "correctness.md"));
+  const correctness = read(join(PROMPTS, "correctness.md"));
   expect(correctness).toContain("the root cause the spec names");
   expect(correctness).toContain("the regression test would fail without the fix");
 });
@@ -358,10 +376,10 @@ test("engineering.md takes --light and states the light path in each step it cha
   expect(section(text, "Exit")).toContain("`Fix` column reads `escalated`");
 });
 
-test("run-pipeline.js checks a fix- test by the regression check and triages by spec-review.md", () => {
-  const pipeline = read(PIPELINE);
-  expect(pipeline).toContain("the regression check of develop.md");
-  expect(pipeline).toContain("args.specReview");
+test("the shipped prompts check a fix- test by the regression check and triage by spec-review.md", () => {
+  for (const f of ["implement.md", "fix.md", "fix-check.md"]) expect(read(join(PROMPTS, f))).toContain("the regression check of `develop.md`");
+  expect(read(join(PROMPTS, "triage.md"))).toContain("`spec-review.md`");
+  expect(read(PIPELINE)).toContain("args.specReview");
   const workflow = read(join(COMMANDS, "workflow.md"));
   expect(step(workflow, "Step 1:")).toContain("- `<home>/standards/spec-review.md`");
 });
@@ -445,111 +463,6 @@ test("spec-review.md and spec-investigation.md hold the shared procedures the en
 });
 
 
-test("run-pipeline.js is a plugin workflow that compiles, with its fixed rules and outcomes", async () => {
-  const text = read(PIPELINE);
-  expect(readdirSync(join(PLUGIN, "workflows"))).toEqual(["run-pipeline.js"]);
-  expect(text).toStartWith("export const meta = {");
-  expect(text).toContain("name: 'run-pipeline'");
-  for (const title of ["Implement", "Review", "Agent", "PR"]) {
-    expect(text).toContain(`phase('${title}')`);
-    expect(text).toContain(`phase: '${title}'`);
-  }
-  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-  const body = text.slice("export ".length);
-  const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
-  expect(await run(undefined, null, null, null, () => {}, () => {})).toEqual({
-    status: "failed",
-    error: "run-pipeline is started by /theway:workflow with its args",
-    implementation: null,
-    steps: [],
-    pr: null,
-    authorityReports: [],
-  });
-  for (const marker of [
-    "args.authority",
-    "args.commits",
-    "args.gitHost",
-    "args.standards",
-    "status: 'blocked'",
-    "status: 'failed'",
-    "status: 'succeeded'",
-  ]) {
-    expect(text).toContain(marker);
-  }
-  // The agents' git boundary.
-  for (const rule of ["never force-push", "never push the default branch", "never merge"]) expect(text).toContain(rule);
-  // The fix check's scope.
-  expect(text).toContain("does not look for new problems");
-});
-
-test("run-pipeline.js runs only a segment of consecutive agent steps, with head set after inline steps", async () => {
-  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-  const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", read(PIPELINE).slice("export ".length));
-  const steps = [
-    { step: "implement", agents: false },
-    { step: "agent", agents: true, name: "notes", prompt: "Write the notes.", model: "sonnet" },
-    { step: "review", agents: false, rounds: 1, lenses: [] },
-    { step: "pr", agents: true, ci_attempts: 2, model: "sonnet", fix_model: "opus" },
-  ];
-  const base = {
-    repo: "/r",
-    branch: "feat/x",
-    base: "main",
-    changeId: "add-x",
-    changeDir: "/c",
-    light: false,
-    develop: "/h/standards/develop.md",
-    specReview: "/h/standards/spec-review.md",
-    commits: "/h/standards/commits.md",
-    gitHost: "/h/standards/git-host.md",
-    standards: [],
-    authority: "## Authority",
-    workflow: { name: "w", file: "/h/workflows/w.yaml", steps },
-  };
-  const none = async () => null;
-  const exec = (args: Record<string, unknown>) => run(args, none, none, none, () => {}, () => {});
-  const error = "run-pipeline is started by /theway:workflow with its args";
-  const agentsAt0 = steps.map((s, i) => (i === 0 ? { ...s, agents: true, model: "opus" } : s));
-  const { commits: _, ...noCommits } = base;
-  const { gitHost: __, ...noGitHost } = base;
-  const cases: Record<string, unknown>[] = [
-    { ...base, steps: [], head: "abc" },
-    { ...base, steps: [1, 3], head: "abc" },
-    { ...base, steps: [1, 2], head: "abc" },
-    { ...base, steps: [2], head: "abc" },
-    { ...base, steps: [1], head: null },
-    { ...base, steps: [1], head: "" },
-    { ...base, steps: [1] },
-    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0], head: "abc" },
-    { ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1] },
-    { ...noCommits, steps: [1], head: "abc" },
-    { ...noGitHost, steps: [1], head: "abc" },
-    { ...base, gitHost: null, steps: [1], head: "abc" },
-  ];
-  for (const args of cases) {
-    const res = await exec(args);
-    expect([args, res.status, res.error]).toEqual([args, "failed", error]);
-  }
-  const segment = await exec({ ...base, steps: [1], head: "abc" });
-  expect(segment).toEqual({
-    status: "failed",
-    error: "agent:notes returned no result",
-    implementation: null,
-    steps: [{ step: "agent", label: "agent:notes", result: null }],
-    pr: null,
-    authorityReports: [],
-  });
-  const first = await exec({ ...base, workflow: { ...base.workflow, steps: agentsAt0 }, steps: [0, 1], head: null });
-  expect(first).toEqual({
-    status: "blocked",
-    error: "implement returned no result",
-    implementation: null,
-    steps: [],
-    pr: null,
-    authorityReports: [],
-  });
-});
-
 test("workflow.md runs the change through theway:run-pipeline", () => {
   const text = read(join(COMMANDS, "workflow.md"));
   for (const marker of [
@@ -565,7 +478,454 @@ test("workflow.md runs the change through theway:run-pipeline", () => {
   expect(text).toContain("never bypass required reviews or checks");
 });
 
-test("run-pipeline.js follows the git host steps git-host.md holds", () => {
+test("workflow.md runs inline steps and gates itself, agent segments through run-pipeline, and records from typed results", () => {
+  const text = read(join(COMMANDS, "workflow.md"));
+  for (const marker of ["agents: false", '"ran inline: the session checked its own work"', "`steps` and `head`", "`git rev-parse HEAD`"]) {
+    expect(text).toContain(marker);
+  }
+  // The inline default refuses a series.
+  expect(text).toContain("a series needs a workflow that commits");
+  // No fixed list of step types.
+  expect(text).not.toMatch(/`implement`, `review`|`agent` step|with a `pr` step|without a `pr` step/);
+  // Pushes are authorized from pushes.
+  expect(section(text, "Invocation")).toContain("when `theway workflow` prints `pushes: true`, pushing each change's own feature branch");
+  // The gate runs inline with Continue and Stop.
+  const run = step(text, "Step 3:");
+  for (const marker of ["AskUserQuestion", '"Continue"', '"Stop"', "`blocked`, with `gate: <question>`", "Walk the step's printed `do` tree"]) {
+    expect(run).toContain(marker);
+  }
+  // The records come from the typed results.
+  const record = step(text, "Step 4:");
+  for (const marker of ["`tasksDone` of every `work` result", "`discoveries` and `choices`", "every `verdicts` result", '"not triaged"']) {
+    expect(record).toContain(marker);
+  }
+  expect(step(text, "Step 1:")).toContain("working tree: no branch, nothing committed");
+});
+
+// ---- run-pipeline.js: the generic interpreter, driven with the shipped trees and scripted agent results ----
+
+type AgentNode = { agent: { name: string; label: string; prompt: string[]; returns: string; access: string; model?: string } };
+type Tree = Record<string, unknown>;
+type Entry = { id: string; step?: string; agents: boolean; params: Record<string, { value: unknown; from: string }>; do: Tree[] };
+
+/** The shipped agents workflow of the fixture, with `<home>` set to `/h`. */
+const fixture = () =>
+  JSON.parse(read(join(REPO, "test", "fixtures", "agents-workflow.json")).replaceAll("<home>", "/h")) as { steps: Entry[] } & Record<string, unknown>;
+
+/** Every agent node of a tree, in document order. */
+function agentsOf(nodes: Tree[]): AgentNode["agent"][] {
+  return nodes.flatMap((n) => {
+    if ("agent" in n) return [(n as AgentNode).agent];
+    if ("parallel" in n) return agentsOf(n.parallel as Tree[]);
+    if ("loop" in n) return agentsOf((n.loop as { do: Tree[] }).do);
+    if ("do" in n) return agentsOf(n.do as Tree[]);
+    return [];
+  });
+}
+
+const AUTHORITY = "## Authority\n\nThe authority rules.";
+const BASE_ARGS = {
+  repo: "/r",
+  branch: "add-x",
+  base: "main",
+  changeId: "add-x",
+  changeDir: "/c",
+  light: false,
+  develop: "/h/standards/develop.md",
+  specReview: "/h/standards/spec-review.md",
+  commits: "/h/standards/commits.md",
+  gitHost: "/h/standards/git-host.md",
+  standards: ["/h/standards/sre.md"],
+  authority: AUTHORITY,
+};
+
+type Call = { label: string; text: string; opts: Record<string, unknown> };
+
+/** The Input block of an agent prompt, parsed; it throws when the prompt has none. */
+function inputOf(call: Call | string) {
+  const text = typeof call === "string" ? call : call.text;
+  const block = /\nInput:\n([\s\S]*?)\n\n/.exec(text)?.[1];
+  if (block === undefined) throw new Error("the prompt has no Input block");
+  return JSON.parse(block);
+}
+type Scripted = unknown | ((text: string) => unknown);
+
+/**
+ * Runs run-pipeline.js with `args`, answering each agent by its label from `script`: a list of results, one per call
+ * in order; a function result is called with the prompt, and a thrown Error is rethrown. It checks every prompt with
+ * `expectPrompts`.
+ */
+async function drive(args: Record<string, unknown>, script: Record<string, Scripted[]>) {
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const body = read(PIPELINE).slice("export ".length);
+  const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
+  const calls: Call[] = [];
+  const phases: string[] = [];
+  const agent = async (text: string, opts: Record<string, unknown>) => {
+    const label = opts.label as string;
+    calls.push({ label, text, opts });
+    const queue = script[label] ?? [];
+    if (queue.length === 0) throw new Error(`no scripted result for ${label}`);
+    const next = queue.shift();
+    if (next instanceof Error) throw next;
+    return typeof next === "function" ? (next as (t: string) => unknown)(text) : next;
+  };
+  const parallel = async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map((t) => t().catch(() => null)));
+  const result = await run(args, agent, parallel, null, (t: string) => phases.push(t), () => {});
+  // Every prompt of every run starts with the fixed rules and holds its node's permission line.
+  if (calls.length > 0) expectPrompts(args.workflow as { steps: Entry[] }, calls);
+  return { result, calls, phases };
+}
+
+/** The args of a segment of `workflow` from `steps`, with the head `h0`. */
+const segment = (workflow: Record<string, unknown>, steps: number[], extra: Record<string, unknown> = {}) => ({
+  ...BASE_ARGS,
+  workflow,
+  steps,
+  head: "h0",
+  ...extra,
+});
+
+const common = { summary: "done", authorityReports: [] as string[] };
+const work = (head: string, extra: Record<string, unknown> = {}) => ({
+  head,
+  commits: [{ sha: head, subject: "feat: x" }],
+  checks: [],
+  tasksDone: [],
+  criteria: [],
+  choices: [],
+  discoveries: [],
+  regression: [],
+  blocker: null,
+  ...common,
+  ...extra,
+});
+const findings = (...titles: string[]) => ({
+  findings: titles.map((title) => ({ title, file: "a.ts", line: 1, problem: "p", evidence: "e" })),
+  ...common,
+});
+const verdicts = (...v: [number, string][]) => ({ verdicts: v.map(([index, verdict]) => ({ index, verdict, reason: "r" })), ...common });
+const resolutions = (...v: [number, string][]) => ({ resolutions: v.map(([index, status]) => ({ index, status, reason: "why" })), ...common });
+const ci = (state: string, failedRunIds: string[] = [], failedOther: { name: string; link: string }[] = []) => ({ ci: state, failedRunIds, failedOther, ...common });
+const diagnosis = (classification: string, extra: Record<string, unknown> = {}) => ({
+  errors: [{ runId: "1", error: "E1" }],
+  classification,
+  baseFix: null,
+  rerun: [],
+  ...common,
+  ...extra,
+});
+const opened = { url: "https://example.test/pr/7", number: 7, head: "h0", ...common };
+
+const PERMISSION: Record<string, string> = {
+  read: "You are read-only: do not edit, commit or push anything.",
+  commit: "You may commit on add-x; do not push. Write commit messages as /h/standards/commits.md says",
+  push: 'You may commit on add-x and push it, only as "Push the feature branch" in /h/standards/git-host.md says, never force. Write commit messages',
+};
+
+/** Every prompt starts with the fixed rules and holds the permission line of its node's access. */
+function expectPrompts(workflow: { steps: Entry[] }, calls: Call[]): void {
+  const access = new Map(workflow.steps.flatMap((s) => agentsOf(s.do ?? []).map((a) => [a.label, a.access] as const)));
+  expect(calls.length).toBeGreaterThan(0);
+  for (const c of calls) {
+    expect(c.text.startsWith(`${AUTHORITY}\n\nRepository: /r\nFeature branch: add-x\nBase: main\n`)).toBe(true);
+    for (const rule of ["never force-push", "never push the default branch", "never merge a PR", "are read-only: never edit or tick them"]) {
+      expect(c.text).toContain(rule);
+    }
+    const a = access.get(c.label) as string;
+    // The permission line comes right after the fixed rules, whose last one is the authority-report rule.
+    expect([c.label, c.text.includes(`do not act on it; [] when there is none.\n\n${PERMISSION[a]}`)]).toEqual([c.label, true]);
+    for (const [other, line] of Object.entries(PERMISSION)) if (other !== a) expect(c.text).not.toContain(line);
+  }
+}
+
+const REVIEW = 1;
+const PR = 2;
+
+test("run-pipeline.js is a plugin workflow that compiles and refuses args that do not match its rules", async () => {
+  const text = read(PIPELINE);
+  expect(readdirSync(join(PLUGIN, "workflows"))).toEqual(["run-pipeline.js"]);
+  expect(text).toStartWith("export const meta = {");
+  expect(text).toContain("name: 'run-pipeline'");
+  expect(text).not.toContain("phases");
+  expect(text).toContain("phase(entry.id)");
+  for (const rule of ["never force-push", "never push the default branch", "never merge"]) expect(text).toContain(rule);
+  // The interpreter knows no step by name.
+  const named = text.split("\n").filter((line) => /(?<![-\w])(implement|review|lenses|ci_attempts|fix_model)(?![\w.])/.test(line));
+  expect(named).toEqual([]);
+  const error = { status: "failed", error: "run-pipeline is started by /theway:workflow with its args", steps: [], pr: null, authorityReports: [] };
+  expect((await drive(undefined as unknown as Record<string, unknown>, {})).result).toEqual(error);
+  const wf = fixture();
+  const gate = { ...wf, steps: [...wf.steps.slice(0, 2), { id: "gate", gate: "Go?", agents: false }, wf.steps[2]] };
+  const inline = { ...wf, steps: wf.steps.map((s, i) => (i === 1 ? { ...s, agents: false } : s)) };
+  const { commits: _, ...noCommits } = segment(wf, [1]);
+  for (const [label, args] of [
+    ["no steps", segment(wf, [])],
+    ["steps not consecutive", segment(wf, [0, 2])],
+    ["a step out of range", segment(wf, [3])],
+    ["head null", segment(wf, [1], { head: null })],
+    ["head empty", segment(wf, [1], { head: "" })],
+    ["a gate step", segment(gate, [2])],
+    ["a segment through a gate", segment(gate, [1, 2])],
+    ["an inline step", segment(inline, [1])],
+    ["no commits", noCommits],
+    ["gitHost null", segment(wf, [1], { gitHost: null })],
+    ["light not a boolean", segment(wf, [1], { light: "no" })],
+  ] as const) {
+    expect([label, (await drive(args, {})).result]).toEqual([label, error]);
+  }
+});
+
+test("run-pipeline.js runs the shipped review: no findings succeeds after one round, with labels, phases and Input", async () => {
+  const wf = fixture();
+  const { result, calls, phases } = await drive(segment(wf, [REVIEW]), {
+    "review:conformance": [findings()],
+    "review:correctness": [findings()],
+  });
+  expect(result).toEqual({
+    status: "succeeded",
+    error: null,
+    steps: [
+      {
+        id: "review",
+        step: "review",
+        results: [
+          { label: "review:conformance", returns: "findings", iteration: 1, result: findings() },
+          { label: "review:correctness", returns: "findings", iteration: 1, result: findings() },
+        ],
+      },
+    ],
+    pr: null,
+    authorityReports: [],
+  });
+  expect(phases).toEqual(["review"]);
+  expect(calls.map((c) => [c.label, c.opts.model, c.opts.phase])).toEqual([
+    ["review:conformance", "opus", "review"],
+    ["review:correctness", "opus", "review"],
+  ]);
+  const first = calls[0] as Call;
+  expect(first.text).toContain("Read these files in order and follow them: /h/prompts/reviewer.md, /h/prompts/conformance.md.");
+  const input = inputOf(first);
+  expect(input).toEqual({
+    change: { id: "add-x", dir: "/c", fix: false, light: false },
+    branch: "add-x",
+    base: "main",
+    head: "h0",
+    params: { rounds: 1, lenses: ["conformance", "correctness"], model: "opus", fix_model: "opus" },
+    loop: { iteration: 1, max: 1 },
+  });
+  expect(first.text.trimEnd().endsWith("Return each finding with title, file, line (when one applies), problem and evidence; [] when there is none. Also return summary: one line on what you did.")).toBe(true);
+});
+
+test("run-pipeline.js runs the shipped review: triage, fix and fix check, with the outcomes of the type rules", async () => {
+  const wf = fixture();
+  const two = { ...wf, steps: wf.steps.map((s, i) => (i === REVIEW ? { ...s, do: [{ loop: { ...(s.do[0] as { loop: Tree }).loop, max: 2 } }] } : s)) };
+  // A confirmed finding fixed and resolved, then a clean second round.
+  const ok = await drive(segment(two, [REVIEW]), {
+    "review:conformance": [findings("Bug"), findings()],
+    "review:correctness": [findings("Nit"), findings()],
+    "review:triage": [verdicts([0, "confirmed"], [1, "nit"])],
+    "review:fix": [work("h1")],
+    "review:fix-check": [resolutions([0, "resolved"])],
+  });
+  expect([ok.result.status, ok.result.error]).toEqual(["succeeded", null]);
+  expect(ok.result.steps[0].results.map((r: { label: string; iteration: number }) => [r.label, r.iteration])).toEqual([
+    ["review:conformance", 1],
+    ["review:correctness", 1],
+    ["review:triage", 1],
+    ["review:fix", 1],
+    ["review:fix-check", 1],
+    ["review:conformance", 2],
+    ["review:correctness", 2],
+  ]);
+  const triage = inputOf(ok.calls[2] as Call);
+  expect(triage.findings.map((f: { index: number; prompt: string; title: string }) => [f.index, f.prompt, f.title])).toEqual([
+    [0, "conformance", "Bug"],
+    [1, "correctness", "Nit"],
+  ]);
+  const check = inputOf(ok.calls[4] as Call);
+  expect([check.head, check.work.from, check.work.head, check.confirmed.map((f: { title: string }) => f.title)]).toEqual(["h1", "h0", "h1", ["Bug"]]);
+  const second = inputOf(ok.calls[5] as Call);
+  expect([second.head, second.loop, second.findings]).toEqual(["h1", { iteration: 2, max: 2 }, undefined]);
+
+  const base = () => ({ "review:conformance": [findings("Bug")], "review:correctness": [findings()] });
+  const unjudged = await drive(segment(wf, [REVIEW]), { ...base(), "review:triage": [verdicts([1, "confirmed"])] });
+  expect([unjudged.result.status, unjudged.result.error]).toEqual(["failed", "review:triage did not judge every finding"]);
+  const notResolved = await drive(segment(wf, [REVIEW]), {
+    ...base(),
+    "review:triage": [verdicts([0, "confirmed"])],
+    "review:fix": [work("h1")],
+    "review:fix-check": [resolutions([0, "not resolved"])],
+  });
+  expect([notResolved.result.status, notResolved.result.error]).toEqual(["failed", "finding 0 (Bug) not resolved: why"]);
+  const unchecked = await drive(segment(wf, [REVIEW]), {
+    ...base(),
+    "review:triage": [verdicts([0, "confirmed"])],
+    "review:fix": [work("h1")],
+    "review:fix-check": [resolutions()],
+  });
+  expect(unchecked.result.error).toBe("review:fix-check did not judge finding 0 (Bug)");
+  const blockedFix = await drive(segment(wf, [REVIEW]), {
+    ...base(),
+    "review:triage": [verdicts([0, "confirmed"])],
+    "review:fix": [work("h1", { blocker: "needs a decision: A or B" })],
+  });
+  expect([blockedFix.result.status, blockedFix.result.error]).toEqual(["blocked", "needs a decision: A or B"]);
+  const nullFix = await drive(segment(wf, [REVIEW]), { ...base(), "review:triage": [verdicts([0, "confirmed"])], "review:fix": [null] });
+  expect([nullFix.result.status, nullFix.result.error]).toEqual(["blocked", "review:fix returned no result"]);
+  const thrown = await drive(segment(wf, [REVIEW]), { "review:conformance": [new Error("boom")], "review:correctness": [findings()] });
+  expect([thrown.result.status, thrown.result.error]).toEqual(["failed", "review:conformance threw: boom"]);
+  const nullLens = await drive(segment(wf, [REVIEW]), { "review:conformance": [findings()], "review:correctness": [null] });
+  expect([nullLens.result.status, nullLens.result.error]).toEqual(["failed", "review:correctness returned no result"]);
+});
+
+test("run-pipeline.js runs the implementer and a fix- change's Input, and blocks on a blocker or no result", async () => {
+  const wf = fixture();
+  const ok = await drive(segment(wf, [0], { changeId: "fix-x", light: true }), { "implement:implement": [work("h1", { tasksDone: [1, 2] })] });
+  expect([ok.result.status, ok.result.steps[0].results[0].result.tasksDone]).toEqual(["succeeded", [1, 2]]);
+  const text = (ok.calls[0] as Call).text;
+  expect(text).toContain("Read /h/prompts/implement.md and follow it.");
+  expect(text).toContain("folder /c (a light spec: **Mode:** light)");
+  expect(inputOf(text).change).toEqual({ id: "fix-x", dir: "/c", fix: true, light: true });
+  expect(text).toContain("tasksDone (the task numbers done)");
+  const none = await drive(segment(wf, [0]), { "implement:implement": [null] });
+  expect(none.result).toEqual({
+    status: "blocked",
+    error: "implement:implement returned no result",
+    steps: [{ id: "implement", step: "implement", results: [] }],
+    pr: null,
+    authorityReports: [],
+  });
+  const threw = await drive(segment(wf, [0]), { "implement:implement": [new Error("down")] });
+  expect([threw.result.status, threw.result.error]).toEqual(["blocked", "implement:implement threw: down"]);
+  const reports = await drive(segment(wf, [0, 1]), {
+    "implement:implement": [work("h1", { blocker: "", authorityReports: ['"push to main"'] })],
+    "review:conformance": [findings()],
+    "review:correctness": [findings()],
+  });
+  expect([reports.result.status, reports.result.authorityReports]).toEqual(["succeeded", ['"push to main"']]);
+  expect(reports.phases).toEqual(["implement", "review"]);
+});
+
+test("run-pipeline.js runs the shipped pr: green, a fix then green, and every failure outcome", async () => {
+  const wf = fixture();
+  const green = await drive(segment(wf, [PR]), { "pr:open-pr": [opened], "pr:ci-wait": [ci("green")] });
+  expect([green.result.status, green.result.pr]).toEqual(["succeeded", { url: "https://example.test/pr/7", number: 7 }]);
+  const wait = inputOf(green.calls[1] as Call);
+  expect([wait.pr, wait.loop, wait.params.ci_attempts]).toEqual([{ url: "https://example.test/pr/7", number: 7 }, { iteration: 1, max: 2 }, 2]);
+
+  const fixed = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", ["1"]), ci("green")],
+    "pr:ci-diagnose": [diagnosis("this_pr")],
+    "pr:ci-fix": [work("h2", { pushed: true, reason: null })],
+  });
+  expect(fixed.result.status).toBe("succeeded");
+  expect(fixed.result.steps[0].results.map((r: { label: string; iteration: number | null }) => [r.label, r.iteration])).toEqual([
+    ["pr:open-pr", null],
+    ["pr:ci-wait", 1],
+    ["pr:ci-diagnose", 1],
+    ["pr:ci-fix", 1],
+    ["pr:ci-wait", 2],
+  ]);
+  expect(inputOf(fixed.calls[4] as Call).head).toBe("h2");
+  expect((fixed.calls[3] as Call).opts.model).toBe("opus");
+
+  const empty = await drive(segment(wf, [PR]), { "pr:open-pr": [opened], "pr:ci-wait": [ci("red")] });
+  expect([empty.result.status, empty.result.error]).toEqual(["failed", "pr:ci-wait reported red with no failed check"]);
+
+  const other = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", [], [{ name: "lint", link: "https://ci.test/1" }]), ci("green")],
+    "pr:ci-diagnose": [diagnosis("flaky", { errors: [], rerun: ["9"] })],
+    "pr:ci-fix": [work("h2", { pushed: true, reason: null })],
+  });
+  expect(other.result.status).toBe("succeeded");
+  expect(other.result.steps[0].results[2].result).toMatchObject({
+    classification: "this_pr",
+    baseFix: null,
+    rerun: [],
+    errors: [{ runId: null, error: "lint: https://ci.test/1" }],
+  });
+
+  const noRerun = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", ["1"])],
+    "pr:ci-diagnose": [diagnosis("flaky")],
+  });
+  expect([noRerun.result.status, noRerun.result.error]).toEqual(["failed", "pr:ci-diagnose: re-run did not start"]);
+
+  const rerun = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", ["1"]), ci("green")],
+    "pr:ci-diagnose": [diagnosis("base_red", { rerun: ["1"] })],
+  });
+  expect(rerun.result.status).toBe("succeeded");
+
+  const exhausted = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", ["1"]), ci("red", ["1"])],
+    "pr:ci-diagnose": [diagnosis("this_pr"), diagnosis("this_pr", { errors: [{ runId: "1", error: "E2" }, { runId: "2", error: "E3" }] })],
+    "pr:ci-fix": [work("h2", { pushed: true, reason: null })],
+  });
+  expect([exhausted.result.status, exhausted.result.error]).toEqual(["failed", "pr: loop ended after 2 iteration(s) without green: this_pr: E2 | E3"]);
+  // The last iteration has no fix: its fix would never be checked.
+  expect(exhausted.calls.filter((c) => c.label === "pr:ci-fix")).toHaveLength(1);
+
+  const notPushed = await drive(segment(wf, [PR]), {
+    "pr:open-pr": [opened],
+    "pr:ci-wait": [ci("red", ["1"])],
+    "pr:ci-diagnose": [diagnosis("this_pr")],
+    "pr:ci-fix": [work("h2", { pushed: false, reason: null })],
+  });
+  expect([notPushed.result.status, notPushed.result.error]).toEqual(["failed", "pr:ci-fix did not push: head h2"]);
+  const nullWait = await drive(segment(wf, [PR]), { "pr:open-pr": [opened], "pr:ci-wait": [null] });
+  expect([nullWait.result.status, nullWait.result.error]).toEqual(["failed", "pr:ci-wait returned no result"]);
+});
+
+test("run-pipeline.js fails a change on when … fail: true with the titles, and labels two review entries apart", async () => {
+  const audit: Entry = {
+    id: "security-audit",
+    step: "security-audit",
+    agents: true,
+    params: { model: { value: "opus", from: "steps/security-audit.yaml" } },
+    do: [
+      {
+        agent: {
+          name: "security-audit",
+          label: "security-audit:security-audit",
+          prompt: ["/h/prompts/security-audit.md"],
+          returns: "findings",
+          access: "read",
+          model: "opus",
+        },
+      },
+      { when: ["findings"], fail: true },
+    ],
+  };
+  const wf = { ...fixture(), steps: [audit] };
+  const res = await drive(segment(wf, [0]), { "security-audit:security-audit": [findings("SQL injection")] });
+  expect([res.result.status, res.result.error]).toEqual(["failed", "security-audit: findings: SQL injection"]);
+  const clean = await drive(segment(wf, [0]), { "security-audit:security-audit": [findings()] });
+  expect(clean.result.status).toBe("succeeded");
+
+  const shipped = fixture();
+  const review = shipped.steps[REVIEW] as Entry;
+  const again = JSON.parse(JSON.stringify(review).replaceAll('"review:', '"review-2:')) as Entry;
+  const twice = { ...shipped, steps: [review, { ...again, id: "review-2" }] };
+  const both = await drive(segment(twice, [0, 1]), {
+    "review:conformance": [findings()],
+    "review:correctness": [findings()],
+    "review-2:conformance": [findings()],
+    "review-2:correctness": [findings()],
+  });
+  expect(both.result.status).toBe("succeeded");
+  expect(both.result.steps.map((s: { id: string }) => s.id)).toEqual(["review", "review-2"]);
+  expect(both.calls.map((c) => c.label)).toEqual(["review:conformance", "review:correctness", "review-2:conformance", "review-2:correctness"]);
+  expect(both.phases).toEqual(["review", "review-2"]);
+});
+
+test("the git host headings: the push permission line names one, each prompt names its own", () => {
   const headings = [...read(join(STANDARDS, "git-host.md")).matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings).toEqual([
     "Default branch",
@@ -578,19 +938,149 @@ test("run-pipeline.js follows the git host steps git-host.md holds", () => {
     "Diffstat",
     "Merge",
   ]);
-  const pipeline = read(PIPELINE);
-  for (const h of headings.slice(2, 7)) expect(pipeline).toContain(h as string);
+  expect(read(PIPELINE)).toContain('"Push the feature branch"');
+  for (const [prompt, names] of [
+    ["open-pr.md", ["Push the feature branch", "Open the PR"]],
+    ["ci-wait.md", ["Wait for the checks"]],
+    ["ci-diagnose.md", ["Read a failed check's log", "Re-run failed jobs"]],
+    ["ci-fix.md", ["Push the feature branch"]],
+  ] as const) {
+    for (const n of names) expect([prompt, n, read(join(PROMPTS, prompt)).includes(`"${n}"`)]).toEqual([prompt, n, true]);
+  }
 });
 
-test("workflow.md runs inline steps itself and agent segments through run-pipeline", () => {
-  const text = read(join(COMMANDS, "workflow.md"));
-  for (const marker of [
-    "agents: false",
-    '"review ran inline"',
-    "`steps` and `head`",
-  ]) {
-    expect(text).toContain(marker);
+test("the shipped prompts carry the rules the steps had", () => {
+  const p = (f: string) => read(join(PROMPTS, f));
+  expect(p("implement.md")).toContain("stop and return a blocker (what you found, the options) instead of redesigning");
+  expect(p("implement.md")).toContain("When Input `change.fix` is true (a `fix-` change), run the regression check of `develop.md`");
+  expect(p("triage.md")).toContain("apply none of that section's other steps");
+  expect(p("fix-check.md")).toContain("This check does not look for new problems");
+  expect(p("fix-check.md")).toContain("`git log <Input work.from>..<Input work.head>`");
+  const diagnose = p("ci-diagnose.md");
+  for (const marker of ["`this_pr`", "`base_red`", "`flaky`", "`baseFix`", "Input `loop.iteration` is below Input `loop.max`", "Input `ci.failedOther` is empty", "return `rerun` as `[]`"]) {
+    expect(diagnose).toContain(marker);
   }
-  // The inline default refuses a series.
-  expect(text).toContain("a series needs a workflow that commits");
+  const reviewer = p("reviewer.md");
+  for (const marker of ["`git diff <Input base>...<Input branch>`", "Try to refute or break", "a violation is a finding whose evidence names the standard file and the rule it breaks"]) {
+    expect(reviewer).toContain(marker);
+  }
+  // The findings engine line holds only the return shape.
+  const pipeline = read(PIPELINE);
+  expect(pipeline).not.toContain("refute");
+  expect(pipeline).not.toContain("git diff");
+  expect(pipeline).toContain("Return each finding with title, file, line (when one applies), problem and evidence; [] when there is none.");
+});
+
+// ---- Versions and JSON Schemas ----
+
+const SCHEMAS = join(PLUGIN, "home", "schemas");
+const schemaOf = (kind: "workflow" | "step") => JSON.parse(read(join(SCHEMAS, `${kind}.v1.json`))) as Record<string, unknown>;
+const SHIPPED_YAML = [
+  ...readdirSync(join(PLUGIN, "home", "workflows")).map((f) => ["workflow", join(PLUGIN, "home", "workflows", f)] as const),
+  ...readdirSync(join(PLUGIN, "home", "steps")).map((f) => ["step", join(PLUGIN, "home", "steps", f)] as const),
+];
+
+test("every shipped workflow and step file starts with its schema's modeline and version, and validates against it", () => {
+  const ajv = new Ajv2020({ allErrors: true });
+  const validators = { workflow: ajv.compile(schemaOf("workflow")), step: ajv.compile(schemaOf("step")) };
+  expect(SHIPPED_YAML.length).toBe(5);
+  for (const [kind, file] of SHIPPED_YAML) {
+    const text = read(file);
+    const lines = text.split("\n");
+    expect([file, lines[0]]).toEqual([file, `# yaml-language-server: $schema=${schemaOf(kind).$id}`]);
+    expect([file, lines.find((l) => !l.startsWith("#"))]).toEqual([file, `version: theway.${kind}/v1`]);
+    const validate = validators[kind];
+    expect([file, validate(Bun.YAML.parse(text)), validate.errors]).toEqual([file, true, null]);
+  }
+});
+
+test("the schemas reject the invalid samples and accept a reference, and every property is described", () => {
+  const ajv = new Ajv2020({ allErrors: true });
+  const workflow = ajv.compile(schemaOf("workflow"));
+  const step = ajv.compile(schemaOf("step"));
+  const head = "version: theway.step/v1\ndescription: x\n";
+  const rejected: [typeof step, string][] = [
+    [workflow, "version: theway.workflow/v1\nsteps:\n  - implement:\nextra: 1\n"],
+    [step, `${head}do:\n  - agent: {returns: work, name: x}\n`],
+    [step, `${head}do:\n  - agent: {returns: nope}\n`],
+    [step, `${head}do:\n  - loop: {max: 1, until: more, do: [agent: {returns: work}]}\n`],
+    [step, `${head}do:\n  - agent: {returns: findings}\n  - when: findings\n    fail: true\n    do: [agent: {returns: work}]\n`],
+    [step, "description: x\ndo:\n  - agent: {returns: work}\n"],
+    [step, `version: theway.step/v2\ndescription: x\ndo:\n  - agent: {returns: work}\n`],
+    [workflow, "steps:\n  - implement:\n"],
+    [workflow, "version: theway.workflow/v2\nsteps:\n  - implement:\n"],
+    [step, `${head}do:\n  - agent: {returns: work, access: "\${a}"}\n`],
+  ];
+  for (const [validate, text] of rejected) expect([text, validate(Bun.YAML.parse(text))]).toEqual([text, false]);
+  const accepted = `${head}params:\n  rounds: {default: 1, description: x}\ndo:\n  - loop:\n      max: "\${rounds}"\n      until: more\n      exhausted: continue\n      do:\n        - agent: {returns: findings, prompt: [reviewer, "\${item}"]}\n`;
+  expect([step(Bun.YAML.parse(accepted)), step.errors]).toEqual([true, null]);
+  const missing: string[] = [];
+  const walk = (node: unknown, path: string): void => {
+    if (Array.isArray(node)) node.forEach((n, i) => walk(n, `${path}[${i}]`));
+    else if (node !== null && typeof node === "object") {
+      for (const [k, v] of Object.entries(node)) {
+        if (k === "properties") {
+          for (const [p, def] of Object.entries(v as Record<string, { description?: unknown }>)) {
+            if (typeof def.description !== "string" || def.description === "") missing.push(`${path}.properties.${p}`);
+          }
+        }
+        walk(v, `${path}.${k}`);
+      }
+    }
+  };
+  walk(schemaOf("workflow"), "workflow");
+  walk(schemaOf("step"), "step");
+  expect(missing).toEqual([]);
+});
+
+test("the schemas' versions, keys, enums and patterns are the resolver's", () => {
+  type Node = Record<string, unknown> & { properties: Record<string, Node>; anyOf: Node[]; items: Node; enum: string[]; pattern: string };
+  const step = schemaOf("step") as Node & { $defs: Record<string, Node> };
+  const workflow = schemaOf("workflow") as Node & { $defs: Record<string, Node> };
+  const defs = step.$defs;
+  const keys = (n: Node) => Object.keys(n.properties);
+  const ref = `^\\$\\{${PARAM.source.slice(1, -1)}\\}$`;
+  const agent = (defs.agentNode as Node).properties.agent as Node;
+  const loop = (defs.loopNode as Node).properties.loop as Node;
+  const params = step.properties.params as Node & { propertyNames: { pattern: string; not: { enum: string[] } } };
+  const listItems = (n: Node) => (((n.properties.default as Node).anyOf[3] as Node).items as Node).pattern;
+  const conditionNodes = [loop.properties.until as Node, (defs.whenNode as Node).properties.when as Node];
+  const entry = workflow.$defs.entry as Node & { propertyNames: { pattern: string }; additionalProperties: Node };
+  const entryParams = entry.additionalProperties.anyOf[1] as Node & { propertyNames: { pattern: string }; additionalProperties: Node };
+  const label = (name: string, actual: unknown, expected: unknown) => expect([name, actual]).toEqual([name, expected]);
+  label("step version", (step.properties.version as Node).const, STEP_VERSION);
+  label("workflow version", (workflow.properties.version as Node).const, WORKFLOW_VERSION);
+  label("step keys", keys(step), STEP_KEYS);
+  label("workflow keys", keys(workflow), WORKFLOW_KEYS);
+  label("agent fields", keys(agent), FIELDS.agent);
+  label("foreach fields", keys(defs.foreachNode as Node), ["foreach", ...FIELDS.foreach]);
+  label("loop fields", keys(loop), FIELDS.loop);
+  label("when fields", keys(defs.whenNode as Node), ["when", ...FIELDS.when]);
+  label("returns", (agent.properties.returns as Node).enum, [...TYPES]);
+  label("access", (agent.properties.access as Node).enum, [...ACCESS]);
+  label("model", ((agent.properties.model as Node).anyOf[0] as Node).enum, [...MODELS]);
+  label("model reference", ((agent.properties.model as Node).anyOf[1] as Node).pattern, ref);
+  label("exhausted", (loop.properties.exhausted as Node).enum, [...EXHAUSTED]);
+  for (const [i, n] of conditionNodes.entries()) {
+    label(`conditions ${i}`, (n.anyOf[0] as Node).enum, [...CONDITIONS]);
+    label(`condition list ${i}`, ((n.anyOf[1] as Node).items as Node).enum, [...CONDITIONS]);
+  }
+  label("param name", params.propertyNames.pattern, PARAM.source);
+  label("reserved params", params.propertyNames.not.enum, RESERVED);
+  label("param list default", listItems(params.additionalProperties as Node), NAME.source);
+  label("prompt name", (((agent.properties.prompt as Node).anyOf[0] as Node).anyOf[0] as Node).pattern, NAME.source);
+  label("prompt reference", ((agent.properties.prompt as Node).anyOf[1] as Node).pattern, ref);
+  label("foreach item", ((((defs.foreachNode as Node).properties.foreach as Node).anyOf[0] as Node).items as Node).pattern, NAME.source);
+  label("entry name", entry.propertyNames.pattern, NAME.source);
+  label("entry param name", entryParams.propertyNames.pattern, PARAM.source);
+  label("entry list value", ((entryParams.additionalProperties.anyOf[3] as Node).items as Node).pattern, NAME.source);
+});
+
+test("the site publishes the schemas byte for byte at their $id URLs", () => {
+  for (const kind of ["workflow", "step"] as const) {
+    expect(read(join(REPO, "site", "public", "schemas", `${kind}.v1.json`))).toBe(read(join(SCHEMAS, `${kind}.v1.json`)));
+    expect(schemaOf(kind).$id).toBe(`https://pixelfactoryio.github.io/theway/schemas/${kind}.v1.json`);
+    expect(schemaOf(kind).$schema).toBe("https://json-schema.org/draft/2020-12/schema");
+  }
+  expect(JSON.parse(read(join(REPO, "package.json"))).devDependencies.ajv).toBe("8.20.0");
 });
