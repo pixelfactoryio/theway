@@ -1273,6 +1273,21 @@ test("workflow gives repeated entries the ids <id>-2, <id>-3 and their agents th
   expect(steps[5].do[0].loop.do[1].do[0].agent.label).toBe("review-3:triage");
 });
 
+test("workflow skips a generated id or agent name that a step or prompt already holds", () => {
+  const dir = workflowHome();
+  for (const n of ["a", "a-2", "review-2"]) put(join(dir, "prompts", `${n}.md`), `# ${n}\n`);
+  put(join(dir, "steps", "review-2.yaml"), `${STEP_HEAD}description: x\ndo:\n  - agent: {returns: findings, prompt: [a, a, a-2]}\n`);
+  put(join(dir, "steps", "names.yaml"), `${STEP_HEAD}description: x\ndo:\n  - foreach: [a, a, a-2]\n    do: [agent: {returns: findings, prompt: "\${item}"}]\n`);
+  put(join(dir, "workflows", "w.yaml"), `${WF_HEAD}steps:\n  - review:\n  - review:\n  - review-2:\n  - names:\n`);
+  const res = run(dir, "workflow", "--project", "p", "w");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const steps = JSON.parse(res.stdout).steps;
+  expect(steps.map((s: { id: string }) => s.id)).toEqual(["review", "review-3", "review-2", "names"]);
+  expect(steps[1].do[0].loop.do[0].parallel[0].agent.label).toBe("review-3:conformance");
+  expect(steps[2].do[0].agent.label).toBe("review-2:a-2");
+  expect(steps[3].do.map((n: { agent: { name: string } }) => n.agent.name)).toEqual(["a", "a-3", "a-2"]);
+});
+
 test("workflow gives every step its own agents, else the top-level one, else true, and inline agents no model", () => {
   const dir = workflowHome();
   put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    implement:\n      model: haiku\n");

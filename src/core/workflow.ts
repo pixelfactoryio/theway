@@ -534,14 +534,46 @@ function when(ctx: Ctx, path: string, map: Map<unknown, unknown>): Out {
   return { when: conds, do: nodes(inner, `${path}.do`, map.get("do")) };
 }
 
+/**
+ * Hands out `base`, then `base-2`, `base-3` for a repeated base, skipping any suffixed name that is itself one of the
+ * `literal` names or already handed out, so every name it returns is unique.
+ */
+function uniqueNames(literal: Set<string>): (base: string) => string {
+  const counts = new Map<string, number>();
+  const used = new Set<string>();
+  return (base) => {
+    let n = counts.get(base) ?? 0;
+    let out: string;
+    do {
+      n += 1;
+      out = n === 1 ? base : `${base}-${n}`;
+    } while (used.has(out) || (n > 1 && literal.has(out)));
+    counts.set(base, n);
+    used.add(out);
+    return out;
+  };
+}
+
+/** Every node of a resolved tree, in document order. */
+function walk(tree: Out[], f: (n: Out) => void): void {
+  for (const n of tree) {
+    f(n);
+    if ("parallel" in n) walk(n.parallel, f);
+    else if ("loop" in n) walk(n.loop.do, f);
+    else if ("do" in n) walk(n.do, f);
+  }
+}
+
 /** Gives each agent its name, `-2`, `-3` for a name repeated in the step in document order, and its label. */
 function name(tree: Out[], id: string): void {
-  const seen = new Map<string, number>();
+  const literal = new Set<string>();
+  walk(tree, (n) => {
+    if ("agent" in n) literal.add(n.agent.name);
+  });
+  const unique = uniqueNames(literal);
   const visit = (n: Out): void => {
     if ("agent" in n) {
-      const count = (seen.get(n.agent.name) ?? 0) + 1;
-      seen.set(n.agent.name, count);
-      if (count > 1) n.agent.name = `${n.agent.name}-${count}`;
+      n.agent.name = unique(n.agent.name);
       const { name: agentName, ...rest } = n.agent;
       // Field order: name, label, prompt, returns, access, model.
       const ordered: AgentOut = { name: agentName, label: `${id}:${agentName}`, prompt: rest.prompt, returns: rest.returns, access: rest.access };
@@ -618,12 +650,12 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   const topAgents = typeof root.get("agents") === "boolean" ? (root.get("agents") as boolean) : true;
   const steps: Entry[] = [];
   const pushing: number[] = [];
-  const ids = new Map<string, number>();
-  const idOf = (base: string) => {
-    const n = (ids.get(base) ?? 0) + 1;
-    ids.set(base, n);
-    return n === 1 ? base : `${base}-${n}`;
-  };
+  const listed: unknown = root.get("steps");
+  const literalIds = new Set<string>();
+  if (Array.isArray(listed)) {
+    for (const entry of listed) if (isMap(entry) && entry.size === 1) literalIds.add(String([...entry.keys()][0]));
+  }
+  const idOf = uniqueNames(literalIds);
   const cache = new Map<string, StepFile>();
   for (const key of root.keys()) {
     if (key === "default" && typeof root.get(key) !== "boolean") fail("default must be true or false");
