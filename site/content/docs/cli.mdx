@@ -328,6 +328,7 @@ Which file:
 {
   "name": "agents",
   "file": "/home/you/.theway/workflows/agents.yaml",
+  "input": "changes",
   "commits": "/home/you/.theway/standards/commits.md",
   "git_host": "/home/you/.theway/standards/git-host.md",
   "pushes": true,
@@ -378,9 +379,10 @@ Which file:
 ```
 
 - `commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/projects/<key>/standards/commits.md` and `git-host.md` when they are files, else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
+- `input` is `changes` or `request` (see [Two kinds of workflow](./concepts/workflows.mdx#two-kinds-of-workflow)); an `input: request` workflow always prints `pushes: false` and `working_tree: false`.
 - `pushes` is `true` when a step has an agent with `access: push`: it is what authorizes `/theway:workflow` to push and open the PR. `working_tree` is `true` for a workflow of one inline entry whose tree is one `work` agent with `access: commit`: it creates no branch and commits nothing.
 - Each step entry has its `id` (`review`, `review-2` for a repeated one), `step`, `agents` (its own, else the top-level one, else `true`), `file`, `description`, `params` (each `value` and `from`: the workflow file and `steps[<i>]`, a config file, or the step file) and `do`. A gate entry is `{ "id": "gate", "gate": "<question>", "agents": false }`.
-- In `do`, a sequential `foreach` is replaced by its copies and a parallel one becomes `{ "parallel": [ … ] }`; a `loop` prints `max`, `until`, `exhausted` and `do`; a `when` prints its conditions and `do`, or `"fail": true`. Every agent has `name`, `label`, `prompt` (absolute paths, read in order), `returns`, `access` and `model`; an inline step's agents have no `model`, and its params print none that sets one.
+- In `do`, a sequential `foreach` is replaced by its copies and a parallel one becomes `{ "parallel": [ … ] }`; a `loop` prints `max`, `until`, `exhausted` and `do`; a `when` prints its conditions and `do`, `"fail": true`, or `"block"` (`true` or its message, a `${param}` already substituted). Every agent has `name`, `label`, `prompt` (absolute paths, read in order), `returns`, `access` and `model`; an inline step's agents have no `model`, and its params print none that sets one.
 - The `version` key is not printed.
 
 It writes the warnings of [`config`](#config) to stderr, and its own: a `workflow.defaults` value of another kind than its param, or for a param the step does not declare, a reserved `steps/gate.yaml`, and a loop with `exhausted: fail` whose fix is not guarded by `more`. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the lines of [`project`](#project) for the key, and these, where `<file>` is the path relative to the home:
@@ -393,6 +395,8 @@ theway: workflows/w.yaml: version is required (theway.workflow/v1)
 theway: workflows/w.yaml: steps[1]: no step 'reviews' in <home>/projects/<key>/steps or <home>/steps; did you mean 'review'?
 theway: workflows/w.yaml: steps[0].implement.model has no effect when the step runs inline (agents: false)
 theway: workflows/w.yaml: steps[1]: a pushing step must be the last step
+theway: workflows/w.yaml: steps[0]: an input: request workflow starts with a step whose first agent returns scaffold
+theway: workflows/w.yaml: steps[1]: do[0].agent: access commit is not allowed in an input: request workflow
 theway: steps/review.yaml: do[0].loop.max must be a positive integer (value from workflows/w.yaml steps[1])
 ```
 

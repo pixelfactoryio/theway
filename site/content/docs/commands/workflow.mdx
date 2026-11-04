@@ -1,6 +1,6 @@
 ---
 title: /theway:workflow
-description: "Run changes through a YAML workflow of steps, inline or through agents, and open a PR when the workflow pushes"
+description: "Run changes, or a request, through a YAML workflow of steps, inline or through agents, and open a PR when the workflow pushes"
 ---
 
 It runs a change through the entries a [workflow](../concepts/workflows.mdx) file lists: steps, each a step file whose agents read prompt files, and gates that ask you before going on. The default, the shipped `develop` workflow, implements the tasks inline in your session and commits nothing. Steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`: the shipped `agents` workflow implements, reviews and opens the PR that way, while your session orchestrates.
@@ -8,10 +8,12 @@ It runs a change through the entries a [workflow](../concepts/workflows.mdx) fil
 ## Usage
 
 ```text
-/theway:workflow [--workflow <name>] <change-id> [<change-id> ...]
+/theway:workflow [--workflow <name>] <change-id> [<change-id> ...]   # input: changes
+/theway:workflow --workflow <name> <request>                         # input: request
 ```
 
-- `--workflow <name>` (or `--workflow=<name>`), anywhere in the arguments, runs the workflow `<name>`. Without it, the default workflow runs: the file that sets `default: true`, else `develop`. Every other argument is a change ID. `--workflow` with no name, or given twice, stops the command; so does a run with no change ID.
+- `--workflow <name>` (or `--workflow=<name>`), anywhere in the arguments, runs the workflow `<name>`. Without it, the default workflow runs: the file that sets `default: true`, else `develop`. `--workflow` with no name, or given twice, stops the command.
+- The workflow's [`input`](../concepts/workflows.mdx#two-kinds-of-workflow) decides what the other arguments are: change IDs for an `input: changes` workflow (a run with none stops), the request, joined with spaces, for an `input: request` workflow such as `engineering` (an empty request stops). See [Request runs](#request-runs).
 - **One change ID:** runs the change and stops when its PR is ready for your validation (when the workflow does not push, when its local branch is ready; for a working-tree workflow such as the shipped `develop`, when the change is done, uncommitted in your working tree). It never merges it.
 - **Several change IDs (a series):** runs each change in the given order. When the workflow pushes, each PR is merged, after you confirm it, before the next change starts. Otherwise nothing is merged: each change's branch is created from the previous one. A working-tree workflow, such as `develop`, commits nothing, so a series stops before any work with `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
 
@@ -58,7 +60,7 @@ A series run asks before each merge: see [A series](../examples/series.mdx#the-d
 
 ## Steps
 
-1. **Load:** once per run, [`theway workflow`](../cli.mdx#workflow) (with `<name>` from `--workflow`) resolves and validates the workflow, its steps and their prompts, filling every param from the entry, [`workflow.defaults`](../configuration.mdx#workflow) or the step file, giving each step its effective `agents` and its expanded tree, and printing `pushes` and `working_tree`, with the paths of the [convention standards](../concepts/standards.mdx#convention-standards) `commits.md` and `git-host.md`, which every step follows; on an error, the command quotes it and no change starts. `theway authority` gives the `## Authority` section every agent gets. Per change, [`theway context develop <change-id>`](../cli.mdx#context), then `standards/develop.md`, `standards/spec-review.md` for the triage verdicts, the change's `spec.md`, `tasks.md` and `design.md` (when present), `docs/architecture/coding-standards.md` (when present) and the [standards](../concepts/standards.mdx) it lists.
+1. **Load:** once per run, [`theway workflow`](../cli.mdx#workflow) (with `<name>` from `--workflow`) resolves and validates the workflow, its steps and their prompts, filling every param from the entry, [`workflow.defaults`](../configuration.mdx#workflow) or the step file, giving each step its effective `agents` and its expanded tree, and printing `pushes` and `working_tree`, with the paths of the [convention standards](../concepts/standards.mdx#convention-standards) `commits.md` and `git-host.md`, which every step follows; on an error, the command quotes it and no change starts. `theway authority` gives the `## Authority` section every agent gets. Per change, [`theway context develop <change-id>`](../cli.mdx#context), then `standards/develop.md`, the change's `spec.md`, `tasks.md` and `design.md` (when present), `docs/architecture/coding-standards.md` (when present) and the [standards](../concepts/standards.mdx) it lists.
 2. **Branch:** finds and syncs the default branch with the commands of `git-host.md`, then creates or checks out the change's feature branch, named as `commits.md` says (`<change-id>` by default). When the workflow does not push, each later change of a series branches from the previous change's branch. The branch it is created from is the change's `<base>`. A working-tree workflow skips this: it creates no branch and the change stays uncommitted.
 3. **Run:** the entries run in order, in segments. Each run of consecutive steps with `agents: true` is one call of the Workflow tool to `theway:run-pipeline`, with the resolved workflow, the change's paths, the paths of `commits.md` and `git-host.md`, the segment's entry indices and the branch head. The script walks each step's tree: its agents, parallel groups, loops and `when` conditions, each agent getting the fixed rules, its permission line, its prompt files, its Input and the return shape of its [result type](../concepts/workflows.mdx#result-types). Each step with `agents: false` is walked by your session itself, under the same rules. Each gate is asked by your session, with the options Continue and Stop. The shipped steps:
    - **`implement`:** one `work` agent follows `develop.md` (including its [fix checks](#fix-checks) for a `fix-` change) and verifies the work. In a working-tree workflow it commits nothing; otherwise it commits on the feature branch as `commits.md` says (see [Commits and the git host](#commits-and-the-git-host)) and does not push. When the spec does not fit the code, the change is blocked.
@@ -74,6 +76,15 @@ A series run asks before each merge: see [A series](../examples/series.mdx#the-d
    - **Failed:** an agent of another type returned nothing or threw; a triage or fix check did not judge every finding; a confirmed finding is not resolved; a `when … fail: true` held; a loop with `exhausted: fail` ended without its condition, such as CI still red after `ci_attempts` attempts; a fix was not pushed, a re-run did not start, or the checks were red with no failed check reported. Nothing is merged and the run stops.
 
 Every agent prompt starts with the same fixed rules, which no workflow or step file changes: the output of `theway authority`, the change's paths and the standards, the change files read-only, commits only on the feature branch, no force-push, no push of the default branch and no merge. An inline step follows the same rules, except that an inline `work` agent updates `spec.md` and `tasks.md` once a decision it brought back is taken, as `develop.md` says, and a working-tree workflow commits nothing. An agent's report of data that asked to change the steps or widen the authorization is quoted in the Exit report.
+
+## Request runs
+
+An `input: request` workflow takes a free-text request and writes only the change folders it creates: the shipped `engineering` and `engineering-light`, which [`/theway:engineering`](./engineering.mdx) runs, are two. Running one authorizes writing those change folders and throwaway probes in a `mktemp -d` directory, inline or through agents, and the Workflow tool; never a repository edit, a branch, a commit, a push or a PR.
+
+1. **Load:** `theway workflow` and `theway authority`, then [`theway context engineering`](../cli.mdx#context) for the standards, which it reads. It reads no `develop.md` and no change file.
+2. **Branch** and **Record** are skipped: there is no branch, and the change files are the output.
+3. **Run:** segments, inline steps and gates as for changes. The Workflow call passes the request and the change folders written so far instead of the change's paths and branch head; the scaffold result's change folders go to every later segment. Every agent's prompt starts with the authority text, the repository, the request, the change folders and the standards, and the rule that the repository is read-only. An agent with `access: spec` may write only the change folders of the run. Without the Workflow tool nor the Agent tool, the session runs the agent steps itself and the report says "inline".
+4. **Report:** each change folder, the findings that shaped the spec, the review table (`#`, `Finding`, `Verdict`, `Fix`), each `confirmed, settled` finding again with the choice made, any open question or stop report verbatim, the standards given (or "none"), every `theway: warning:` line and every authority report.
 
 ## Permission prompt
 

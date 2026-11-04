@@ -2,7 +2,7 @@
 
 theway writes a spec and a numbered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.
 
-The steps are yours: a workflow is a YAML file of steps and gates, each step a small tree of agents that read Markdown prompts, run in your session or through agents, with commit conventions and git host commands you can replace per project. See [Workflows](https://pixelfactoryio.github.io/theway/docs/concepts/workflows/).
+The steps are yours: a workflow is a YAML file of steps and gates, each step a small tree of agents that read Markdown prompts, run in your session or through agents, with commit conventions and git host commands you can replace per project. Writing the spec is a workflow too: `/theway:engineering` runs the shipped `engineering` workflow, whose investigation, critics and templates are prompts you can change. See [Workflows](https://pixelfactoryio.github.io/theway/docs/concepts/workflows/).
 
 ![A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them](.github/demo.gif)
 

@@ -5,9 +5,9 @@ description: Every key of <home>/config.yaml and <home>/projects/<key>/config.ya
 
 The configuration lives in `<home>/config.yaml`, where `<home>` is the data home: `~/.theway` by default, or the folder chosen at install (with `--home` or the install question) or set by `THEWAY_HOME` (see [Locations](./cli.mdx#locations); `theway path` prints it). Install writes it once and keeps your copy on later installs; the shipped version is always written to `<home>/config.default.yaml`, so you can compare the two.
 
-A project can have its own `<home>/projects/<key>/config.yaml`, where `<key>` is the [project key](./concepts/changes.mdx#project-key) that `theway project` prints. It takes the same keys as the global file and can override any of them; install never writes it. `/theway:engineering`, with or without `--light`, does not read either file itself: it runs [`theway context <phase>`](./cli.mdx#context) and takes its keys from the `config` it prints. `/theway:workflow` takes its `workflow.defaults` through [`theway workflow`](./cli.mdx#workflow), which fills every step param a workflow file leaves out. When the global `config.yaml` is missing, it fails and the commands tell you to run [`npx --yes @pixelfactoryio/theway@latest install`](./installation.mdx#install-and-update), then `/reload-plugins`. The `standards` keys reach the commands through the `standards` list of the same output, which applies the same layers. `/theway:document`, `/theway:archive` and `/theway:list` read no other key.
+A project can have its own `<home>/projects/<key>/config.yaml`, where `<key>` is the [project key](./concepts/changes.mdx#project-key) that `theway project` prints. It takes the same keys as the global file and can override any of them; install never writes it. `/theway:workflow`, and `/theway:engineering` through it, takes its `workflow.defaults` through [`theway workflow`](./cli.mdx#workflow), which fills every step param a workflow file leaves out. When the global `config.yaml` is missing, it fails and the commands tell you to run [`npx --yes @pixelfactoryio/theway@latest install`](./installation.mdx#install-and-update), then `/reload-plugins`. The `standards` keys reach the commands through the `standards` list of the same output, which applies the same layers. `/theway:document`, `/theway:archive` and `/theway:list` read no other key.
 
-A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections, and `file` and `description` keys: each one gives an `unknown key` warning from `theway config`. It may also have `interaction`, `develop` and `tamm_framework` entries under `standards:`: those standards cannot be switched, and each entry gives a `cannot be switched` warning. You can delete them all.
+A `config.yaml` written by an earlier install may still have `changes:` and `templates:` sections, and `file` and `description` keys: each one gives an `unknown key` warning from `theway config`. It may also have `interaction` and `develop` entries under `standards:`: those standards cannot be switched, and each entry gives a `cannot be switched` warning. An `engineering:` section gives `unknown key engineering`: its review rounds and model are now `workflow.defaults.spec-review.rounds` and `.model` (see [workflow](#workflow)). `tamm_framework`, `spec_review` and `spec_investigation` entries under `standards:` give a `has no standard file` warning: those files are prompts now. You can delete them all.
 
 ## Layering
 
@@ -24,14 +24,11 @@ theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
 ```
 
-`<rule>` is `a non-negative integer`, `true or false`, `opus, sonnet or haiku`, or, for a `workflow.defaults` param, `a string, an integer, a boolean or a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `review`, `defaults` or a step under `defaults` that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
+`<rule>` is `true or false`, or, for a `workflow.defaults` param, `a string, an integer, a boolean or a non-empty list of names without duplicates`. An unknown key is reported once, at its highest unknown level: an unknown section `changes:` gives `unknown key changes`, not one warning per entry. A section, `defaults` or a step under `defaults` that is not a map contributes nothing below it, and a file whose root is not a map contributes nothing. An empty or comment-only file contributes nothing, without a warning. The global file's warnings come first, then the project file's, each in file order. Invalid YAML is an error, not a warning: see [`theway config`](./cli.mdx#config).
 
 For example, with the shipped global `config.yaml`, this `<home>/projects/-home-you-code-my-api/config.yaml` of the project at `/home/you/code/my-api`:
 
 ```yaml
-engineering:
-  review:
-    rounds: 0
 workflow:
   defaults:
     implement:
@@ -51,10 +48,6 @@ standards:
     enabled: false
   quality:
     enabled: false
-engineering:
-  review:
-    rounds: 0
-    model: opus
 workflow:
   defaults:
     implement:
@@ -70,7 +63,7 @@ workflow:
 - `theway config` prints the four opt-in keys first, in the order below, then the key of every user standard of the project, sorted, each with its effective `enabled`.
 - A key with no standard file behind it, in either file, is ignored with a `has no standard file` warning.
 
-The other shipped standards are always read and have no switch: `interaction.md` by `/theway:engineering`, `/theway:workflow`, `/theway:document` and `/theway:archive`; `develop.md` by `/theway:workflow`, inline or through its implementer agent; `tamm-framework.md` by `/theway:engineering`; `spec-review.md` and `spec-investigation.md` by `/theway:engineering`, and `spec-review.md` also by `/theway:workflow`. Their keys, `interaction`, `develop`, `tamm_framework`, `spec_review` and `spec_investigation`, give a `cannot be switched` warning, unless the project holds a file with that name in `<home>/projects/<key>/standards/`: that file is a user standard with its own switch. `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards) `/theway:workflow` follows, have no switch either: `standards.commits` and `standards.git_host` always give a `cannot be switched` warning, and a project file with either name overrides the global one instead of being a user standard.
+The other shipped standards are always read and have no switch: `interaction.md` by `/theway:workflow` (and so `/theway:engineering`), `/theway:document` and `/theway:archive`; `develop.md` by `/theway:workflow`, inline or through its implementer agent. Their keys, `interaction` and `develop`, give a `cannot be switched` warning, unless the project holds a file with that name in `<home>/projects/<key>/standards/`: that file is a user standard with its own switch. `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards) `/theway:workflow` follows, have no switch either: `standards.commits` and `standards.git_host` always give a `cannot be switched` warning, and a project file with either name overrides the global one instead of being a user standard.
 
 | Standard | `enabled` | File | Used for |
 |----------|-----------|--------|----------|
@@ -82,17 +75,6 @@ The other shipped standards are always read and have no switch: `interaction.md`
 A `config.yaml` written by an earlier install has `standards.architecture` instead of these four entries. `standards.architecture` gives a `has no standard file` warning from `theway config`, and the four stay off until you copy them from `config.default.yaml` and set `enabled: true` on the ones you want.
 
 [User standards](./concepts/standards.mdx), your own files in `<home>/standards/` and `<home>/projects/<key>/standards/`, need no config entry: they are on until a `standards.<key>.enabled: false` switches them off.
-
-## engineering
-
-The spec review of [`/theway:engineering`](./commands/engineering.mdx#steps) (step 6). A key that is absent or invalid takes the value of the layer below (see [Layering](#layering)).
-
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `engineering.review.rounds` | `1` | Maximum review rounds per scaffold. A non-negative integer; `0` skips the review. |
-| `engineering.review.model` | `opus` | Model of `/theway:engineering`'s critic agents (two, one with `--light`): `opus`, `sonnet` or `haiku`. Any other value is ignored with a warning. |
-
-Each round spawns two critics. [`/theway:engineering --light`](./commands/engineering.mdx#light) reads the same keys and runs up to `engineering.review.rounds` rounds, with one grounding critic. To lower the cost, put `engineering.review.model` on `sonnet`, or set `engineering.review.rounds: 0` to skip the review.
 
 ## workflow
 
@@ -123,6 +105,13 @@ The shipped steps' params:
 | `pr` | `ci_attempts` | `2` | CI attempts to reach green, re-runs included |
 | | `model` | `sonnet` | the push and PR agent, CI polling and log fetching |
 | | `fix_model` | `opus` | the CI fix agent |
+| `scaffold`, `scaffold-light` | `model` | `opus` | the scaffolder, when the step runs through agents (it runs inline by default) |
+| `spec-review` | `rounds` | `1` | maximum spec review rounds of [`/theway:engineering`](./commands/engineering.mdx) |
+| | `lenses` | `[grounding, implementability]` | one critic per lens, by prompt name (`[grounding]` in `engineering-light`) |
+| | `model` | `opus` | the critics, the triage and the fix agent |
+| | `on_decision` | `open question` | the message a confirmed decision stops the run with |
+
+The spec review of `/theway:engineering`, with or without `--light`, takes its rounds and model from `workflow.defaults.spec-review`, for example `spec-review: {rounds: 2, model: sonnet}`. `rounds` is a positive integer: to skip the review, use a project copy of the workflow without `spec-review`.
 
 To lower the cost of a run, put `implement.model`, `review.fix_model` and `pr.fix_model` on `sonnet` and keep `review.model` on `opus`, so the review still catches what a cheaper implementer misses.
 
