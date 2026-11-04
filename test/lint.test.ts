@@ -530,7 +530,8 @@ type Scripted = unknown | ((text: string) => unknown);
 
 /**
  * Runs run-pipeline.js with `args`, answering each agent by its label from `script`: a list of results, one per call
- * in order; a function result is called with the prompt, and a thrown Error is rethrown.
+ * in order; a function result is called with the prompt, and a thrown Error is rethrown. It checks every prompt with
+ * `expectPrompts`.
  */
 async function drive(args: Record<string, unknown>, script: Record<string, Scripted[]>) {
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
@@ -549,6 +550,8 @@ async function drive(args: Record<string, unknown>, script: Record<string, Scrip
   };
   const parallel = async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map((t) => t().catch(() => null)));
   const result = await run(args, agent, parallel, null, (t: string) => phases.push(t), () => {});
+  // Every prompt of every run starts with the fixed rules and holds its node's permission line.
+  if (calls.length > 0) expectPrompts(args.workflow as { steps: Entry[] }, calls);
   return { result, calls, phases };
 }
 
