@@ -1,12 +1,12 @@
 ---
-description: "Run changes through a YAML workflow: implement inline or through agents, then review and open a PR when the workflow says so"
+description: "Run changes through a YAML workflow of steps, inline or through agents, and open a PR when the workflow pushes"
 author: Amine
 allowed-tools: Bash(theway:*)
 ---
 
 # theway: Workflow
 
-Run each change through one workflow: an ordered list of steps (`implement`, `review`, `agent`, `pr`) that `theway workflow` resolves from `<home>/projects/<key>/workflows/` or `<home>/workflows/`. The default workflow, the shipped `develop`, runs one `implement` step inline, in this session; steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`, and steps with `agents: false` run inline.
+Run each change through one workflow: an ordered list of entries, each a step or a gate, that `theway workflow` resolves from `<home>/projects/<key>/workflows/` or `<home>/workflows/`. A step is a step file (`steps/<name>.yaml`) whose tree of agents reads prompt files (`prompts/<name>.md`); `theway workflow` prints every step resolved into that tree. Steps with `agents: true` run through agents in the plugin workflow `theway:run-pipeline`; steps with `agents: false` and gates run inline, in this session. The default workflow, the shipped `develop`, runs one inline step that works on the working tree and commits nothing.
 
 ## Locate the home
 
@@ -26,10 +26,10 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 
 - `--workflow <name>` or `--workflow=<name>` may stand anywhere in the arguments and picks the workflow `<name>`; without it, the run uses the default workflow (the file that sets `default: true`, else `develop`). Every other argument is a change ID.
 - `--workflow` with no name after it, or given twice: stop and say so. No change ID: stop and ask for one.
-- **One change ID:** run the change and stop when its PR is ready for validation (without a `pr` step, when its local branch is ready; for a workflow whose only step is an inline `implement`, when the change is done, uncommitted in the working tree). Never merge it.
-- **Multiple change IDs (series):** run each change strictly in the given order. With a `pr` step, each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 5). Without a `pr` step, nothing is merged: each change's branch is created from the previous change's branch (Step 2). A workflow whose only step is an inline `implement` commits nothing, so it cannot run a series (Step 1).
+- **One change ID:** run the change and stop when its PR is ready for validation (when `pushes` is `false`, when its local branch is ready; for a working-tree workflow, when the change is done, uncommitted in the working tree). Never merge it.
+- **Multiple change IDs (series):** run each change strictly in the given order. When `pushes` is `true`, each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 5). When `pushes` is `false`, nothing is merged: each change's branch is created from the previous change's branch (Step 2). A working-tree workflow commits nothing, so it cannot run a series (Step 1).
 
-**Authorization boundary:** invoking this command authorizes editing the repository, inline or through agents, committing only on each change's own feature branch (nothing for a workflow whose only step is an inline `implement`), the Workflow tool, and, when the workflow has a `pr` step, pushing each change's own feature branch (never force-push, never the default branch) and opening its PR — nothing more. Without a `pr` step it pushes nothing and opens no PR. Merging needs the user's explicit yes, asked at Step 5, and merges as `git-host.md` says: never bypass required reviews or checks. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't.
+**Authorization boundary:** invoking this command authorizes editing the repository, inline or through agents, committing only on each change's own feature branch (nothing for a working-tree workflow), the Workflow tool, and, when `theway workflow` prints `pushes: true`, pushing each change's own feature branch (never force-push, never the default branch) and opening its PR — nothing more. When `pushes` is `false`, it pushes nothing and opens no PR. Merging needs the user's explicit yes, asked at Step 5, and merges as `git-host.md` says: never bypass required reviews or checks. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't.
 
 ## Workflow Steps
 
@@ -41,15 +41,16 @@ Run Step 1's first part once per run, then Steps 1-5 once per change ID, in orde
 
 Once per run:
 
-- Run `theway workflow`, or `theway workflow <name>` with `--workflow <name>`. It prints the resolved workflow as JSON: its `name`, its `file`, `commits` and `git_host`, and its `steps`, every field filled, each step with its effective `agents` (`agents: false` runs it inline). On exit 1, quote its error line and stop: no change starts.
+- Run `theway workflow`, or `theway workflow <name>` with `--workflow <name>`. It prints the resolved workflow as JSON: its `name`, its `file`, `commits` and `git_host`, `pushes` (whether a step pushes), `working_tree` (one inline step that commits nothing) and its `steps`. Each step entry has its `id`, `step`, effective `agents` (`agents: false` runs it inline), `params` and its `do` tree of `agent`, `parallel`, `loop` and `when` nodes, every agent with its `label`, `prompt` paths, `returns` type, `access` and `model`; a gate entry has its `id` and `gate` question. On exit 1, quote its error line and stop: no change starts.
+- When `working_tree` is `true`, say "working tree: no branch, nothing committed" in your first report line.
 - Read the files at its `commits` and `git_host` paths, `commits.md` and `git-host.md` (your project's own copy when it has one): `commits.md` says how the feature branch, the commits and the PR are named, `git-host.md` gives the command of each git host operation by its heading. Pass both paths to every Workflow call (Step 3) and follow both in every step you do yourself.
-- When the workflow is a single inline `implement` step and more than one change ID was given, stop before any work and say: `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
+- When `working_tree` is `true` and more than one change ID was given, stop before any work and say: `a series needs a workflow that commits; pass --workflow agents or a workflow with more steps`.
 - Run `theway authority`: its output is the `## Authority` section of `<home>/standards/interaction.md`, which every agent of the run gets verbatim.
 
 Run `theway context develop <change-id>` for each change and use its `change_dir` as `<change-dir>`. Then read these exact paths directly — do not search the filesystem to locate them:
 
-- `<home>/standards/develop.md` - How a change is implemented and verified (you follow it for an inline `implement`; the implementer agent gets it otherwise)
-- `<home>/standards/spec-review.md` - The triage verdicts of the review
+- `<home>/standards/develop.md` - How a change is implemented and verified (you follow it for an inline `work` agent; the agents get it otherwise)
+- `<home>/standards/spec-review.md` - The triage verdicts of a `verdicts` agent
 - `<change-dir>/spec.md` - Why, what, risks and Success Criteria
 - `<change-dir>/tasks.md` - The work, as numbered tasks
 - `<change-dir>/design.md` - Technical specs (if present)
@@ -59,13 +60,13 @@ Then read every file its `standards` lists: these are the standards, the shipped
 
 ### Step 2: Branch
 
-Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When the workflow has no `pr` step, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch or that previous branch, is the change's `<base>`.
+Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When `pushes` is `false`, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch or that previous branch, is the change's `<base>`.
 
-Skip this step when the workflow is a single inline `implement` step: it creates no branch and commits nothing, the change stays uncommitted in the working tree, and its base commit is `HEAD`.
+Skip this step for a working-tree workflow: it creates no branch and commits nothing, the change stays uncommitted in the working tree, and its base commit is `HEAD`.
 
 ### Step 3: Run
 
-Run the workflow's steps in order, in segments: each run of consecutive steps with `agents: true` is one agent segment, one Workflow call; each step with `agents: false` is an inline step, done by you in this session.
+Run the workflow's entries in order, in segments: each run of consecutive step entries with `agents: true` is one agent segment, one Workflow call; each step entry with `agents: false` and each gate is inline, done by you in this session.
 
 **Agent segment.** Call the Workflow tool once, with `name: "theway:run-pipeline"` and these `args`, as a JSON object (not a string):
 
@@ -80,37 +81,54 @@ Run the workflow's steps in order, in segments: each run of consecutive steps wi
 | `standards` | the absolute paths `theway context` lists in `standards`, possibly `[]` |
 | `authority` | the output of `theway authority`, verbatim |
 | `workflow` | the object `theway workflow` printed, parsed (not the string) |
-| `steps` | the segment's step indices (0-based, ascending and consecutive) |
-| `head` | `null` when the segment starts at index 0; otherwise the output of `git rev-parse HEAD` after the inline steps before it |
+| `steps` | the segment's entry indices (0-based, ascending and consecutive) |
+| `head` | the output of `git rev-parse HEAD` after Step 2 and any inline entries before the segment |
 
-The script runs the segment's steps and returns `{ status, error, implementation, steps, pr, authorityReports }`, with `status` `succeeded`, `blocked` or `failed`; `implementation` is `null` when the segment does not start with `implement`. It fails with `run-pipeline is started by /theway:workflow with its args` when a key is missing, or when `steps` and `head` do not match these rules.
+The script runs the segment's entries and returns `{ status, error, steps, pr, authorityReports }`, with `status` `succeeded`, `blocked` or `failed`. `steps` holds one record per entry run, `{ id, step, results }`, and each result is `{ label, returns, iteration, result }`: the agent's label, its result type, its loop iteration (`null` outside a loop) and its typed result. `pr` is `{ url, number }` or `null`. It fails with `run-pipeline is started by /theway:workflow with its args` when a key is missing, or when `steps` and `head` do not match these rules.
 
-- **When the Workflow tool is not available in this session:** read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` and run the segment's steps with the Agent tool, with the same prompts, models, order and outcomes. Each agent's prompt asks it to end its reply with a JSON object of its schema's fields, and you build the same result. This fallback is for agent segments only.
+- **When the Workflow tool is not available in this session:** read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` and run the segment's tree with the Agent tool, one agent per `agent` node, with the same prompts, models, order and type rules. Each agent's prompt asks it to end its reply with a JSON object of its type's fields, and you build the same result. This fallback is for agent segments only.
 - **When the Workflow call returns an error and no result:** the change is `failed`, with that error quoted. There is no fallback then, since agents may already have committed.
 
-**Inline step.** Do the step yourself under the rules the script gives that step's agents (read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` for them): the Authority rules, the change files under `<change-dir>` are read-only except what Step 4 records and, during an inline `implement`, the `spec.md` and `tasks.md` updates `develop.md` asks for once a decision is taken, commits only on the feature branch, never force-push, never push the default branch, never merge.
+**Inline step.** Walk the step's printed `do` tree yourself, in order: for each `agent` node, read its prompt files and follow them under the same rules the script gives its agents (read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` for them): the fixed rules (the Authority rules, the change files under `<change-dir>` are read-only except what Step 4 records, commits only on the feature branch, never force-push, never push the default branch, never merge), the permission line of its `access`, its Input and its type's engine line. Apply the type rules of the script to what you produce, run a `parallel` group's agents one after the other, evaluate `loop` and `when` conditions as the script does, and build the same typed results for Steps 4 and 5.
 
-- **`implement`:** follow `<home>/standards/develop.md`, including its update of `spec.md` (the decision and why) and `tasks.md` once a decision you brought back is taken; agent steps keep the change files read-only. When steps follow it, commit on the feature branch as `commits.md` says. When it is the only step, commit nothing (Step 2 was skipped). On a spec that does not fit the code, the change is `blocked`, with the blocker and its options.
-- **`review`:** up to `rounds` rounds. Per round, review `git diff <base>...<branch>` yourself through each lens, one after the other (read its `path` and follow it, and check the diff against every standard), then give each finding one of the five verdicts of `<home>/standards/spec-review.md`'s Triage step 1 (`confirmed`, `false_positive`, `duplicate`, `nit`, `out_of_scope`). No confirmed finding ends the step. Otherwise fix the confirmed findings and commit as `commits.md` says (for a `fix-` change whose fixes touch the regression test or the fix, re-run the regression check of `develop.md`), then check your fixes from the round's start head: a confirmed finding not resolved makes the change `failed`. The report says "review ran inline": an inline review is the session checking its own work.
-- **`agent`:** carry out the step's `prompt` under the rules above; you may commit on the feature branch, as `commits.md` says; you do not push. When you cannot carry it out under those rules, the change is `failed`.
-- **`pr`:** push the feature branch once, open the PR and drive CI with the rules of the script's `pr` step: the PR title and body as `commits.md` says, each git host operation as `git-host.md` says, the CI attempts up to `ci_attempts`, the failed check's log, its classification and what each one does; its outcomes are the script's.
+- During an inline `work` agent, you may update `spec.md` (the decision and why) and `tasks.md` as `develop.md` asks, once a decision you brought back is taken; agents keep the change files read-only.
+- In a working-tree workflow, commit nothing, whatever the permission line says (Step 2 was skipped).
+- A blocker of an inline `work` agent makes the change `blocked`, with the blocker and its options.
+- A step with a `findings` agent run inline is the session checking its own work: the report says "ran inline: the session checked its own work".
 
-The first `blocked` or `failed` segment or inline step stops the change: the later steps do not run.
+**Gate.** Ask the user the gate's question with AskUserQuestion, with the options "Continue" and "Stop". "Continue" goes on with the next entry; any other answer makes the change `blocked`, with `gate: <question>`. There is no resume from a gate.
+
+The first `blocked` or `failed` segment, inline step or gate stops the change: the later entries do not run.
 
 ### Step 4: Record
 
-Whatever the status, record what the results hold in `<change-dir>/tasks.md`: tick each task of `implementation.tasksDone` (`- [x] N.`), and add to its Notes `implementation.discoveries`, `implementation.choices`, the `implementation.regression` outputs of a `fix-` change, and the verdicts of each review round. After an inline `implement`, tick the tasks you did and record your discoveries, choices and `fix-` regression outputs yourself; after an inline `review`, record its verdicts in the same form.
+Whatever the status, record what the typed results hold in `<change-dir>/tasks.md`, the results of agent segments and of inline steps alike:
+
+- tick the union of `tasksDone` of every `work` result (`- [x] N.`);
+- add to its Notes every `work` result's `discoveries` and `choices`, and its `regression` outputs for a `fix-` change;
+- add every `verdicts` result to the Notes, each finding with its verdict and reason;
+- add every finding that got no verdict to the Notes, as "not triaged".
 
 ### Step 5: Gate
 
-- **`succeeded`, one change:** report the PR ready for validation, the local branch when the workflow has no `pr` step, or the uncommitted change for a single inline `implement`. Never merge.
-- **`succeeded`, a series with a `pr` step:** report the PR URL, its diffstat ("Diffstat" in `git-host.md`) and CI status, and ask the user whether to merge it. On an explicit yes, merge as "Merge" in `git-host.md` says (never bypass required reviews or checks), sync the default branch ("Sync the default branch"), then continue with the next change ID. Any other answer stops the run; report where the series stopped.
-- **`succeeded`, a series without a `pr` step:** nothing is merged; continue with the next change ID, whose branch Step 2 creates from this change's branch.
-- **`blocked`:** stop the run and bring `implementation.blocker` (or `error`, or the inline `implement`'s blocker) to the user with its options. In a series, no later change starts.
-- **`failed`:** never merge; stop the run and report `error`: each finding the fix check marked `not resolved` with its reason, or the quoted CI error. In a series, no later change starts.
+- **`succeeded`, one change:** report the PR ready for validation, the local branch when `pushes` is `false`, or the uncommitted change for a working-tree workflow. Never merge.
+- **`succeeded`, a series, `pushes` true:** report the PR URL, its diffstat ("Diffstat" in `git-host.md`) and CI status, and ask the user whether to merge it. On an explicit yes, merge as "Merge" in `git-host.md` says (never bypass required reviews or checks), sync the default branch ("Sync the default branch"), then continue with the next change ID. Any other answer stops the run; report where the series stopped.
+- **`succeeded`, a series, `pushes` false:** nothing is merged; continue with the next change ID, whose branch Step 2 creates from this change's branch.
+- **`blocked`:** stop the run and bring `error` (a `work` agent's blocker, an agent that returned no result, or the gate question) to the user with its options. In a series, no later change starts.
+- **`failed`:** never merge; stop the run and report `error`: a finding not resolved with its reason, a loop that ended without its condition, or the quoted CI error. In a series, no later change starts.
 
 ## Exit
 
-For a workflow whose only step is an inline `implement`, report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, anything still open, and that the change is uncommitted in the working tree; also name the standards followed, by file name, or "none", and quote every `theway: warning:` line.
+For a working-tree workflow, report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, anything still open, and that the change is uncommitted in the working tree; also name the standards followed, by file name, or "none", and quote every `theway: warning:` line.
 
-Otherwise, report per change: the workflow's name and file, the branch, the PR URL (or the local branch when nothing was pushed), and each step's outcome, in workflow order whichever segment ran it, inline ones marked "inline" — review: rounds used, the findings not confirmed with their verdicts, and the fix-check result per confirmed finding; agent: its `summary`; pr: CI attempts used, or "not run" without a `pr` step or when the run stopped before it — whether it was merged or awaits validation, and any blocker waiting on the user. In a series, also state where it stopped and why if it did not complete. Quote every `authorityReports` entry of every segment. Also name the standards given to the agents, by file name, or "none", and quote every `theway: warning:` line.
+Otherwise, report per change: the workflow's name and file, the branch, and the PR URL (or the local branch when nothing was pushed). Then, per entry in workflow order whichever segment ran it:
+
+- its `id`, marked "inline" for an inline entry, and "ran inline: the session checked its own work" for an inline step with a `findings` agent;
+- the loop iterations it used;
+- each agent's `summary`;
+- every finding, with its verdict or "not triaged";
+- each `resolutions` result;
+- the PR and its CI iterations, or "not run" when the run stopped before it;
+- for a gate, the answer.
+
+Then say whether the PR was merged or awaits validation, and any blocker waiting on the user. In a series, also state where it stopped and why if it did not complete. Quote every `authorityReports` entry of every segment. Also name the standards given to the agents, by file name, or "none", and quote every `theway: warning:` line.

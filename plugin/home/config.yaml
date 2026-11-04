@@ -25,31 +25,11 @@ engineering:
     # The critic agents (two in /theway:engineering, one with --light): opus, sonnet or haiku; lower cost: sonnet
     model: opus
 
-# Workflow - defaults for /theway:workflow: a field a step of a workflow file leaves out takes its value here (absent or invalid key means the default)
-# Models: opus, sonnet or haiku
+# Workflow - defaults for /theway:workflow: workflow.defaults.<step>.<param> sets a param of a step for every
+# workflow entry of that step that leaves it out (a value in the entry wins); the step files hold the defaults, and
+# theway steps lists every step with its params
 workflow:
-  defaults:
-    # The implementer
-    implement:
-      model: opus
-    # The local review before anything is pushed
-    review:
-      # Maximum review rounds; leave the review step out of a workflow to skip the review
-      rounds: 1
-      # One reviewer per lens, from <home>/projects/<key>/lenses/<name>.md or <home>/lenses/<name>.md
-      lenses: [conformance, correctness]
-      # The reviewers, the triage agent and the fix check
-      model: opus
-      # The fix agent of each round
-      fix_model: opus
-    # The push, the PR and CI; leave the pr step out of a workflow to push nothing
-    pr:
-      # CI attempts to reach green, re-runs included
-      ci_attempts: 2
-      # The push/PR agent, CI polling and log fetching
-      model: sonnet
-      # The CI fix agent
-      fix_model: opus
-    # A custom agent step
-    agent:
-      model: sonnet
+  defaults: {}
+  # For example, two review rounds:
+  # defaults:
+  #   review: {rounds: 2}

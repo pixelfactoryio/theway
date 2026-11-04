@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
+version: theway.step/v1
+description: Review the diff through each lens, triage the findings, fix the confirmed ones and check the fixes
+params:
+  rounds: {default: 1, description: Maximum review rounds}
+  lenses: {default: [conformance, correctness], description: "One reviewer per lens, by prompt name"}
+  model: {default: opus, description: "The reviewers, the triage and the fix check"}
+  fix_model: {default: opus, description: The fix agent of each round}
+do:
+  - loop:
+      max: "${rounds}"
+      until: no-confirmed
+      exhausted: continue
+      do:
+        - foreach: "${lenses}"
+          parallel: true
+          do:
+            - agent: {prompt: [reviewer, "${item}"], returns: findings}
+        - when: findings
+          do:
+            - agent: {prompt: triage, returns: verdicts}
+        - when: confirmed
+          do:
+            - agent: {prompt: fix, returns: work, model: "${fix_model}"}
+            - agent: {prompt: fix-check, returns: resolutions}

@@ -10,7 +10,7 @@ import { cmdPath } from "./core/path";
 import { cmdProject } from "./core/project";
 import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
-import { cmdWorkflow } from "./core/workflow";
+import { cmdSteps, cmdWorkflow } from "./core/workflow";
 import { install, uninstall } from "./install";
 
 const nonEmpty = (value: string): string => {
@@ -75,6 +75,11 @@ export function buildProgram(): Command {
     .argument("[name]")
     .option("--project <key>")
     .action((name: string | undefined, o: { project?: string }) => exit(cmdWorkflow(name, o.project)));
+  program
+    .command("steps")
+    .argument("[name]")
+    .option("--project <key>")
+    .action((name: string | undefined, o: { project?: string }) => exit(cmdSteps(name, o.project)));
   program.command("authority").action(() => exit(cmdAuthority()));
   program
     .command("next-id")

@@ -1,4 +1,7 @@
-# Implement, review and open the PR through agents. Fields left out come from workflow.defaults in config.yaml.
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
+# Implement, review and open the PR through agents. A param an entry leaves out comes from workflow.defaults in
+# config.yaml, else from the step file: theway steps lists them.
+version: theway.workflow/v1
 steps:
   - implement:
   - review:

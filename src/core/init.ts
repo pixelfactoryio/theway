@@ -19,8 +19,12 @@ const SHIPPED_DIRS: { dir: string; ext: string; shared?: string }[] = [
   { dir: "standards", ext: ".md", shared: "standards" },
   { dir: "templates", ext: ".md" },
   { dir: "workflows", ext: ".yaml", shared: "workflows" },
-  { dir: "lenses", ext: ".md", shared: "lenses" },
+  { dir: "steps", ext: ".yaml", shared: "steps" },
+  { dir: "prompts", ext: ".md", shared: "prompts" },
+  { dir: "schemas", ext: ".json" },
 ];
+/** The folder theway shipped review lenses in before they became prompts: retired by `retireLenses`. */
+const LENSES = "lenses";
 const MANIFEST = ".shipped.json";
 
 type Manifest = Record<string, string>;
@@ -118,13 +122,49 @@ function migrateDataStandards(src: string, home: string): void {
 }
 
 /**
- * Writes the shipped standards, templates, workflows and lenses into `home`: a file the user has not edited is updated,
+ * Retires `lenses/`, which theway no longer ships nor reads: a lens the previous manifest lists is removed when
+ * unedited and kept with a message when edited, every `.default.md` copy is removed, every other `.md` file (the
+ * user's own) is kept with a message, and the folder is removed when it is left empty.
+ */
+function retireLenses(home: string, previous: Manifest | undefined): void {
+  const dir = `${home}/${LENSES}`;
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+  const move = (name: string) => `theway no longer reads ${LENSES}/; move it to prompts/${name}`;
+  const listed = new Set<string>();
+  for (const [rel, hash] of Object.entries(previous ?? {})) {
+    if (!rel.startsWith(`${LENSES}/`)) continue;
+    const name = rel.slice(LENSES.length + 1);
+    listed.add(name);
+    const path = `${home}/${rel}`;
+    if (!existsSync(path)) continue;
+    if (sha256(readFileSync(path)) === hash) {
+      rmSync(path);
+      process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+    } else {
+      process.stdout.write(`Kept your edited ${rel}: ${move(name)}\n`);
+    }
+  }
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    const name = entry.name;
+    if (!entry.isFile() || !name.endsWith(".md") || listed.has(name)) continue;
+    if (name.endsWith(".default.md")) {
+      rmSync(`${dir}/${name}`, { force: true });
+      continue;
+    }
+    process.stdout.write(`Kept ${LENSES}/${name}: ${move(name)}\n`);
+  }
+  removeIfEmpty(dir);
+}
+
+/**
+ * Writes the shipped standards, templates, workflows, steps, prompts and schemas into `home`: a file the user has not edited is updated,
  * an edited one is kept and the shipped version goes next to it as `<stem>.default.<ext>`.
- * `standards/`, `workflows/` and `lenses/` are shared with the user's own files: a user file with a shipped name is
+ * `standards/`, `workflows/`, `steps/` and `prompts/` are shared with the user's own files: a user file with a shipped name is
  * kept, a file theway stops shipping is removed when unedited, and an orphan `.default.<ext>` copy is removed.
  */
 function copyShipped(src: string, home: string): void {
   const previous = readManifest(home);
+  retireLenses(home, previous);
   const manifest: Manifest = {};
   for (const { dir, ext, shared } of SHIPPED_DIRS) {
     const isShared = shared !== undefined;
@@ -205,7 +245,7 @@ function enableStandards(text: string, enabled: readonly string[]): string {
   return lines.join("\n");
 }
 
-/** Copies the shipped config, standards, templates, workflows and lenses into `home`; a new `config.yaml` has the `enabled` standards on. */
+/** Copies the shipped config, standards, templates, workflows, steps, prompts and schemas into `home`; a new `config.yaml` has the `enabled` standards on. */
 export function init(src: string, home: string, enabled: readonly string[] = []): number {
   try {
     mkdirSync(home, { recursive: true });

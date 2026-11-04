@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelfactoryio.github.io/theway/schemas/step.v1.json",
+  "title": "theway step",
+  "description": "A theway step: params and a tree of agent, foreach, loop and when nodes. theway workflow is the authority for the rules this schema cannot express.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "description",
+    "do"
+  ],
+  "properties": {
+    "version": {
+      "const": "theway.step/v1",
+      "description": "The format of this file: theway.step/v1."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the step does, in one line; theway steps prints it."
+    },
+    "params": {
+      "type": "object",
+      "description": "The step's params, by snake_case name; agents and item are reserved.",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "not": {
+          "enum": [
+            "agents",
+            "item"
+          ]
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "default",
+          "description"
+        ],
+        "description": "A param definition: its default and its description.",
+        "properties": {
+          "default": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "A string."
+              },
+              {
+                "type": "integer",
+                "description": "An integer."
+              },
+              {
+                "type": "boolean",
+                "description": "A boolean."
+              },
+              {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                  "description": "A name: lowercase letters and digits in words separated by single hyphens."
+                },
+                "description": "A non-empty list of names without duplicates."
+              }
+            ],
+            "description": "The value used when no workflow entry or config default sets it."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the param sets; theway steps prints it."
+          }
+        }
+      }
+    },
+    "do": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "description": "The nodes, run in order."
+    }
+  },
+  "$defs": {
+    "node": {
+      "description": "One node: exactly one of agent, foreach, loop or when.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/agentNode"
+        },
+        {
+          "$ref": "#/$defs/foreachNode"
+        },
+        {
+          "$ref": "#/$defs/loopNode"
+        },
+        {
+          "$ref": "#/$defs/whenNode"
+        }
+      ]
+    },
+    "agentNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent"
+      ],
+      "description": "An agent node.",
+      "properties": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "returns"
+          ],
+          "description": "One agent: the prompts it reads, the result type it returns, its model and its access.",
+          "properties": {
+            "prompt": {
+              "description": "The prompt files the agent reads, by name; default: the step's name.",
+              "anyOf": [
+                {
+                  "description": "A prompt name or a non-empty list of them, read in order.",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                      "description": "A prompt name."
+                    },
+                    {
+                      "type": "array",
+                      "minItems": 1,
+                      "description": "Prompt names, read in order.",
+                      "items": {
+                        "description": "A prompt name.",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                            "description": "A prompt name."
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^\\$\\{[a-z][a-z0-9_]*\\}$",
+                            "description": "A reference to a param, or to the foreach item, as the whole value."
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$\\{[a-z][a-z0-9_]*\\}$",
+                  "description": "A reference to a param, or to the foreach item, as the whole value."
+                }
+              ]
+            },
+            "returns": {
+              "type": "string",
+              "enum": [
+                "work",
+                "findings",
+                "verdicts",
+                "resolutions",
+                "pr",
+                "ci",
+                "diagnosis"
+              ],
+              "description": "The result type: it fixes the JSON shape and the engine's rules."
+            },
+            "model": {
+              "description": "The agent's model; default: the step's model param, else sonnet.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "opus",
+                    "sonnet",
+                    "haiku"
+                  ],
+                  "description": "A model."
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$\\{[a-z][a-z0-9_]*\\}$",
+                  "description": "A reference to a param, or to the foreach item, as the whole value."
+                }
+              ]
+            },
+            "access": {
+              "type": "string",
+              "enum": [
+                "read",
+                "commit",
+                "push"
+              ],
+              "description": "What the agent may do on the branch; default from returns: work commits, pr pushes, every other type reads."
+            }
+          }
+        }
+      }
+    },
+    "foreachNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foreach",
+        "do"
+      ],
+      "description": "A foreach node: one copy of do per item.",
+      "properties": {
+        "foreach": {
+          "description": "The items: a list of names, normally a param reference.",
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                "description": "An item: a name."
+              },
+              "description": "A list of names."
+            },
+            {
+              "type": "string",
+              "pattern": "^\\$\\{[a-z][a-z0-9_]*\\}$",
+              "description": "A reference to a param, or to the foreach item, as the whole value."
+            }
+          ]
+        },
+        "parallel": {
+          "type": "boolean",
+          "description": "Whether the copies run as one parallel group; then every node of do is an agent with access: read."
+        },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "description": "The nodes, run in order."
+        }
+      }
+    },
+    "loopNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "loop"
+      ],
+      "description": "A loop node.",
+      "properties": {
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max",
+            "until",
+            "exhausted",
+            "do"
+          ],
+          "description": "A loop: do runs until its until conditions hold, at most max times.",
+          "properties": {
+            "max": {
+              "description": "The maximum number of iterations.",
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "A positive integer."
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$\\{[a-z][a-z0-9_]*\\}$",
+                  "description": "A reference to a param, or to the foreach item, as the whole value."
+                }
+              ]
+            },
+            "until": {
+              "description": "A condition, or a non-empty list of conditions that must all hold.",
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "findings",
+                    "no-findings",
+                    "confirmed",
+                    "no-confirmed",
+                    "green",
+                    "red",
+                    "fixable",
+                    "more"
+                  ],
+                  "description": "A condition evaluated on the current scope."
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "findings",
+                      "no-findings",
+                      "confirmed",
+                      "no-confirmed",
+                      "green",
+                      "red",
+                      "fixable",
+                      "more"
+                    ],
+                    "description": "A condition evaluated on the current scope."
+                  },
+                  "description": "Conditions that must all hold."
+                }
+              ]
+            },
+            "exhausted": {
+              "type": "string",
+              "enum": [
+                "continue",
+                "fail"
+              ],
+              "description": "What happens when max iterations ran without until: continue with the next node, or fail the change."
+            },
+            "do": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/node"
+              },
+              "description": "The nodes, run in order."
+            }
+          }
+        }
+      }
+    },
+    "whenNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "when"
+      ],
+      "description": "A when node: exactly one of do or fail: true.",
+      "oneOf": [
+        {
+          "required": [
+            "do"
+          ],
+          "description": "Runs do when the conditions hold."
+        },
+        {
+          "required": [
+            "fail"
+          ],
+          "description": "Fails the change when the conditions hold."
+        }
+      ],
+      "properties": {
+        "when": {
+          "description": "A condition, or a non-empty list of conditions that must all hold.",
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "findings",
+                "no-findings",
+                "confirmed",
+                "no-confirmed",
+                "green",
+                "red",
+                "fixable",
+                "more"
+              ],
+              "description": "A condition evaluated on the current scope."
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "findings",
+                  "no-findings",
+                  "confirmed",
+                  "no-confirmed",
+                  "green",
+                  "red",
+                  "fixable",
+                  "more"
+                ],
+                "description": "A condition evaluated on the current scope."
+              },
+              "description": "Conditions that must all hold."
+            }
+          ]
+        },
+        "do": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "description": "The nodes, run in order."
+        },
+        "fail": {
+          "const": true,
+          "description": "Fails the change when the conditions hold."
+        }
+      }
+    }
+  }
+}
