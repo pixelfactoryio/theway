@@ -259,18 +259,6 @@ export function load(home: string, file: string, refs = false): { root: unknown 
  */
 export type Loaded = { config: Config; standards: Standard[]; defaults: DefaultsLayer[] };
 
-/** The file each merged `workflow.defaults.<step>.<param>` comes from: the project file over the global one. */
-export function defaultsOrigins(loaded: Loaded): Record<string, Record<string, string>> {
-  const out = dict<Record<string, Record<string, string>>>();
-  for (const layer of loaded.defaults) {
-    for (const [step, params] of layer.steps) {
-      out[step] ??= dict<Record<string, string>>();
-      for (const param of params.keys()) (out[step] as Record<string, string>)[param] = layer.file;
-    }
-  }
-  return out;
-}
-
 /** A project's effective config and standards, or the error line that stops it. */
 export type Effective = Loaded | { error: string };
 
