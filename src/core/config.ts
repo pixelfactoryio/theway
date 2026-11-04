@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import { readManifest } from "./init";
 import { warnUnknownDefaults } from "./step-files";
-import { isFile, isNameList, MODELS, thewayHome } from "./io";
+import { isFile, isNameList, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 
 /** A leaf's type: the rule its value must follow. */
-type Rule = "boolean" | "non-negative" | "positive" | "model";
+type Rule = "boolean";
 type Leaf = { rule: Rule; default: boolean | number | string | string[] };
 type Schema = { [key: string]: Leaf | Schema };
 
@@ -15,12 +15,11 @@ type Schema = { [key: string]: Leaf | Schema };
 const dict = <T>(): T => Object.create(null) as T;
 
 const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
-const model = (d: (typeof MODELS)[number]): Leaf => ({ rule: "model", default: d });
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
-const CORE = ["interaction.md", "develop.md", "tamm-framework.md", "spec-review.md", "spec-investigation.md"];
+const CORE = ["interaction.md", "develop.md"];
 /**
  * The shipped convention standards `theway workflow` resolves by path, the project file over the global one: never
  * listed from either folder nor switchable.
@@ -108,12 +107,6 @@ function standardsSchema(standards: Standard[]): Schema {
 /** Every key of the config, in output order, with its type and default; `standards` is filled per project. */
 const SCHEMA: Schema = {
   standards: {},
-  engineering: {
-    review: {
-      rounds: { rule: "non-negative", default: 1 },
-      model: model("opus"),
-    },
-  },
   // workflow.defaults is free-form: a map of step names to maps of param values, checked by applyDefaults.
   workflow: { defaults: {} },
 };
@@ -123,9 +116,6 @@ const DEFAULTS_KEY = "workflow.defaults";
 
 const RULE_TEXT: Record<Rule, string> = {
   boolean: "true or false",
-  "non-negative": "a non-negative integer",
-  positive: "a positive integer",
-  model: "opus, sonnet or haiku",
 };
 
 const isLeaf = (node: Leaf | Schema): node is Leaf => typeof (node as Leaf).rule === "string";
@@ -134,12 +124,6 @@ function valid(rule: Rule, v: unknown): boolean {
   switch (rule) {
     case "boolean":
       return typeof v === "boolean";
-    case "non-negative":
-      return typeof v === "number" && Number.isInteger(v) && v >= 0;
-    case "positive":
-      return typeof v === "number" && Number.isInteger(v) && v >= 1;
-    case "model":
-      return (MODELS as readonly unknown[]).includes(v);
   }
 }
 

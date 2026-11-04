@@ -50,7 +50,8 @@ const steps: Step[] = [
     subline: (
       <>
         <code className="text-accent-text">/theway:engineering</code> investigates the request, then writes <code>spec.md</code> and{' '}
-        <code>tasks.md</code>. No code is written in this step.
+        <code>tasks.md</code>, and critic agents review them. No code is written in this step: it is the shipped{' '}
+        <code>engineering</code> workflow, whose steps and prompts you can change.
       </>
     ),
     mocks: [

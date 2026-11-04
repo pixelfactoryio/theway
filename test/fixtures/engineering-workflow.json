@@ -1,0 +1,154 @@
+{
+  "name": "engineering",
+  "file": "<home>/workflows/engineering.yaml",
+  "input": "request",
+  "commits": "<home>/standards/commits.md",
+  "git_host": "<home>/standards/git-host.md",
+  "pushes": false,
+  "working_tree": false,
+  "steps": [
+    {
+      "id": "scaffold",
+      "step": "scaffold",
+      "agents": false,
+      "file": "<home>/steps/scaffold.yaml",
+      "description": "Investigate the request and write the change's spec, tasks and design",
+      "params": {},
+      "do": [
+        {
+          "agent": {
+            "name": "scaffold",
+            "label": "scaffold:scaffold",
+            "prompt": [
+              "<home>/prompts/tamm-framework.md",
+              "<home>/prompts/spec-investigation.md",
+              "<home>/prompts/scaffold-rules.md",
+              "<home>/prompts/spec-template.md",
+              "<home>/prompts/fix-spec-template.md",
+              "<home>/prompts/tasks-template.md",
+              "<home>/prompts/scaffold.md"
+            ],
+            "returns": "scaffold",
+            "access": "spec"
+          }
+        }
+      ]
+    },
+    {
+      "id": "spec-review",
+      "step": "spec-review",
+      "agents": true,
+      "file": "<home>/steps/spec-review.yaml",
+      "description": "Review the change's spec through each lens, triage, fix the confirmed findings and stop on a decision",
+      "params": {
+        "rounds": {
+          "value": 1,
+          "from": "steps/spec-review.yaml"
+        },
+        "lenses": {
+          "value": [
+            "grounding",
+            "implementability"
+          ],
+          "from": "steps/spec-review.yaml"
+        },
+        "model": {
+          "value": "opus",
+          "from": "steps/spec-review.yaml"
+        },
+        "on_decision": {
+          "value": "open question",
+          "from": "steps/spec-review.yaml"
+        }
+      },
+      "do": [
+        {
+          "loop": {
+            "max": 1,
+            "until": [
+              "no-confirmed"
+            ],
+            "exhausted": "continue",
+            "do": [
+              {
+                "parallel": [
+                  {
+                    "agent": {
+                      "name": "grounding",
+                      "label": "spec-review:grounding",
+                      "prompt": [
+                        "<home>/prompts/spec-reviewer.md",
+                        "<home>/prompts/grounding.md"
+                      ],
+                      "returns": "findings",
+                      "access": "read",
+                      "model": "opus"
+                    }
+                  },
+                  {
+                    "agent": {
+                      "name": "implementability",
+                      "label": "spec-review:implementability",
+                      "prompt": [
+                        "<home>/prompts/spec-reviewer.md",
+                        "<home>/prompts/implementability.md"
+                      ],
+                      "returns": "findings",
+                      "access": "read",
+                      "model": "opus"
+                    }
+                  }
+                ]
+              },
+              {
+                "when": [
+                  "findings"
+                ],
+                "do": [
+                  {
+                    "agent": {
+                      "name": "spec-triage",
+                      "label": "spec-review:spec-triage",
+                      "prompt": [
+                        "<home>/prompts/verdicts.md",
+                        "<home>/prompts/spec-triage.md"
+                      ],
+                      "returns": "verdicts",
+                      "access": "read",
+                      "model": "opus"
+                    }
+                  }
+                ]
+              },
+              {
+                "when": [
+                  "confirmed"
+                ],
+                "do": [
+                  {
+                    "agent": {
+                      "name": "spec-fix",
+                      "label": "spec-review:spec-fix",
+                      "prompt": [
+                        "<home>/prompts/spec-fix.md"
+                      ],
+                      "returns": "edits",
+                      "access": "spec",
+                      "model": "opus"
+                    }
+                  }
+                ]
+              },
+              {
+                "when": [
+                  "decision"
+                ],
+                "block": "open question"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

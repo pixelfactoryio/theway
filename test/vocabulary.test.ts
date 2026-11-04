@@ -24,7 +24,24 @@ const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** Each term's literal is built by concatenation, so this file never matches itself. */
 const ENTRIES: Entry[] = [
   { term: literal("theway:" + "setup"), flags: "", files: ["plugin/", "src/", "test/", "site/"], allow: [] },
-  { term: literal("engineering" + "-light"), flags: "", files: REPOSITORY, allow: [] },
+  {
+    // Engineering is a workflow: its config moved to workflow.defaults.spec-review, its standards and templates to prompts/.
+    term: [
+      literal("engineering." + "review"),
+      literal("standards/" + "spec-review.md"),
+      literal("standards/" + "spec-investigation.md"),
+      literal("standards/" + "tamm-framework.md"),
+      literal("templates/" + "spec-template.md"),
+    ].join("|"),
+    flags: "",
+    files: REPOSITORY,
+    allow: [
+      // The install retires the moved files by name, and its tests check it.
+      { file: "src/core/init.ts" },
+      { file: "test/install.test.ts" },
+      { file: "test/lint.test.ts" },
+    ],
+  },
   {
     term: literal("develop" + "-workflow"),
     flags: "",

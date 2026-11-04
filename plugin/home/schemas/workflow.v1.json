@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json",
   "title": "theway workflow",
-  "description": "A theway workflow: the ordered steps /theway:workflow runs for a change. theway workflow is the authority for the rules this schema cannot express.",
+  "description": "A theway workflow: the ordered steps /theway:workflow runs, for change IDs (input: changes) or for a free-text request (input: request). theway workflow is the authority for the rules this schema cannot express.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,9 +14,17 @@
       "const": "theway.workflow/v1",
       "description": "The format of this file: theway.workflow/v1."
     },
+    "input": {
+      "type": "string",
+      "enum": [
+        "changes",
+        "request"
+      ],
+      "description": "What the workflow takes: changes (the default), change IDs, written on each change's feature branch; or request, a free-text request, writing only the change folders it creates. A request workflow starts with a step whose first agent returns scaffold, has exactly one scaffold agent and no agent with access commit or push; a changes workflow has no agent that returns scaffold or edits or takes access spec."
+    },
     "default": {
       "type": "boolean",
-      "description": "Whether /theway:workflow runs this workflow when no --workflow is given."
+      "description": "Whether /theway:workflow runs this workflow when no --workflow is given; only for an input: changes workflow."
     },
     "agents": {
       "type": "boolean",

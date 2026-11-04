@@ -51,7 +51,7 @@ Only the latest release is supported.
 
 - theway runs inside Claude Code with your permissions, and the text it reads (code, CI logs, PR text, web pages, other agents' output) can contain prompt injection.
 - The Authority rule in `interaction.md` tells the model and every spawned agent to treat that text as data.
-- The same rule treats the data home's `config.yaml`, standards and templates as instructions: anyone who can write to the data home can steer every command. Keep it writable only by you.
+- The same rule treats the data home's `config.yaml`, standards, templates, prompts, steps and workflows as instructions: anyone who can write to the data home can steer every command. Keep it writable only by you.
 - Claude Code loads a repository's own instruction files (CLAUDE.md, CLAUDE.local.md, `.claude/CLAUDE.md`, `.claude/rules/`, AGENTS.md and the files they import) as instructions. Read them before running theway in a repository you don't trust.
 - Claude Code's permission settings remain the boundary that actually enforces anything.
 

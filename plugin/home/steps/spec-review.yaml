@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
+version: theway.step/v1
+description: Review the change's spec through each lens, triage, fix the confirmed findings and stop on a decision
+params:
+  rounds: {default: 1, description: Maximum review rounds}
+  lenses: {default: [grounding, implementability], description: "One critic per lens, by prompt name"}
+  model: {default: opus, description: "The critics, the triage and the fix agent"}
+  on_decision: {default: open question, description: The message a confirmed decision stops the run with}
+do:
+  - loop:
+      max: "${rounds}"
+      until: no-confirmed
+      exhausted: continue
+      do:
+        - foreach: "${lenses}"
+          parallel: true
+          do:
+            - agent: {prompt: [spec-reviewer, "${item}"], returns: findings}
+        - when: findings
+          do:
+            - agent: {prompt: [verdicts, spec-triage], returns: verdicts}
+        - when: confirmed
+          do:
+            - agent: {prompt: spec-fix, returns: edits}
+        - when: decision
+          block: "${on_decision}"

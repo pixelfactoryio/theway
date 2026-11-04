@@ -18,7 +18,7 @@ do:
             - agent: {prompt: [reviewer, "${item}"], returns: findings}
         - when: findings
           do:
-            - agent: {prompt: triage, returns: verdicts}
+            - agent: {prompt: [verdicts, triage], returns: verdicts}
         - when: confirmed
           do:
             - agent: {prompt: fix, returns: work, model: "${fix_model}"}

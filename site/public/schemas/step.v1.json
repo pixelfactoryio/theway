@@ -169,9 +169,11 @@
                 "resolutions",
                 "pr",
                 "ci",
-                "diagnosis"
+                "diagnosis",
+                "scaffold",
+                "edits"
               ],
-              "description": "The result type: it fixes the JSON shape and the engine's rules."
+              "description": "The result type: it fixes the JSON shape and the engine's rules. scaffold and edits are only for an input: request workflow."
             },
             "model": {
               "description": "The agent's model; default: the step's model param, else sonnet.",
@@ -197,9 +199,10 @@
               "enum": [
                 "read",
                 "commit",
-                "push"
+                "push",
+                "spec"
               ],
-              "description": "What the agent may do on the branch; default from returns: work commits, pr pushes, every other type reads."
+              "description": "What the agent may do: read; commit on the branch; push it; or spec, write only the run's change folders (only in an input: request workflow). Default from returns: work commits, pr pushes, scaffold and edits take spec (and require it), every other type reads."
             }
           }
         }
@@ -295,7 +298,9 @@
                     "green",
                     "red",
                     "fixable",
-                    "more"
+                    "more",
+                    "decision",
+                    "no-decision"
                   ],
                   "description": "A condition evaluated on the current scope."
                 },
@@ -312,7 +317,9 @@
                       "green",
                       "red",
                       "fixable",
-                      "more"
+                      "more",
+                      "decision",
+                      "no-decision"
                     ],
                     "description": "A condition evaluated on the current scope."
                   },
@@ -346,7 +353,7 @@
       "required": [
         "when"
       ],
-      "description": "A when node: exactly one of do or fail: true.",
+      "description": "A when node: exactly one of do, fail: true or block.",
       "oneOf": [
         {
           "required": [
@@ -359,6 +366,12 @@
             "fail"
           ],
           "description": "Fails the change when the conditions hold."
+        },
+        {
+          "required": [
+            "block"
+          ],
+          "description": "Blocks the change when the conditions hold."
         }
       ],
       "properties": {
@@ -375,7 +388,9 @@
                 "green",
                 "red",
                 "fixable",
-                "more"
+                "more",
+                "decision",
+                "no-decision"
               ],
               "description": "A condition evaluated on the current scope."
             },
@@ -392,7 +407,9 @@
                   "green",
                   "red",
                   "fixable",
-                  "more"
+                  "more",
+                  "decision",
+                  "no-decision"
                 ],
                 "description": "A condition evaluated on the current scope."
               },
@@ -411,6 +428,20 @@
         "fail": {
           "const": true,
           "description": "Fails the change when the conditions hold."
+        },
+        "block": {
+          "description": "Blocks the change when the conditions hold: true gives the message <entry>: <conditions>: <titles>, a string gives <string>: <titles>.",
+          "anyOf": [
+            {
+              "const": true,
+              "description": "The message names the entry and the conditions."
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "description": "The message, or a reference to a param, as the whole value."
+            }
+          ]
         }
       }
     }

@@ -3,7 +3,7 @@ title: Workflows
 description: The YAML workflows /theway:workflow runs, the step files they are built from, the prompt files their agents read, and how all three are found and checked.
 ---
 
-A workflow is a YAML file that lists what [`/theway:workflow`](../commands/workflow.mdx) runs for each change, in order: steps, and gates that ask you before going on. A step is a YAML step file: a small tree of agents, built from four constructs (`agent`, `foreach`, `loop` and `when`). Each agent reads Markdown prompt files and returns a typed result. theway ships two workflows (`develop`, `agents`), three steps (`implement`, `review`, `pr`) and their prompts; you add your own next to them, globally or for one project, and the shipped ones are written the same way as yours.
+A workflow is a YAML file that lists what [`/theway:workflow`](../commands/workflow.mdx) runs for each change, in order: steps, and gates that ask you before going on. A step is a YAML step file: a small tree of agents, built from four constructs (`agent`, `foreach`, `loop` and `when`). Each agent reads Markdown prompt files and returns a typed result. theway ships four workflows (`develop`, `agents`, and `engineering` and `engineering-light`, which [`/theway:engineering`](../commands/engineering.mdx) runs), six steps (`implement`, `review`, `pr`, `scaffold`, `scaffold-light`, `spec-review`) and their prompts; you add your own next to them, globally or for one project, and the shipped ones are written the same way as yours.
 
 ## Your first step
 
@@ -45,9 +45,9 @@ steps:
 
 | What | Global | Project (wins by name) | Shipped |
 |---|---|---|---|
-| Workflows | `<home>/workflows/<name>.yaml` | `<home>/projects/<key>/workflows/<name>.yaml` | `develop.yaml`, `agents.yaml` |
-| Steps | `<home>/steps/<name>.yaml` | `<home>/projects/<key>/steps/<name>.yaml` | `implement.yaml`, `review.yaml`, `pr.yaml` |
-| Prompts | `<home>/prompts/<name>.md` | `<home>/projects/<key>/prompts/<name>.md` | `implement.md`, `reviewer.md`, `conformance.md`, `correctness.md`, `triage.md`, `fix.md`, `fix-check.md`, `open-pr.md`, `ci-wait.md`, `ci-diagnose.md`, `ci-fix.md` |
+| Workflows | `<home>/workflows/<name>.yaml` | `<home>/projects/<key>/workflows/<name>.yaml` | `develop.yaml`, `agents.yaml`, `engineering.yaml`, `engineering-light.yaml` |
+| Steps | `<home>/steps/<name>.yaml` | `<home>/projects/<key>/steps/<name>.yaml` | `implement.yaml`, `review.yaml`, `pr.yaml`, `scaffold.yaml`, `scaffold-light.yaml`, `spec-review.yaml` |
+| Prompts | `<home>/prompts/<name>.md` | `<home>/projects/<key>/prompts/<name>.md` | `implement.md`, `reviewer.md`, `conformance.md`, `correctness.md`, `verdicts.md`, `triage.md`, `fix.md`, `fix-check.md`, `open-pr.md`, `ci-wait.md`, `ci-diagnose.md`, `ci-fix.md`; for engineering, `scaffold.md`, `scaffold-light.md`, `scaffold-rules.md`, `spec-investigation.md`, `tamm-framework.md`, the templates `spec-template.md`, `fix-spec-template.md`, `light-spec-template.md` and `tasks-template.md`, and `spec-reviewer.md`, `grounding.md`, `implementability.md`, `spec-triage.md`, `spec-fix.md` |
 
 - A workflow, step or prompt is found by name: the project file, else the global one. Its name is its file stem.
 - The naming rule: names (workflows, steps, prompts, conditions, types) are kebab-case, lowercase letters and digits in words separated by single hyphens (`security-audit`); params and step-file fields are snake_case (`fix_model`); result and Input fields are camelCase JSON (`failedRunIds`); enum values are snake_case (`this_pr`).
@@ -84,7 +84,7 @@ steps:
   - pr:
 ```
 
-- The top-level keys are `version`, `default`, `agents` and `steps`; any other key is an error. `default` and `agents` are `true` or `false`.
+- The top-level keys are `version`, `input`, `default`, `agents` and `steps`; any other key is an error. `input` is `changes` (the default) or `request` (see [Two kinds of workflow](#two-kinds-of-workflow)). `default` and `agents` are `true` or `false`; `default: true` is only for an `input: changes` workflow.
 - Each entry of `steps` is a map with exactly one key:
   - **`gate`:** its value is a non-empty question. The gate always runs inline: your session asks it, with the options Continue and Stop, and any answer but Continue stops the change as `blocked`, with `gate: <question>`.
   - **a step name:** its value is nothing or a map (`- implement:` and `- implement: {}` are the same), whose keys are `agents` and the step's params. Values are literal.
@@ -92,6 +92,21 @@ steps:
 - **Entry ids:** an entry's id is its step name, or `gate`; a repeated id gets `-2`, `-3`, in order (`review`, `review-2`), skipping a suffix that another entry's step already has as its name. The id labels its agents (`review-2:triage`) and its report.
 - **Ordering:** `steps` is non-empty; a step with an agent of `access: push` is a pushing step, at most one is allowed and it must be the last entry; a gate cannot be the last entry.
 - A workflow with no pushing step pushes nothing and opens no PR. To skip the review, leave out the `review` step.
+
+## Two kinds of workflow
+
+| `input` | Takes | Writes | Shipped |
+|---|---|---|---|
+| `changes` (the default) | change IDs | the repository, on each change's feature branch | `develop`, `agents` |
+| `request` | a free-text request | only the change folders it creates | `engineering`, `engineering-light` |
+
+An `input: request` workflow:
+
+- starts with a step whose first agent, in document order, returns `scaffold`, and has exactly one `scaffold` agent;
+- has no agent with `access: commit` or `access: push`: `theway workflow` always prints `pushes: false` and `working_tree: false` for it;
+- is the only kind where an agent may return `scaffold` or `edits` or take `access: spec`.
+
+`/theway:workflow --workflow <name> <request>` runs it: no branch, no commit, no record in `tasks.md`; the change files are the output (see [Request runs](../commands/workflow.mdx#request-runs)). A request workflow that also implements the change is not supported.
 
 ## The shipped workflows
 
@@ -124,6 +139,26 @@ steps:
 
 It implements the change with one agent on a feature branch, reviews it locally through the `conformance` and `correctness` lenses for one round, then pushes the branch, opens the PR and drives CI to green. Run it with `/theway:workflow --workflow agents <change-id>`, or copy it under another name with `default: true`.
 
+`engineering.yaml` and `engineering-light.yaml`, the two `input: request` workflows of [`/theway:engineering`](../commands/engineering.mdx):
+
+```yaml
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
+version: theway.workflow/v1
+input: request
+steps:
+  - scaffold: {agents: false}
+  - spec-review:
+```
+
+```yaml
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
+version: theway.workflow/v1
+input: request
+steps:
+  - scaffold-light: {agents: false}
+  - spec-review: {lenses: [grounding], on_decision: "escalated: run /theway:engineering <change-id>: <request> without --light"}
+```
+
 ## Step files
 
 ```yaml
@@ -151,7 +186,7 @@ The top-level keys are `version` (required), `description` (required, one line t
 
 ### References
 
-`${<param>}` puts a param's value in a field, as the whole value or a whole list element, and only in `agent.prompt` (and its list elements), `agent.model`, `loop.max` and the `foreach` value; inside a `foreach`, `${item}` is the current item. There is no string templating: `x-${item}` is an error. Write references quoted, `max: "${rounds}"`: an unquoted `${…}` breaks a YAML flow map, and the parse error then says so. The rule a field has (`max` a positive integer, `model` one of three) is checked after substitution, and its error names where the value came from.
+`${<param>}` puts a param's value in a field, as the whole value or a whole list element, and only in `agent.prompt` (and its list elements), `agent.model`, `loop.max`, `when.block` and the `foreach` value; inside a `foreach`, `${item}` is the current item. There is no string templating: `x-${item}` is an error. Write references quoted, `max: "${rounds}"`: an unquoted `${…}` breaks a YAML flow map, and the parse error then says so. The rule a field has (`max` a positive integer, `model` one of three) is checked after substitution, and its error names where the value came from.
 
 ### Constructs
 
@@ -159,14 +194,14 @@ Each node is a map with exactly one construct key. A field a construct does not 
 
 | Construct | Fields | Rules |
 |---|---|---|
-| `agent` | `prompt`: a prompt name or a non-empty list of them, read in order (default: the step's name); `returns`: a result type, required; `model`: `opus`, `sonnet` or `haiku` (default: the step's `model` param, else `sonnet`); `access`: `read`, `commit` or `push` (default from `returns`: `work` commits, `pr` pushes, every other type reads) | `returns: work` needs `commit` or `push`, `returns: pr` needs `push`. The agent's name is its prompt's name (the last one of a list), with `-2`, `-3` for a name repeated in the step, skipping a suffix that another agent of the step already has as its name. |
+| `agent` | `prompt`: a prompt name or a non-empty list of them, read in order (default: the step's name); `returns`: a result type, required; `model`: `opus`, `sonnet` or `haiku` (default: the step's `model` param, else `sonnet`); `access`: `read`, `commit`, `push` or `spec` (default from `returns`: `work` commits, `pr` pushes, `scaffold` and `edits` take `spec`, every other type reads) | `returns: work` needs `commit` or `push`, `returns: pr` needs `push`, `returns: scaffold` and `returns: edits` need `spec`. The agent's name is its prompt's name (the last one of a list), with `-2`, `-3` for a name repeated in the step, skipping a suffix that another agent of the step already has as its name. |
 | `foreach` | the value: a non-empty list of names, normally `"${param}"`; `parallel`: `true` or `false` (default `false`); `do`: nodes | One copy of `do` per item, with `${item}` set. With `parallel: true`, every node of `do` is an agent with `access: read` and the copies run together, as one parallel group. No `foreach` inside a `foreach`. |
 | `loop` | `max`: a positive integer, required; `until`: a condition or a list of them, all must hold, required; `exhausted`: `continue` or `fail`, required; `do`: nodes | No `loop` inside a `loop`. Iterations are numbered from 1. After each iteration: when `until` holds, the loop ends; when `max` iterations ran, `exhausted: fail` fails the change and `exhausted: continue` goes on with the next node. |
-| `when` | the value: a condition or a list of them, all must hold; then exactly one of `do` (nodes) or `fail: true` | When it does not hold, it is skipped. With `fail: true`, when it holds the change fails with `<entry>: <conditions>: <titles>`: the confirmed or found finding titles, or the CI errors. `more` is allowed only inside a loop. |
+| `when` | the value: a condition or a list of them, all must hold; then exactly one of `do` (nodes), `fail: true` or `block` (`true` or a non-empty string) | When it does not hold, it is skipped. With `fail: true`, when it holds the change fails with `<entry>: <conditions>: <titles>`: the confirmed, decision or found finding titles, or the CI errors. With `block`, it holds the run as `blocked` instead: `block: true` gives the same message, a string gives `<string>: <titles>`, with the literal `<change-id>` (the run's change IDs) and `<request>` (a request run's request) filled in. `more` is allowed only inside a loop. |
 
 A gate is a workflow entry only: in a step file it is the error `gate is a workflow entry; a step cannot ask the user`.
 
-**`access`.** `read` forbids editing, committing and pushing, not the other remote actions its prompt asks for: the shipped `ci-diagnose` agent re-runs failed CI jobs with `access: read`. `commit` may commit on the feature branch and not push; `push` may also push it, only as `git-host.md` says, never force. A workflow whose tree has a `push` agent prints `pushes: true`, which is what authorizes pushing and opening the PR.
+**`access`.** `read` forbids editing, committing and pushing, not the other remote actions its prompt asks for: the shipped `ci-diagnose` agent re-runs failed CI jobs with `access: read`. `commit` may commit on the feature branch and not push; `push` may also push it, only as `git-host.md` says, never force. A workflow whose tree has a `push` agent prints `pushes: true`, which is what authorizes pushing and opening the PR. `spec`, only in an `input: request` workflow, may write only the run's change folders and `mktemp -d` probes, never the repository. Writing under `~/.theway` asks for your approval, since install grants no edit permission there: allow it with `/permissions`, or use auto mode, to run without the prompts.
 
 ### Conditions
 
@@ -178,9 +213,10 @@ A condition is evaluated on the current scope: what the agents of the step set s
 | `confirmed` / `no-confirmed` | a `verdicts` agent | the scope has at least one confirmed finding / none (no findings counts as none) |
 | `green` / `red` | a `ci` agent | the scope's last CI result is green / red |
 | `fixable` | a `diagnosis` agent | the last diagnosis is `this_pr`, or `base_red` with a `baseFix` |
+| `decision` / `no-decision` | a `verdicts` agent | the scope has at least one confirmed `decision` finding / none (only an `input: request` workflow has any) |
 | `more` | the loop | the current iteration is not the last |
 
-**The producer check.** A condition needs an agent of its "Set by" type earlier in the same step. Inside a loop, only agents of the same loop count, since each iteration starts with an empty scope: before the `when`, or anywhere in the loop for its `until`. After a loop, its agents no longer count, as its scope is dropped: `theway workflow` says so and points to `exhausted: fail`. A `verdicts` agent needs an earlier `findings` agent, a `resolutions` agent an earlier `verdicts` and `work` agent, and a `diagnosis` agent an earlier `ci` agent.
+**The producer check.** A condition needs an agent of its "Set by" type earlier in the same step. Inside a loop, only agents of the same loop count, since each iteration starts with an empty scope: before the `when`, or anywhere in the loop for its `until`. After a loop, its agents no longer count, as its scope is dropped: `theway workflow` says so and points to `exhausted: fail`. A `verdicts` agent needs an earlier `findings` agent, a `resolutions` agent an earlier `verdicts` and `work` agent, an `edits` agent an earlier `verdicts` agent, and a `diagnosis` agent an earlier `ci` agent.
 
 **Check-fix loops.** A loop with `exhausted: fail` whose `work` agent is not under a `when` that includes `more` gets a warning: its last fix would never be checked. Give it `max` = fixes + 1 and guard the fix with `more`, as `pr.yaml` does. A lint-fix loop that fixes at most twice:
 
@@ -204,17 +240,19 @@ do:
 
 ### Result types
 
-Every agent returns one of seven types: a fixed JSON shape, with `summary` (one line) and `authorityReports` in each, and fixed engine rules.
+Every agent returns one of nine types: a fixed JSON shape, with `summary` (one line) and `authorityReports` in each, and fixed engine rules.
 
 | Type | Fields | Engine rule |
 |---|---|---|
 | `work` | `head`, `commits`, `checks`, `tasksDone`, `criteria`, `choices`, `discoveries`, `regression`, `blocker`; with `access: push`, also `pushed` and `reason` | A `blocker` blocks the change. With `push`, `pushed` not true fails it. Sets `head`, and Input `work` with `from`, the head before it ran. |
-| `findings` | `findings`: `{title, file, line?, problem, evidence}` | Appended to the scope's findings, numbered `index` from 0 and tagged with the agent's name as `prompt`. |
-| `verdicts` | `verdicts`: `{index, verdict, duplicateOf?, reason}`, a verdict of `spec-review.md` | Every finding must get a verdict, or the change fails. Sets the confirmed findings. |
+| `findings` | `findings`: `{title, file, line?, section?, quote?, problem, evidence, kind?}`, `kind` `fixable` or `decision` | Appended to the scope's findings, numbered `index` from 0 and tagged with the agent's name as `prompt`. `section`, `quote` and `kind` are kept only in an `input: request` workflow. |
+| `verdicts` | `verdicts`: `{index, verdict, duplicateOf?, reason, kind?, settled?, question?}`, a verdict of `verdicts.md` | Every finding must get a verdict, or the change fails. Sets the confirmed findings. In an `input: request` workflow, a confirmed finding whose final kind (the verdict's `kind`, else the finding's, else `fixable`) is `decision` goes to `decisions`, with its `question`, instead of `confirmed`. |
 | `resolutions` | `resolutions`: `{index, status, reason}`, `resolved` or `not resolved` | Every confirmed finding must be judged; `not resolved` fails the change. |
 | `pr` | `url`, `number`, `head` | Sets `head` and the run's PR. |
 | `ci` | `ci` (`green` or `red`), `failedRunIds`, `failedOther` | `red` with no failed check fails the change. |
 | `diagnosis` | `errors`, `classification` (`this_pr`, `base_red`, `flaky`), `baseFix`, `rerun` | A failed check with no run ID makes it `this_pr`. Not fixable, with `more` and no re-run, fails the change. |
+| `scaffold` | `outcome` (`ready`, `open`, `stopped`, `escalated`), `changes` (`{id, dir, light, fix}[]`), `questions`, `shaping`, `report` | `ready` sets the run's change folders; with none, it fails the run. `open` blocks it with `open question: <questions>`; `stopped` and `escalated` block it with `report`. |
+| `edits` | `files`, `fixes` (`{index, fix}[]`), `blocker` | A `blocker` blocks the run. Sets Input `edits`. |
 
 A `null` result or a throw blocks the change for a `work` agent and fails it for every other type.
 
@@ -243,7 +281,7 @@ do:
             - agent: {prompt: [reviewer, "${item}"], returns: findings}
         - when: findings
           do:
-            - agent: {prompt: triage, returns: verdicts}
+            - agent: {prompt: [verdicts, triage], returns: verdicts}
         - when: confirmed
           do:
             - agent: {prompt: fix, returns: work, model: "${fix_model}"}
@@ -251,6 +289,8 @@ do:
 ```
 
 Each lens reviewer reads `reviewer.md` (read the change, try to refute or break its diff, check it against every standard), then the lens: `conformance.md` checks the diff against `spec.md`, `correctness.md` checks correctness, edge cases and, for a `fix-` change, the root cause. A lens is a prompt like any other: write `<home>/prompts/security.md` and set `lenses: [conformance, correctness, security]`.
+
+The triage reads `verdicts.md`, the five verdicts every triage gives, then `triage.md`.
 
 `pr.yaml`:
 
@@ -278,6 +318,39 @@ do:
                 - agent: {prompt: ci-fix, returns: work, access: push, model: "${fix_model}"}
 ```
 
+`scaffold.yaml` is one inline-by-default `scaffold` agent, `model: opus` when run through agents, that reads `tamm-framework`, `spec-investigation`, `scaffold-rules`, `spec-template`, `fix-spec-template`, `tasks-template` and `scaffold`; `scaffold-light.yaml` reads `light-spec-template` and `scaffold-light` in their place. `spec-review.yaml`:
+
+```yaml
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
+version: theway.step/v1
+description: Review the change's spec through each lens, triage, fix the confirmed findings and stop on a decision
+params:
+  rounds: {default: 1, description: Maximum review rounds}
+  lenses: {default: [grounding, implementability], description: "One critic per lens, by prompt name"}
+  model: {default: opus, description: "The critics, the triage and the fix agent"}
+  on_decision: {default: open question, description: The message a confirmed decision stops the run with}
+do:
+  - loop:
+      max: "${rounds}"
+      until: no-confirmed
+      exhausted: continue
+      do:
+        - foreach: "${lenses}"
+          parallel: true
+          do:
+            - agent: {prompt: [spec-reviewer, "${item}"], returns: findings}
+        - when: findings
+          do:
+            - agent: {prompt: [verdicts, spec-triage], returns: verdicts}
+        - when: confirmed
+          do:
+            - agent: {prompt: spec-fix, returns: edits}
+        - when: decision
+          block: "${on_decision}"
+```
+
+Within a round, the confirmed `fixable` findings are fixed, then a confirmed `decision` blocks the run. The next round reviews the updated files; the fixes are not re-checked unless another round runs.
+
 ## A composite step
 
 A step of your own can chain types the way the shipped ones do. `<home>/steps/security-review.yaml` reviews the diff through a security lens, triages, and fails the change on a confirmed finding instead of fixing it:
@@ -292,18 +365,18 @@ do:
   - agent: {prompt: [reviewer, security], returns: findings}
   - when: findings
     do:
-      - agent: {prompt: triage, returns: verdicts}
+      - agent: {prompt: [verdicts, triage], returns: verdicts}
   - when: confirmed
     fail: true
 ```
 
-It reuses the shipped `reviewer.md` and `triage.md` and needs one prompt of yours, `security.md`.
+It reuses the shipped `reviewer.md`, `verdicts.md` and `triage.md` and needs one prompt of yours, `security.md`.
 
 ## Prompts and Input
 
 An agent's prompt is assembled in a fixed order, which no file changes:
 
-1. **The fixed rules:** the `## Authority` section of `interaction.md`; the repository, feature branch, base, change and folder; the paths of `develop.md`, `spec-review.md`, `commits.md` and `git-host.md`; the standards; the change files are read-only; commits only on the feature branch, never force-push, never push the default branch, never merge a PR; the authority-report rule.
+1. **The fixed rules:** the `## Authority` section of `interaction.md`; the repository, feature branch, base, change and folder; the paths of `develop.md`, `commits.md` and `git-host.md`; the standards; the change files are read-only; commits only on the feature branch, never force-push, never push the default branch, never merge a PR; the authority-report rule. In an `input: request` workflow instead: the `## Authority` section; the repository, the request, the change folders written so far (`none yet` before the scaffold) and the standards; the repository is read-only, never edit, commit, push or merge; the authority-report rule.
 2. **The permission line** of its `access`.
 3. **The prompt line:** `Read <path> and follow it.`, or `Read these files in order and follow them: <paths>.` for a list.
 4. **`Input:`**, a JSON object.
@@ -314,6 +387,7 @@ The permission lines, verbatim:
 - `read`: `You are read-only: do not edit, commit or push anything.`
 - `commit`: `You may commit on <branch>; do not push. Write commit messages as <commits.md> says, consistent with the change's commits already on the feature branch (git log <base>..<branch>).`
 - `push`: `You may commit on <branch> and push it, only as "Push the feature branch" in <git-host.md> says, never force.` followed by the same commit-message sentence.
+- `spec`: ``You may write only under the change folders of this run (Input `changes`; a `scaffold` agent: the folders `theway path <change-id>` prints for the IDs it validated with `theway validate-id` or got from `theway next-id` in this run) and, for throwaway probes, in a directory created with `mktemp -d`. Never open other change folders or `changes/archive/`. Never edit the repository, commit or push.``
 
 The engine lines, verbatim; each ends with `Also return summary: one line on what you did.`:
 
@@ -324,6 +398,10 @@ The engine lines, verbatim; each ends with `Also return summary: one line on wha
 - `pr`: `Return url, number and head (the pushed head sha).`
 - `ci`: `Return ci (green or red), failedRunIds and failedOther.`
 - `diagnosis`: `Return errors (one { runId, error } per failed run), classification (this_pr, base_red or flaky), baseFix (a sha or null) and rerun (the run IDs re-run).`
+- `scaffold`: `Return outcome (ready, open, stopped or escalated), changes (each change folder you wrote: id, dir, light, fix; [] when none), questions (the open questions; [] when none), shaping (the findings that shaped the spec, as question — method — result) and report (the stop or escalation report, verbatim; null otherwise).`
+- `edits`: `Return files (the change files you edited), fixes (one { index, fix } per confirmed finding you fixed: how the change files changed) and blocker (null when none).`
+
+In an `input: request` workflow only, `findings` adds `Also give section and quote, and kind: fixable (the spec can be corrected from facts) or decision (only the user can settle it).` and `verdicts` adds `For a confirmed finding, give its final kind; settled: true when you changed a proposed decision to fixable from the code, the docs or the change's own decisions; and, for a decision, question: the question for the user.`
 
 ### The Input reference
 
@@ -342,6 +420,8 @@ A key is left out when it is empty, except the ones always present.
 | `resolutions` | no | the last `resolutions` result | `resolutions` | the iteration |
 | `pr` | no | `{url, number}` | `pr` | the run |
 | `ci`, `diagnosis` | no | the last result of that type | `ci`, `diagnosis` | the iteration |
+
+In an `input: request` workflow, the always-present keys are `request` (the request), `changes` (the run's change folders, `{id, dir, light, fix}[]`, `[]` before the scaffold) and `params`; there is no `change`, `branch`, `base` or `head`. Its scope keys are `findings`, `confirmed` (the confirmed `fixable` findings), `decisions` (the confirmed `decision` findings, each with its `question`), `verdicts` and `edits` (the last `edits` result).
 
 ### An annotated prompt
 
@@ -376,7 +456,6 @@ Feature branch: add-rate-limiting
 Base: main
 Change: add-rate-limiting, folder /home/you/.theway/projects/-home-you-code-my-api/changes/add-rate-limiting
 Development standard: /home/you/.theway/standards/develop.md
-Spec-review standard: /home/you/.theway/standards/spec-review.md
 Commits standard: /home/you/.theway/standards/commits.md
 Git host standard: /home/you/.theway/standards/git-host.md
 Standards: /home/you/.theway/standards/sre.md

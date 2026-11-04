@@ -17,14 +17,28 @@ import { dirsOf, fileOf, knownSteps, namesIn, searched, suggest, warnUnknownDefa
 export const WORKFLOW_VERSION = "theway.workflow/v1";
 export const STEP_VERSION = "theway.step/v1";
 /** The top-level keys of a workflow file and of a step file. */
-export const WORKFLOW_KEYS = ["version", "default", "agents", "steps"];
+export const WORKFLOW_KEYS = ["version", "input", "default", "agents", "steps"];
 export const STEP_KEYS = ["version", "description", "params", "do"];
 
-export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis"] as const;
+export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis", "scaffold", "edits"] as const;
 type ResultType = (typeof TYPES)[number];
-export const CONDITIONS = ["findings", "no-findings", "confirmed", "no-confirmed", "green", "red", "fixable", "more"] as const;
+export const CONDITIONS = [
+  "findings",
+  "no-findings",
+  "confirmed",
+  "no-confirmed",
+  "green",
+  "red",
+  "fixable",
+  "more",
+  "decision",
+  "no-decision",
+] as const;
 type Condition = (typeof CONDITIONS)[number];
-export const ACCESS = ["read", "commit", "push"] as const;
+export const ACCESS = ["read", "commit", "push", "spec"] as const;
+/** The kinds of workflow: change IDs in and the repository written, or a free-text request in and change folders written. */
+export const INPUTS = ["changes", "request"] as const;
+type Input = (typeof INPUTS)[number];
 type Access = (typeof ACCESS)[number];
 export const EXHAUSTED = ["continue", "fail"] as const;
 const CONSTRUCTS = ["agent", "foreach", "loop", "when"] as const;
@@ -38,31 +52,37 @@ const PRODUCER: Record<Exclude<Condition, "more">, ResultType> = {
   green: "ci",
   red: "ci",
   fixable: "diagnosis",
+  decision: "verdicts",
+  "no-decision": "verdicts",
 };
 /** The types an agent of each type reads from the scope, in the order their absence is reported. */
 const READS: Partial<Record<ResultType, ResultType[]>> = {
   verdicts: ["findings"],
   resolutions: ["verdicts", "work"],
   diagnosis: ["ci"],
+  edits: ["verdicts"],
 };
+/** The types whose agents write only the run's change folders: they take access spec, and require it. */
+const SPEC_TYPES: readonly ResultType[] = ["scaffold", "edits"];
 
 /** The fields of each construct. */
 export const FIELDS = {
   agent: ["prompt", "returns", "model", "access"],
   foreach: ["parallel", "do"],
   loop: ["max", "until", "exhausted", "do"],
-  when: ["do", "fail"],
+  when: ["do", "fail", "block"],
 };
 
 const RULE = {
   returns: `one of ${TYPES.join(", ")}`,
   condition: `one of ${CONDITIONS.join(", ")}`,
-  access: "read, commit or push",
+  access: "read, commit, push or spec",
   exhausted: "continue or fail",
   model: `one of ${MODELS.join(", ")}`,
   positive: "a positive integer",
   bool: "true or false",
   fail: "true",
+  block: "true or a non-empty string",
   names: "a non-empty list of names",
   prompt: "a name or a non-empty list of names",
   nonEmpty: "a non-empty string",
@@ -131,7 +151,8 @@ type Out =
   | { parallel: { agent: AgentOut }[] }
   | { loop: { max: number; until: Condition[]; exhausted: string; do: Out[] } }
   | { when: Condition[]; do: Out[] }
-  | { when: Condition[]; fail: true };
+  | { when: Condition[]; fail: true }
+  | { when: Condition[]; block: true | string };
 
 type StepEntry = {
   id: string;
@@ -144,7 +165,7 @@ type StepEntry = {
 };
 type GateEntry = { id: string; gate: string; agents: false };
 type Entry = StepEntry | GateEntry;
-type Workflow = { name: string; file: string; steps: Entry[] };
+type Workflow = { name: string; file: string; input: Input; steps: Entry[] };
 
 /** The home, the project key, the loaded config and a warning sink that writes each line once. */
 type Dirs = { home: string; key: string; loaded: Loaded; warn: (file: string, text: string) => void };
@@ -286,6 +307,9 @@ type Ctx = {
   conds: Condition[];
   producers: Producers;
 };
+
+/** The path of each resolved agent in its step file, for the workflow-file errors that name an agent. */
+const agentPaths = new WeakMap<AgentOut, string>();
 
 /** Fails with `<reason>`, plus ` (value from <origin>)` when the value came from a substitution. */
 function fail(ctx: Ctx, reason: string, origin?: string): never {
@@ -431,9 +455,10 @@ function agent(ctx: Ctx, path: string, map: Map<unknown, unknown>): AgentOut {
   }
   if (returns === undefined) return fail(ctx, `${path}.returns is required (${RULE.returns})`);
   const own = ctx.item?.origin;
-  access ??= returns === "work" ? "commit" : returns === "pr" ? "push" : "read";
-  if (returns === "work" && access === "read") fail(ctx, `${path}.access must be commit or push for returns: work`, own);
+  access ??= returns === "work" ? "commit" : returns === "pr" ? "push" : SPEC_TYPES.includes(returns) ? "spec" : "read";
+  if (returns === "work" && access !== "commit" && access !== "push") fail(ctx, `${path}.access must be commit or push for returns: work`, own);
   if (returns === "pr" && access !== "push") fail(ctx, `${path}.access must be push for returns: pr`, own);
+  if (SPEC_TYPES.includes(returns) && access !== "spec") fail(ctx, `${path}.access must be spec for returns: ${returns}`, own);
   const paths: string[] = [];
   for (const n of prompt.names) {
     const p = fileOf(ctx.d.home, ctx.d.key, "prompts", n);
@@ -446,6 +471,7 @@ function agent(ctx: Ctx, path: string, map: Map<unknown, unknown>): AgentOut {
   }
   produced(ctx, returns);
   const out: AgentOut = { name: prompt.names[prompt.names.length - 1] as string, label: "", prompt: paths, returns, access };
+  agentPaths.set(out, path);
   if (!ctx.inline) {
     const fallback = ctx.params.get("model");
     if (model === undefined && fallback !== undefined && !(MODELS as readonly unknown[]).includes(fallback.value)) {
@@ -548,8 +574,15 @@ function when(ctx: Ctx, path: string, map: Map<unknown, unknown>): Out {
     noRef(ctx, `${path}.fail`, map.get("fail"));
     if (map.get("fail") !== true) fail(ctx, `${path}.fail must be ${RULE.fail}`);
   }
-  if (map.has("do") === map.has("fail")) fail(ctx, `${path}: when needs do or fail: true, not both`);
+  let block: { value: unknown; origin?: string } | undefined;
+  if (map.has("block")) {
+    block = subst(ctx, `${path}.block`, map.get("block"));
+    const v = block.value;
+    if (v !== true && (typeof v !== "string" || v.trim() === "")) fail(ctx, `${path}.block must be ${RULE.block}`, block.origin);
+  }
+  if (["do", "fail", "block"].filter((k) => map.has(k)).length !== 1) fail(ctx, `${path}: when needs exactly one of do, fail or block`);
   if (map.has("fail")) return { when: conds, fail: true };
+  if (block !== undefined) return { when: conds, block: block.value as true | string };
   const inner: Ctx = { ...ctx, conds: ctx.loop === undefined ? [] : [...ctx.conds, ...conds] };
   return { when: conds, do: nodes(inner, `${path}.do`, map.get("do")) };
 }
@@ -623,6 +656,40 @@ function pushes(entry: Entry): boolean {
   return push;
 }
 
+/** Every agent of a resolved entry, in document order. */
+function agentsOf(entry: Entry): AgentOut[] {
+  const out: AgentOut[] = [];
+  if ("do" in entry) {
+    walk(entry.do, (n) => {
+      if ("agent" in n) out.push(n.agent);
+    });
+  }
+  return out;
+}
+
+/**
+ * Applies the rules of the workflow's input to entry `i`: a request workflow starts with a step whose first agent
+ * returns scaffold, has one scaffold agent and no agent that commits or pushes; a changes workflow has no agent that
+ * returns scaffold or edits or takes access spec.
+ */
+function inputRules(fail: (reason: string) => never, input: Input, entry: Entry, i: number, scaffolds: { count: number }): void {
+  const agents = agentsOf(entry);
+  const at = `steps[${i}]`;
+  if (input === "request" && i === 0 && agents[0]?.returns !== "scaffold") {
+    fail(`${at}: an input: request workflow starts with a step whose first agent returns scaffold`);
+  }
+  for (const a of agents) {
+    const path = agentPaths.get(a) as string;
+    if (input === "request") {
+      if (a.access === "commit" || a.access === "push") fail(`${at}: ${path}: access ${a.access} is not allowed in an input: request workflow`);
+      if (a.returns === "scaffold" && ++scaffolds.count > 1) fail(`${at}: only one agent may return scaffold`);
+    } else if (SPEC_TYPES.includes(a.returns) || a.access === "spec") {
+      const what = SPEC_TYPES.includes(a.returns) ? `returns ${a.returns} and access spec are` : "access spec is";
+      fail(`${at}: ${path}: ${what} only for an input: request workflow`);
+    }
+  }
+}
+
 /** Whether the workflow is one inline entry whose tree is a single `work` agent with `access: commit`. */
 function workingTree(steps: Entry[]): boolean {
   if (steps.length !== 1) return false;
@@ -652,6 +719,9 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   for (const key of root.keys()) {
     if (!WORKFLOW_KEYS.includes(key as string)) fail(`unknown key ${String(key)}`);
   }
+  const input = (root.has("input") ? root.get("input") : "changes") as Input;
+  if (!(INPUTS as readonly unknown[]).includes(input)) fail("input must be changes or request");
+  const scaffolds = { count: 0 };
   const topAgents = typeof root.get("agents") === "boolean" ? (root.get("agents") as boolean) : true;
   const steps: Entry[] = [];
   const pushing: number[] = [];
@@ -664,6 +734,7 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   const cache = new Map<string, StepFile>();
   for (const key of root.keys()) {
     if (key === "default" && typeof root.get(key) !== "boolean") fail("default must be true or false");
+    if (key === "default" && root.get(key) === true && input === "request") fail("default: true is only for an input: changes workflow");
     if (key === "agents" && typeof root.get(key) !== "boolean") fail("agents must be true or false");
     if (key !== "steps") continue;
     const entries: unknown = root.get("steps");
@@ -674,7 +745,9 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
       const [k, value] = [...(entry as Map<unknown, unknown>)][0] as [unknown, unknown];
       if (k === "gate") {
         if (typeof value !== "string" || value.trim() === "") fail(`${at}.gate must be a non-empty question`);
-        steps.push({ id: idOf("gate"), gate: value as string, agents: false });
+        const gate: GateEntry = { id: idOf("gate"), gate: value as string, agents: false };
+        inputRules(fail, input, gate, i, scaffolds);
+        steps.push(gate);
         continue;
       }
       const stepName = String(k);
@@ -709,6 +782,7 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
         }
       }
       const resolved = resolveStep(d, step, idOf(stepName), agents, values, `${file} ${at}`);
+      inputRules(fail, input, resolved, i, scaffolds);
       if (pushes(resolved)) pushing.push(i);
       steps.push(resolved);
     }
@@ -717,7 +791,7 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   if (pushing.length > 1) fail(`steps[${pushing[1]}]: only one step may push`);
   if (pushing.length === 1 && pushing[0] !== steps.length - 1) fail(`steps[${pushing[0]}]: a pushing step must be the last step`);
   if ("gate" in (steps[steps.length - 1] as Entry)) fail(`steps[${steps.length - 1}]: a gate cannot be the last step`);
-  return { workflow: { name: basename(path, ".yaml"), file: path, steps }, isDefault: root.get("default") === true };
+  return { workflow: { name: basename(path, ".yaml"), file: path, input, steps }, isDefault: root.get("default") === true };
 }
 
 /** The workflow files of a folder, sorted, with a warning for each `.yaml` file whose stem is not a valid name. */
@@ -813,14 +887,16 @@ export function cmdWorkflow(wanted: string | undefined, override: string | undef
     const own = join(projectOf(home, key), "standards", file);
     conventions.push(isFile(own) ? own : global);
   }
-  const { name: workflowName, file, steps } = result.workflow;
+  const { name: workflowName, file, input, steps } = result.workflow;
+  const changes = input === "changes";
   const doc = {
     name: workflowName,
     file,
+    input,
     commits: conventions[0],
     git_host: conventions[1],
-    pushes: steps.some(pushes),
-    working_tree: workingTree(steps),
+    pushes: changes && steps.some(pushes),
+    working_tree: changes && workingTree(steps),
     steps,
   };
   process.stdout.write(`${JSON.stringify(doc, null, 2)}\n`);

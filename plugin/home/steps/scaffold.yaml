@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
+version: theway.step/v1
+description: Investigate the request and write the change's spec, tasks and design
+params:
+  model: {default: opus, description: The scaffolder when the step runs through agents}
+do:
+  - agent: {prompt: [tamm-framework, spec-investigation, scaffold-rules, spec-template, fix-spec-template, tasks-template, scaffold], returns: scaffold}

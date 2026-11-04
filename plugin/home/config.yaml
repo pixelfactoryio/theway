@@ -16,20 +16,11 @@ standards:
   quality:
     enabled: false
 
-# Engineering - spec review for /theway:engineering (absent or invalid key means the default)
-engineering:
-  # The spec review
-  review:
-    # Maximum review rounds per scaffold; 0 skips the review
-    rounds: 1
-    # The critic agents (two in /theway:engineering, one with --light): opus, sonnet or haiku; lower cost: sonnet
-    model: opus
-
 # Workflow - defaults for /theway:workflow: workflow.defaults.<step>.<param> sets a param of a step for every
 # workflow entry of that step that leaves it out (a value in the entry wins); the step files hold the defaults, and
 # theway steps lists every step with its params
 workflow:
   defaults: {}
-  # For example, two review rounds:
+  # For example, two spec review rounds for /theway:engineering:
   # defaults:
-  #   review: {rounds: 2}
+  #   spec-review: {rounds: 2}

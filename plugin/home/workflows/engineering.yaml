@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
+# Investigate a request and write its spec and tasks, then review them. /theway:engineering runs it.
+version: theway.workflow/v1
+input: request
+steps:
+  - scaffold: {agents: false}
+  - spec-review:
