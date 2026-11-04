@@ -101,22 +101,7 @@ config:
       rounds: 1
       model: opus
   workflow:
-    defaults:
-      implement:
-        model: opus
-      review:
-        rounds: 1
-        lenses:
-          - conformance
-          - correctness
-        model: opus
-        fix_model: opus
-      pr:
-        ci_attempts: 2
-        model: sonnet
-        fix_model: opus
-      agent:
-        model: sonnet
+    defaults: {}
 ```
 
 `change_dir` is printed even though `add-x` has no folder yet. Every agent of `/theway:workflow` gets the two paths of `standards`, and its reports name them: `test-first.md, api-style.md`.

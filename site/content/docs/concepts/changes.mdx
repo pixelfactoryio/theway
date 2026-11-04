@@ -27,7 +27,7 @@ add-user-auth-03
 - With `--series`, `validate-id` rejects topic suffixes (`add-user-auth-login`), letter suffixes (`-a`, `-b`), unpadded numbers (`-1`), `-00` and double ordinals.
 - Each member's `spec.md` has a line under its title: `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`. The `01` member states no dependency.
 
-`/theway:workflow` takes the members in order. With a `pr` step in its workflow, it asks you before merging each PR and starts the next change once it is merged; without one, it stacks each change on a local branch created from the previous one.
+`/theway:workflow` takes the members in order. When its workflow pushes (`theway workflow` prints `pushes: true`), it asks you before merging each PR and starts the next change once it is merged; otherwise it stacks each change on a local branch created from the previous one.
 
 ## Project key
 

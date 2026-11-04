@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its thirteen subcommands.
+description: The theway command line and its fourteen subcommands.
 ---
 
-The `theway` program has thirteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has fourteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `steps`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
@@ -16,6 +16,7 @@ theway config [--project <key>]
 theway standards <engineering|develop|document> [--project <key>]
 theway context <engineering|develop|document> [<change-id>] [--project <key>]
 theway workflow [<name>] [--project <key>]
+theway steps [<name>] [--project <key>]
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
@@ -153,7 +154,7 @@ The key is the project root's absolute path with every character outside `[A-Za-
 
 The root is resolved to its physical path (symlinks followed) before the key is built. A linked worktree of a `--separate-git-dir` repository and a submodule get their own worktree root, so they do not share the main repository's key. See [Project key](./concepts/changes.mdx#project-key).
 
-`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
+`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `steps` and `next-id`. It exits 1 with one line on stderr when:
 
 - the `--project` value is not letters, digits and `-`, 1 to 200 characters:
 
@@ -185,13 +186,10 @@ standards:
     enabled: false
   ...
 workflow:
-  defaults:
-    ...
-    pr:
-      ci_attempts: 2
-      model: sonnet
-      fix_model: opus
+  defaults: {}
 ```
+
+`workflow.defaults` is printed as the files merge it, per step and param, the project file over the global one, and `{}` when no file sets any.
 
 An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `projects/<key>/config.yaml`:
 
@@ -202,9 +200,10 @@ theway: warning: <file>: <key> must be a map; ignored
 theway: warning: <file>: not a map; ignored
 theway: warning: <file>: standards.<key> has no standard file; ignored
 theway: warning: <file>: standards.<key> cannot be switched; ignored
+theway: warning: <file>: workflow.defaults.<step>: no step '<step>' in <home>/projects/<key>/steps or <home>/steps; did you mean '<x>'?; ignored
 ```
 
-The last two name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name, or a convention standard (`commits`, `git_host`).
+The `standards` warnings name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name, or a convention standard (`commits`, `git_host`).
 
 It exits 1 and prints nothing on stdout when:
 
@@ -311,7 +310,7 @@ theway workflow
 theway workflow <name>
 ```
 
-Resolves one [workflow](./concepts/workflows.mdx), validates it, fills every field its steps leave out from [`workflow.defaults`](./configuration.mdx#workflow), and prints it as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it once per run and passes the result to its pipeline.
+Resolves one [workflow](./concepts/workflows.mdx), its [steps](./concepts/workflows.mdx#step-files) and their prompts, applies each param (the workflow entry, else [`workflow.defaults`](./configuration.mdx#workflow), else the step file's default), expands every `foreach`, validates it all, and prints it as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it once per run and passes the result to its pipeline.
 
 Which file:
 
@@ -319,11 +318,11 @@ Which file:
 - **Without `<name>`, the default:**
   1. The project's folder: every workflow file in it is validated, in file-name order, and the one that sets `default: true` is the default.
   2. Only when the project has none, the global folder: the same, over the global files that no project file of the same name shadows. A shadowed global file is not read.
-  3. When neither has one, `develop` (the shipped one runs a single inline `implement`), looked up as with `<name>`.
+  3. When neither has one, `develop` (the shipped one is a working-tree workflow), looked up as with `<name>`.
 - A `<name>` matches `^[a-z0-9]+(-[a-z0-9]+)*$`; the workflow's name is its file stem. A `*.default.yaml` file is the shipped copy install writes next to an edited file, never a workflow. While it scans a folder for the default, a `.yaml` file whose stem is not a valid name is skipped with `theway: warning: <file>: not a valid workflow name; ignored`.
-- Each lens of a `review` step is `<home>/projects/<key>/lenses/<lens>.md` when it is a file, else `<home>/lenses/<lens>.md`.
+- Each step is `<home>/projects/<key>/steps/<name>.yaml` when it is a file, else `<home>/steps/<name>.yaml`; each prompt the same, under `prompts/` as `<name>.md`.
 
-`theway workflow agents`, with the shipped `agents.yaml`:
+`theway workflow agents`, with the shipped `agents.yaml` (shortened):
 
 ```json
 {
@@ -331,53 +330,95 @@ Which file:
   "file": "/home/you/.theway/workflows/agents.yaml",
   "commits": "/home/you/.theway/standards/commits.md",
   "git_host": "/home/you/.theway/standards/git-host.md",
+  "pushes": true,
+  "working_tree": false,
   "steps": [
     {
+      "id": "implement",
       "step": "implement",
       "agents": true,
-      "model": "opus"
-    },
-    {
-      "step": "review",
-      "agents": true,
-      "rounds": 1,
-      "lenses": [
+      "file": "/home/you/.theway/steps/implement.yaml",
+      "description": "Implement the change's tasks as its spec says",
+      "params": { "model": { "value": "opus", "from": "steps/implement.yaml" } },
+      "do": [
         {
-          "name": "conformance",
-          "path": "/home/you/.theway/lenses/conformance.md"
-        },
-        {
-          "name": "correctness",
-          "path": "/home/you/.theway/lenses/correctness.md"
+          "agent": {
+            "name": "implement",
+            "label": "implement:implement",
+            "prompt": ["/home/you/.theway/prompts/implement.md"],
+            "returns": "work",
+            "access": "commit",
+            "model": "opus"
+          }
         }
-      ],
-      "model": "opus",
-      "fix_model": "opus"
+      ]
     },
     {
-      "step": "pr",
-      "agents": true,
-      "ci_attempts": 2,
-      "model": "sonnet",
-      "fix_model": "opus"
-    }
+      "id": "review",
+      "step": "review",
+      "...": "...",
+      "do": [
+        {
+          "loop": {
+            "max": 1,
+            "until": ["no-confirmed"],
+            "exhausted": "continue",
+            "do": [
+              { "parallel": [ { "agent": { "name": "conformance", "label": "review:conformance", "...": "..." } }, "..." ] },
+              { "when": ["findings"], "do": [ { "agent": { "name": "triage", "...": "..." } } ] },
+              { "when": ["confirmed"], "do": [ "..." ] }
+            ]
+          }
+        }
+      ]
+    },
+    { "id": "pr", "step": "pr", "...": "..." }
   ]
 }
 ```
 
-`commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/projects/<key>/standards/commits.md` and `git-host.md` when they are files, else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
+- `commits` and `git_host` are the paths of the [convention standards](./concepts/standards.mdx#convention-standards): `<home>/projects/<key>/standards/commits.md` and `git-host.md` when they are files, else the global ones. The global files must exist, even when the project overrides them: checked after the workflow file is validated, a missing one exits 1 with `theway: <home>/standards/commits.md not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` (or `git-host.md`).
+- `pushes` is `true` when a step has an agent with `access: push`: it is what authorizes `/theway:workflow` to push and open the PR. `working_tree` is `true` for a workflow of one inline entry whose tree is one `work` agent with `access: commit`: it creates no branch and commits nothing.
+- Each step entry has its `id` (`review`, `review-2` for a repeated one), `step`, `agents` (its own, else the top-level one, else `true`), `file`, `description`, `params` (each `value` and `from`: the workflow file and `steps[<i>]`, a config file, or the step file) and `do`. A gate entry is `{ "id": "gate", "gate": "<question>", "agents": false }`.
+- In `do`, a sequential `foreach` is replaced by its copies and a parallel one becomes `{ "parallel": [ … ] }`; a `loop` prints `max`, `until`, `exhausted` and `do`; a `when` prints its conditions and `do`, or `"fail": true`. Every agent has `name`, `label`, `prompt` (absolute paths, read in order), `returns`, `access` and `model`; an inline step's agents have no `model`, and its params print none that sets one.
+- The `version` key is not printed.
 
-Every field of every step is printed, `step` first, then `agents`: the step's own value, else the file's top-level `agents`, else `true`. A step with `agents: false` runs inline and has no `model` or `fix_model`; the shipped `develop` prints `"steps": [{ "step": "implement", "agents": false }]`. It writes the warnings of [`config`](#config) to stderr. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the lines of [`project`](#project) for the key, and these, where `<file>` is the path relative to the home:
+It writes the warnings of [`config`](#config) to stderr, and its own: a `workflow.defaults` value of another kind than its param, or for a param the step does not declare, a reserved `steps/gate.yaml`, and a loop with `exhausted: fail` whose fix is not guarded by `more`. Any error writes one line on stderr, prints nothing on stdout and exits 1: the messages of `config` for a missing or invalid config file, the lines of [`project`](#project) for the key, and these, where `<file>` is the path relative to the home:
 
 ```text
 theway: invalid workflow name '<name>'
 theway: no workflow '<name>' in <home>/projects/<key>/workflows or <home>/workflows
 theway: workflows/a.yaml and workflows/b.yaml both set default: true
-theway: <file>: steps[1]: pr must be the last step
-theway: <file>: steps[0].implement.model has no effect when the step runs inline (agents: false)
+theway: workflows/w.yaml: version is required (theway.workflow/v1)
+theway: workflows/w.yaml: steps[1]: no step 'reviews' in <home>/projects/<key>/steps or <home>/steps; did you mean 'review'?
+theway: workflows/w.yaml: steps[0].implement.model has no effect when the step runs inline (agents: false)
+theway: workflows/w.yaml: steps[1]: a pushing step must be the last step
+theway: steps/review.yaml: do[0].loop.max must be a positive integer (value from workflows/w.yaml steps[1])
 ```
 
-A workflow file error is the first one found: the file cannot be read or is not valid YAML; the root is not a map, has a key other than `default`, `agents` and `steps`, `default` or `agents` is not `true` or `false`, or `steps` is not a non-empty list; then, step by step, a step that is not one of `implement`, `review`, `agent`, `pr`, a field its type does not have, a value that breaks its rule, a `model` or `fix_model` on an inline step, a missing `agent` `name` or `prompt`, a step out of order, and a lens with no file. [Workflows](./concepts/workflows.mdx#rules) lists each rule.
+Only the first error is reported, in this order: the file cannot be read or is not valid YAML, its root is not a map, its `version` is missing or wrong, it has an unknown key, then the rest in document order, each step's own file included. [Workflows](./concepts/workflows.mdx#validation) describes every rule.
+
+## steps
+
+```bash
+theway steps
+theway steps <name>
+```
+
+- **Without `<name>`:** lists every step file of the project, the project's first and then the global ones no project file shadows, sorted by name, with its origin and description, then each param with its effective value (from `workflow.defaults`, else the step file) and description:
+
+  ```text
+  implement  global  Implement the change's tasks as its spec says
+      model=opus  The implementer
+  review  global  Review the diff through each lens, triage the findings, fix the confirmed ones and check the fixes
+      rounds=1  Maximum review rounds
+      lenses=conformance,correctness  One reviewer per lens, by prompt name
+      model=opus  The reviewers, the triage and the fix check
+      fix_model=opus  The fix agent of each round
+  ```
+
+  It reads only each file's `version`, `description` and `params`: a file it cannot read, or whose `version` or those keys are invalid, is skipped with a warning.
+- **With `<name>`:** validates that step as `theway workflow` does and prints its step object as JSON, with `"id": "<name>"`, `"agents": true` and its params from `workflow.defaults` and the step file. An unknown step exits 1 with `theway: no step '<name>' in <home>/projects/<key>/steps or <home>/steps`, followed by a did-you-mean suggestion or the valid set, for example `(steps: implement, pr, review)`; an invalid step file exits 1 with its error line.
 
 ## authority
 
