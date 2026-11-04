@@ -379,7 +379,7 @@ const diagnosisErrors = (d) => d.errors.map((e) => e.error).join(' | ')
 function placeholders(text) {
   let out = text
   if (run.changes.length > 0) out = out.replaceAll('<change-id>', run.changes.map((c) => c.id).join(', '))
-  if (request) out = out.replaceAll('<request>', args.request)
+  if (request) out = out.replaceAll('<request>', () => args.request)
   return out
 }
 
