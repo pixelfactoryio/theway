@@ -299,6 +299,31 @@ test("install keeps an existing config.yaml and writes config.default.yaml", () 
   expect(readFileSync(join(env.theway, "config.default.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
 });
 
+const RETIRED_ENGINEERING = "Your config.yaml still has engineering: theway ignores it and reads workflow.defaults.spec-review; remove it";
+const RETIRED_AGENT = "Your config.yaml still has workflow.defaults.agent: the agent step is gone and theway ignores it; remove it";
+
+test("install over a config.yaml with retired keys names each one and leaves the file unchanged", () => {
+  const env = setup();
+  const text = "engineering:\n  review:\n    rounds: 2\nworkflow:\n  defaults:\n    agent:\n      model: sonnet\n";
+  put(join(env.theway, "config.yaml"), text);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`${RETIRED_ENGINEERING}\n`);
+  expect(res.stdout).toContain(`${RETIRED_AGENT}\n`);
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(text);
+});
+
+test("install over an unparsable config.yaml names no retired key and installs", () => {
+  const env = setup();
+  const text = "engineering: [\nworkflow:\n  defaults:\n    agent: {\n";
+  put(join(env.theway, "config.yaml"), text);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("Kept existing config.yaml");
+  expect(res.stdout).not.toContain("Your config.yaml still has");
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(text);
+});
+
 test("install merges the rules once and keeps existing settings", () => {
   const env = setup({ defaultHome: true });
   put(join(env.claude, "settings.json"), JSON.stringify({ model: "x", permissions: { allow: ["Bash(ls:*)"] } }));

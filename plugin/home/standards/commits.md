@@ -12,7 +12,7 @@ The type comes from the change ID's verb: `add-` → `feat`, `fix-` → `fix`, `
 
 The first commit of the change sets its type. Every later commit, the fix commits and the PR title use the type of the change's commits on the feature branch that change more than tests or docs, with its `!`: read `git log <base>..<branch>` for it.
 
-Every commit of the change uses that type, except commits that change only tests (`test`) or only docs (`docs`). When the spec says the change breaks, the type gets `!` and the commit a `BREAKING CHANGE:` footer.
+Every commit of the change uses that type, except commits that change only tests (`test`) or only docs (`docs`). When the spec says the change breaks, the type gets `!` right after the scope, before the colon (`type(scope)!: description`, or `type!: description` without a scope), and the commit a `BREAKING CHANGE:` footer. Never `type!(scope):`.
 
 ## Commit messages
 

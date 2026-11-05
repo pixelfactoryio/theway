@@ -678,12 +678,6 @@ test("config warns about a workflow.defaults value of another shape and drops it
     effective({}, [], [
       "  defaults:",
       "    pr: {}",
-      "    reviews:",
-      "      rounds: 2",
-      "    deploy:",
-      "      model: opus",
-      "    agent:",
-      "      model: sonnet",
       "    review:",
       "      model: opus",
     ]),

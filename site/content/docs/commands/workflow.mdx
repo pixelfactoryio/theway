@@ -118,7 +118,7 @@ Neither the command nor `theway:run-pipeline` fixes a commit convention or a git
   | `refactor-` | `refactor` |
   | `update-`, `remove-` | chosen with the first commit; every later commit and the PR title take it from the branch's commits |
 
-  Commits that change only tests use `test`, and commits that change only docs use `docs`. When the spec says the change breaks, the type gets `!` and the commit a `BREAKING CHANGE:` footer.
+  Commits that change only tests use `test`, and commits that change only docs use `docs`. When the spec says the change breaks, the type gets `!` right after the scope, before the colon (`type(scope)!: description`, or `type!: description` without a scope), and the commit a `BREAKING CHANGE:` footer. Never `type!(scope):`.
 - **`git-host.md`** gives the command of each operation by its heading: the default branch, syncing it, pushing the feature branch, opening the PR, waiting for the checks, reading a failed check's log, re-running failed jobs, the diffstat and the merge. The shipped file uses GitHub through `gh`; replace it to use another host.
 
 ## Output

@@ -10,6 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { parse } from "yaml";
 
 /**
  * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
@@ -289,6 +290,28 @@ function enableStandards(text: string, enabled: readonly string[]): string {
   return lines.join("\n");
 }
 
+/**
+ * Prints one line per retired key a kept global `config.yaml` still has; edits nothing. A file that does not parse, or
+ * is not a map, prints nothing.
+ */
+function reportRetiredKeys(file: string): void {
+  let doc: unknown;
+  try {
+    doc = parse(readFileSync(file, "utf-8"));
+  } catch {
+    return;
+  }
+  const isMap = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+  if (!isMap(doc)) return;
+  if (Object.hasOwn(doc, "engineering")) {
+    process.stdout.write("Your config.yaml still has engineering: theway ignores it and reads workflow.defaults.spec-review; remove it\n");
+  }
+  const workflow = doc.workflow;
+  if (isMap(workflow) && isMap(workflow.defaults) && Object.hasOwn(workflow.defaults, "agent")) {
+    process.stdout.write("Your config.yaml still has workflow.defaults.agent: the agent step is gone and theway ignores it; remove it\n");
+  }
+}
+
 /** Copies the shipped config, standards, templates, workflows, steps, prompts and schemas into `home`; a new `config.yaml` has the `enabled` standards on. */
 export function init(src: string, home: string, enabled: readonly string[] = []): number {
   try {
@@ -296,6 +319,7 @@ export function init(src: string, home: string, enabled: readonly string[] = [])
     copyFileSync(`${src}/config.yaml`, `${home}/config.default.yaml`);
     if (existsSync(`${home}/config.yaml`)) {
       process.stdout.write("Kept existing config.yaml (shipped defaults: config.default.yaml)\n");
+      reportRetiredKeys(`${home}/config.yaml`);
     } else if (enabled.length === 0) {
       copyFileSync(`${src}/config.yaml`, `${home}/config.yaml`);
     } else {

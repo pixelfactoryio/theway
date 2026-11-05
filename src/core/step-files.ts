@@ -84,17 +84,20 @@ export function suggest(wanted: string, known: string[], noun: string): string {
 
 /**
  * Warns, once per config file and step, about a `workflow.defaults.<step>` naming no step that resolves for the
- * project; the resolver drops its values.
+ * project; the resolver drops its values. Returns the step names it warned about.
  */
-export function warnUnknownDefaults(home: string, key: string, loaded: Loaded, warn: Warn): void {
+export function warnUnknownDefaults(home: string, key: string, loaded: Loaded, warn: Warn): Set<string> {
   const known = knownSteps(home, key);
+  const unknown = new Set<string>();
   for (const layer of loaded.defaults) {
     for (const step of layer.steps.keys()) {
       if (known.includes(step)) continue;
+      unknown.add(step);
       warn(
         layer.file,
         `workflow.defaults.${step}: no step '${step}' in ${searched(home, key, "steps")}${suggest(step, known, "steps")}`,
       );
     }
   }
+  return unknown;
 }
