@@ -189,7 +189,7 @@ workflow:
   defaults: {}
 ```
 
-`workflow.defaults` is printed as the files merge it, per step and param, the project file over the global one, and `{}` when no file sets any.
+`workflow.defaults` is printed as the files merge it, per step and param, the project file over the global one, and `{}` when no file sets any. An entry that names no step is left out, with the `workflow.defaults.<step>` warning below.
 
 An invalid value, an unknown key, a section that is not a map or a file whose root is not a map is ignored with a warning on stderr, the global file's first, and the exit code stays 0. `<file>` is the path relative to the home, `config.yaml` or `projects/<key>/config.yaml`:
 
