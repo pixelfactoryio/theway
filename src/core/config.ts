@@ -307,7 +307,9 @@ export function cmdConfig(override: string | undefined): number {
   const home = thewayHome();
   const loaded = loadConfig(home, key);
   if (loaded === null) return 1;
-  warnUnknownDefaults(home, key, loaded, warnLoud);
+  // A defaults entry naming no step is ignored, so it is not printed as part of the effective config.
+  const defaults = (loaded.config.workflow as Config).defaults as Config;
+  for (const step of warnUnknownDefaults(home, key, loaded, warnLoud)) delete defaults[step];
   process.stdout.write(stringify(loaded.config));
   return 0;
 }

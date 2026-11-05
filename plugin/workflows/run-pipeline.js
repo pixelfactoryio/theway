@@ -87,6 +87,9 @@ const isFix = request ? false : args.changeId.split('-')[0] === 'fix'
 /** The run: the branch head of a changes run, the change folders of a request run. */
 const run = request ? { changes: args.changes.map((c) => ({ ...c })) } : { head: args.head, changes: [] }
 
+/** What the progress lines and phase titles name: the change, or a request run's change IDs so far (request before the scaffold). */
+const subject = () => (request ? (run.changes.length > 0 ? run.changes.map((c) => c.id).join(', ') : 'request') : args.changeId)
+
 // ---- Result types: a fixed schema each, with summary and authorityReports. ----
 
 const STRINGS = { type: 'array', items: { type: 'string' } }
@@ -418,7 +421,7 @@ const noResult = (a, error) => (a.returns === 'work' ? blocked(error) : failed(e
 async function call(a, ctx) {
   let result
   try {
-    result = await agent(promptOf(a, ctx), { label: a.label, phase: ctx.entry.id, model: a.model, schema: SCHEMAS[a.returns](a.access) })
+    result = await agent(promptOf(a, ctx), { label: a.label, phase: ctx.phase, model: a.model, schema: SCHEMAS[a.returns](a.access) })
   } catch (e) {
     throw noResult(a, `${a.label} threw: ${reasonOf(e)}`)
   }
@@ -530,6 +533,7 @@ async function runNode(n, ctx) {
   } else if ('loop' in n) {
     const l = n.loop
     for (let iteration = 1; iteration <= l.max; iteration++) {
+      log(`▸ ${ctx.entry.id}: iteration ${iteration} of ${l.max}`)
       const inner = { ...ctx, scope: emptyScope(), loop: { iteration, max: l.max } }
       await runNodes(l.do, inner)
       if (l.until.every((c) => holds(c, inner))) return
@@ -548,14 +552,18 @@ async function runNode(n, ctx) {
 // ---- Run ----
 
 try {
+  const ids = args.workflow.steps.map((e) => (e.agents === true ? e.id : `${e.id} (inline)`)).join(' → ')
+  log(`${subject()} · workflow ${args.workflow.name}: ${ids}`)
   for (const i of args.steps) {
     const entry = args.workflow.steps[i]
     const record = { id: entry.id, step: entry.step, results: [] }
     state.steps.push(record)
-    phase(entry.id)
+    log(`▸ ${entry.id}`)
+    const title = `${subject()} · ${entry.id}`
+    phase(title)
     const params = {}
     for (const [p, v] of Object.entries(entry.params)) params[p] = isObject(v) && 'value' in v ? v.value : v
-    await runNodes(entry.do, { entry, params, scope: emptyScope(), loop: null, record })
+    await runNodes(entry.do, { entry, phase: title, params, scope: emptyScope(), loop: null, record })
   }
 } catch (e) {
   if (e instanceof Stop) return finish(e.outcome)

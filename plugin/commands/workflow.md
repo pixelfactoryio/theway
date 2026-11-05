@@ -99,6 +99,7 @@ The script runs the segment's entries and returns `{ status, error, steps, pr, c
 
 - **When the Workflow tool is not available in this session:** read `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js` and run the segment's tree with the Agent tool, one agent per `agent` node, with the same prompts, models, order and type rules. Each agent's prompt asks it to end its reply with a JSON object of its type's fields, and you build the same result. This fallback is for agent segments only.
 - **When neither the Workflow tool nor the Agent tool is available:** run the agent segment's nodes yourself, as an inline step, and say "inline" for it in the report.
+- **Agent steps always go through agents:** an entry with `agents: true` runs through the Workflow tool, or through the Agent tool fallback above when the Workflow tool is missing. It runs inline only when both tools are missing, as the previous item says. Never run it inline otherwise, even for a short step.
 - **When the Workflow call returns an error and no result:** the change is `failed`, with that error quoted. There is no fallback then, since agents may already have committed.
 
 **Inline step.** Walk the step's printed `do` tree yourself, in order: for each `agent` node, read its prompt files and follow them under the same rules the script gives its agents, except as the list below says: the fixed rules (`fixed()` in `${CLAUDE_PLUGIN_ROOT}/workflows/run-pipeline.js`, its request-run branch in a request run), the permission line of its `access` (`PERMISSION` there), its Input and its type's engine line. Apply the type rules of the script to what you produce, run a `parallel` group's agents one after the other, evaluate `loop` and `when` conditions as the script does, and build the same typed results for Steps 4 and 5.
@@ -138,18 +139,19 @@ Otherwise, whatever the status, record what the typed results hold in `<change-d
 **A request run** reports, in this order:
 
 1. each change folder the scaffold wrote;
-2. the scaffold's `shaping`: the findings that shaped the spec;
-3. the review outcome: how it ran (the rounds used; "not run because a question was already open" when the scaffold returned `open`; "not run: the scaffold stopped" when it returned `stopped` or `escalated`; "inline" when the step ran inline), then every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding. `#` is `R<iteration>-<index>`, for example `R1-0`; `Finding` is one line saying what is wrong; `Verdict` is the triage verdict, or `confirmed, settled` for a verdict with `settled: true`; `Fix` comes from the `edits` result's `fixes`, reads `open question: <question>` for a confirmed `decision` (`escalated` in a light run, whose changes are `light`), names the earlier `#` for a `duplicate`, and gives the one-line reason for the other verdicts;
-4. under the table, each `confirmed, settled` finding again, with the choice made, so the user can overturn it;
-5. any open question or stop report (the `error` of a `blocked` run), verbatim, and that the spec is not ready until it is answered;
-6. the standards given, by file name, or "none";
-7. every `theway: warning:` line and every `authorityReports` entry.
+2. one line per entry, in workflow order: its `id` and "through agents" or "inline";
+3. the scaffold's `shaping`: the findings that shaped the spec;
+4. the review outcome: how it ran (the rounds used; "not run because a question was already open" when the scaffold returned `open`; "not run: the scaffold stopped" when it returned `stopped` or `escalated`; "inline" when the step ran inline), then every finding of every round in one Markdown table with the columns `#`, `Finding`, `Verdict` and `Fix`, one row per finding. `#` is `R<iteration>-<index>`, for example `R1-0`; `Finding` is one line saying what is wrong; `Verdict` is the triage verdict, or `confirmed, settled` for a verdict with `settled: true`; `Fix` comes from the `edits` result's `fixes`, reads `open question: <question>` for a confirmed `decision` (`escalated` in a light run, whose changes are `light`), names the earlier `#` for a `duplicate`, and gives the one-line reason for the other verdicts;
+5. under the table, each `confirmed, settled` finding again, with the choice made, so the user can overturn it;
+6. any open question or stop report (the `error` of a `blocked` run), verbatim, and that the spec is not ready until it is answered;
+7. the standards given, by file name, or "none";
+8. every `theway: warning:` line and every `authorityReports` entry.
 
 For a working-tree workflow, report the tasks done, each Success Criterion with how it was verified, any deviation from the spec and what was decided about it, anything still open, and that the change is uncommitted in the working tree; also name the standards followed, by file name, or "none", and quote every `theway: warning:` line.
 
 Otherwise, report per change: the workflow's name and file, the branch, and the PR URL (or the local branch when nothing was pushed). Then, per entry in workflow order whichever segment ran it:
 
-- its `id`, marked "inline" for an inline entry, and "ran inline: the session checked its own work" for an inline step with a `findings` agent;
+- its `id`, marked "through agents" for an entry run through agents and "inline" for an inline entry, and "ran inline: the session checked its own work" for an inline step with a `findings` agent;
 - the loop iterations it used;
 - each agent's `summary`;
 - every finding, with its verdict or "not triaged";

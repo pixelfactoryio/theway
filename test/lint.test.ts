@@ -321,8 +321,14 @@ test("commits.md sets the commit type from the change verb and the lens prompts 
   expect(read(PIPELINE)).toContain("args.base");
   const commits = read(join(STANDARDS, "commits.md"));
   // The shipped commit and branch convention.
-  for (const marker of ["`add-` → `feat`", "type(scope): description", "BREAKING CHANGE:", "branch is named `<change-id>`"]) {
+  for (const marker of ["`add-` → `feat`", "type(scope): description", "type(scope)!: description", "BREAKING CHANGE:", "branch is named `<change-id>`"]) {
     expect(commits).toContain(marker);
+  }
+  // The `!` goes after the scope: `type!(scope):` appears only in the sentence that forbids it.
+  for (const text of [commits, read(join(REPO, "site", "content", "docs", "commands", "workflow.mdx"))]) {
+    expect(text).toContain("type(scope)!: description");
+    expect(text.split("type!(scope):").length).toBe(2);
+    expect(text).toContain("Never `type!(scope):`.");
   }
   expect(step(read(join(COMMANDS, "workflow.md")), "Step 3:")).toContain("`<base>` (Step 2)");
   // A light spec's Change section replaces Scope.
@@ -444,6 +450,7 @@ const ENGINEERING_RULES: Record<string, string[]> = {
     "Escalate when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series.",
     "A request that contradicts a standard is a decision to make.",
     "A decision is a choice the code, the docs and the request do not settle; a public contract change is a change to a command, CLI, API, config key or file format that others rely on.",
+    "Adding something counts: a new response field, flag, option, config key or file key changes the contract, even when nothing existing breaks.",
     "`escalated: <what was found>; run /theway:engineering <request> without --light`",
     "never with `--series` (a light change is never a series member)",
     "`spec.md` keeps the `**Mode:** light` line directly under its H1 title: `/theway:workflow` reads it.",
@@ -514,12 +521,17 @@ test("workflow.md runs an input: request workflow: the request invocation, no br
     "passes only `repo`, `request` (the request, as a string), `changes`, `standards`, `authority`, `workflow` and `steps`",
     "Pass it to every segment after the scaffold.",
     "**When neither the Workflow tool nor the Agent tool is available:**",
+    "**Agent steps always go through agents:** an entry with `agents: true` runs through the Workflow tool",
+    "It runs inline only when both tools are missing",
+    "Never run it inline otherwise, even for a short step.",
   ]) {
     expect(run).toContain(marker);
   }
   const exit = section(text, "Exit");
   for (const marker of [
     "each change folder the scaffold wrote",
+    '2. one line per entry, in workflow order: its `id` and "through agents" or "inline";',
+    'marked "through agents" for an entry run through agents and "inline" for an inline entry',
     "the scaffold's `shaping`",
     "`#`, `Finding`, `Verdict` and `Fix`",
     "`R<iteration>-<index>`",
@@ -632,6 +644,7 @@ async function drive(args: Record<string, unknown>, script: Record<string, Scrip
   const run = new AsyncFunction("args", "agent", "parallel", "pipeline", "phase", "log", body);
   const calls: Call[] = [];
   const phases: string[] = [];
+  const logs: string[] = [];
   const agent = async (text: string, opts: Record<string, unknown>) => {
     const label = opts.label as string;
     calls.push({ label, text, opts });
@@ -642,10 +655,10 @@ async function drive(args: Record<string, unknown>, script: Record<string, Scrip
     return typeof next === "function" ? (next as (t: string) => unknown)(text) : next;
   };
   const parallel = async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map((t) => t().catch(() => null)));
-  const result = await run(args, agent, parallel, null, (t: string) => phases.push(t), () => {});
+  const result = await run(args, agent, parallel, null, (t: string) => phases.push(t), (m: string) => logs.push(m));
   // Every prompt of every run starts with the fixed rules and holds its node's permission line.
   if (calls.length > 0) expectPrompts(args.workflow as { steps: Entry[] }, calls);
-  return { result, calls, phases };
+  return { result, calls, phases, logs };
 }
 
 /** The args of a segment of `workflow` from `steps`, with the head `h0`. */
@@ -734,7 +747,8 @@ test("run-pipeline.js is a plugin workflow that compiles and refuses args that d
   expect(text).toStartWith("export const meta = {");
   expect(text).toContain("name: 'run-pipeline'");
   expect(text).not.toContain("phases");
-  expect(text).toContain("phase(entry.id)");
+  expect(text).toContain("phase(title)");
+  expect(text).toContain("const title = `${subject()} · ${entry.id}`");
   for (const rule of ["never force-push", "never push the default branch", "never merge"]) expect(text).toContain(rule);
   // The interpreter knows no step by name.
   const named = text.split("\n").filter((line) => /(?<![-\w])(implement|review|lenses|ci_attempts|fix_model)(?![\w.])/.test(line));
@@ -764,7 +778,7 @@ test("run-pipeline.js is a plugin workflow that compiles and refuses args that d
 
 test("run-pipeline.js runs the shipped review: no findings succeeds after one round, with labels, phases and Input", async () => {
   const wf = fixture();
-  const { result, calls, phases } = await drive(segment(wf, [REVIEW]), {
+  const { result, calls, phases, logs } = await drive(segment(wf, [REVIEW]), {
     "review:conformance": [findings()],
     "review:correctness": [findings()],
   });
@@ -785,10 +799,11 @@ test("run-pipeline.js runs the shipped review: no findings succeeds after one ro
     changes: [],
     authorityReports: [],
   });
-  expect(phases).toEqual(["review"]);
+  expect(phases).toEqual(["add-x · review"]);
+  expect(logs).toEqual(["add-x · workflow agents: implement → review → pr", "▸ review", "▸ review: iteration 1 of 1"]);
   expect(calls.map((c) => [c.label, c.opts.model, c.opts.phase])).toEqual([
-    ["review:conformance", "opus", "review"],
-    ["review:correctness", "opus", "review"],
+    ["review:conformance", "opus", "add-x · review"],
+    ["review:correctness", "opus", "add-x · review"],
   ]);
   const first = calls[0] as Call;
   expect(first.text).toContain("Read these files in order and follow them: /h/prompts/reviewer.md, /h/prompts/conformance.md.");
@@ -892,7 +907,7 @@ test("run-pipeline.js runs the implementer and a fix- change's Input, and blocks
     "review:correctness": [findings()],
   });
   expect([reports.result.status, reports.result.authorityReports]).toEqual(["succeeded", ['"push to main"']]);
-  expect(reports.phases).toEqual(["implement", "review"]);
+  expect(reports.phases).toEqual(["add-x · implement", "add-x · review"]);
 });
 
 test("run-pipeline.js runs the shipped pr: green, a fix then green, and every failure outcome", async () => {
@@ -1010,7 +1025,7 @@ test("run-pipeline.js fails a change on when … fail: true with the titles, and
   expect(both.result.status).toBe("succeeded");
   expect(both.result.steps.map((s: { id: string }) => s.id)).toEqual(["review", "review-2"]);
   expect(both.calls.map((c) => c.label)).toEqual(["review:conformance", "review:correctness", "review-2:conformance", "review-2:correctness"]);
-  expect(both.phases).toEqual(["review", "review-2"]);
+  expect(both.phases).toEqual(["add-x · review", "add-x · review-2"]);
 });
 
 // ---- run-pipeline.js: the input: request workflows of /theway:engineering ----
@@ -1089,6 +1104,19 @@ test("run-pipeline.js drives the engineering scaffold through each outcome", asy
     "spec-review:implementability": [specFindings()],
   });
   expect([ready.result.status, ready.result.error, ready.result.changes]).toEqual(["succeeded", null, [CHANGE]]);
+  // The progress names the request until the scaffold sets the change, then the change.
+  expect(ready.logs).toEqual([
+    "request · workflow engineering: scaffold → spec-review",
+    "▸ scaffold",
+    "▸ spec-review",
+    "▸ spec-review: iteration 1 of 1",
+  ]);
+  expect(ready.phases).toEqual(["request · scaffold", "add-cache · spec-review"]);
+  expect(ready.calls.map((c) => [c.label, c.opts.phase])).toEqual([
+    ["scaffold:scaffold", "request · scaffold"],
+    ["spec-review:grounding", "add-cache · spec-review"],
+    ["spec-review:implementability", "add-cache · spec-review"],
+  ]);
   expect(ready.calls.map((c) => [c.label, c.opts.model])).toEqual([
     ["scaffold:scaffold", "opus"],
     ["spec-review:grounding", "opus"],
@@ -1129,6 +1157,9 @@ test("run-pipeline.js runs the engineering review: no findings ends it after one
   });
   expect([res.result.status, res.calls.map((c) => c.label)]).toEqual(["succeeded", ["spec-review:grounding", "spec-review:implementability"]]);
   expect(res.result.changes).toEqual([CHANGE]);
+  // A segment after the inline scaffold names the changes it was given, and marks the inline entry.
+  expect(res.logs[0]).toBe("add-cache · workflow engineering: scaffold (inline) → spec-review");
+  expect(res.phases).toEqual(["add-cache · spec-review"]);
   expect((res.calls[0] as Call).text).toContain("Read these files in order and follow them: /h/prompts/spec-reviewer.md, /h/prompts/grounding.md.");
 });
 
