@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.0](https://github.com/pixelfactoryio/theway/compare/v0.14.1...v0.15.0) (2026-11-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **engineering:** run /theway:engineering as request workflows built from steps and prompts ([#74](https://github.com/pixelfactoryio/theway/issues/74))
+* build workflows from composable step files and prompt files ([#73](https://github.com/pixelfactoryio/theway/issues/73))
+
+### Features
+
+* build workflows from composable step files and prompt files ([#73](https://github.com/pixelfactoryio/theway/issues/73)) ([265622b](https://github.com/pixelfactoryio/theway/commit/265622bb586a0acc4bd937d09f2d076d3a412a7b))
+* **engineering:** run /theway:engineering as request workflows built from steps and prompts ([#74](https://github.com/pixelfactoryio/theway/issues/74)) ([dea08c0](https://github.com/pixelfactoryio/theway/commit/dea08c0a64c03fb07a8e15d817f36b62d9a374fa))
+* highlight custom workflows on the landing page and in the docs ([#72](https://github.com/pixelfactoryio/theway/issues/72)) ([1c4bfa0](https://github.com/pixelfactoryio/theway/commit/1c4bfa058925e6d5312ad96e71928bc6fa963295))
+* name the change and step in run-pipeline progress ([#76](https://github.com/pixelfactoryio/theway/issues/76)) ([73fa608](https://github.com/pixelfactoryio/theway/commit/73fa6084139f1fc6a770a71c7324776e9c9da197))
+
+
+### Bug Fixes
+
+* name the sre standard sre ([#68](https://github.com/pixelfactoryio/theway/issues/68)) ([eedfab3](https://github.com/pixelfactoryio/theway/commit/eedfab3107893f4d33458c0798b49441ac90f7ed))
+
 ## [0.14.1](https://github.com/pixelfactoryio/theway/compare/v0.14.0...v0.14.1) (2026-11-03)
 
 
