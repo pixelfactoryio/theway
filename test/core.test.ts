@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { removeIfEmpty } from "../src/core/io";
 import { changeIdReason } from "../src/core/path";
 import { projectReason } from "../src/core/project";
 import { seriesReason, standaloneReason } from "../src/core/validate-id";
@@ -360,6 +361,40 @@ test("standards lists a file with an invalid applies_to for no phase, with a war
     expect(res.status).toBe(0);
     expect(res.stdout).toBe("");
     expect(res.stderr).toBe(`theway: warning: ${file}: applies_to must list engineering, develop and/or document; skipped\n`);
+  }
+});
+
+test("standards accepts any YAML list form of applies_to: quoted, with a trailing comment, a block list with a comment", () => {
+  const dir = home();
+  const p = join(dir, "projects", "p", "standards");
+  put(join(p, "a-quoted.md"), '---\napplies_to: ["develop"]\n---\n');
+  put(join(p, "b-comment.md"), "---\napplies_to: [develop] # comment\n---\n");
+  put(join(p, "c-block.md"), "---\napplies_to:\n  # the phases\n  - develop\n---\n");
+  put(join(p, "d-crlf.md"), "---\r\napplies_to: [develop]\r\n---\r\n");
+  put(join(p, "e-empty.md"), "---\n---\n");
+  const lines = (...names: string[]) => names.map((n) => `${join(p, n)}\n`).join("");
+  const dev = run(dir, "standards", "--project", "p", "develop");
+  expect([dev.status, dev.stdout, dev.stderr]).toEqual([0, lines("a-quoted.md", "b-comment.md", "c-block.md", "d-crlf.md", "e-empty.md"), ""]);
+  for (const phase of ["engineering", "document"]) {
+    const res = run(dir, "standards", "--project", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, lines("e-empty.md"), ""]);
+  }
+});
+
+test("standards warns on invalid YAML front matter that sets applies_to, and applies one that does not to every phase", () => {
+  const dir = home();
+  const p = join(dir, "projects", "p", "standards");
+  const bad = join(p, "a-bad.md");
+  put(bad, "---\napplies_to: [develop\n---\n");
+  put(join(p, "b-nokey.md"), "---\ntitle: a: b\n---\n");
+  for (const phase of ["engineering", "develop", "document"]) {
+    const res = run(dir, "standards", "--project", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([
+      phase,
+      0,
+      `${join(p, "b-nokey.md")}\n`,
+      `theway: warning: ${bad}: applies_to must list engineering, develop and/or document; skipped\n`,
+    ]);
   }
 });
 
@@ -1974,4 +2009,24 @@ test("list, path and archive without --project use the derived key's folder unde
   const res = runIn(cwd, dir, "archive", "add-x");
   expect(res.status).toBe(0);
   expect(res.stdout).toStartWith(`Archived: ${join(dir, "projects", key, "changes", "archive")}/`);
+});
+
+test("removeIfEmpty removes only an empty folder and never follows a symlink", () => {
+  const dir = home();
+  const empty = join(dir, "empty");
+  mkdirSync(empty);
+  const full = join(dir, "full");
+  put(join(full, "f"), "x");
+  const target = join(dir, "target");
+  mkdirSync(target);
+  const link = join(dir, "link");
+  symlinkSync(target, link);
+  expect(removeIfEmpty(join(dir, "missing"))).toBe(true);
+  expect(removeIfEmpty(empty)).toBe(true);
+  expect(existsSync(empty)).toBe(false);
+  expect(removeIfEmpty(full)).toBe(false);
+  expect(removeIfEmpty(join(full, "f"))).toBe(false);
+  expect(removeIfEmpty(link)).toBe(false);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(existsSync(target)).toBe(true);
 });

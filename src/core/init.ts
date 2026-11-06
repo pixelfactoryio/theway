@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { parse } from "yaml";
+import { removeIfEmpty, writeAtomic } from "./io";
 
 /**
  * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
@@ -57,17 +58,6 @@ export function readManifest(home: string): Manifest | undefined {
   }
 }
 
-/** Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated target. */
-function writeAtomic(target: string, data: string | Buffer): void {
-  const tmp = `${target}.tmp-${process.pid}`;
-  try {
-    writeFileSync(tmp, data);
-    renameSync(tmp, target);
-  } finally {
-    rmSync(tmp, { force: true });
-  }
-}
-
 function writeManifest(home: string, manifest: Manifest): void {
   writeAtomic(`${home}/${MANIFEST}`, `${JSON.stringify(manifest, null, 2)}\n`);
 }
@@ -82,15 +72,6 @@ function backupPath(home: string, rel: string, current: Buffer): string {
 }
 
 const baseOf = (name: string) => name.slice(0, -".md".length);
-
-/** Removes `dir` when it is an empty folder; true when it is gone. */
-function removeIfEmpty(dir: string): boolean {
-  if (!existsSync(dir)) return true;
-  if (!statSync(dir).isDirectory()) return false;
-  if (readdirSync(dir).length > 0) return false;
-  rmSync(dir, { recursive: true });
-  return true;
-}
 
 /**
  * Moves the shipped standards of a home installed with the old layout from `data/standards/` to `standards/`,

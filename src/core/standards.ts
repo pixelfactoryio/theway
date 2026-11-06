@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { parse } from "yaml";
 import { effectiveConfig, enabled, type Loaded } from "./config";
 import { escaped, thewayHome } from "./io";
 import { resolveKey } from "./project";
@@ -7,25 +8,6 @@ const PHASES = ["engineering", "develop", "document"] as const;
 export type Phase = (typeof PHASES)[number];
 
 const isPhase = (v: string): v is Phase => (PHASES as readonly string[]).includes(v);
-
-/** The phases a file's `applies_to` lists, or `null` when its value or form is invalid. */
-function parseList(first: string, rest: string[]): Phase[] | null {
-  let values: string[];
-  if (first !== "") {
-    const flow = /^\[(.*)\]$/.exec(first);
-    if (flow === null) return null;
-    values = (flow[1] ?? "").split(",").map((v) => v.trim());
-  } else {
-    values = [];
-    for (const line of rest) {
-      const item = /^\s+-\s+(.*)$/.exec(line);
-      if (item === null) break;
-      values.push((item[1] ?? "").trim());
-    }
-  }
-  if (values.length === 0 || !values.every(isPhase)) return null;
-  return values as Phase[];
-}
 
 /** The phases a standard applies to: its `applies_to`, all three without one, none with a warning when it is invalid or cannot be read. */
 function phasesOf(path: string): readonly Phase[] {
@@ -41,14 +23,22 @@ function phasesOf(path: string): readonly Phase[] {
   const close = lines.indexOf("---", 1);
   if (close === -1) return PHASES;
   const front = lines.slice(1, close);
-  const at = front.findIndex((l) => /^applies_to:/.test(l));
-  if (at === -1) return PHASES;
-  const phases = parseList((front[at] ?? "").slice("applies_to:".length).trim(), front.slice(at + 1));
-  if (phases === null) {
+  const invalid = (): readonly Phase[] => {
     process.stderr.write(`theway: warning: ${path}: applies_to must list engineering, develop and/or document; skipped\n`);
     return [];
+  };
+  let parsed: unknown;
+  try {
+    parsed = parse(front.join("\n"), { mapAsMap: true, logLevel: "error" });
+  } catch {
+    return front.some((l) => /^applies_to:/.test(l)) ? invalid() : PHASES;
   }
-  return phases;
+  if (parsed === null) return PHASES;
+  if (!(parsed instanceof Map)) return invalid();
+  if (!parsed.has("applies_to")) return PHASES;
+  const values: unknown = parsed.get("applies_to");
+  if (!Array.isArray(values) || values.length === 0 || !values.every((v) => typeof v === "string" && isPhase(v))) return invalid();
+  return values as Phase[];
 }
 
 /** Whether `phase` is a phase; writes the reason line when it is not. */

@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -52,6 +52,40 @@ export function isFile(path: string): boolean {
     return statSync(path).isFile();
   } catch {
     return false;
+  }
+}
+
+/**
+ * Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated
+ * target. With `mode`, the target gets that mode.
+ */
+export function writeAtomic(target: string, data: string | Buffer, mode?: number): void {
+  const tmp = `${target}.tmp-${process.pid}`;
+  try {
+    if (mode === undefined) {
+      writeFileSync(tmp, data);
+    } else {
+      writeFileSync(tmp, data, { mode });
+      // The umask, or a stale tmp file, may have left another mode.
+      chmodSync(tmp, mode);
+    }
+    renameSync(tmp, target);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+/**
+ * Removes `dir` when it is an empty folder, never following a symlink; true when it is gone.
+ * False when it is a file, a symlink, not empty or unreadable.
+ */
+export function removeIfEmpty(dir: string): boolean {
+  try {
+    if (!lstatSync(dir).isDirectory() || readdirSync(dir).length > 0) return false;
+    rmdirSync(dir);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "ENOENT";
   }
 }
 
