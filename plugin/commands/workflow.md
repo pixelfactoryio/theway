@@ -71,11 +71,11 @@ Before any branch, check the repository in this order. Case 1 also runs for a wo
 
 1. **No commit.** When `git rev-parse --verify HEAD` fails (not a git repository, or no commit yet), stop before any work with: `the repository has no commit: run git init and commit once, then run /theway:workflow again`.
 2. **No remote, and the workflow pushes.** When `git remote` prints nothing and `pushes` is `true`, stop before any work with: `this workflow pushes and the repository has no git remote: add one, or run the default develop workflow (no branch, nothing pushed)`.
-3. **No remote, and the workflow does not push.** When `git remote` prints nothing and `pushes` is `false`, the base is the current branch (`git branch --show-current`), with no sync. When that prints nothing (detached HEAD), stop with `HEAD is detached: check out a branch, then run /theway:workflow again`; otherwise create the feature branch from it as usual.
+3. **No remote, and the workflow does not push.** When `git remote` prints nothing and `pushes` is `false`, the base is the current branch (`git branch --show-current`), with no sync. When that prints nothing (detached HEAD), stop with `HEAD is detached: check out a branch, then run /theway:workflow again`; otherwise create the feature branch from it as usual. Case 3 replaces finding and syncing the default branch below; only its series rule still applies.
 
 When a `git-host.md` operation of this step fails (for example when the default branch cannot be found), quote its error and stop, before any work.
 
-Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When `pushes` is `false`, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch or that previous branch, is the change's `<base>`.
+Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When `pushes` is `false`, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch, the current branch of case 3 or that previous branch, is the change's `<base>`.
 
 Skip this step for a working-tree workflow: it creates no branch and commits nothing, the change stays uncommitted in the working tree, and its base commit is `HEAD`.
 
