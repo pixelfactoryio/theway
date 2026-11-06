@@ -5,6 +5,7 @@ import { readManifest } from "./init";
 import { warnUnknownDefaults } from "./step-files";
 import { isFile, isNameList, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
+import type { ParamValue } from "./schema";
 
 /** A leaf's type: the rule its value must follow. */
 type Rule = "boolean";
@@ -26,8 +27,7 @@ const CORE = ["interaction.md", "develop.md"];
  */
 export const CONVENTIONS = ["commits.md", "git-host.md"];
 
-/** A param value: a string, an integer, a boolean or a non-empty list of names without duplicates. */
-export type ParamValue = string | number | boolean | string[];
+export type { ParamValue };
 
 /** The kind of a param value, `null` when it is none of the four. */
 export function kindOf(v: unknown): "string" | "integer" | "boolean" | "list" | null {
@@ -143,7 +143,8 @@ export type Warn = (file: string, text: string) => void;
 export const warnLoud: Warn = (file, text) => {
   process.stderr.write(`theway: warning: ${file}: ${text}; ignored\n`);
 };
-const warnQuiet: Warn = () => {};
+/** Drops every warning. */
+export const warnQuiet: Warn = () => {};
 
 /** One config file's valid `workflow.defaults`: per step name, its param values, in document order. */
 export type DefaultsLayer = { file: string; steps: Map<string, Map<string, ParamValue>> };
@@ -247,9 +248,9 @@ export type Effective = Loaded | { error: string };
 
 /**
  * The effective config of a project: per key, the project file's valid value, else the global file's valid value,
- * else the default. A missing global file counts as an empty layer; `loud` prints the warnings.
+ * else the default. A missing global file counts as an empty layer; every warning goes to `warn`.
  */
-export function effectiveConfig(home: string, key: string, loud: boolean): Effective {
+export function effectiveConfig(home: string, key: string, warn: Warn): Effective {
   const files: string[] = [];
   const own = join("projects", key, "config.yaml");
   if (isFile(join(home, "config.yaml"))) files.push("config.yaml");
@@ -264,7 +265,6 @@ export function effectiveConfig(home: string, key: string, loud: boolean): Effec
 
   const standards = standardsOf(home, key);
   const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) });
-  const warn = loud ? warnLoud : warnQuiet;
   const config = defaults(schema);
   const layers: DefaultsLayer[] = [];
   for (const [file, root] of roots) {
@@ -284,15 +284,22 @@ export function enabled(config: Config, key: string): boolean {
 }
 
 /**
+ * A project's effective config as `theway config` loads it, its warnings sent to `warn`; or the line that stops it (a
+ * missing global `config.yaml`, an unreadable or invalid file).
+ */
+export function loadConfigResult(home: string, key: string, warn: Warn): Effective {
+  if (!isFile(join(home, "config.yaml"))) {
+    return { error: `theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` };
+  }
+  return effectiveConfig(home, key, warn);
+}
+
+/**
  * A project's effective config as `theway config` loads it, its warnings on stderr; `null` once the line that stops it
  * (a missing global `config.yaml`, an unreadable or invalid file) is written.
  */
 export function loadConfig(home: string, key: string): Loaded | null {
-  if (!isFile(join(home, "config.yaml"))) {
-    process.stderr.write(`theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
-    return null;
-  }
-  const result = effectiveConfig(home, key, true);
+  const result = loadConfigResult(home, key, warnLoud);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return null;

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { effectiveConfig, enabled, type Loaded } from "./config";
+import { effectiveConfig, enabled, type Loaded, warnQuiet } from "./config";
 import { escaped, thewayHome } from "./io";
 import { resolveKey } from "./project";
 
@@ -76,7 +76,7 @@ export function cmdStandards(phase: string, override: string | undefined): numbe
   if (key === null) return 1;
   if (!checkPhase(phase)) return 1;
 
-  const result = effectiveConfig(thewayHome(), key, false);
+  const result = effectiveConfig(thewayHome(), key, warnQuiet);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return 1;

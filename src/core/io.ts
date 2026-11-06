@@ -89,15 +89,13 @@ export function removeIfEmpty(dir: string): boolean {
   }
 }
 
-/** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
-export const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+import { MODELS, NAME } from "./schema";
+
+export { MODELS, NAME };
 
 /** Whether `v` is a non-empty list of names without duplicates. */
 export const isNameList = (v: unknown): v is string[] =>
   Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === "string" && NAME.test(n)) && new Set(v).size === v.length;
-
-/** The models an agent or a model config key may name. */
-export const MODELS = ["opus", "sonnet", "haiku"] as const;
 
 /** `s` with its newlines and carriage returns written as `\n` and `\r`, for an error line. */
 export const escaped = (s: string): string => s.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
