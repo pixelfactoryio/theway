@@ -32,6 +32,8 @@ import {
   type StepEntry,
   TYPES,
   type WorkflowDoc,
+  type WorkflowItem,
+  type WorkflowList,
 } from "./schema";
 import { dirsOf, fileOf, knownSteps, namesIn, searched, suggest, warnUnknownDefaults } from "./step-files";
 
@@ -896,21 +898,6 @@ export function resolveWorkflow(home: string, key: string, name: string | undefi
   };
   return { doc };
 }
-
-/** One workflow of a project as `listWorkflows` lists it: the resolved fields when it resolves, else its error line. */
-export type WorkflowItem = {
-  name: string;
-  origin: "project" | "global";
-  file: string;
-  description?: string | null;
-  input?: Input;
-  pushes?: boolean;
-  default?: boolean;
-  error?: string;
-};
-
-/** Every workflow of a project, and the name of the one a run without a name uses, or why it does not resolve. */
-export type WorkflowList = { defaultName: string | null; defaultError: string | null; workflows: WorkflowItem[] };
 
 /**
  * Every workflow of a project, one per name in the union of the project and global `workflows/` folders (the project
