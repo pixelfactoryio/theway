@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its fourteen subcommands.
+description: The theway command line and its fifteen subcommands.
 ---
 
-The `theway` program has fourteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `steps`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has fifteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `steps`, `authority`, `validate-id`, `next-id` and `dashboard`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
@@ -20,6 +20,7 @@ theway steps [<name>] [--project <key>]
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
+theway dashboard [--port <n>]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
@@ -491,3 +492,27 @@ add-user-auth-05
   ```
 
 `/theway:engineering` runs it to name the members of a new series.
+
+## dashboard
+
+```text
+theway dashboard [--port <n>]
+```
+
+Starts a local web view of the data home: every project with its active changes grouped by series, their rendered `spec.md`, `tasks.md` and other Markdown files, the archived changes, and each project's workflows with their errors and warnings. It prints one line with the address and runs until you stop it:
+
+```text
+theway dashboard: http://127.0.0.1:4870/
+```
+
+- It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
+- The project of the current directory is selected first when it has a folder under `<home>/projects/`; otherwise the first project is.
+- It is read-only: it reads the files on every request and never writes to the home. Coming back to the browser tab shows the files as they are now.
+- It answers `403` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`, so a web page cannot reach it through another host name. Its pages load no external script, style or font.
+- A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1:
+
+  ```text
+  theway: port 4870 is in use; pass --port <n>
+  ```
+
+  Any other error starting the server exits 1 with a `theway: <message>` line. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
