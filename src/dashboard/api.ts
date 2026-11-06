@@ -74,10 +74,15 @@ export function projects(home: string, current: string | null): Reply<ProjectsRe
   return ok({ initial, projects: list });
 }
 
-/** The folder of a valid, existing project, or the reply that stops the request. */
-function project(home: string, key: string): { dir: string } | Reply<never> {
+/**
+ * The folder of a valid, existing project, or the reply that stops the request.
+ * `check` validates the route's other params, so every `400` comes before the project's `404`.
+ */
+function project(home: string, key: string, check: () => Reply<never> | null = () => null): { dir: string } | Reply<never> {
   const reason = projectReason(key);
   if (reason !== "") return bad(`invalid project: ${reason}`);
+  const invalid = check();
+  if (invalid !== null) return invalid;
   const dir = projectDir(home, key);
   if (!isDir(dir)) return missing("unknown project");
   return { dir };
@@ -123,24 +128,26 @@ function detail(dir: string, id: string, archived: boolean): ChangeDetail {
 
 /** `GET /api/v1/projects/{key}/changes/{id}`: an active change. */
 export function change(home: string, key: string, id: string): Reply<ChangeDetail> {
-  const p = project(home, key);
+  const p = project(home, key, () => {
+    const reason = changeIdReason(id);
+    return reason === "" ? null : bad(`invalid change id: ${reason}`);
+  });
   if ("status" in p) return p;
-  const reason = changeIdReason(id);
-  if (reason !== "") return bad(`invalid change id: ${reason}`);
   if (!activeIds(p.dir).includes(id)) return missing("unknown change");
   return ok(detail(join(p.dir, "changes", id), id, false));
 }
 
 /** `GET /api/v1/projects/{key}/archive/{folder}`: an archived change. */
 export function archivedChange(home: string, key: string, folder: string): Reply<ChangeDetail> {
-  const p = project(home, key);
-  if ("status" in p) return p;
   const m = ARCHIVED.exec(folder);
-  if (m === null) return bad("invalid archive folder: must be YYYY-MM-DD- followed by a change id");
-  const reason = changeIdReason(m[2] as string);
-  if (reason !== "") return bad(`invalid archive folder: change id ${reason}`);
+  const p = project(home, key, () => {
+    if (m === null) return bad("invalid archive folder: must be YYYY-MM-DD- followed by a change id");
+    const reason = changeIdReason(m[2] as string);
+    return reason === "" ? null : bad(`invalid archive folder: change id ${reason}`);
+  });
+  if ("status" in p) return p;
   if (!archiveDirs(p.dir).includes(folder)) return missing("unknown archived change");
-  return ok(detail(join(p.dir, "changes", "archive", folder), m[2] as string, true));
+  return ok(detail(join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
 }
 
 /** `GET /api/v1/projects/{key}/workflows`: every workflow and the warnings resolving them gave. */

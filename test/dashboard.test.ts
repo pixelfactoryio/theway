@@ -240,6 +240,8 @@ test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a
     "/api/v1/projects/-Users-me-alpha/archive/add-old",
     "/api/v1/projects/-Users-me-alpha/changes/%E0%A4%A",
     "/api/v1/projects/%E0%A4%A/workflows",
+    "/api/v1/projects/nope/changes/..%2Fx",
+    "/api/v1/projects/nope/archive/add-old",
   ]) {
     const res = await json(port, path);
     expect([path, res.status, typeof res.body.error]).toEqual([path, 400, "string"]);
