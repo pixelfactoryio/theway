@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { removeIfEmpty } from "../src/core/io";
 import { changeIdReason } from "../src/core/path";
 import { projectReason } from "../src/core/project";
 import { seriesReason, standaloneReason } from "../src/core/validate-id";
@@ -2008,4 +2009,24 @@ test("list, path and archive without --project use the derived key's folder unde
   const res = runIn(cwd, dir, "archive", "add-x");
   expect(res.status).toBe(0);
   expect(res.stdout).toStartWith(`Archived: ${join(dir, "projects", key, "changes", "archive")}/`);
+});
+
+test("removeIfEmpty removes only an empty folder and never follows a symlink", () => {
+  const dir = home();
+  const empty = join(dir, "empty");
+  mkdirSync(empty);
+  const full = join(dir, "full");
+  put(join(full, "f"), "x");
+  const target = join(dir, "target");
+  mkdirSync(target);
+  const link = join(dir, "link");
+  symlinkSync(target, link);
+  expect(removeIfEmpty(join(dir, "missing"))).toBe(true);
+  expect(removeIfEmpty(empty)).toBe(true);
+  expect(existsSync(empty)).toBe(false);
+  expect(removeIfEmpty(full)).toBe(false);
+  expect(removeIfEmpty(join(full, "f"))).toBe(false);
+  expect(removeIfEmpty(link)).toBe(false);
+  expect(lstatSync(link).isSymbolicLink()).toBe(true);
+  expect(existsSync(target)).toBe(true);
 });

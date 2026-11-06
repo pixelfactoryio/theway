@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -75,13 +75,18 @@ export function writeAtomic(target: string, data: string | Buffer, mode?: number
   }
 }
 
-/** Removes `dir` when it is an empty folder; true when it is gone. */
+/**
+ * Removes `dir` when it is an empty folder, never following a symlink; true when it is gone.
+ * False when it is a file, a symlink, not empty or unreadable.
+ */
 export function removeIfEmpty(dir: string): boolean {
-  if (!existsSync(dir)) return true;
-  if (!statSync(dir).isDirectory()) return false;
-  if (readdirSync(dir).length > 0) return false;
-  rmSync(dir, { recursive: true });
-  return true;
+  try {
+    if (!lstatSync(dir).isDirectory() || readdirSync(dir).length > 0) return false;
+    rmdirSync(dir);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "ENOENT";
+  }
 }
 
 /** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
