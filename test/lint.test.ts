@@ -507,6 +507,31 @@ test("the engineering prompts carry today's engineering rules", () => {
   for (const f of ["tamm-framework.md", "spec-investigation.md", "spec-review.md"]) expect(readdirSync(STANDARDS)).not.toContain(f);
 });
 
+test("workflow.md Step 2 stops on no commit, a pushing workflow without a remote and a failed git-host operation, and the run never works around them", () => {
+  const text = read(join(COMMANDS, "workflow.md"));
+  const branch = step(text, "Step 2:");
+  const markers = [
+    "`the repository has no commit: run git init and commit once, then run /theway:workflow again`",
+    "`this workflow pushes and the repository has no git remote: add one, or run the default develop workflow (no branch, nothing pushed)`",
+    "the base is the current branch (`git branch --show-current`), with no sync.",
+    "`HEAD is detached: check out a branch, then run /theway:workflow again`",
+  ];
+  // The three cases, in order.
+  const at = markers.map((m) => branch.indexOf(m));
+  expect(at.every((i) => i >= 0)).toBe(true);
+  expect([...at].sort((a, b) => a - b)).toEqual(at);
+  expect(branch).toContain("Case 1 also runs for a working-tree workflow, before its skip below; a request run skips all three.");
+  expect(branch).toContain("When a `git-host.md` operation of this step fails (for example when the default branch cannot be found), quote its error and stop, before any work.");
+  // Case 3 never finds or syncs the default branch, and its current branch is the `<base>`.
+  expect(branch).toContain("Case 3 replaces finding and syncing the default branch below; only its series rule still applies.");
+  expect(branch).toContain("the default branch, the current branch of case 3 or that previous branch, is the change's `<base>`.");
+  // A repository with a remote keeps today's sentence.
+  expect(branch).toContain("Find the default branch and sync it, as `git-host.md` says (\"Default branch\", \"Sync the default branch\"), then create (or check out) the change's feature branch from it");
+  expect(section(text, "Invocation")).toContain(
+    "Never create or edit workflow, step or prompt files, or initialize a repository, to work around a missing remote or another failed step: stop and report.",
+  );
+});
+
 test("workflow.md runs an input: request workflow: the request invocation, no branch, no record, and the engineering report", () => {
   const text = read(join(COMMANDS, "workflow.md"));
   const invocation = section(text, "Invocation");

@@ -33,7 +33,7 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 - **One change ID:** run the change and stop when its PR is ready for validation (when `pushes` is `false`, when its local branch is ready; for a working-tree workflow, when the change is done, uncommitted in the working tree). Never merge it.
 - **Multiple change IDs (series):** run each change strictly in the given order. When `pushes` is `true`, each change's PR must be merged before the next change starts, since later changes build on earlier ones; the user confirms each merge (Step 5). When `pushes` is `false`, nothing is merged: each change's branch is created from the previous change's branch (Step 2). A working-tree workflow commits nothing, so it cannot run a series (Step 1).
 
-**Authorization boundary:** invoking this command authorizes editing the repository, inline or through agents, committing only on each change's own feature branch (nothing for a working-tree workflow), the Workflow tool, and, when `theway workflow` prints `pushes: true`, pushing each change's own feature branch (never force-push, never the default branch) and opening its PR — nothing more. When `pushes` is `false`, it pushes nothing and opens no PR. Merging needs the user's explicit yes, asked at Step 5, and merges as `git-host.md` says: never bypass required reviews or checks. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't.
+**Authorization boundary:** invoking this command authorizes editing the repository, inline or through agents, committing only on each change's own feature branch (nothing for a working-tree workflow), the Workflow tool, and, when `theway workflow` prints `pushes: true`, pushing each change's own feature branch (never force-push, never the default branch) and opening its PR — nothing more. When `pushes` is `false`, it pushes nothing and opens no PR. Merging needs the user's explicit yes, asked at Step 5, and merges as `git-host.md` says: never bypass required reviews or checks. Do not ask for permission mid-run for the pushes and PRs it grants; do not perform outward actions it doesn't. Never create or edit workflow, step or prompt files, or initialize a repository, to work around a missing remote or another failed step: stop and report.
 
 **Authorization of a request run** (`input: request`): invoking this command authorizes writing the change folders the scaffold creates, and throwaway probes in a directory created with `mktemp -d`, inline or through agents, and the Workflow tool — nothing more. It authorizes no repository edit, no branch, no commit, no push and no PR.
 
@@ -67,7 +67,15 @@ Then read every file its `standards` lists: these are the standards, the shipped
 
 ### Step 2: Branch
 
-Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When `pushes` is `false`, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch or that previous branch, is the change's `<base>`.
+Before any branch, check the repository in this order. Case 1 also runs for a working-tree workflow, before its skip below; a request run skips all three.
+
+1. **No commit.** When `git rev-parse --verify HEAD` fails (not a git repository, or no commit yet), stop before any work with: `the repository has no commit: run git init and commit once, then run /theway:workflow again`.
+2. **No remote, and the workflow pushes.** When `git remote` prints nothing and `pushes` is `true`, stop before any work with: `this workflow pushes and the repository has no git remote: add one, or run the default develop workflow (no branch, nothing pushed)`.
+3. **No remote, and the workflow does not push.** When `git remote` prints nothing and `pushes` is `false`, the base is the current branch (`git branch --show-current`), with no sync. When that prints nothing (detached HEAD), stop with `HEAD is detached: check out a branch, then run /theway:workflow again`; otherwise create the feature branch from it as usual. Case 3 replaces finding and syncing the default branch below; only its series rule still applies.
+
+When a `git-host.md` operation of this step fails (for example when the default branch cannot be found), quote its error and stop, before any work.
+
+Find the default branch and sync it, as `git-host.md` says ("Default branch", "Sync the default branch"), then create (or check out) the change's feature branch from it, named as `commits.md` says. When `pushes` is `false`, create each later change's branch of a series from the previous change's branch instead, so the changes stack locally. The branch the feature branch is created from, the default branch, the current branch of case 3 or that previous branch, is the change's `<base>`.
 
 Skip this step for a working-tree workflow: it creates no branch and commits nothing, the change stays uncommitted in the working tree, and its base commit is `HEAD`.
 
