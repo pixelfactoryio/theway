@@ -84,7 +84,7 @@ steps:
   - pr:
 ```
 
-- The top-level keys are `version`, `input`, `default`, `agents` and `steps`; any other key is an error. `input` is `changes` (the default) or `request` (see [Two kinds of workflow](#two-kinds-of-workflow)). `default` and `agents` are `true` or `false`; `default: true` is only for an `input: changes` workflow.
+- The top-level keys are `version`, `description` (optional, one line that `theway workflow` prints), `input`, `default`, `agents` and `steps`; any other key is an error. `input` is `changes` (the default) or `request` (see [Two kinds of workflow](#two-kinds-of-workflow)). `default` and `agents` are `true` or `false`; `default: true` is only for an `input: changes` workflow.
 - Each entry of `steps` is a map with exactly one key:
   - **`gate`:** its value is a non-empty question. The gate always runs inline: your session asks it, with the options Continue and Stop, and any answer but Continue stops the change as `blocked`, with `gate: <question>`.
   - **a step name:** its value is nothing or a map (`- implement:` and `- implement: {}` are the same), whose keys are `agents` and the step's params. Values are literal.
@@ -114,9 +114,9 @@ An `input: request` workflow:
 
 ```yaml
 # yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# The workflow /theway:workflow runs when no file sets default: true: the tasks done inline in your session, on the
-# working tree, nothing committed.
+# The workflow /theway:workflow runs when no file sets default: true.
 version: theway.workflow/v1
+description: The tasks done inline in your session, on the working tree, nothing committed
 agents: false
 steps:
   - implement:
@@ -128,9 +128,10 @@ One inline entry whose tree is one `work` agent with `access: commit` is a **wor
 
 ```yaml
 # yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# Implement, review and open the PR through agents. A param an entry leaves out comes from workflow.defaults in
-# config.yaml, else from the step file: theway steps lists them.
+# A param an entry leaves out comes from workflow.defaults in config.yaml, else from the step file: theway steps
+# lists them.
 version: theway.workflow/v1
+description: Implement, review and open the PR through agents
 steps:
   - implement:
   - review:

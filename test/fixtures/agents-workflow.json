@@ -1,5 +1,6 @@
 {
   "name": "agents",
+  "description": "Implement, review and open the PR through agents",
   "file": "<home>/workflows/agents.yaml",
   "input": "changes",
   "commits": "<home>/standards/commits.md",
