@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/pixelfactoryio/theway/compare/v0.15.0...v0.16.0) (2026-11-06)
+
+
+### Features
+
+* **workflow:** run workflows in a repository without a remote ([#77](https://github.com/pixelfactoryio/theway/issues/77)) ([84b0d3e](https://github.com/pixelfactoryio/theway/commit/84b0d3e95e356ab7b3af713e7ae4f4fe74352f2d))
+
 ## [0.15.0](https://github.com/pixelfactoryio/theway/compare/v0.14.1...v0.15.0) (2026-11-05)
 
 
