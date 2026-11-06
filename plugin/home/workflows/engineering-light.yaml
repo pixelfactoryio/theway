@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# The light path of /theway:engineering --light: a short spec and 1 to 3 tasks, reviewed by one grounding critic.
+# The light path of /theway:engineering --light.
 version: theway.workflow/v1
+description: A short spec and 1 to 3 tasks, reviewed by one grounding critic
 input: request
 steps:
   - scaffold-light: {agents: false}

@@ -17,7 +17,7 @@ import { dirsOf, fileOf, knownSteps, namesIn, searched, suggest, warnUnknownDefa
 export const WORKFLOW_VERSION = "theway.workflow/v1";
 export const STEP_VERSION = "theway.step/v1";
 /** The top-level keys of a workflow file and of a step file. */
-export const WORKFLOW_KEYS = ["version", "input", "default", "agents", "steps"];
+export const WORKFLOW_KEYS = ["version", "description", "input", "default", "agents", "steps"];
 export const STEP_KEYS = ["version", "description", "params", "do"];
 
 export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis", "scaffold", "edits"] as const;
@@ -165,7 +165,7 @@ type StepEntry = {
 };
 type GateEntry = { id: string; gate: string; agents: false };
 type Entry = StepEntry | GateEntry;
-type Workflow = { name: string; file: string; input: Input; steps: Entry[] };
+type Workflow = { name: string; description: string | null; file: string; input: Input; steps: Entry[] };
 
 /** The home, the project key, the loaded config and a warning sink that writes each line once. */
 type Dirs = { home: string; key: string; loaded: Loaded; warn: (file: string, text: string) => void };
@@ -733,6 +733,11 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   const idOf = uniqueNames(literalIds);
   const cache = new Map<string, StepFile>();
   for (const key of root.keys()) {
+    if (key === "description") {
+      const v = root.get(key);
+      if (typeof v !== "string" || v.trim() === "") fail("description must be a non-empty string");
+      if ((v as string).includes("${")) fail("description does not take a reference");
+    }
     if (key === "default" && typeof root.get(key) !== "boolean") fail("default must be true or false");
     if (key === "default" && root.get(key) === true && input === "request") fail("default: true is only for an input: changes workflow");
     if (key === "agents" && typeof root.get(key) !== "boolean") fail("agents must be true or false");
@@ -791,7 +796,8 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
   if (pushing.length > 1) fail(`steps[${pushing[1]}]: only one step may push`);
   if (pushing.length === 1 && pushing[0] !== steps.length - 1) fail(`steps[${pushing[0]}]: a pushing step must be the last step`);
   if ("gate" in (steps[steps.length - 1] as Entry)) fail(`steps[${steps.length - 1}]: a gate cannot be the last step`);
-  return { workflow: { name: basename(path, ".yaml"), file: path, input, steps }, isDefault: root.get("default") === true };
+  const description = root.has("description") ? (root.get("description") as string) : null;
+  return { workflow: { name: basename(path, ".yaml"), description, file: path, input, steps }, isDefault: root.get("default") === true };
 }
 
 /** The workflow files of a folder, sorted, with a warning for each `.yaml` file whose stem is not a valid name. */
@@ -887,10 +893,11 @@ export function cmdWorkflow(wanted: string | undefined, override: string | undef
     const own = join(projectOf(home, key), "standards", file);
     conventions.push(isFile(own) ? own : global);
   }
-  const { name: workflowName, file, input, steps } = result.workflow;
+  const { name: workflowName, description, file, input, steps } = result.workflow;
   const changes = input === "changes";
   const doc = {
     name: workflowName,
+    description,
     file,
     input,
     commits: conventions[0],

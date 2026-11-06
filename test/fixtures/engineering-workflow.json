@@ -1,5 +1,6 @@
 {
   "name": "engineering",
+  "description": "Investigate a request and write its spec and tasks, then review them",
   "file": "<home>/workflows/engineering.yaml",
   "input": "request",
   "commits": "<home>/standards/commits.md",

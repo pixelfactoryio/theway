@@ -1337,6 +1337,7 @@ test("the schemas reject the invalid samples and accept a reference, and every p
     [step, `version: theway.step/v2\ndescription: x\ndo:\n  - agent: {returns: work}\n`],
     [workflow, "steps:\n  - implement:\n"],
     [workflow, "version: theway.workflow/v2\nsteps:\n  - implement:\n"],
+    [workflow, 'version: theway.workflow/v1\ndescription: ""\nsteps:\n  - implement:\n'],
     [step, `${head}do:\n  - agent: {returns: work, access: "\${a}"}\n`],
   ];
   for (const [validate, text] of rejected) expect([text, validate(Bun.YAML.parse(text))]).toEqual([text, false]);

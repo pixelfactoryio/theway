@@ -1116,13 +1116,13 @@ function shippedHome(): string {
 const engineeringJson = (dir: string): string =>
   `${JSON.stringify(JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "engineering-workflow.json"), "utf-8").replaceAll("<home>", dir)), null, 2)}\n`;
 
-/** The fixture of the shipped `agents` workflow, with `<home>` replaced by `dir` and its file by `file`. */
-function agentsJson(dir: string, file = join(dir, "workflows", "agents.yaml"), name = "agents"): string {
+/** The fixture of the shipped `agents` workflow, with `<home>` replaced by `dir`, its file by `file` and its description by `description`. */
+function agentsJson(dir: string, file = join(dir, "workflows", "agents.yaml"), name = "agents", description?: string | null): string {
   const doc = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "agents-workflow.json"), "utf-8").replaceAll("<home>", dir));
-  return `${JSON.stringify({ ...doc, name, file }, null, 2)}\n`;
+  return `${JSON.stringify({ ...doc, name, description: description === undefined ? doc.description : description, file }, null, 2)}\n`;
 }
 
-type Doc = { steps: Record<string, unknown>[]; pushes: boolean; working_tree: boolean };
+type Doc = { description: string | null; steps: Record<string, unknown>[]; pushes: boolean; working_tree: boolean };
 const workflowDoc = (dir: string, ...args: string[]): Doc => JSON.parse(run(dir, "workflow", "--project", "p", ...args).stdout) as Doc;
 
 test("workflow prints the shipped agents, matching the fixture: foreach expanded, absolute prompts, every field filled and pushes", () => {
@@ -1130,8 +1130,17 @@ test("workflow prints the shipped agents, matching the fixture: foreach expanded
   const res = run(dir, "workflow", "--project", "theway", "agents");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir), ""]);
   const doc = JSON.parse(res.stdout);
-  expect(Object.keys(doc)).toEqual(["name", "file", "input", "commits", "git_host", "pushes", "working_tree", "steps"]);
+  expect(Object.keys(doc)).toEqual(["name", "description", "file", "input", "commits", "git_host", "pushes", "working_tree", "steps"]);
   expect([doc.pushes, doc.working_tree]).toEqual([true, false]);
+  expect(doc.description).toBe("Implement, review and open the PR through agents");
+});
+
+test("workflow prints description null for a file without one, and the description a file sets", () => {
+  const dir = workflowHome();
+  put(join(dir, "workflows", "plain.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
+  expect(workflowDoc(dir, "plain").description).toBeNull();
+  put(join(dir, "workflows", "said.yaml"), `${WF_HEAD}description: Implement only\nsteps:\n  - implement:\n`);
+  expect(workflowDoc(dir, "said").description).toBe("Implement only");
 });
 
 test("workflow prints the shipped engineering workflows: input request, nothing pushed, scaffold inline and spec-review through agents", () => {
@@ -1204,7 +1213,7 @@ test("workflow resolves the shipped develop, the fallback default, to one inline
 test("workflow prints develop when no file sets default: true", () => {
   const dir = workflowHome();
   const res = run(dir, "workflow", "--project", "p");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop"), ""]);
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop", null), ""]);
 });
 
 test("workflow takes each param from the entry, else the project config, else the global config, else the step file, and prints from", () => {
@@ -1261,7 +1270,7 @@ test("workflow warns about a config default for a step that does not resolve, an
   put(join(dir, "config.yaml"), "workflow:\n  defaults:\n    agent:\n      model: sonnet\n    reveiw:\n      rounds: 2\n    implement: x\n");
   put(join(dir, "projects", "p", "steps", "gate.yaml"), `${STEP_HEAD}description: x\ndo:\n  - agent: {returns: work}\n`);
   const res = run(dir, "workflow", "--project", "p");
-  expect([res.status, res.stdout]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop")]);
+  expect([res.status, res.stdout]).toEqual([0, agentsJson(dir, join(dir, "workflows", "develop.yaml"), "develop", null)]);
   const steps = `${join(dir, "projects", "p", "steps")} or ${join(dir, "steps")}`;
   expect(res.stderr).toBe(
     [
@@ -1395,7 +1404,7 @@ test("workflow picks the project's default: true file, else the global one not s
   put(join(dir, "projects", "p", "workflows", "global-one.yaml"), `${WF_HEAD}steps:\n  - implement:\n`);
   expect(file("p")).toBe(join(dir, "workflows", "develop.yaml"));
   put(join(dir, "projects", "p", "workflows", "develop.yaml"), `${WF_HEAD}steps:\n  - implement:\n  - review:\n  - pr:\n`);
-  expect(run(dir, "workflow", "--project", "p").stdout).toBe(agentsJson(dir, join(dir, "projects", "p", "workflows", "develop.yaml"), "develop"));
+  expect(run(dir, "workflow", "--project", "p").stdout).toBe(agentsJson(dir, join(dir, "projects", "p", "workflows", "develop.yaml"), "develop", null));
 });
 
 test("workflow exits 1 naming every file that sets default: true in the folder it reads", () => {
@@ -1482,6 +1491,8 @@ test("workflow exits 1 with the first error of a workflow file, in the documente
     ["version: theway.step/v1\n", "version must be theway.workflow/v1"],
     [`${WF_HEAD}steps: x\nname: y\nother: z\n`, "unknown key name"],
     [`${WF_HEAD}$schema: x\nsteps: x\n`, "unknown key $schema"],
+    [`${WF_HEAD}description: ""\nsteps:\n  - implement:\n`, "description must be a non-empty string"],
+    [`${WF_HEAD}description: "\${x}"\nsteps:\n  - implement:\n`, "description does not take a reference"],
     [`${WF_HEAD}default: yes\nsteps:\n  - implement:\n`, "default must be true or false"],
     [`${WF_HEAD}agents: no\nsteps: x\n`, "agents must be true or false"],
     [`${WF_HEAD}steps: x\nagents: no\n`, "steps must be a non-empty list"],
