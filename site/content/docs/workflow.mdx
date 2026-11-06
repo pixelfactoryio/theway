@@ -27,10 +27,12 @@ It writes the change files only under `<home>/projects/<key>/changes/<change-id>
 
 [`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file. It reads `standards/develop.md`, the standards `theway context` lists, the change's `spec.md`, `tasks.md` and `design.md`, and `docs/architecture/coding-standards.md` when it exists, and resolves the workflow with `theway workflow`: its steps, their prompt files and their params, filled from the workflow entry, [`workflow.defaults`](./configuration.mdx#workflow) or the step file. The spec is the contract: when the code contradicts it, the work stops and comes back to you with the options.
 
-Each step runs inline, in your session, or through agents in the plugin workflow `theway:run-pipeline`, as its `agents` field says. theway ships two workflows:
+Each step runs inline, in your session, or through agents in the plugin workflow `theway:run-pipeline`, as its `agents` field says. theway ships two workflows that run a change (`input: changes`):
 
 - **`develop`**, the default: one inline `implement` step, a working-tree workflow. Your session implements the tasks, ticks each one in `tasks.md` and reports how each Success Criterion was verified. Nothing is committed: the change stays in your working tree.
 - **`agents`:** an implementer agent commits on a local feature branch; reviewer agents, one per lens, review it locally; then the branch is pushed once, the PR opened and CI driven to green. Review rounds and CI attempts are capped by the steps' params. In a series, each PR is merged after you confirm it.
+
+The other two shipped workflows, `engineering` and `engineering-light`, are [request workflows](./concepts/workflows.mdx#two-kinds-of-workflow): [`/theway:engineering`](./commands/engineering.mdx) runs them to write a change's spec.
 
 ### Choosing between them
 
