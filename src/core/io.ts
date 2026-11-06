@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -53,6 +53,35 @@ export function isFile(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated
+ * target. With `mode`, the target gets that mode.
+ */
+export function writeAtomic(target: string, data: string | Buffer, mode?: number): void {
+  const tmp = `${target}.tmp-${process.pid}`;
+  try {
+    if (mode === undefined) {
+      writeFileSync(tmp, data);
+    } else {
+      writeFileSync(tmp, data, { mode });
+      // The umask, or a stale tmp file, may have left another mode.
+      chmodSync(tmp, mode);
+    }
+    renameSync(tmp, target);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+/** Removes `dir` when it is an empty folder; true when it is gone. */
+export function removeIfEmpty(dir: string): boolean {
+  if (!existsSync(dir)) return true;
+  if (!statSync(dir).isDirectory()) return false;
+  if (readdirSync(dir).length > 0) return false;
+  rmSync(dir, { recursive: true });
+  return true;
 }
 
 /** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */

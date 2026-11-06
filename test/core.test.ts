@@ -363,6 +363,40 @@ test("standards lists a file with an invalid applies_to for no phase, with a war
   }
 });
 
+test("standards accepts any YAML list form of applies_to: quoted, with a trailing comment, a block list with a comment", () => {
+  const dir = home();
+  const p = join(dir, "projects", "p", "standards");
+  put(join(p, "a-quoted.md"), '---\napplies_to: ["develop"]\n---\n');
+  put(join(p, "b-comment.md"), "---\napplies_to: [develop] # comment\n---\n");
+  put(join(p, "c-block.md"), "---\napplies_to:\n  # the phases\n  - develop\n---\n");
+  put(join(p, "d-crlf.md"), "---\r\napplies_to: [develop]\r\n---\r\n");
+  put(join(p, "e-empty.md"), "---\n---\n");
+  const lines = (...names: string[]) => names.map((n) => `${join(p, n)}\n`).join("");
+  const dev = run(dir, "standards", "--project", "p", "develop");
+  expect([dev.status, dev.stdout, dev.stderr]).toEqual([0, lines("a-quoted.md", "b-comment.md", "c-block.md", "d-crlf.md", "e-empty.md"), ""]);
+  for (const phase of ["engineering", "document"]) {
+    const res = run(dir, "standards", "--project", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([phase, 0, lines("e-empty.md"), ""]);
+  }
+});
+
+test("standards warns on invalid YAML front matter that sets applies_to, and applies one that does not to every phase", () => {
+  const dir = home();
+  const p = join(dir, "projects", "p", "standards");
+  const bad = join(p, "a-bad.md");
+  put(bad, "---\napplies_to: [develop\n---\n");
+  put(join(p, "b-nokey.md"), "---\ntitle: a: b\n---\n");
+  for (const phase of ["engineering", "develop", "document"]) {
+    const res = run(dir, "standards", "--project", "p", phase);
+    expect([phase, res.status, res.stdout, res.stderr]).toEqual([
+      phase,
+      0,
+      `${join(p, "b-nokey.md")}\n`,
+      `theway: warning: ${bad}: applies_to must list engineering, develop and/or document; skipped\n`,
+    ]);
+  }
+});
+
 test.skipIf(process.getuid?.() === 0)("standards skips an unreadable file with a warning and lists the others", () => {
   const dir = home();
   const p = join(dir, "projects", "p", "standards");

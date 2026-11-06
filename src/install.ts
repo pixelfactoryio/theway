@@ -11,7 +11,6 @@ import {
   readlinkSync,
   realpathSync,
   renameSync,
-  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -22,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { isCancel, multiselect, text } from "@clack/prompts";
 import { OPT_IN_KEYS } from "./core/config";
 import { init } from "./core/init";
-import { defaultHome, isFile, pointerPath, readPointer, resolveHome } from "./core/io";
+import { defaultHome, isFile, pointerPath, readPointer, removeIfEmpty, resolveHome, writeAtomic } from "./core/io";
 
 const self = fileURLToPath(import.meta.url);
 const pkgRoot = dirname(dirname(self));
@@ -143,15 +142,7 @@ function unwritableSettings(path: string, reason: string): number {
 function writeSettings(target: string, settings: Settings): void {
   mkdirSync(dirname(target), { recursive: true });
   const mode = existsSync(target) ? statSync(target).mode & 0o777 : 0o600;
-  const tmp = `${target}.tmp-${process.pid}`;
-  try {
-    writeFileSync(tmp, `${JSON.stringify(settings, null, 2)}\n`, { mode });
-    // The umask, or a stale tmp file, may have left another mode.
-    chmodSync(tmp, mode);
-    renameSync(tmp, target);
-  } finally {
-    rmSync(tmp, { force: true });
-  }
+  writeAtomic(target, `${JSON.stringify(settings, null, 2)}\n`, mode);
 }
 
 function invalidSettings(path: string): number {
@@ -175,15 +166,6 @@ function copyPlugin(home: string): string {
   }
   rmSync(old, { recursive: true, force: true });
   return dest;
-}
-
-/** Removes `dir` when it is an empty directory. */
-function removeIfEmpty(dir: string): void {
-  try {
-    rmdirSync(dir);
-  } catch {
-    // absent or not empty
-  }
 }
 
 /** True when `path` is a regular file whose text passes `match`; false when absent, unreadable or not a regular file. */
