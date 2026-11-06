@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/pixelfactoryio/theway/compare/v0.16.0...v0.17.0) (2026-11-06)
+
+
+### Features
+
+* **workflow:** add an optional description to workflow files ([#80](https://github.com/pixelfactoryio/theway/issues/80)) ([8a12813](https://github.com/pixelfactoryio/theway/commit/8a12813cb2441db4c0e8e4af02348a138b2cc578))
+
 ## [0.16.0](https://github.com/pixelfactoryio/theway/compare/v0.15.0...v0.16.0) (2026-11-06)
 
 
