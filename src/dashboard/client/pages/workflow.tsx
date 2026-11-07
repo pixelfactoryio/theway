@@ -26,6 +26,21 @@ function Warnings({ warnings }: { warnings: Warning[] }) {
   );
 }
 
+const ids = new WeakMap<object, number>();
+let lastId = 0;
+/**
+ * A number for each distinct data object. The query keeps the same object while a refetch returns equal data, so the
+ * graph keeps its view and selection then and is drawn again only when the workflow changes.
+ */
+function dataId(data: object): number {
+  let id = ids.get(data);
+  if (id === undefined) {
+    id = ++lastId;
+    ids.set(data, id);
+  }
+  return id;
+}
+
 /** The graph of a resolved workflow with the inspector of the selected node. */
 function Graph({ data }: { data: WorkflowDetail }) {
   const graph = useMemo(() => model(data.workflow), [data.workflow]);
@@ -67,7 +82,6 @@ export function WorkflowPage({ projectKey, name }: { projectKey: string; name: s
         }
       >
         {origin !== undefined && <Badge variant="secondary">{origin}</Badge>}
-        {resolved !== null && resolved.default && <Badge variant="outline">default</Badge>}
         {resolved !== null && (
           <TabsList>
             <TabsTrigger value="graph">Graph</TabsTrigger>
@@ -90,7 +104,7 @@ export function WorkflowPage({ projectKey, name }: { projectKey: string; name: s
             <Warnings warnings={resolved.warnings} />
           </div>
           <TabsContent value="graph" className="flex min-h-0 grow">
-            <Graph key={`${projectKey}/${name}/${query.dataUpdatedAt}`} data={resolved} />
+            <Graph key={`${projectKey}/${name}/${dataId(resolved)}`} data={resolved} />
           </TabsContent>
           <TabsContent value="yaml" className="min-h-0 grow overflow-auto p-6">
             <p className="mb-2 font-mono text-[12px] text-muted-foreground">{resolved.source.path}</p>
