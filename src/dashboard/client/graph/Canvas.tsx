@@ -7,6 +7,7 @@ import {
   EdgeLabelRenderer,
   type EdgeProps,
   type NodeChange,
+  type NodeTypes,
   Panel,
   ReactFlow,
   useReactFlow,
@@ -90,20 +91,28 @@ function ZoomBar() {
 
 /**
  * The canvas of a laid-out workflow. `onSelect` gets the path of the node a click, or Enter on a focused node,
- * selects, and `null` on a click on the pane; `selected` is the path the inspector shows.
+ * selects, and `null` on a click on the pane; `selected` is the path the inspector shows. `types` replaces the node
+ * types (the editor's); new `nodes` are drawn in place, keeping the view.
  */
 export function Canvas({
   nodes: initial,
   edges,
   selected,
   onSelect,
+  types = nodeTypes,
 }: {
   nodes: FlowNode[];
   edges: FlowEdge[];
   selected: string | null;
   onSelect: (path: string | null) => void;
+  types?: NodeTypes;
 }) {
   const [nodes, setNodes] = useState(initial);
+  const [drawn, setDrawn] = useState(initial);
+  if (drawn !== initial) {
+    setDrawn(initial);
+    setNodes(initial.map((n) => (n.id === selected ? { ...n, selected: true } : n)));
+  }
   // The inspector closed from outside the canvas (Esc or its close button) clears the canvas selection too.
   const [shown, setShown] = useState(selected);
   if (shown !== selected) {
@@ -114,7 +123,7 @@ export function Canvas({
     <ReactFlow<FlowNode, FlowEdge>
       nodes={nodes}
       edges={edges}
-      nodeTypes={nodeTypes}
+      nodeTypes={types}
       edgeTypes={edgeTypes}
       onNodesChange={(changes: NodeChange<FlowNode>[]) => setNodes((ns) => applyNodeChanges(changes, ns))}
       onNodeClick={(_, node) => onSelect(node.id)}

@@ -327,6 +327,7 @@ export function source(home: string, key: string, kind: string, name: string): R
     text: readFileSync(path, "utf-8"),
     projectPath: own,
     sha256: hashOf(own),
+    globalPath: isFile(join(home, k, `${name}.yaml`)) ? join(home, k, `${name}.yaml`) : null,
   });
 }
 

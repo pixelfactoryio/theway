@@ -62,7 +62,8 @@ export type SourceKind = "workflows" | "steps";
 
 /**
  * `GET /api/v1/projects/{key}/sources/{kind}/{name}`: the file the resolver reads (`path`, project or global), its text,
- * the project file a save writes (`projectPath`) and the sha256 of its bytes, `null` when there is no project copy.
+ * the project file a save writes (`projectPath`) and the sha256 of its bytes, `null` when there is no project copy;
+ * `globalPath` is the global file of that name, `null` when there is none (a project copy then has no Revert to global).
  */
 export type SourceFile = {
   kind: SourceKind;
@@ -72,6 +73,7 @@ export type SourceFile = {
   text: string;
   projectPath: string;
   sha256: string | null;
+  globalPath: string | null;
 };
 
 /** `GET /api/v1/projects/{key}/steps`. */

@@ -135,6 +135,12 @@ export function insertEntry(doc: Document, index: number, entry: NewEntry): void
   stepsOf(doc).items.splice(index, 0, node);
 }
 
+/** Sets the question of the gate entry at `index`. */
+export function setGate(doc: Document, index: number, question: string): void {
+  const entry = stepsOf(doc).items[index];
+  if (isMap(entry) && entry.has("gate")) setKey(doc, entry, "gate", question);
+}
+
 /** Moves the entry at `from` to `to`, its comments with it. */
 export function moveEntry(doc: Document, from: number, to: number): void {
   const items = stepsOf(doc).items;
@@ -246,6 +252,8 @@ function constructNode(doc: Document, n: NewNode): YAMLMap {
 export function insertNode(doc: Document, parentPath: Path, index: number, node: NewNode): void {
   const seq = seqAt(doc, parentPath);
   if (seq === null) return;
+  // An empty `do: []` grows into a block list.
+  if (seq.items.length === 0) seq.flow = false;
   seq.items.splice(index, 0, constructNode(doc, node));
 }
 

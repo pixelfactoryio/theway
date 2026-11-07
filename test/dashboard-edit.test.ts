@@ -141,6 +141,7 @@ test("the sources, steps and prompts routes give the file the resolver reads, th
       text: shipped("steps/review.yaml"),
       projectPath: join(dir, "projects", "p", "steps", "review.yaml"),
       sha256: null,
+      globalPath: join(dir, "steps", "review.yaml"),
     },
   ]);
   put(join(dir, "projects", "p", "workflows", "agents.yaml"), shipped("workflows/agents.yaml"));
