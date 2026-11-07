@@ -1,10 +1,11 @@
+import { Link } from "wouter";
 import { Empty, PageHeader } from "@/components/state";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkflows } from "@/lib/api";
 import { useLabel } from "@/lib/projects";
 
-/** The Workflows page: one row per workflow, or its error line, then the warnings. */
+/** The Workflows page: one row per workflow, linked to its graph, or its error line, then the warnings. */
 export function WorkflowsPage({ projectKey }: { projectKey: string }) {
   const label = useLabel(projectKey);
   const workflows = useWorkflows(projectKey);
@@ -37,9 +38,9 @@ export function WorkflowsPage({ projectKey }: { projectKey: string }) {
                   {data.workflows.map((w) => (
                     <TableRow key={w.name}>
                       <TableCell className="px-4 py-3 align-top whitespace-normal">
-                        <div className="font-mono" title={w.file}>
+                        <Link href={`/p/${projectKey}/workflows/${w.name}`} className="font-mono hover:underline" title={w.file}>
                           {w.name}
-                        </div>
+                        </Link>
                         {w.error !== undefined ? (
                           <div className="mt-0.5 font-mono text-[12px] text-destructive">{w.error}</div>
                         ) : (

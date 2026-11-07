@@ -1,7 +1,7 @@
 /** The dashboard's HTTP app: the Host check, the security headers, the page and its assets, and the read-only API. */
 import { Hono } from "hono";
 import { secureHeaders } from "hono/secure-headers";
-import { archivedChange, change, changes, projects, type Reply, workflows } from "./api";
+import { archivedChange, change, changes, projects, type Reply, workflow, workflows } from "./api";
 import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/client.txt" with { type: "text" };
 import html from "./client/index.html" with { type: "text" };
@@ -58,6 +58,7 @@ export function createApp(home: string, initial: string | null, port: () => numb
   app.get("/api/v1/projects/:key/changes/:id", (c) => reply(change(home, c.req.param("key"), c.req.param("id"))));
   app.get("/api/v1/projects/:key/archive/:folder", (c) => reply(archivedChange(home, c.req.param("key"), c.req.param("folder"))));
   app.get("/api/v1/projects/:key/workflows", (c) => reply(workflows(home, c.req.param("key"))));
+  app.get("/api/v1/projects/:key/workflows/:name", (c) => reply(workflow(home, c.req.param("key"), c.req.param("name"))));
 
   app.notFound(() => json(404, { error: "not found" }));
   return app;

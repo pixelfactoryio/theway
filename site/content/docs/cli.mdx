@@ -516,3 +516,12 @@ theway dashboard: http://127.0.0.1:4870/
   ```
 
   Any other error starting the server exits 1 with a `theway: <message>` line. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
+
+Each workflow on the Workflows page links to its graph at `#/p/<key>/workflows/<name>`. The graph draws the resolved workflow, as `theway workflow <name>` prints it, from top to bottom:
+
+- each step is a frame headed by its id, whether it runs through agents or inline, and its params; a gate is an amber card with its question;
+- each agent is a card with its result type, access and model; the agents of a `parallel` group sit side by side;
+- a `loop` is a dashed violet container tagged with its `max`, `until` and what happens when it runs out, with a dashed edge back to its start;
+- a `when` puts its conditions as a pill on the edge into what it runs, and a `fail` or `block` ends in a red or amber stop card.
+
+Selecting a card opens an inspector with its details: for an agent, its result type, access, model, the conditions it runs under, its params, and each of its prompt files rendered. The prompts are rendered from the files the resolved workflow names; the page never asks for a file by path. Drag the canvas to pan, Cmd or Ctrl and the wheel to zoom, and use the toolbar to zoom or fit the graph. The YAML tab shows the workflow file, and a workflow that does not resolve shows the line that stops it with its warnings.
