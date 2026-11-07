@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useProjects } from "@/lib/api";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
+import { WorkflowPage } from "@/pages/workflow";
 import { WorkflowsPage } from "@/pages/workflows";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ function Routes() {
       <Route path="/p/:key/changes/:id">{(p) => <ChangePage projectKey={p.key} id={p.id} archived={false} />}</Route>
       <Route path="/p/:key/archive/:folder">{(p) => <ChangePage projectKey={p.key} id={p.folder} archived={true} />}</Route>
       <Route path="/p/:key/workflows">{(p) => <WorkflowsPage projectKey={p.key} />}</Route>
+      <Route path="/p/:key/workflows/:name">{(p) => <WorkflowPage key={`${p.key}/${p.name}`} projectKey={p.key} name={p.name} />}</Route>
       <Route path="/p/:key">{(p) => <Redirect to={`/p/${p.key}/changes`} replace />}</Route>
       <Route>
         {projects.data === undefined ? (

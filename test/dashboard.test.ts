@@ -320,6 +320,53 @@ test("dashboard lists the shipped workflows with develop as default, and a broke
   expect(missing.body.workflows).toEqual([]);
 });
 
+test("dashboard serves a workflow resolved as theway workflow prints it, its source and its prompts rendered", async () => {
+  const dir = shippedHome();
+  const { port } = await start(dir);
+  const res = await json(port, "/api/v1/projects/p/workflows/agents");
+  expect(res.status).toBe(200);
+  const cli = spawnSync("node", [CLI, "workflow", "agents", "--project", "p"], { env: { ...process.env, THEWAY_HOME: dir }, encoding: "utf-8" });
+  expect([cli.status, cli.stderr]).toEqual([0, ""]);
+  expect(res.body.workflow).toEqual(JSON.parse(cli.stdout));
+  expect(res.body.default).toBe(false);
+  expect(res.body.warnings).toEqual([]);
+  const file = join(dir, "workflows", "agents.yaml");
+  expect(res.body.source).toEqual({ path: file, text: readFileSync(file, "utf-8") });
+  const paths = [...JSON.stringify(res.body.workflow).matchAll(/"([^"]+\/prompts\/[^"]+\.md)"/g)].map((m) => m[1] as string);
+  expect(Object.keys(res.body.prompts).sort()).toEqual([...new Set(paths)].sort());
+  for (const [path, p] of Object.entries(res.body.prompts as Record<string, { html?: string }>)) {
+    expect([path, typeof p.html]).toEqual([path, "string"]);
+    expect([path, (p.html as string).length > 0]).toEqual([path, true]);
+  }
+  expect((await json(port, "/api/v1/projects/p/workflows/develop")).body.default).toBe(true);
+
+  rmSync(join(dir, "prompts", "triage.md"));
+  const gone = await json(port, "/api/v1/projects/p/workflows/agents");
+  expect(gone.status).toBe(422);
+  expect(typeof gone.body.error).toBe("string");
+  expect(Array.isArray(gone.body.warnings)).toBe(true);
+
+  put(join(dir, "projects", "p", "workflows", "broken.yaml"), "version: theway.workflow/v1\nsteps: 3\n");
+  const broken = await json(port, "/api/v1/projects/p/workflows/broken");
+  expect([broken.status, broken.body]).toEqual([422, { error: "theway: projects/p/workflows/broken.yaml: steps must be a non-empty list", warnings: [] }]);
+  const unknown = await json(port, "/api/v1/projects/p/workflows/nope");
+  expect([unknown.status, unknown.body]).toEqual([404, { error: "unknown workflow" }]);
+  const bad = await json(port, "/api/v1/projects/p/workflows/Bad_Name");
+  expect([bad.status, bad.body]).toEqual([400, { error: "invalid workflow name 'Bad_Name'" }]);
+  const noProject = await json(port, "/api/v1/projects/nope/workflows/Bad_Name");
+  expect(noProject.status).toBe(400);
+});
+
+test("the client imports React Flow's stylesheet and leaves pan, zoom and fit to React Flow", () => {
+  const client = join(ROOT, "src", "dashboard", "client");
+  expect(readFileSync(join(client, "styles", "globals.css"), "utf-8")).toContain('@import "@xyflow/react/dist/style.css";');
+  const files = (readdirSync(client, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f) && !f.startsWith("components/ui"));
+  for (const f of files) {
+    const text = readFileSync(join(client, f), "utf-8");
+    expect([f, /addEventListener\("wheel"|onWheel|\bsetViewport\(|\.scale\(|matrix\(/.test(text)]).toEqual([f, false]);
+  }
+});
+
 /** The packages the dashboard pins, each an exact devDependencies entry. */
 const PINS: Record<string, string> = {
   react: "19.3.1",
@@ -339,6 +386,7 @@ const PINS: Record<string, string> = {
   "@hono/node-server": "2.1.5",
   wouter: "3.13.0",
   "@tanstack/react-query": "5.104.5",
+  "@xyflow/react": "12.12.0",
 };
 
 test("package.json has no dependencies and pins every dashboard package exactly", () => {
