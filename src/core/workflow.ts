@@ -4,15 +4,40 @@ import {
   type DefaultsLayer,
   kindOf,
   type Loaded,
-  loadConfig,
+  loadConfigResult,
   PARAM_VALUE_TEXT,
   type ParamValue,
   parseFile,
+  type Warn,
   warnLoud,
 } from "./config";
-import { invalidName, isFile, MODELS, NAME, thewayHome } from "./io";
+import { invalidName, isFile, thewayHome } from "./io";
 import { projectDir as projectOf, resolveKey } from "./project";
+import {
+  ACCESS,
+  type Access,
+  type AgentOut,
+  CONDITIONS,
+  type Condition,
+  type Entry,
+  EXHAUSTED,
+  type GateEntry,
+  type Input,
+  INPUTS,
+  MODELS,
+  NAME,
+  type Out,
+  PARAM,
+  type ResultType,
+  type StepEntry,
+  TYPES,
+  type WorkflowDoc,
+  type WorkflowItem,
+  type WorkflowList,
+} from "./schema";
 import { dirsOf, fileOf, knownSteps, namesIn, searched, suggest, warnUnknownDefaults } from "./step-files";
+
+export { ACCESS, CONDITIONS, EXHAUSTED, INPUTS, PARAM, TYPES };
 
 export const WORKFLOW_VERSION = "theway.workflow/v1";
 export const STEP_VERSION = "theway.step/v1";
@@ -20,27 +45,6 @@ export const STEP_VERSION = "theway.step/v1";
 export const WORKFLOW_KEYS = ["version", "description", "input", "default", "agents", "steps"];
 export const STEP_KEYS = ["version", "description", "params", "do"];
 
-export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis", "scaffold", "edits"] as const;
-type ResultType = (typeof TYPES)[number];
-export const CONDITIONS = [
-  "findings",
-  "no-findings",
-  "confirmed",
-  "no-confirmed",
-  "green",
-  "red",
-  "fixable",
-  "more",
-  "decision",
-  "no-decision",
-] as const;
-type Condition = (typeof CONDITIONS)[number];
-export const ACCESS = ["read", "commit", "push", "spec"] as const;
-/** The kinds of workflow: change IDs in and the repository written, or a free-text request in and change folders written. */
-export const INPUTS = ["changes", "request"] as const;
-type Input = (typeof INPUTS)[number];
-type Access = (typeof ACCESS)[number];
-export const EXHAUSTED = ["continue", "fail"] as const;
 const CONSTRUCTS = ["agent", "foreach", "loop", "when"] as const;
 
 /** The type whose agent sets each condition; `more` is set by the loop. */
@@ -89,8 +93,6 @@ const RULE = {
   nodes: "a non-empty list",
 };
 
-/** A param name: snake_case. */
-export const PARAM = /^[a-z][a-z0-9_]*$/;
 export const RESERVED = ["agents", "item"];
 /** A whole-value reference, `${name}`. */
 const REF = /^\$\{([^}]*)\}$/;
@@ -145,30 +147,10 @@ type StepFile = {
 /** A param's effective value, the origin `theway workflow` prints and the origin an error names. */
 type Effective = { value: ParamValue; from: string; origin: string };
 
-type AgentOut = { name: string; label: string; prompt: string[]; returns: ResultType; access: Access; model?: string };
-type Out =
-  | { agent: AgentOut }
-  | { parallel: { agent: AgentOut }[] }
-  | { loop: { max: number; until: Condition[]; exhausted: string; do: Out[] } }
-  | { when: Condition[]; do: Out[] }
-  | { when: Condition[]; fail: true }
-  | { when: Condition[]; block: true | string };
-
-type StepEntry = {
-  id: string;
-  step: string;
-  agents: boolean;
-  file: string;
-  description: string;
-  params: Record<string, { value: ParamValue; from: string }>;
-  do: Out[];
-};
-type GateEntry = { id: string; gate: string; agents: false };
-type Entry = StepEntry | GateEntry;
 type Workflow = { name: string; description: string | null; file: string; input: Input; steps: Entry[] };
 
 /** The home, the project key, the loaded config and a warning sink that writes each line once. */
-type Dirs = { home: string; key: string; loaded: Loaded; warn: (file: string, text: string) => void };
+type Dirs = { home: string; key: string; loaded: Loaded; warn: Warn };
 
 const rel = (d: Dirs, path: string) => relative(d.home, path);
 
@@ -802,7 +784,7 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
 
 /** The workflow files of a folder, sorted, with a warning for each `.yaml` file whose stem is not a valid name. */
 function scan(d: Dirs, dir: string): string[] {
-  const names = namesIn(dir, "workflows", (path) => warnLoud(rel(d, path), "not a valid workflow name"));
+  const names = namesIn(dir, "workflows", (path) => d.warn(rel(d, path), "not a valid workflow name"));
   return names.map((n) => `${n}.yaml`).sort();
 }
 
@@ -851,23 +833,98 @@ function byDefault(d: Dirs): { workflow: Workflow } | { error: string } {
   return byName(d, "develop");
 }
 
-/** The resolver's context for a project: the loaded config and a warning sink that writes each line once. */
-function dirsFor(home: string, key: string): Dirs | null {
-  const loaded = loadConfig(home, key);
-  if (loaded === null) return null;
+/**
+ * The resolver's context for a project: the loaded config and a warning sink that sends each line to `warn` once; or
+ * the line that stops loading the config.
+ */
+function dirsResult(home: string, key: string, warn: Warn): Dirs | { error: string } {
   const printed = new Set<string>();
-  const warn = (file: string, text: string) => {
+  const once: Warn = (file, text) => {
     const line = `${file}\u0000${text}`;
     if (printed.has(line)) return;
     printed.add(line);
-    warnLoud(file, text);
+    warn(file, text);
   };
-  const d: Dirs = { home, key, loaded, warn };
+  const loaded = loadConfigResult(home, key, warn);
+  if ("error" in loaded) return loaded;
+  const d: Dirs = { home, key, loaded, warn: once };
   for (const dir of dirsOf(home, key, "steps")) {
-    if (isFile(join(dir, "gate.yaml"))) warn(rel(d, join(dir, "gate.yaml")), "gate is reserved for the gate entry");
+    if (isFile(join(dir, "gate.yaml"))) once(rel(d, join(dir, "gate.yaml")), "gate is reserved for the gate entry");
   }
-  warnUnknownDefaults(home, key, loaded, warn);
+  warnUnknownDefaults(home, key, loaded, once);
   return d;
+}
+
+/** The resolver's context for a project, as `dirsResult` gives it; `null` once the line that stops it is written. */
+function dirsFor(home: string, key: string, warn: Warn): Dirs | null {
+  const d = dirsResult(home, key, warn);
+  if ("error" in d) {
+    process.stderr.write(`${d.error}\n`);
+    return null;
+  }
+  return d;
+}
+
+/**
+ * The workflow `name` of a project (the default one when `name` is undefined), resolved, validated and with every
+ * field filled, as `theway workflow` prints it; or the line that stops it. Every warning goes to `warn`.
+ */
+export function resolveWorkflow(home: string, key: string, name: string | undefined, warn: Warn): { doc: WorkflowDoc } | { error: string } {
+  const d = dirsResult(home, key, warn);
+  if ("error" in d) return d;
+  const result = name === undefined ? byDefault(d) : byName(d, name);
+  if ("error" in result) return result;
+  const conventions: string[] = [];
+  for (const file of CONVENTIONS) {
+    const global = join(home, "standards", file);
+    if (!isFile(global)) {
+      return { error: `theway: ${global} not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` };
+    }
+    const own = join(projectOf(home, key), "standards", file);
+    conventions.push(isFile(own) ? own : global);
+  }
+  const { name: workflowName, description, file, input, steps } = result.workflow;
+  const changes = input === "changes";
+  const doc: WorkflowDoc = {
+    name: workflowName,
+    description,
+    file,
+    input,
+    commits: conventions[0] as string,
+    git_host: conventions[1] as string,
+    pushes: changes && steps.some(pushes),
+    working_tree: changes && workingTree(steps),
+    steps,
+  };
+  return { doc };
+}
+
+/**
+ * Every workflow of a project, one per name in the union of the project and global `workflows/` folders (the project
+ * file wins), sorted by name, each resolved on its own; or the line that stops loading the config. Every warning goes
+ * to `warn`.
+ */
+export function listWorkflows(home: string, key: string, warn: Warn): WorkflowList | { error: string } {
+  const d = dirsResult(home, key, warn);
+  if ("error" in d) return d;
+  const [ownDir, globalDir] = dirsOf(home, key, "workflows");
+  const own = scan(d, ownDir).map((n) => n.slice(0, -".yaml".length));
+  const found = [
+    ...own.map((name) => ({ name, origin: "project" as const, file: join(ownDir, `${name}.yaml`) })),
+    ...scan(d, globalDir)
+      .map((n) => n.slice(0, -".yaml".length))
+      .filter((n) => !own.includes(n))
+      .map((name) => ({ name, origin: "global" as const, file: join(globalDir, `${name}.yaml`) })),
+  ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const chosen = byDefault(d);
+  const defaultName = "error" in chosen ? null : chosen.workflow.name;
+  const workflows = found.map((item): WorkflowItem => {
+    const result = byName(d, item.name);
+    if ("error" in result) return { ...item, error: result.error };
+    const { description, input, steps } = result.workflow;
+    return { ...item, description, input, pushes: input === "changes" && steps.some(pushes), default: item.name === defaultName };
+  });
+  return { defaultName, defaultError: "error" in chosen ? chosen.error : null, workflows };
 }
 
 /** `theway workflow [<name>] [--project <key>]`: one workflow, resolved, validated and with every field filled, as JSON. */
@@ -875,38 +932,12 @@ export function cmdWorkflow(wanted: string | undefined, override: string | undef
   const key = resolveKey(override);
   if (key === null) return 1;
   if (invalidName("workflow", wanted)) return 1;
-  const home = thewayHome();
-  const d = dirsFor(home, key);
-  if (d === null) return 1;
-  const result = wanted === undefined ? byDefault(d) : byName(d, wanted);
+  const result = resolveWorkflow(thewayHome(), key, wanted, warnLoud);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return 1;
   }
-  const conventions: string[] = [];
-  for (const file of CONVENTIONS) {
-    const global = join(home, "standards", file);
-    if (!isFile(global)) {
-      process.stderr.write(`theway: ${global} not found; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
-      return 1;
-    }
-    const own = join(projectOf(home, key), "standards", file);
-    conventions.push(isFile(own) ? own : global);
-  }
-  const { name: workflowName, description, file, input, steps } = result.workflow;
-  const changes = input === "changes";
-  const doc = {
-    name: workflowName,
-    description,
-    file,
-    input,
-    commits: conventions[0],
-    git_host: conventions[1],
-    pushes: changes && steps.some(pushes),
-    working_tree: changes && workingTree(steps),
-    steps,
-  };
-  process.stdout.write(`${JSON.stringify(doc, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(result.doc, null, 2)}\n`);
   return 0;
 }
 
@@ -922,7 +953,7 @@ export function cmdSteps(wanted: string | undefined, override: string | undefine
   if (key === null) return 1;
   if (invalidName("step", wanted)) return 1;
   const home = thewayHome();
-  const d = dirsFor(home, key);
+  const d = dirsFor(home, key, warnLoud);
   if (d === null) return 1;
   if (wanted !== undefined) {
     const path = wanted === "gate" ? null : fileOf(home, key, "steps", wanted);

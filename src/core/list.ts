@@ -3,7 +3,7 @@ import { isDir, isFile, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 
 // Only numbered lines (`N.` or `Na.`) are tasks; other checkboxes are not.
-const CHECKED = /^\s*-\s*\[x\]\s+[0-9]+[a-z]?\./;
+export const CHECKED = /^\s*-\s*\[x\]\s+[0-9]+[a-z]?\./;
 export const UNCHECKED = /^\s*-\s*\[ \]\s+[0-9]+[a-z]?\./;
 
 function visibleNames(dir: string): string[] {
@@ -22,21 +22,22 @@ function subdirs(dir: string): string[] {
 }
 
 /** The names matched by the glob `<dir>/*<suffix>` that are regular files. */
-function filesEndingWith(dir: string, suffix: string): string[] {
+export function filesEndingWith(dir: string, suffix: string): string[] {
   return visibleNames(dir).filter((n) => n.endsWith(suffix) && isFile(`${dir}/${n}`));
 }
 
 /** The active change ids of a project, in `theway list` order (archive excluded). */
-function activeIds(dir: string): string[] {
+export function activeIds(dir: string): string[] {
   return subdirs(`${dir}/changes`).filter((n) => n !== "archive");
 }
 
 /** The archived change folder names of a project, oldest first. */
-function archiveDirs(dir: string): string[] {
+export function archiveDirs(dir: string): string[] {
   return subdirs(`${dir}/changes/archive`);
 }
 
-function taskCounts(dir: string): [number, number] {
+/** The numbered tasks of `<dir>/tasks.md`: `[done, total]`, `[0, 0]` without the file. */
+export function taskCounts(dir: string): [number, number] {
   let checked = 0;
   let total = 0;
   if (!isFile(`${dir}/tasks.md`)) return [0, 0];
