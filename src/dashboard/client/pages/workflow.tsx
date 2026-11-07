@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Empty, PageHeader } from "@/components/state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Canvas } from "@/graph/Canvas";
 import { details } from "@/graph/details";
@@ -82,6 +83,9 @@ export function WorkflowPage({ projectKey, name }: { projectKey: string; name: s
         }
       >
         {origin !== undefined && <Badge variant="secondary">{origin}</Badge>}
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link href={`/p/${projectKey}/workflows/${name}/edit`} />}>
+          Edit
+        </Button>
         {resolved !== null && (
           <TabsList>
             <TabsTrigger value="graph">Graph</TabsTrigger>

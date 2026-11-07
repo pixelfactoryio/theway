@@ -1,5 +1,5 @@
 /** The dashboard API's response shapes, shared by the server and the browser client. */
-import type { WorkflowDoc, WorkflowList } from "../core/schema";
+import type { StepItem, WorkflowDoc, WorkflowList } from "../core/schema";
 
 /** A change's progress over its numbered tasks. */
 export type Status = "No tasks" | "Not started" | "In progress" | "Ready to archive";
@@ -56,3 +56,49 @@ export type WorkflowFailure = { error: string; warnings: Warning[] };
 
 /** Every error response. */
 export type ErrorResponse = { error: string };
+
+/** The kinds of file the editor reads and writes. */
+export type SourceKind = "workflows" | "steps";
+
+/**
+ * `GET /api/v1/projects/{key}/sources/{kind}/{name}`: the file the resolver reads (`path`, project or global), its text,
+ * the project file a save writes (`projectPath`) and the sha256 of its bytes, `null` when there is no project copy;
+ * `globalPath` is the global file of that name, `null` when there is none (a project copy then has no Revert to global).
+ */
+export type SourceFile = {
+  kind: SourceKind;
+  name: string;
+  origin: "project" | "global";
+  path: string;
+  text: string;
+  projectPath: string;
+  sha256: string | null;
+  globalPath: string | null;
+};
+
+/** `GET /api/v1/projects/{key}/steps`. */
+export type StepsResponse = StepItem[];
+
+/** One item of `GET /api/v1/projects/{key}/prompts`. */
+export type PromptItem = { name: string; origin: "project" | "global" };
+
+/** `POST /api/v1/projects/{key}/validate`: `workflow` is the named workflow resolved with the candidate texts. */
+export type ValidateResponse = { ok: boolean; errors: string[]; warnings: string[]; workflow?: WorkflowDoc };
+
+/** One file of a validate body; `text: null` deletes the project copy. */
+export type ValidateFile = { kind: SourceKind; name: string; text: string | null };
+
+/** One file of a save body: `base` is the `sha256` the source was loaded with. */
+export type SaveFile = { kind: SourceKind; name: string; text: string; base: string | null };
+
+/** `PUT /api/v1/projects/{key}/sources`: the paths written and the sha256 of every target. */
+export type SaveResponse = { written: string[]; sha256: Record<string, string> };
+
+/** The `409` body of a save or revert. */
+export type SaveConflict = { error: "changed on disk"; conflicts: string[] };
+
+/** The `422` body of a save or revert. */
+export type SaveInvalid = { errors: string[]; warnings: string[] };
+
+/** `DELETE /api/v1/projects/{key}/sources/{kind}/{name}`. */
+export type RevertResponse = { deleted: string };

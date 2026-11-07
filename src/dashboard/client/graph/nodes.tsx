@@ -1,4 +1,4 @@
-/** The custom React Flow nodes of the workflow graph: the cards, the step frames and the loop containers. */
+/** The custom React Flow nodes of the workflow graph: the cards, the step frames, the loop and foreach containers. */
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { ArrowUp, Diamond, Eye, FileText, GitCommitHorizontal, OctagonX, Play } from "lucide-react";
 import type { ReactNode } from "react";
@@ -33,14 +33,15 @@ function Tile({ className, children }: { className: string; children: ReactNode 
 export function AgentNode({ data, selected }: NodeProps<FlowNode>) {
   const node = data.box.node;
   if (node.kind !== "agent") return null;
-  const access = ACCESS[node.access];
+  const access = ACCESS[node.access] ?? ACCESS.read;
   return (
     <div className={cn("flex size-full items-center gap-2.5 rounded-lg border border-[#E4E4E7] bg-white px-3", selected && SELECTED)}>
       <Handles />
       <Tile className={access.tile}>{access.icon}</Tile>
       <div className="min-w-0 grow">
         <div className="truncate text-[11px] leading-4 text-[#71717A]">
-          Agent · {node.returns} · {node.access}
+          {/* The source model shows the agent as written: its result type only. */}
+          {node.src === undefined ? `Agent · ${node.returns} · ${node.access}` : `Agent · ${node.returns}`}
         </div>
         <div className="truncate text-[13px] leading-5 font-semibold">{node.label.slice(node.label.indexOf(":") + 1)}</div>
       </div>
@@ -103,6 +104,7 @@ export function FrameNode({ data, selected }: NodeProps<FlowNode>) {
         <span className="font-semibold">{node.kind === "step" ? node.id : ""}</span>
         <span className="truncate text-[#71717A]">· {data.box.caption}</span>
       </div>
+      {node.kind === "step" && node.error !== undefined && <p className="truncate px-4 font-mono text-[11px] text-destructive">{node.error}</p>}
     </div>
   );
 }
@@ -118,4 +120,12 @@ export function LoopNode({ data, selected }: NodeProps<FlowNode>) {
   );
 }
 
-export const nodeTypes = { agent: AgentNode, start: StartNode, gate: GateNode, stop: StopNode, frame: FrameNode, loop: LoopNode };
+export function ForeachNode({ data, selected }: NodeProps<FlowNode>) {
+  return (
+    <div className={cn("relative size-full rounded-[12px] border border-dashed border-[#D4D4D8] bg-[#F4F4F5]/40", selected && "border-solid border-[#A1A1AA]")}>
+      <div className="absolute top-2 right-5 left-5 truncate text-[11px] whitespace-nowrap text-[#52525B]">{data.box.caption}</div>
+    </div>
+  );
+}
+
+export const nodeTypes = { agent: AgentNode, start: StartNode, gate: GateNode, stop: StopNode, frame: FrameNode, loop: LoopNode, foreach: ForeachNode };

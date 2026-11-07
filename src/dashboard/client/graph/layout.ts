@@ -2,10 +2,21 @@
  * The layout of a workflow graph: every box at an absolute position, the edges between cards with their points, and
  * the condition pills on them. Deterministic and pure: no DOM, no React.
  */
-import { type AnyNode, type EntryNode, type Graph, type GraphNode, type LoopNode, childrenOf } from "./model";
+import {
+  type AnyNode,
+  childrenOf,
+  type EntryNode,
+  type ForeachNode,
+  type Graph,
+  type GraphNode,
+  type InsertNode,
+  type LoopNode,
+  type StepNode,
+  type YamlPath,
+} from "./model";
 
-export type BoxKind = "start" | "frame" | "loop" | "agent" | "gate" | "stop";
-/** A drawn box: a card (`start`, `agent`, `gate`, `stop`) or a container (`frame`, `loop`). */
+export type BoxKind = "start" | "frame" | "loop" | "foreach" | "agent" | "gate" | "stop" | "insert";
+/** A drawn box: a card (`start`, `agent`, `gate`, `stop`), a container (`frame`, `loop`, `foreach`) or an editor `+` (`insert`). */
 export type Box = {
   kind: BoxKind;
   path: string;
@@ -33,6 +44,13 @@ export const PILL_H = 18;
 export const PARALLEL_GAP = 20;
 export const FORK_DROP = 14;
 export const LOOP_PAD = { side: 20, top: 20, bottom: 44 } as const;
+/** A `foreach` container's padding: a loop's, with room for its label at the top. */
+export const FOREACH_PAD = { side: 20, top: 32, bottom: 44 } as const;
+/** An editor `+` box, and its gap below the last child of a `do`. */
+export const INSERT = 20;
+export const INSERT_GAP = 14;
+/** The room a `do` with `+` points takes after its last child: the gap and the box. */
+const END = INSERT_GAP + INSERT;
 export const FRAME_PAD = { side: 16, top: 36, bottom: 20 } as const;
 export const ENTRY_GAP = 40;
 export const START_GAP = 30;
@@ -62,21 +80,31 @@ export function frameCaption(node: EntryNode): string {
 export const loopCaption = (node: LoopNode): string =>
   `max ${node.max} · until ${node.until.join(", ")} · ${node.exhausted === "fail" ? "else fail" : "then continue"}`;
 
+/** A `foreach` container's label. */
+export const foreachCaption = (node: ForeachNode): string => `For each ${node.value}${node.parallel ? " · parallel" : ""}`;
+
 type Size = { w: number; h: number };
 
-/** The size of a sequence of nodes: the gap before each, a pill gap before a pilled one (the first included). */
-function seqSize(list: GraphNode[]): Size {
+/**
+ * The size of a sequence of nodes: the gap before each, a pill gap before a pilled one (the first included); with `+`
+ * points (`ins`), the room of the last one below it.
+ */
+function seqSize(list: GraphNode[], ins = false): Size {
   let w = 0;
   let h = 0;
   list.forEach((node, i) => {
-    const s = sizeOf(node);
+    const s = sizeOf(node, ins);
     h += (pilled(node) ? PILL_GAP : i === 0 ? 0 : GAP) + s.h;
     w = Math.max(w, s.w);
   });
+  if (ins) h += list.length === 0 ? INSERT : END;
   return { w, h };
 }
 
-function sizeOf(node: AnyNode): Size {
+/** A container's width: its content's, at least an agent card's, and its padding. */
+const containerW = (s: Size, side: number): number => Math.max(s.w, SIZE.agent.w) + 2 * side;
+
+function sizeOf(node: AnyNode, ins = false): Size {
   switch (node.kind) {
     case "start":
       return { ...SIZE.start };
@@ -91,17 +119,26 @@ function sizeOf(node: AnyNode): Size {
       return { w, h: node.children.length === 0 ? 0 : SIZE.agent.h };
     }
     case "when":
-      return seqSize(node.children);
+      return seqSize(node.children, ins);
     case "loop": {
-      const s = seqSize(node.children);
-      return { w: s.w + 2 * LOOP_PAD.side, h: LOOP_PAD.top + s.h + LOOP_PAD.bottom };
+      const s = seqSize(node.children, ins);
+      return { w: containerW(s, LOOP_PAD.side), h: LOOP_PAD.top + s.h + LOOP_PAD.bottom };
+    }
+    case "foreach": {
+      const s = seqSize(node.children, ins);
+      return { w: containerW(s, FOREACH_PAD.side), h: FOREACH_PAD.top + s.h + FOREACH_PAD.bottom };
     }
     case "step": {
-      const s = seqSize(node.children);
-      return { w: s.w + 2 * FRAME_PAD.side, h: FRAME_PAD.top + s.h + FRAME_PAD.bottom };
+      const s = seqSize(node.children, ins);
+      return { w: containerW(s, FRAME_PAD.side), h: FRAME_PAD.top + s.h + FRAME_PAD.bottom };
     }
+    case "insert":
+      return { w: INSERT, h: INSERT };
   }
 }
+
+/** The `do` list a sequence of `+` points inserts into: its file and YAML path, its model path, and what it is inside. */
+type SeqAt = { file: string; yaml: YamlPath; path: string; inLoop: boolean; inForeach: boolean };
 
 /** A pending pill: placed before the edges exist, bound to the first flow edge into `target` once they do. */
 type PendingPill = { x: number; y: number; w: number; text: string; target: string };
@@ -120,30 +157,52 @@ class Builder {
     return b;
   }
 
-  /** Places a sequence centred on `cx` from `top`, with a pill before each pilled node. */
-  seq(list: GraphNode[], cx: number, top: number, parent: string | null): void {
+  /** Places an editor `+` box centred on (`cx`, `cy`). */
+  insert(path: string, at: InsertNode["at"], cx: number, cy: number, parent: string | null): void {
+    const node: InsertNode = { kind: "insert", path, at };
+    this.box("insert", node, cx, cy - INSERT / 2, { w: INSERT, h: INSERT }, parent);
+  }
+
+  /**
+   * Places a sequence centred on `cx` from `top`, with a pill before each pilled node. With `at`, a `+` sits on each
+   * edge between two nodes (right of its pill when it has one) and below the last one.
+   */
+  seq(list: GraphNode[], cx: number, top: number, parent: string | null, at?: SeqAt): void {
+    const ins = at !== undefined;
+    const point = (index: number, x: number, cy: number) => {
+      if (at === undefined) return;
+      const { file, yaml, inLoop, inForeach } = at;
+      this.insert(`${at.path}+${index}`, { scope: "step", file, parent: yaml, index, inLoop, inForeach }, x, cy, parent);
+    };
     let y = top;
     list.forEach((node, i) => {
       if (pilled(node)) {
         const text = pillText(node.kind === "when" || node.kind === "stop" ? node.conditions : []);
         const target = entryBoxes(node)[0];
+        const px = entryX(node, cx, ins);
         // On the edge into the first card: when that card is the left one of a parallel group, the edge forks off the
         // axis 14px down, so the pill sits on its vertical run at that card's centre.
-        if (target !== undefined) this.pending.push({ x: entryX(node, cx), y: y + PILL_GAP / 2, w: pillWidth(text), text, target });
+        if (target !== undefined) this.pending.push({ x: px, y: y + PILL_GAP / 2, w: pillWidth(text), text, target });
+        if (i > 0) point(i, px + pillWidth(text) / 2 + 8 + INSERT / 2, y + PILL_GAP / 2);
         y += PILL_GAP;
       } else if (i > 0) {
+        point(i, cx, y + GAP / 2);
         y += GAP;
       }
-      this.place(node, cx, y, parent);
-      y += sizeOf(node).h;
+      this.place(node, cx, y, parent, at);
+      y += sizeOf(node, ins).h;
     });
+    if (at !== undefined) point(list.length, cx, list.length === 0 ? y + INSERT / 2 : y + INSERT_GAP + INSERT / 2);
   }
 
-  place(node: AnyNode, cx: number, top: number, parent: string | null): void {
-    const size = sizeOf(node);
+  place(node: AnyNode, cx: number, top: number, parent: string | null, at?: SeqAt): void {
+    const ins = at !== undefined;
+    const size = sizeOf(node, ins);
     switch (node.kind) {
       case "start":
         this.box("start", node, cx, top, size, parent);
+        return;
+      case "insert":
         return;
       case "agent":
         this.box("agent", node, cx, top, size, parent);
@@ -163,16 +222,23 @@ class Builder {
         return;
       }
       case "when":
-        this.seq(node.children, cx, top, parent);
+        this.seq(node.children, cx, top, parent, inner(at, node, ["do"], `${node.path}.do`));
         return;
       case "loop": {
         const b = this.box("loop", node, cx, top, size, parent, loopCaption(node));
-        this.seq(node.children, cx, top + LOOP_PAD.top, b.path);
+        const sub = inner(at, node, ["loop", "do"], `${node.path}.loop.do`);
+        this.seq(node.children, cx, top + LOOP_PAD.top, b.path, sub === undefined ? undefined : { ...sub, inLoop: true });
+        return;
+      }
+      case "foreach": {
+        const b = this.box("foreach", node, cx, top, size, parent, foreachCaption(node));
+        const sub = inner(at, node, ["do"], `${node.path}.do`);
+        this.seq(node.children, cx, top + FOREACH_PAD.top, b.path, sub === undefined ? undefined : { ...sub, inForeach: true });
         return;
       }
       case "step": {
         const b = this.box("frame", node, cx, top, size, parent, frameCaption(node));
-        this.seq(node.children, cx, top + FRAME_PAD.top, b.path);
+        this.seq(node.children, cx, top + FRAME_PAD.top, b.path, at);
         return;
       }
     }
@@ -245,18 +311,28 @@ class Builder {
   }
 }
 
+/** The `+` points of a container's `do`: its file and YAML path under the enclosing ones, `undefined` without them. */
+function inner(at: SeqAt | undefined, node: GraphNode, field: YamlPath, path: string): SeqAt | undefined {
+  if (at === undefined || node.src === undefined) return undefined;
+  return { ...at, yaml: [...node.src.yaml, ...field], path };
+}
+
+/** Whether a node holds a sequence of nodes. */
+const isContainer = (node: AnyNode): boolean => node.kind === "step" || node.kind === "loop" || node.kind === "when" || node.kind === "foreach";
+
 /** The card paths inside a node, in document order. */
 function cardsIn(node: AnyNode): string[] {
   if (node.kind === "start" || node.kind === "agent" || node.kind === "gate" || node.kind === "stop") return [node.path];
+  if (node.kind === "insert") return [];
   return childrenOf(node).flatMap(cardsIn);
 }
 
 /** The centre x of the first card an edge into `node`, placed centred on `cx`, ends on. */
-function entryX(node: AnyNode, cx: number): number {
-  if (node.kind === "parallel") return node.children.length === 0 ? cx : cx - sizeOf(node).w / 2 + SIZE.agent.w / 2;
-  if (node.kind === "step" || node.kind === "loop" || node.kind === "when") {
-    const first = node.children[0];
-    return first === undefined ? cx : entryX(first, cx);
+function entryX(node: AnyNode, cx: number, ins = false): number {
+  if (node.kind === "parallel") return node.children.length === 0 ? cx : cx - sizeOf(node, ins).w / 2 + SIZE.agent.w / 2;
+  if (isContainer(node)) {
+    const first = childrenOf(node)[0];
+    return first === undefined ? cx : entryX(first, cx, ins);
   }
   return cx;
 }
@@ -264,7 +340,7 @@ function entryX(node: AnyNode, cx: number): number {
 /** The cards an edge into `node` ends on. */
 export function entryBoxes(node: AnyNode): string[] {
   if (node.kind === "parallel") return node.children.map((c) => c.path);
-  if (node.kind === "step" || node.kind === "loop" || node.kind === "when") {
+  if (node.kind === "step" || node.kind === "loop" || node.kind === "when" || node.kind === "foreach") {
     const first = node.children[0];
     return first === undefined ? [] : entryBoxes(first);
   }
@@ -274,26 +350,49 @@ export function entryBoxes(node: AnyNode): string[] {
 /** The cards an edge out of `node` starts from. */
 export function exitBoxes(node: AnyNode): string[] {
   if (node.kind === "parallel") return node.children.map((c) => c.path);
-  if (node.kind === "step" || node.kind === "loop" || node.kind === "when") {
+  if (node.kind === "step" || node.kind === "loop" || node.kind === "when" || node.kind === "foreach") {
     const last = node.children[node.children.length - 1];
     return last === undefined ? [] : exitBoxes(last);
   }
   return [node.path];
 }
 
-/** The layout of a graph model. */
-export function layout(graph: Graph): Layout {
+/** The `+` points of an editable step frame's `do`, `undefined` when it takes none. */
+function frameAt(entry: EntryNode, inserts: boolean): SeqAt | undefined {
+  if (!inserts || entry.kind !== "step" || !entry.editable) return undefined;
+  return { file: `steps/${(entry as StepNode).step}`, yaml: ["do"], path: `${entry.path}.do`, inLoop: false, inForeach: false };
+}
+
+/**
+ * The layout of a graph model. With `inserts` (the editor's source model), a `+` point sits between the start and
+ * each workflow entry and after the last one, and on the sequence edges and at the end of every `do` of an editable
+ * step frame.
+ */
+export function layout(graph: Graph, opts: { inserts?: boolean } = {}): Layout {
+  const inserts = opts.inserts === true;
   const b = new Builder();
-  const width = Math.max(SIZE.start.w, ...graph.entries.map((e) => sizeOf(e).w));
+  const width = Math.max(SIZE.start.w, ...graph.entries.map((e) => sizeOf(e, frameAt(e, inserts) !== undefined).w));
   const cx = MARGIN + width / 2;
+  const entryPoint = (index: number, cy: number) => {
+    if (inserts) b.insert(`steps+${index}`, { scope: "entries", index }, cx, cy, null);
+  };
   let y = MARGIN;
   b.place(graph.start, cx, y, null);
   y += SIZE.start.h + START_GAP;
+  entryPoint(0, y - START_GAP / 2);
   graph.entries.forEach((entry, i) => {
-    if (i > 0) y += ENTRY_GAP;
-    b.place(entry, cx, y, null);
-    y += sizeOf(entry).h;
+    if (i > 0) {
+      entryPoint(i, y + ENTRY_GAP / 2);
+      y += ENTRY_GAP;
+    }
+    const at = frameAt(entry, inserts);
+    b.place(entry, cx, y, null, at);
+    y += sizeOf(entry, at !== undefined).h;
   });
+  if (inserts) {
+    entryPoint(graph.entries.length, y + INSERT_GAP + INSERT / 2);
+    y += END;
+  }
   b.wire([graph.start, ...graph.entries]);
   const pills = b.pending.map((p): Pill => {
     const edge = b.edges.findIndex((e) => e.kind === "flow" && e.target === p.target);

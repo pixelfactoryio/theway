@@ -22,7 +22,7 @@ export type Details =
   | { kind: "step"; id: string; description: string; file: string; mode: "through agents" | "inline"; params: Param[] }
   | { kind: "gate"; id: string; question: string }
   | { kind: "stop"; stop: "fail" | "block"; conditions: Condition[]; text: string }
-  | { kind: "loop"; max: number; until: Condition[]; exhausted: string }
+  | { kind: "loop"; max: number | string; until: Condition[]; exhausted: string }
   | { kind: "start"; input: Input };
 
 const paramsOf = (params: Record<string, { value: ParamValue; from: string }>): Param[] =>

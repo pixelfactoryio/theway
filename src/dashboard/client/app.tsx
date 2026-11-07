@@ -1,12 +1,13 @@
 import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Redirect, Route, Router, Switch } from "wouter";
-import { useHashLocation } from "wouter/use-hash-location";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Empty } from "@/components/state";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useProjects } from "@/lib/api";
+import { useGuardedHashLocation } from "@/lib/leave";
+import { EditPage } from "@/editor/Editor";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
 import { WorkflowPage } from "@/pages/workflow";
@@ -24,6 +25,7 @@ function Routes() {
       <Route path="/p/:key/archive/:folder">{(p) => <ChangePage projectKey={p.key} id={p.folder} archived={true} />}</Route>
       <Route path="/p/:key/workflows">{(p) => <WorkflowsPage projectKey={p.key} />}</Route>
       <Route path="/p/:key/workflows/:name">{(p) => <WorkflowPage key={`${p.key}/${p.name}`} projectKey={p.key} name={p.name} />}</Route>
+      <Route path="/p/:key/workflows/:name/edit">{(p) => <EditPage key={`${p.key}/${p.name}`} projectKey={p.key} name={p.name} />}</Route>
       <Route path="/p/:key">{(p) => <Redirect to={`/p/${p.key}/changes`} replace />}</Route>
       <Route>
         {projects.data === undefined ? (
@@ -43,7 +45,7 @@ export function App() {
     <CSPProvider disableStyleElements>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <Router hook={useHashLocation}>
+          <Router hook={useGuardedHashLocation}>
             <SidebarProvider>
               <AppSidebar />
               <SidebarInset className="min-w-0">

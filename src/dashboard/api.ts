@@ -1,13 +1,15 @@
 /** The dashboard API's handlers: each reads the home on every call and returns a status and a JSON body. */
-import { readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import type { Warn } from "../core/config";
-import { isDir } from "../core/io";
+import { isDir, isFile, writeAtomic } from "../core/io";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { keyOf, projectDir, projectReason } from "../core/project";
 import { NAME, type Out, type WorkflowDoc } from "../core/schema";
-import { listWorkflows, resolveWorkflow } from "../core/workflow";
+import { dirsOf, fileOf, namesIn } from "../core/step-files";
+import { listSteps, listWorkflows, resolveWorkflow } from "../core/workflow";
 import { renderMarkdown } from "./markdown";
 import type {
   ActiveChange,
@@ -15,15 +17,24 @@ import type {
   ChangesResponse,
   ErrorResponse,
   ProjectsResponse,
+  PromptItem,
   RenderedPrompt,
+  RevertResponse,
+  SaveConflict,
+  SaveInvalid,
+  SaveResponse,
+  SourceFile,
   Status,
+  StepsResponse,
+  ValidateResponse,
   Warning,
   WorkflowDetail,
   WorkflowFailure,
   WorkflowsResponse,
 } from "./types";
+import { type Candidate, type EditKind, projectPath, validateSet } from "./validate";
 
-export type Reply<T> = { status: 200 | 400 | 404 | 422; body: T | ErrorResponse };
+export type Reply<T> = { status: 200 | 400 | 404 | 409 | 413 | 422 | 500; body: T | ErrorResponse };
 
 const ok = <T>(body: T): Reply<T> => ({ status: 200, body });
 const bad = (error: string): Reply<never> => ({ status: 400, body: { error } });
@@ -273,4 +284,160 @@ export function workflow(home: string, key: string, name: string): Reply<Workflo
     prompts: renderPrompts(doc),
     warnings,
   });
+}
+
+// ---- The editor's sources and writes ----
+
+/** The most bytes one file text of a validate or save may hold. */
+export const MAX_TEXT = 256 * 1024;
+const KINDS: readonly EditKind[] = ["workflows", "steps"];
+const HEX = /^[0-9a-f]{64}$/;
+const tooLarge = (): Reply<never> => ({ status: 413, body: { error: "too large" } });
+
+/** The sha256 of a file's bytes, hex; `null` when it is not a file. */
+function hashOf(path: string): string | null {
+  if (!isFile(path)) return null;
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+/** Why `kind` and `name` do not name an editable file, `""` when they do. */
+function editReason(kind: string, name: string): string {
+  if (!(KINDS as readonly string[]).includes(kind)) return `invalid kind '${kind}': must be workflows or steps`;
+  if (!NAME.test(name)) return `invalid ${kind === "workflows" ? "workflow" : "step"} name '${name}'`;
+  if (kind === "steps" && name === "gate") return "gate is reserved for the gate entry";
+  return "";
+}
+
+/** `GET /api/v1/projects/{key}/sources/{kind}/{name}`: the file `fileOf` resolves, with the hash of the project copy. */
+export function source(home: string, key: string, kind: string, name: string): Reply<SourceFile> {
+  const p = project(home, key, () => {
+    const reason = editReason(kind, name);
+    return reason === "" ? null : bad(reason);
+  });
+  if ("status" in p) return p;
+  const k = kind as EditKind;
+  const path = fileOf(home, key, k, name);
+  if (path === null) return missing(`unknown ${k === "workflows" ? "workflow" : "step"}`);
+  const own = projectPath(home, key, k, name);
+  return ok({
+    kind: k,
+    name,
+    origin: path === own ? "project" : "global",
+    path,
+    text: readFileSync(path, "utf-8"),
+    projectPath: own,
+    sha256: hashOf(own),
+    globalPath: isFile(join(home, k, `${name}.yaml`)) ? join(home, k, `${name}.yaml`) : null,
+  });
+}
+
+/** `GET /api/v1/projects/{key}/steps`: every step, sorted, with its description and params, or its error line. */
+export function steps(home: string, key: string): Reply<StepsResponse> {
+  const p = project(home, key);
+  if ("status" in p) return p;
+  const result = listSteps(home, key, () => {});
+  if ("error" in result) return { status: 422, body: { error: result.error } };
+  return ok(result);
+}
+
+/** `GET /api/v1/projects/{key}/prompts`: the prompt names of the project's folder, sorted, then the global ones it does not hold. */
+export function prompts(home: string, key: string): Reply<PromptItem[]> {
+  const p = project(home, key);
+  if ("status" in p) return p;
+  const [ownDir, globalDir] = dirsOf(home, key, "prompts");
+  const own = namesIn(ownDir, "prompts");
+  return ok([
+    ...own.map((name) => ({ name, origin: "project" as const })),
+    ...namesIn(globalDir, "prompts")
+      .filter((n) => !own.includes(n))
+      .map((name) => ({ name, origin: "global" as const })),
+  ]);
+}
+
+const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * The files of a validate or save body, checked: a list of `{ kind, name, text }` (and `base` with `withBase`), no
+ * file twice, each text at most `MAX_TEXT` bytes; `text: null` only with `nullable`.
+ */
+function filesOf(body: unknown, withBase: boolean, nullable: boolean): (Candidate & { base: string | null })[] | Reply<never> {
+  const files = isObject(body) ? body.files : undefined;
+  if (!Array.isArray(files) || files.length === 0) return bad("files must be a non-empty list");
+  const out: (Candidate & { base: string | null })[] = [];
+  const seen = new Set<string>();
+  for (const [i, f] of files.entries()) {
+    if (!isObject(f)) return bad(`files[${i}] must be an object`);
+    const { kind, name, text, base } = f;
+    if (typeof kind !== "string" || typeof name !== "string") return bad(`files[${i}]: kind and name must be strings`);
+    const reason = editReason(kind, name);
+    if (reason !== "") return bad(`files[${i}]: ${reason}`);
+    if (seen.has(`${kind}/${name}`)) return bad(`files[${i}]: ${kind}/${name} is given twice`);
+    seen.add(`${kind}/${name}`);
+    if (!(typeof text === "string" || (nullable && text === null))) return bad(`files[${i}].text must be a string${nullable ? " or null" : ""}`);
+    if (typeof text === "string" && Buffer.byteLength(text, "utf-8") > MAX_TEXT) return tooLarge();
+    if (withBase && !(base === null || (typeof base === "string" && HEX.test(base)))) return bad(`files[${i}].base must be a sha256 or null`);
+    out.push({ kind: kind as EditKind, name, text: text as string | null, base: withBase ? (base as string | null) : null });
+  }
+  return out;
+}
+
+/** `POST /api/v1/projects/{key}/validate`: the candidate set validated, and the named workflow resolved with it. */
+export function validate(home: string, key: string, body: unknown): Reply<ValidateResponse> {
+  const p = project(home, key);
+  if ("status" in p) return p;
+  const files = filesOf(body, false, true);
+  if ("status" in files) return files;
+  const workflow = isObject(body) ? body.workflow : undefined;
+  if (workflow !== undefined && (typeof workflow !== "string" || !NAME.test(workflow))) return bad("workflow must be a workflow name");
+  return ok(validateSet(home, key, files, workflow as string | undefined));
+}
+
+/**
+ * `PUT /api/v1/projects/{key}/sources`: each file written to the project folder, in request order, when every `base`
+ * still matches the project copy and the set validates. A file whose project copy already holds its text is not written.
+ */
+export function save(home: string, key: string, body: unknown): Reply<SaveResponse | SaveConflict | SaveInvalid | { error: string; written: string[] }> {
+  const p = project(home, key);
+  if ("status" in p) return p;
+  const files = filesOf(body, true, false);
+  if ("status" in files) return files;
+  const targets = files.map((f) => projectPath(home, key, f.kind, f.name));
+  const conflicts = targets.filter((t, i) => hashOf(t) !== files[i]?.base);
+  if (conflicts.length > 0) return { status: 409, body: { error: "changed on disk", conflicts } };
+  const result = validateSet(home, key, files);
+  if (!result.ok) return { status: 422, body: { errors: result.errors, warnings: result.warnings } };
+  const written: string[] = [];
+  const sha256: Record<string, string> = {};
+  try {
+    for (const [i, target] of targets.entries()) {
+      const text = files[i]?.text as string;
+      sha256[target] = createHash("sha256").update(text, "utf-8").digest("hex");
+      if (isFile(target) && readFileSync(target, "utf-8") === text) continue;
+      mkdirSync(dirname(target), { recursive: true });
+      writeAtomic(target, text);
+      written.push(target);
+    }
+  } catch (e) {
+    return { status: 500, body: { error: e instanceof Error ? e.message : String(e), written } };
+  }
+  return ok({ written, sha256 });
+}
+
+/** `DELETE /api/v1/projects/{key}/sources/{kind}/{name}?base=<hex>`: the project copy removed, when `base` matches and nothing breaks. */
+export function revert(home: string, key: string, kind: string, name: string, base: string | undefined): Reply<RevertResponse | SaveConflict | SaveInvalid> {
+  const p = project(home, key, () => {
+    const reason = editReason(kind, name);
+    if (reason !== "") return bad(reason);
+    return base !== undefined && HEX.test(base) ? null : bad("base must be the sha256 of the project copy");
+  });
+  if ("status" in p) return p;
+  const k = kind as EditKind;
+  const target = projectPath(home, key, k, name);
+  const current = hashOf(target);
+  if (current === null) return missing("no project copy");
+  if (current !== base) return { status: 409, body: { error: "changed on disk", conflicts: [target] } };
+  const result = validateSet(home, key, [{ kind: k, name, text: null }]);
+  if (!result.ok) return { status: 422, body: { errors: result.errors, warnings: result.warnings } };
+  rmSync(target);
+  return ok({ deleted: target });
 }

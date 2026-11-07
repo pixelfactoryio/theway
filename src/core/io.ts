@@ -56,6 +56,18 @@ export function isFile(path: string): boolean {
 }
 
 /**
+ * Candidate file texts the resolver reads before the disk, keyed by absolute path: a string is the file's text, `null`
+ * a file taken as absent. The CLI never passes one.
+ */
+export type Overlay = Map<string, string | null>;
+
+/** Whether `path` is a file: per the overlay when it holds the path, else on disk. */
+export function isFileIn(path: string, overlay?: Overlay): boolean {
+  if (overlay?.has(path) === true) return overlay.get(path) !== null;
+  return isFile(path);
+}
+
+/**
  * Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated
  * target. With `mode`, the target gets that mode.
  */

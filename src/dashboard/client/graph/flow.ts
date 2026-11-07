@@ -31,6 +31,8 @@ export function toFlow(layout: Layout): { nodes: FlowNode[]; edges: FlowEdge[] }
       draggable: false,
       data: { box },
     };
+    // A `+` point is a button, never a selection.
+    if (box.kind === "insert") node.selectable = false;
     if (parent !== undefined) node.parentId = parent.path;
     return node;
   });
