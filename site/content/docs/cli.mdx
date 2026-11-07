@@ -499,7 +499,7 @@ add-user-auth-05
 theway dashboard [--port <n>]
 ```
 
-Starts a local web view of the data home: every project with its active changes grouped by series, their rendered `spec.md`, `tasks.md` and other Markdown files, the archived changes, and each project's workflows with their errors and warnings. It prints one line with the address and runs until you stop it:
+Starts a local web view of the data home: every project with its active changes grouped by series, their rendered `spec.md`, `tasks.md` and other Markdown files, the archived changes, and each project's workflows with their errors and warnings, with an editor for a project's workflows and steps. It prints one line with the address and runs until you stop it:
 
 ```text
 theway dashboard: http://127.0.0.1:4870/
@@ -507,7 +507,7 @@ theway dashboard: http://127.0.0.1:4870/
 
 - It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
 - The project of the current directory is selected first when it has a folder under `<home>/projects/`; otherwise the first project is.
-- It is read-only: it reads the files on every request and never writes to the home. Coming back to the browser tab shows the files as they are now.
+- It reads the files on every request: coming back to the browser tab shows the files as they are now. The only files it writes are the project workflow and step files you save from the editor.
 - It answers `403` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`, so a web page cannot reach it through another host name. Its pages load no external script, style or font.
 - A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1:
 
@@ -525,3 +525,31 @@ Each workflow on the Workflows page links to its graph at `#/p/<key>/workflows/<
 - a `when` puts its conditions as a pill on the edge into what it runs, and a `fail` or `block` ends in a red or amber stop card.
 
 Selecting a card opens an inspector with its details: for an agent, its result type, access, model, the conditions it runs under, its params, and each of its prompt files rendered. The prompts are rendered from the files the resolved workflow names; the page never asks for a file by path. Drag the canvas to pan, Cmd or Ctrl and the wheel to zoom, and use the toolbar to zoom or fit the graph. The YAML tab shows the workflow file, and a workflow that does not resolve shows the line that stops it with its warnings.
+
+### Editing a workflow
+
+The Edit button of a workflow's graph opens its editor at `#/p/<key>/workflows/<name>/edit`; New workflow on the Workflows page asks for a name and a description and opens the editor on a new file with one `implement` entry. The editor works on the files as written, not on the resolved workflow: a loop shows `max ${rounds}` and a `foreach` is a dashed container labelled `For each ${lenses} · parallel`.
+
+- Drag a block or a step from the palette onto a `+`, or choose it from the `+` menu: a `+` sits between workflow entries, on each edge inside an editable step and at the end of each `do`. Each block opens a form with the fields it needs; a step entry goes in as is.
+- Select a card, a container, a step frame or the start card to change it in the inspector: an agent's prompts, result type, access and model; a loop's `max`, `until` and `exhausted`; a `when`'s conditions and whether it runs, fails or blocks; a `foreach`'s value and `parallel`; a step entry's `agents` and params, and the step file's description and params; the workflow's `description`, `input`, `default` and `agents`.
+- Reorder entries by dragging a step frame by its header onto a `+` between entries, or with Move up and Move down.
+- A global step is drawn read-only; Edit for this project on its frame starts a project copy of it.
+- Ctrl or Cmd and Z undoes an edit, with Shift it redoes it. The YAML tab shows each file's text as edited.
+
+Prompts, standards and `config.yaml` are not edited here.
+
+### What the editor saves
+
+Saves go only to the project folder, `<home>/projects/<key>/workflows/<name>.yaml` and `<home>/projects/<key>/steps/<name>.yaml`, and the editor names each file it will write. Editing a global workflow or step creates its project copy, which overrides the global file for this project only; global files are never written. Revert to global, on the Workflows page and in the editor, deletes a project copy whose name also exists globally, after a confirm.
+
+Each edit goes through the YAML document of the file, so the text of every comment is kept; a comment's place and the spacing inside `{…}` and `[…]` may change. An unchanged file is not written, and a file is written to a temporary file next to it, then renamed over it.
+
+### Validation before a save
+
+As you edit, the dashboard runs the resolver of `theway workflow` over the edited files without writing them, and shows Valid or the error lines. A save, or a revert, is refused with those lines (`422`) when it breaks the edited workflow, any workflow of the project that resolved before and uses an edited step, or the project's default (two project workflows with `default: true`). A workflow that was already broken before the edit is reported as a warning and does not block it.
+
+### The write guard and conflicts
+
+The write requests need an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and an `X-Theway-Token` header holding a random token the server makes when it starts and puts in its page; any other request gets `403`. A web page on another site cannot read the token, and the custom header makes its browser ask the server first, which it never allows. A write body must be JSON (else `415`) of at most 1 MiB, each file text at most 256 KiB (else `413`).
+
+The editor remembers each project file as it loaded it. When the file changed on disk since, a save or revert gets `409` and writes nothing: the editor says "Changed on disk since you opened it", and Reload discards your edits and loads the files as they are now.
