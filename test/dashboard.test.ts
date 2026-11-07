@@ -1,10 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { folderOf, labels } from "../src/dashboard/api";
 import { rowsOf, seriesStatus } from "../src/dashboard/client/lib/series";
+import { keyOf } from "../src/core/project";
 import type { ActiveChange } from "../src/dashboard/types";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -355,5 +357,26 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
   expect(app).toContain("<TooltipProvider>");
   for (const ui of ["button", "badge", "tabs", "table", "dialog", "alert-dialog", "select", "input", "label", "checkbox", "textarea", "dropdown-menu", "tooltip", "separator", "scroll-area", "sidebar", "progress", "alert"]) {
     expect(files).toContain(join("components", "ui", `${ui}.tsx`));
+  }
+});
+
+test("dashboard labels a project by its folder's name, <parent>/<name> when shared, the key prefix rule when not found", () => {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "theway-label-")));
+  try {
+    const repo = join(base, "github.com", "acme", "my-repo");
+    const other = join(base, "gitlab.com", "acme-two", "api");
+    const twin = join(base, "github.com", "acme", "api");
+    for (const dir of [repo, other, twin]) mkdirSync(dir, { recursive: true });
+    const [repoKey, otherKey, twinKey] = [repo, other, twin].map(keyOf) as [string, string, string];
+    expect(folderOf(repoKey)).toBe(repo);
+    expect(folderOf(`${repoKey}-gone`)).toBeNull();
+    expect(labels([repoKey, otherKey, twinKey, `${base.replace(/[^A-Za-z0-9]/g, "-")}-moved-away`])).toEqual([
+      "my-repo",
+      "acme-two/api",
+      "acme/api",
+      "moved-away",
+    ]);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
   }
 });

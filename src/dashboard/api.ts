@@ -1,11 +1,11 @@
 /** The dashboard API's handlers: each reads the home on every call and returns a status and a JSON body. */
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { Warn } from "../core/config";
 import { isDir } from "../core/io";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
-import { projectDir, projectReason } from "../core/project";
+import { keyOf, projectDir, projectReason } from "../core/project";
 import { listWorkflows } from "../core/workflow";
 import { renderMarkdown } from "./markdown";
 import type { ActiveChange, ChangeDetail, ChangesResponse, ErrorResponse, ProjectsResponse, Status, WorkflowsResponse } from "./types";
@@ -46,10 +46,35 @@ function projectKeys(home: string): string[] {
 }
 
 /**
- * The label of each key: with two or more keys, the key without the longest prefix common to all keys that ends in
- * `-`; with one, the key without its leading `-`. A label that would be empty is the key.
+ * The folder whose project key is `key`, found by walking the file system from `dir`: each level follows the
+ * subfolders (sorted) whose `-` + key of their name starts the rest of the key; `null` when none consumes it all.
  */
-export function labels(keys: string[]): string[] {
+export function folderOf(key: string, dir = "/", rest = key): string | null {
+  if (rest === "") return dir;
+  let names: string[];
+  try {
+    names = readdirSync(dir).sort(byText);
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    const part = `-${keyOf(name)}`;
+    if (!rest.startsWith(part)) continue;
+    const after = rest.slice(part.length);
+    if (after !== "" && !after.startsWith("-")) continue;
+    const path = join(dir, name);
+    if (!isDir(path)) continue;
+    const found = folderOf(key, path, after);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/**
+ * The fallback label of each key: with two or more keys, the key without the longest prefix common to all keys that
+ * ends in `-`; with one, the key without its leading `-`. A label that would be empty is the key.
+ */
+function prefixLabels(keys: string[]): string[] {
   if (keys.length === 1) {
     const only = keys[0] as string;
     return [only.replace(/^-/, "") || only];
@@ -60,6 +85,23 @@ export function labels(keys: string[]): string[] {
   }
   const cut = common.lastIndexOf("-") + 1;
   return keys.map((key) => key.slice(cut) || key);
+}
+
+/**
+ * The label of each key: the name of its project folder (`folderOf`), or `<parent>/<name>` when two projects share a
+ * name; the `prefixLabels` label when its folder cannot be found.
+ */
+export function labels(keys: string[], find: (key: string) => string | null = folderOf): string[] {
+  const fallback = prefixLabels(keys);
+  const folders = keys.map((key) => find(key));
+  const names = folders.map((f) => (f === null ? null : basename(f)));
+  return keys.map((_, i) => {
+    const folder = folders[i];
+    const name = names[i];
+    if (folder === null || folder === undefined || !name) return fallback[i] as string;
+    const shared = names.filter((n) => n === name).length > 1;
+    return shared ? `${basename(dirname(folder))}/${name}` : name;
+  });
 }
 
 /** `GET /api/v1/projects`: every project with its active and archived counts, and the initially selected one. */
