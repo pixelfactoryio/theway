@@ -546,7 +546,7 @@ Each edit goes through the YAML document of the file, so the text of every comme
 
 ### Validation before a save
 
-As you edit, the dashboard runs the resolver of `theway workflow` over the edited files without writing them, and shows Valid or the error lines. A save, or a revert, is refused with those lines (`422`) when it breaks the edited workflow, any workflow of the project that resolved before and uses an edited step, or the project's default (two project workflows with `default: true`). A workflow that was already broken before the edit is reported as a warning and does not block it.
+As you edit, the dashboard runs the resolver of `theway workflow` over the edited files without writing them, and shows Valid or the error lines. A save, or a revert, is refused with those lines (`422`) when it breaks the edited workflow, any workflow of the project that resolved before and uses an edited step, or the project's default (two project workflows with `default: true`). Another workflow of the project that was already broken before the edit, or a default that already failed, is reported as a warning and does not block it; an error in the edited workflow itself always blocks.
 
 ### The write guard and conflicts
 
