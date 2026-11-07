@@ -364,16 +364,29 @@ function ForeachForm({ file, path, count, p }: { file: string; path: Path; count
   );
 }
 
+/**
+ * The params of a step as its open document declares them, edits included, each with its effective default from the
+ * steps list when it is there (a config override applies), else its default in the document; the steps list alone
+ * while the document is not loaded.
+ */
+function paramsOf(doc: Document | undefined, info: StepItem | undefined): { name: string; default: unknown; description: string }[] {
+  const listed = info !== undefined && "params" in info ? info.params : [];
+  if (doc === undefined) return listed;
+  return Object.entries(obj(rawAt(doc, ["params"]))).map(([name, d]) => {
+    const found = listed.find((l) => l.name === name);
+    return { name, default: found !== undefined ? found.default : obj(d).default, description: shown(obj(d).description) };
+  });
+}
+
 const MODES = { "": "default", true: "true", false: "false" } as const;
 const modeOf = (v: string): boolean | undefined => (v === "" ? undefined : v === "true");
 
 function StepForm({ node, p }: { node: StepNode; p: InspectorProps }) {
   const index = Number(node.src?.yaml[1] ?? 0);
   const entry = obj(obj(rawAt(p.docs[p.workflow], ["steps", index]))[node.step]);
-  const info = p.steps.find((s) => s.name === node.step);
-  const declared = info !== undefined && "params" in info ? info.params : [];
   const file = node.file;
   const doc = p.docs[file];
+  const declared = paramsOf(doc, p.steps.find((s) => s.name === node.step));
   return (
     <div className="flex flex-col gap-6">
       <Section title="Entry">
