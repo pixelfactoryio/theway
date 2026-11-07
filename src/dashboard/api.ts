@@ -6,15 +6,29 @@ import { isDir } from "../core/io";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { keyOf, projectDir, projectReason } from "../core/project";
-import { listWorkflows } from "../core/workflow";
+import { NAME, type Out, type WorkflowDoc } from "../core/schema";
+import { listWorkflows, resolveWorkflow } from "../core/workflow";
 import { renderMarkdown } from "./markdown";
-import type { ActiveChange, ChangeDetail, ChangesResponse, ErrorResponse, ProjectsResponse, Status, WorkflowsResponse } from "./types";
+import type {
+  ActiveChange,
+  ChangeDetail,
+  ChangesResponse,
+  ErrorResponse,
+  ProjectsResponse,
+  RenderedPrompt,
+  Status,
+  Warning,
+  WorkflowDetail,
+  WorkflowFailure,
+  WorkflowsResponse,
+} from "./types";
 
-export type Reply<T> = { status: 200 | 400 | 404; body: T | ErrorResponse };
+export type Reply<T> = { status: 200 | 400 | 404 | 422; body: T | ErrorResponse };
 
 const ok = <T>(body: T): Reply<T> => ({ status: 200, body });
 const bad = (error: string): Reply<never> => ({ status: 400, body: { error } });
 const missing = (error: string): Reply<never> => ({ status: 404, body: { error } });
+const unresolved = (error: string, warnings: Warning[]): Reply<WorkflowFailure> => ({ status: 422, body: { error, warnings } });
 
 /** An archived change folder: `YYYY-MM-DD-` and a change ID. */
 const ARCHIVED = /^([0-9]{4}-[0-9]{2}-[0-9]{2})-(.*)$/;
@@ -198,11 +212,65 @@ export function archivedChange(home: string, key: string, folder: string): Reply
 export function workflows(home: string, key: string): Reply<WorkflowsResponse> {
   const p = project(home, key);
   if ("status" in p) return p;
-  const warnings: { file: string; text: string }[] = [];
+  const warnings: Warning[] = [];
   const collect: Warn = (file, text) => {
     warnings.push({ file, text });
   };
   const result = listWorkflows(home, key, collect);
   if ("error" in result) return ok({ error: result.error, defaultName: null, defaultError: null, workflows: [], warnings });
   return ok({ ...result, warnings });
+}
+
+/** Every prompt path an `Out` list names, in document order, into `into`. */
+function promptPaths(nodes: Out[], into: Set<string>): void {
+  for (const node of nodes) {
+    if ("agent" in node) for (const p of node.agent.prompt) into.add(p);
+    else if ("parallel" in node) for (const a of node.parallel) for (const p of a.agent.prompt) into.add(p);
+    else if ("loop" in node) promptPaths(node.loop.do, into);
+    else if ("do" in node) promptPaths(node.do, into);
+  }
+}
+
+/** Every distinct prompt path of a resolved workflow, rendered; `{ error }` for one that cannot be read. */
+function renderPrompts(doc: WorkflowDoc): Record<string, RenderedPrompt> {
+  const paths = new Set<string>();
+  for (const entry of doc.steps) if ("do" in entry) promptPaths(entry.do, paths);
+  const out: Record<string, RenderedPrompt> = {};
+  for (const path of paths) {
+    try {
+      out[path] = { html: renderMarkdown(readFileSync(path, "utf-8")) };
+    } catch (e) {
+      out[path] = { error: `cannot read ${path}: ${(e as NodeJS.ErrnoException).code ?? String(e)}` };
+    }
+  }
+  return out;
+}
+
+/**
+ * `GET /api/v1/projects/{key}/workflows/{name}`: one workflow resolved, with its file's text and its prompts rendered.
+ * The prompts read are only the paths the resolver gives; the client never sends one.
+ */
+export function workflow(home: string, key: string, name: string): Reply<WorkflowDetail | WorkflowFailure> {
+  const p = project(home, key, () => (NAME.test(name) ? null : bad(`invalid workflow name '${name}'`)));
+  if ("status" in p) return p;
+  const listed: Warning[] = [];
+  const list = listWorkflows(home, key, (file, text) => {
+    listed.push({ file, text });
+  });
+  if ("error" in list) return unresolved(list.error, listed);
+  const item = list.workflows.find((w) => w.name === name);
+  if (item === undefined) return missing("unknown workflow");
+  const warnings: Warning[] = [];
+  const result = resolveWorkflow(home, key, name, (file, text) => {
+    warnings.push({ file, text });
+  });
+  if ("error" in result) return unresolved(result.error, warnings);
+  const doc = result.doc;
+  return ok({
+    workflow: doc,
+    default: item.default === true,
+    source: { path: doc.file, text: readFileSync(doc.file, "utf-8") },
+    prompts: renderPrompts(doc),
+    warnings,
+  });
 }
