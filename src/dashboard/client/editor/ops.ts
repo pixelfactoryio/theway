@@ -304,7 +304,10 @@ export function setNodeField(doc: Document, path: Path, field: string, value: un
 /** A param definition of a step file. */
 export type ParamDef = { default: ParamValue; description: string };
 
-/** Sets a param of a step file, written as `{default, description}`; `undefined` removes it, and an emptied `params` goes. */
+/**
+ * Sets a param of a step file, written as `{default, description}`, keeping the comments of the value it replaces;
+ * `undefined` removes it, and an emptied `params` goes, their comments kept after the map that held them.
+ */
 export function setParam(doc: Document, name: string, def: ParamDef | undefined): void {
   const root = mapAt(doc, []);
   if (root === null) return;
@@ -321,15 +324,21 @@ export function setParam(doc: Document, name: string, def: ParamDef | undefined)
     else root.items.splice(at, 0, pair);
   }
   if (def === undefined) {
-    map.delete(name);
-    if (map.items.length === 0) root.delete("params");
+    setKey(doc, map, name, undefined);
+    if (map.items.length === 0) setKey(doc, root, "params", undefined);
     return;
   }
   const value = doc.createNode({}) as YAMLMap;
   value.flow = true;
   value.set("default", valueNode(doc, def.default));
   value.set("description", valueNode(doc, def.description));
-  map.set(name, value);
+  const pair = map.items.find((p) => (isScalar(p.key) ? p.key.value : p.key) === name);
+  if (pair === undefined) {
+    map.set(name, value);
+    return;
+  }
+  carry(pair.value, value);
+  pair.value = value;
 }
 
 /** Sets a step file's description. */

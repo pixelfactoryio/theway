@@ -165,6 +165,19 @@ for (const [label, wf, step] of [
   });
 }
 
+test("setParam keeps the comments of a param it replaces or removes", () => {
+  const step = REVIEW.replace("  rounds: {default: 1, description: Maximum review rounds}", "  # before rounds\n  rounds: {default: 1, description: Maximum review rounds} # on rounds");
+  const set = check(step, (d) => setParam(d, "rounds", { default: 2, description: "Maximum review rounds" }), resolvesAsReview);
+  expect(set).toContain("rounds: {default: 2, description: Maximum review rounds} # on rounds");
+
+  const only = "version: theway.step/v1\ndescription: x\nparams:\n  # before keep\n  keep: {default: 1, description: x} # on keep\ndo:\n  - agent: {prompt: fix, returns: work}\n";
+  const doc = parse(only);
+  setParam(doc, "keep", undefined);
+  const out = textOf(doc);
+  expect(out).not.toContain("params:");
+  for (const c of comments(only)) expect([c, out.includes(c)]).toEqual([c, true]);
+});
+
 test("the new-file templates carry the schema line and resolve", () => {
   const wf = newWorkflowText("Mine");
   expect(wf).toBe(
