@@ -11,7 +11,7 @@ import {
   type Warn,
   warnLoud,
 } from "./config";
-import { invalidName, isFile, thewayHome } from "./io";
+import { invalidName, isFile, type Overlay, thewayHome } from "./io";
 import { projectDir as projectOf, resolveKey } from "./project";
 import {
   ACCESS,
@@ -30,6 +30,7 @@ import {
   PARAM,
   type ResultType,
   type StepEntry,
+  type StepItem,
   TYPES,
   type WorkflowDoc,
   type WorkflowItem,
@@ -117,9 +118,9 @@ const failIn =
     throw new Fail(file, reason);
   };
 
-/** The root of a file under the home, or the `Fail` of why it cannot be read or parsed. */
-function rootOf(home: string, file: string, refs = false): unknown {
-  const parsed = parseFile(home, file, refs);
+/** The root of a file under the home, read through the overlay, or the `Fail` of why it cannot be read or parsed. */
+function rootOf(d: Dirs, file: string, refs = false): unknown {
+  const parsed = parseFile(d.home, file, refs, d.overlay);
   if ("reason" in parsed) throw new Fail(file, parsed.reason);
   return parsed.root;
 }
@@ -149,8 +150,8 @@ type Effective = { value: ParamValue; from: string; origin: string };
 
 type Workflow = { name: string; description: string | null; file: string; input: Input; steps: Entry[] };
 
-/** The home, the project key, the loaded config and a warning sink that writes each line once. */
-type Dirs = { home: string; key: string; loaded: Loaded; warn: Warn };
+/** The home, the project key, the loaded config, a warning sink that writes each line once, and the overlay if any. */
+type Dirs = { home: string; key: string; loaded: Loaded; warn: Warn; overlay?: Overlay };
 
 const rel = (d: Dirs, path: string) => relative(d.home, path);
 
@@ -163,7 +164,7 @@ const isMap = (v: unknown): v is Map<unknown, unknown> => v instanceof Map;
 function readStep(d: Dirs, name: string, path: string, full: boolean): StepFile {
   const file = rel(d, path);
   const fail = failIn(file);
-  const root = rootOf(d.home, file, true);
+  const root = rootOf(d, file, true);
   if (!isMap(root)) return fail("not a map");
   if (!root.has("version")) fail(`version is required (${STEP_VERSION})`);
   if (root.get("version") !== STEP_VERSION) fail(`version must be ${STEP_VERSION}`);
@@ -443,7 +444,7 @@ function agent(ctx: Ctx, path: string, map: Map<unknown, unknown>): AgentOut {
   if (SPEC_TYPES.includes(returns) && access !== "spec") fail(ctx, `${path}.access must be spec for returns: ${returns}`, own);
   const paths: string[] = [];
   for (const n of prompt.names) {
-    const p = fileOf(ctx.d.home, ctx.d.key, "prompts", n);
+    const p = fileOf(ctx.d.home, ctx.d.key, "prompts", n, ctx.d.overlay);
     if (p === null) fail(ctx, `${path}.prompt: prompt '${n}' has no file in ${searched(ctx.d.home, ctx.d.key, "prompts")}`, prompt.origin ?? own);
     paths.push(p as string);
   }
@@ -694,7 +695,7 @@ function validate(d: Dirs, path: string): { workflow: Workflow; isDefault: boole
 function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault: boolean } {
   const file = rel(d, path);
   const fail = failIn(file);
-  const root = rootOf(d.home, file);
+  const root = rootOf(d, file);
   if (!isMap(root)) return fail("not a map");
   if (!root.has("version")) fail(`version is required (${WORKFLOW_VERSION})`);
   if (root.get("version") !== WORKFLOW_VERSION) fail(`version must be ${WORKFLOW_VERSION}`);
@@ -738,9 +739,9 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
         continue;
       }
       const stepName = String(k);
-      const stepPath = NAME.test(stepName) ? fileOf(d.home, d.key, "steps", stepName) : null;
+      const stepPath = NAME.test(stepName) ? fileOf(d.home, d.key, "steps", stepName, d.overlay) : null;
       if (stepPath === null) {
-        fail(`${at}: no step '${stepName}' in ${searched(d.home, d.key, "steps")}${suggest(stepName, knownSteps(d.home, d.key), "steps")}`);
+        fail(`${at}: no step '${stepName}' in ${searched(d.home, d.key, "steps")}${suggest(stepName, knownSteps(d.home, d.key, d.overlay), "steps")}`);
       }
       if (value !== null && !isMap(value)) fail(`${at}.${stepName} must be a map`);
       const given = (value ?? new Map()) as Map<unknown, unknown>;
@@ -784,7 +785,7 @@ function validateOrThrow(d: Dirs, path: string): { workflow: Workflow; isDefault
 
 /** The workflow files of a folder, sorted, with a warning for each `.yaml` file whose stem is not a valid name. */
 function scan(d: Dirs, dir: string): string[] {
-  const names = namesIn(dir, "workflows", (path) => d.warn(rel(d, path), "not a valid workflow name"));
+  const names = namesIn(dir, "workflows", (path) => d.warn(rel(d, path), "not a valid workflow name"), d.overlay);
   return names.map((n) => `${n}.yaml`).sort();
 }
 
@@ -808,7 +809,7 @@ function defaultOf(d: Dirs, paths: string[]): { workflow: Workflow } | { error: 
 
 /** The workflow named `wanted`: the project file, else the global one, validated. */
 function byName(d: Dirs, wanted: string): { workflow: Workflow } | { error: string } {
-  const path = fileOf(d.home, d.key, "workflows", wanted);
+  const path = fileOf(d.home, d.key, "workflows", wanted, d.overlay);
   if (path === null) {
     return { error: `theway: no workflow '${wanted}' in ${searched(d.home, d.key, "workflows")}` };
   }
@@ -834,10 +835,10 @@ function byDefault(d: Dirs): { workflow: Workflow } | { error: string } {
 }
 
 /**
- * The resolver's context for a project: the loaded config and a warning sink that sends each line to `warn` once; or
- * the line that stops loading the config.
+ * The resolver's context for a project: the loaded config, a warning sink that sends each line to `warn` once and the
+ * overlay; or the line that stops loading the config.
  */
-function dirsResult(home: string, key: string, warn: Warn): Dirs | { error: string } {
+function dirsResult(home: string, key: string, warn: Warn, overlay?: Overlay): Dirs | { error: string } {
   const printed = new Set<string>();
   const once: Warn = (file, text) => {
     const line = `${file}\u0000${text}`;
@@ -848,10 +849,11 @@ function dirsResult(home: string, key: string, warn: Warn): Dirs | { error: stri
   const loaded = loadConfigResult(home, key, warn);
   if ("error" in loaded) return loaded;
   const d: Dirs = { home, key, loaded, warn: once };
+  if (overlay !== undefined) d.overlay = overlay;
   for (const dir of dirsOf(home, key, "steps")) {
     if (isFile(join(dir, "gate.yaml"))) once(rel(d, join(dir, "gate.yaml")), "gate is reserved for the gate entry");
   }
-  warnUnknownDefaults(home, key, loaded, once);
+  warnUnknownDefaults(home, key, loaded, once, overlay);
   return d;
 }
 
@@ -867,10 +869,17 @@ function dirsFor(home: string, key: string, warn: Warn): Dirs | null {
 
 /**
  * The workflow `name` of a project (the default one when `name` is undefined), resolved, validated and with every
- * field filled, as `theway workflow` prints it; or the line that stops it. Every warning goes to `warn`.
+ * field filled, as `theway workflow` prints it; or the line that stops it. Every warning goes to `warn`; with an
+ * overlay, the workflow and step files it holds are read from it.
  */
-export function resolveWorkflow(home: string, key: string, name: string | undefined, warn: Warn): { doc: WorkflowDoc } | { error: string } {
-  const d = dirsResult(home, key, warn);
+export function resolveWorkflow(
+  home: string,
+  key: string,
+  name: string | undefined,
+  warn: Warn,
+  overlay?: Overlay,
+): { doc: WorkflowDoc } | { error: string } {
+  const d = dirsResult(home, key, warn, overlay);
   if ("error" in d) return d;
   const result = name === undefined ? byDefault(d) : byName(d, name);
   if ("error" in result) return result;
@@ -902,10 +911,10 @@ export function resolveWorkflow(home: string, key: string, name: string | undefi
 /**
  * Every workflow of a project, one per name in the union of the project and global `workflows/` folders (the project
  * file wins), sorted by name, each resolved on its own; or the line that stops loading the config. Every warning goes
- * to `warn`.
+ * to `warn`; with an overlay, the workflow and step files it holds are read from it.
  */
-export function listWorkflows(home: string, key: string, warn: Warn): WorkflowList | { error: string } {
-  const d = dirsResult(home, key, warn);
+export function listWorkflows(home: string, key: string, warn: Warn, overlay?: Overlay): WorkflowList | { error: string } {
+  const d = dirsResult(home, key, warn, overlay);
   if ("error" in d) return d;
   const [ownDir, globalDir] = dirsOf(home, key, "workflows");
   const own = scan(d, ownDir).map((n) => n.slice(0, -".yaml".length));
@@ -941,6 +950,64 @@ export function cmdWorkflow(wanted: string | undefined, override: string | undef
   return 0;
 }
 
+/**
+ * The step `name` of a project validated and resolved with its params' effective values, as `theway steps <name>`
+ * prints it; or the line that stops it. Every warning goes to `warn`; with an overlay, the workflow and step files it
+ * holds are read from it.
+ */
+export function resolveStepFile(home: string, key: string, name: string, warn: Warn, overlay?: Overlay): { step: StepEntry } | { error: string } {
+  const d = dirsResult(home, key, warn, overlay);
+  if ("error" in d) return d;
+  const path = name === "gate" ? null : fileOf(home, key, "steps", name, overlay);
+  if (path === null) {
+    return { error: `theway: no step '${name}' in ${searched(home, key, "steps")}${suggest(name, knownSteps(home, key, overlay), "steps")}` };
+  }
+  try {
+    const step = readStep(d, name, path, true);
+    return { step: resolveStep(d, step, name, true, new Map(), "") };
+  } catch (e) {
+    if (!(e instanceof Fail)) throw e;
+    return { error: e.line };
+  }
+}
+
+/** Every step file of a project, one per name in the union of the project and global `steps/` folders, sorted; `gate` left out. */
+function stepFiles(home: string, key: string): { n: string; origin: "project" | "global"; path: string }[] {
+  const [ownDir, globalDir] = dirsOf(home, key, "steps");
+  const own = namesIn(ownDir, "steps").filter((n) => n !== "gate");
+  return [
+    ...own.map((n) => ({ n, origin: "project" as const, path: join(ownDir, `${n}.yaml`) })),
+    ...namesIn(globalDir, "steps")
+      .filter((n) => n !== "gate" && !own.includes(n))
+      .map((n) => ({ n, origin: "global" as const, path: join(globalDir, `${n}.yaml`) })),
+  ].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
+}
+
+/**
+ * Every step of a project, sorted by name, as `theway steps` lists them: its origin, description and each param's
+ * effective value; or, for a step whose file does not read up to its params, its error line. The line that stops
+ * loading the config is returned alone. Every warning goes to `warn`.
+ */
+export function listSteps(home: string, key: string, warn: Warn): StepItem[] | { error: string } {
+  const d = dirsResult(home, key, warn);
+  if ("error" in d) return d;
+  return stepFiles(home, key).map(({ n, origin, path }): StepItem => {
+    let step: StepFile;
+    try {
+      step = readStep(d, n, path, false);
+    } catch (e) {
+      if (!(e instanceof Fail)) throw e;
+      return { name: n, origin, error: e.line };
+    }
+    const params = [...effectiveParams(d, step, new Map(), "", false)].map(([p, e]) => ({
+      name: p,
+      default: e.value,
+      description: (step.params.get(p) as ParamDef).description,
+    }));
+    return { name: n, origin, description: step.description, params };
+  });
+}
+
 /** A param value as `theway steps` prints it: a list as its names joined with `,`. */
 const shown = (v: ParamValue) => (Array.isArray(v) ? v.join(",") : String(v));
 
@@ -953,35 +1020,19 @@ export function cmdSteps(wanted: string | undefined, override: string | undefine
   if (key === null) return 1;
   if (invalidName("step", wanted)) return 1;
   const home = thewayHome();
+  if (wanted !== undefined) {
+    const result = resolveStepFile(home, key, wanted, warnLoud);
+    if ("error" in result) {
+      process.stderr.write(`${result.error}\n`);
+      return 1;
+    }
+    process.stdout.write(`${JSON.stringify(result.step, null, 2)}\n`);
+    return 0;
+  }
   const d = dirsFor(home, key, warnLoud);
   if (d === null) return 1;
-  if (wanted !== undefined) {
-    const path = wanted === "gate" ? null : fileOf(home, key, "steps", wanted);
-    if (path === null) {
-      process.stderr.write(`theway: no step '${wanted}' in ${searched(home, key, "steps")}${suggest(wanted, knownSteps(home, key), "steps")}\n`);
-      return 1;
-    }
-    try {
-      const step = readStep(d, wanted, path, true);
-      const resolved = resolveStep(d, step, wanted, true, new Map(), "");
-      process.stdout.write(`${JSON.stringify(resolved, null, 2)}\n`);
-      return 0;
-    } catch (e) {
-      if (!(e instanceof Fail)) throw e;
-      process.stderr.write(`${e.line}\n`);
-      return 1;
-    }
-  }
-  const [ownDir, globalDir] = dirsOf(home, key, "steps");
-  const own = namesIn(ownDir, "steps").filter((n) => n !== "gate");
-  const found = [
-    ...own.map((n) => ({ n, origin: "project", path: join(ownDir, `${n}.yaml`) })),
-    ...namesIn(globalDir, "steps")
-      .filter((n) => n !== "gate" && !own.includes(n))
-      .map((n) => ({ n, origin: "global", path: join(globalDir, `${n}.yaml`) })),
-  ].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
   const lines: string[] = [];
-  for (const { n, origin, path } of found) {
+  for (const { n, origin, path } of stepFiles(home, key)) {
     let step: StepFile;
     try {
       step = readStep(d, n, path, false);

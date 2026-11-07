@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import { readManifest } from "./init";
 import { warnUnknownDefaults } from "./step-files";
-import { isFile, isNameList, thewayHome } from "./io";
+import { isFile, isNameList, type Overlay, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 import type { ParamValue } from "./schema";
 
@@ -217,14 +217,22 @@ export function load(home: string, file: string): { root: unknown } | { error: s
 
 /**
  * The parsed root of `<home>/<file>`, or why it cannot be read or is not valid YAML, the reason of `load`'s error line;
- * with `refs`, the reason of a failing line that holds `${` gets the quoting hint.
+ * with `refs`, the reason of a failing line that holds `${` gets the quoting hint. A path the overlay holds is read
+ * from it: its text, or `cannot be read` for `null`.
  */
-export function parseFile(home: string, file: string, refs = false): { root: unknown } | { reason: string } {
+export function parseFile(home: string, file: string, refs = false, overlay?: Overlay): { root: unknown } | { reason: string } {
   let text: string;
-  try {
-    text = readFileSync(join(home, file), "utf-8");
-  } catch {
-    return { reason: "cannot be read" };
+  const path = join(home, file);
+  if (overlay?.has(path) === true) {
+    const candidate = overlay.get(path);
+    if (candidate === null || candidate === undefined) return { reason: "cannot be read" };
+    text = candidate;
+  } else {
+    try {
+      text = readFileSync(path, "utf-8");
+    } catch {
+      return { reason: "cannot be read" };
+    }
   }
   try {
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };

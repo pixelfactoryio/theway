@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type { Loaded, Warn } from "./config";
-import { isFile, NAME } from "./io";
+import { isFileIn, NAME, type Overlay } from "./io";
 import { projectDir } from "./project";
 
 /** The kinds of named files the resolver reads: workflows and steps as `.yaml`, prompts as `.md`. */
@@ -14,30 +14,37 @@ export const dirsOf = (home: string, key: string, kind: Kind): [string, string] 
 /** The folders searched for `kind`, for an error line: `<project dir> or <global dir>`. */
 export const searched = (home: string, key: string, kind: Kind): string => dirsOf(home, key, kind).join(" or ");
 
-/** The file of `name` of `kind`: the project one if it is a file, else the global one, else `null`. */
-export function fileOf(home: string, key: string, kind: Kind, name: string): string | null {
+/**
+ * The file of `name` of `kind`: the project one if it is a file, else the global one, else `null`; a path the overlay
+ * holds is a file when its value is a string.
+ */
+export function fileOf(home: string, key: string, kind: Kind, name: string, overlay?: Overlay): string | null {
   for (const dir of dirsOf(home, key, kind)) {
     const path = join(dir, `${name}${EXT[kind]}`);
-    if (isFile(path)) return path;
+    if (isFileIn(path, overlay)) return path;
   }
   return null;
 }
 
 /**
  * The valid names of the regular `kind` files directly in `dir`, `.default` copies left out, sorted; `rejected` is
- * called, in sorted order, with the path of each such file whose stem is not a valid name.
+ * called, in sorted order, with the path of each such file whose stem is not a valid name. The overlay adds the paths
+ * in `dir` it holds with a string, and removes those it holds with `null`.
  */
-export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => void): string[] {
+export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => void, overlay?: Overlay): string[] {
   let entries: string[];
   try {
     entries = readdirSync(dir);
   } catch {
-    return [];
+    entries = [];
+  }
+  for (const path of overlay?.keys() ?? []) {
+    if (dirname(path) === dir && !entries.includes(basename(path))) entries.push(basename(path));
   }
   const ext = EXT[kind];
   const out: string[] = [];
   for (const n of entries.sort()) {
-    if (!n.endsWith(ext) || n.endsWith(`.default${ext}`) || !isFile(join(dir, n))) continue;
+    if (!n.endsWith(ext) || n.endsWith(`.default${ext}`) || !isFileIn(join(dir, n), overlay)) continue;
     const stem = n.slice(0, -ext.length);
     if (NAME.test(stem)) out.push(stem);
     else rejected?.(join(dir, n));
@@ -46,9 +53,9 @@ export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => vo
 }
 
 /** The step names that resolve for a project, sorted; `gate` is reserved and never one. */
-export function knownSteps(home: string, key: string): string[] {
+export function knownSteps(home: string, key: string, overlay?: Overlay): string[] {
   const [own, global] = dirsOf(home, key, "steps");
-  return [...new Set([...namesIn(own, "steps"), ...namesIn(global, "steps")])].filter((n) => n !== "gate").sort();
+  return [...new Set([...namesIn(own, "steps", undefined, overlay), ...namesIn(global, "steps", undefined, overlay)])].filter((n) => n !== "gate").sort();
 }
 
 /** The Levenshtein distance of two strings. */
@@ -86,8 +93,8 @@ export function suggest(wanted: string, known: string[], noun: string): string {
  * Warns, once per config file and step, about a `workflow.defaults.<step>` naming no step that resolves for the
  * project; the resolver drops its values. Returns the step names it warned about.
  */
-export function warnUnknownDefaults(home: string, key: string, loaded: Loaded, warn: Warn): Set<string> {
-  const known = knownSteps(home, key);
+export function warnUnknownDefaults(home: string, key: string, loaded: Loaded, warn: Warn, overlay?: Overlay): Set<string> {
+  const known = knownSteps(home, key, overlay);
   const unknown = new Set<string>();
   for (const layer of loaded.defaults) {
     for (const step of layer.steps.keys()) {

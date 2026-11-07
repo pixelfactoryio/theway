@@ -83,5 +83,10 @@ export type WorkflowItem = {
   error?: string;
 };
 
+/** One step of a project as `listSteps` lists it: its description and params' effective values, or its error line. */
+export type StepItem =
+  | { name: string; origin: "project" | "global"; description: string; params: { name: string; default: ParamValue; description: string }[] }
+  | { name: string; origin: "project" | "global"; error: string };
+
 /** Every workflow of a project, and the name of the one a run without a name uses, or why it does not resolve. */
 export type WorkflowList = { defaultName: string | null; defaultError: string | null; workflows: WorkflowItem[] };
