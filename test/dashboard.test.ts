@@ -370,6 +370,10 @@ test("dashboard labels a project by its folder's name, <parent>/<name> when shar
     const [repoKey, otherKey, twinKey] = [repo, other, twin].map(keyOf) as [string, string, string];
     expect(folderOf(repoKey)).toBe(repo);
     expect(folderOf(`${repoKey}-gone`)).toBeNull();
+    const nested = join(base, "org", "site", "docs");
+    const sibling = join(base, "org", "site-docs");
+    for (const dir of [nested, sibling]) mkdirSync(dir, { recursive: true });
+    expect(folderOf(keyOf(sibling))).toBe(sibling);
     expect(labels([repoKey, otherKey, twinKey, `${base.replace(/[^A-Za-z0-9]/g, "-")}-moved-away`])).toEqual([
       "my-repo",
       "acme-two/api",

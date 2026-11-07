@@ -47,7 +47,7 @@ function projectKeys(home: string): string[] {
 
 /**
  * The folder whose project key is `key`, found by walking the file system from `dir`: each level follows the
- * subfolders (sorted) whose `-` + key of their name starts the rest of the key; `null` when none consumes it all.
+ * subfolders whose `-` + key of their name starts the rest of the key, longest first; `null` when none consumes it all.
  */
 export function folderOf(key: string, dir = "/", rest = key): string | null {
   if (rest === "") return dir;
@@ -57,11 +57,13 @@ export function folderOf(key: string, dir = "/", rest = key): string | null {
   } catch {
     return null;
   }
-  for (const name of names) {
-    const part = `-${keyOf(name)}`;
-    if (!rest.startsWith(part)) continue;
+  // The longest match first, so `revecto-docs` wins over `revecto` and its own `docs` subfolder.
+  const matches = names
+    .map((name) => ({ name, part: `-${keyOf(name)}` }))
+    .filter(({ part }) => rest.startsWith(part) && (rest.length === part.length || rest[part.length] === "-"))
+    .sort((a, b) => b.part.length - a.part.length || byText(a.name, b.name));
+  for (const { name, part } of matches) {
     const after = rest.slice(part.length);
-    if (after !== "" && !after.startsWith("-")) continue;
     const path = join(dir, name);
     if (!isDir(path)) continue;
     const found = folderOf(key, path, after);
