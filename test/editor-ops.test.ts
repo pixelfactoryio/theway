@@ -178,6 +178,26 @@ test("setParam keeps the comments of a param it replaces or removes", () => {
   for (const c of comments(only)) expect([c, out.includes(c)]).toEqual([c, true]);
 });
 
+test("replacing a block value keeps the comments inside it, once each", () => {
+  const block = REVIEW.replace(
+    "  rounds: {default: 1, description: Maximum review rounds}",
+    "  # before rounds\n  rounds: # on rounds\n    default: 1 # inner default\n    # before description\n    description: Maximum review rounds",
+  );
+  const set = check(block, (d) => setParam(d, "rounds", { default: 2, description: "Maximum review rounds" }), resolvesAsReview);
+  expect(set).toContain("rounds: {default: 2, description: Maximum review rounds}");
+  for (const c of comments(block)) expect([c, set.split(c).length - 1]).toEqual([c, 1]);
+
+  const list = REVIEW.replace("      until: no-confirmed", "      until: # on until\n        - no-confirmed # why");
+  const until = check(list, (d) => setNodeField(d, ["do", 0], "until", ["no-confirmed", "no-findings"]), resolvesAsReview);
+  expect(until).toContain("until: [no-confirmed, no-findings]");
+  for (const c of comments(list)) expect([c, until.split(c).length - 1]).toEqual([c, 1]);
+
+  const doc = parse(block);
+  setParam(doc, "rounds", undefined);
+  const removed = textOf(doc);
+  for (const c of comments(block)) expect([c, removed.split(c).length - 1]).toEqual([c, 1]);
+});
+
 test("the new-file templates carry the schema line and resolve", () => {
   const wf = newWorkflowText("Mine");
   expect(wf).toBe(

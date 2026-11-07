@@ -35,12 +35,12 @@ function commentsIn(node: unknown): string[] {
     if (n.commentBefore) out.push(n.commentBefore);
     if (n.comment) out.push(n.comment);
   };
-  if (isNode(node)) take(node);
+  // `visit` calls back on `node` itself first, so a collection's own comments come first too.
   if (isMap(node) || isSeq(node)) {
     visit(node, (_, n) => {
       if (isNode(n)) take(n);
     });
-  }
+  } else if (isNode(node)) take(node);
   return out;
 }
 
@@ -50,11 +50,17 @@ function addComments(node: Node, texts: string[], where: "comment" | "commentBef
   node[where] = [node[where], ...texts].filter((t) => t !== null && t !== undefined && t !== "").join("\n");
 }
 
-/** Gives `next` the comments of the node it replaces. */
+/**
+ * Gives `next` every comment of the node it replaces: its leading comment before a block `next`, and the rest, with
+ * the comments of the items inside it, after `next`.
+ */
 function carry(prev: unknown, next: unknown): void {
   if (!isNode(prev) || !isNode(next)) return;
-  addComments(next, prev.commentBefore ? [prev.commentBefore] : [], "commentBefore");
-  addComments(next, prev.comment ? [prev.comment] : [], "comment");
+  const texts = commentsIn(prev);
+  const block = (isMap(next) || isSeq(next)) && !next.flow;
+  const before = block && prev.commentBefore ? 1 : 0;
+  addComments(next, texts.slice(0, before), "commentBefore");
+  addComments(next, texts.slice(before), "comment");
 }
 
 /**
