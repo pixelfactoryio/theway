@@ -127,7 +127,9 @@ class Builder {
       if (pilled(node)) {
         const text = pillText(node.kind === "when" || node.kind === "stop" ? node.conditions : []);
         const target = entryBoxes(node)[0];
-        if (target !== undefined) this.pending.push({ x: cx, y: y + PILL_GAP / 2, w: pillWidth(text), text, target });
+        // On the edge into the first card: when that card is the left one of a parallel group, the edge forks off the
+        // axis 14px down, so the pill sits on its vertical run at that card's centre.
+        if (target !== undefined) this.pending.push({ x: entryX(node, cx), y: y + PILL_GAP / 2, w: pillWidth(text), text, target });
         y += PILL_GAP;
       } else if (i > 0) {
         y += GAP;
@@ -247,6 +249,16 @@ class Builder {
 function cardsIn(node: AnyNode): string[] {
   if (node.kind === "start" || node.kind === "agent" || node.kind === "gate" || node.kind === "stop") return [node.path];
   return childrenOf(node).flatMap(cardsIn);
+}
+
+/** The centre x of the first card an edge into `node`, placed centred on `cx`, ends on. */
+function entryX(node: AnyNode, cx: number): number {
+  if (node.kind === "parallel") return node.children.length === 0 ? cx : cx - sizeOf(node).w / 2 + SIZE.agent.w / 2;
+  if (node.kind === "step" || node.kind === "loop" || node.kind === "when") {
+    const first = node.children[0];
+    return first === undefined ? cx : entryX(first, cx);
+  }
+  return cx;
 }
 
 /** The cards an edge into `node` ends on. */

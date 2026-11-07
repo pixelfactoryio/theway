@@ -84,7 +84,13 @@ function checkGeometry(l: Layout): void {
     expect(e?.kind).toBe("flow");
     const ys = (e?.points ?? []).map((pt) => pt.y);
     expect(p.y > Math.min(...ys) && p.y < Math.max(...ys)).toBe(true);
-    expect(e?.points.some((pt) => pt.x === p.x)).toBe(true);
+    // A vertical run of the edge passes through the pill's centre.
+    const pts = e?.points ?? [];
+    const through = pts.slice(1).some((b, i) => {
+      const a = pts[i] as { x: number; y: number };
+      return a.x === p.x && b.x === p.x && p.y >= Math.min(a.y, b.y) && p.y <= Math.max(a.y, b.y);
+    });
+    expect([p.text, through]).toEqual([p.text, true]);
   }
   // Every edge joins two cards.
   for (const e of l.edges) expect([CARDS.includes(byPath.get(e.source)?.kind ?? ""), CARDS.includes(byPath.get(e.target)?.kind ?? "")]).toEqual([true, true]);
@@ -160,6 +166,29 @@ test("graph layout of a when in a when, a fail stop, a block stop and a gate kee
   expect(details(g, "steps[1]")).toEqual({ kind: "gate", id: "gate", question: "Continue?" });
   expect(details(g, "steps[0].do[2]")).toEqual({ kind: "stop", stop: "fail", conditions: ["red"], text: "Fail" });
   expect(details(g, "nope")).toBeNull();
+});
+
+test("graph layout of a when whose first child is a parallel group puts the pill on the edge into its left card", () => {
+  const doc: WorkflowDoc = {
+    ...synthetic,
+    steps: [
+      {
+        id: "s",
+        step: "s",
+        agents: true,
+        file: "/h/steps/s.yaml",
+        description: "S",
+        params: {},
+        do: [agent("first"), { when: ["fixable"], do: [{ parallel: [agent("left"), agent("right")] }] }],
+      },
+    ],
+  };
+  const l = layout(model(doc));
+  checkGeometry(l);
+  const left = box(l, "s:left");
+  const pill = pillOn(l, "fixable");
+  expect(pill?.x).toBe(left.x + left.w / 2);
+  expect(l.edges[pill?.edge ?? -1]?.target).toBe(left.path);
 });
 
 test("details of review:triage gives its returns, access, model, conditions and prompts", () => {
