@@ -222,7 +222,12 @@ function Params({ params, edit }: { params: ParamNode[]; edit: StepEditing | und
       </div>
       {edit !== undefined && (
         <div className="flex justify-center">
-          <Button variant="outline" size="icon-xs" aria-label="Add param" onClick={edit.addParam}>
+          <Button variant="outline" size="icon-xs" aria-label="Add param"
+            onClick={(e) => {
+              e.stopPropagation();
+              edit.addParam();
+            }}
+          >
             <Plus />
           </Button>
         </div>

@@ -1,6 +1,6 @@
 /** The form controls of the settings column and the New dialog. */
 import { cn } from "cn";
-import { type ComponentProps, type ReactNode, useState } from "react";
+import { type ComponentProps, type ReactNode, useId, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,14 +29,27 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   );
 }
 
-/** A labelled field: the label, the control, then an optional 12px muted note. */
-export function Row({ label, note, children }: { label: ReactNode; note?: ReactNode; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="font-medium">{label}</span>
+/**
+ * A labelled field: the label, the control, then an optional 12px muted note. A `group` holds several controls, each
+ * labelled on its own, so it is a `role="group"` named by its label rather than a `<label>` of its first control.
+ */
+export function Row({ label, note, group = false, children }: { label: ReactNode; note?: ReactNode; group?: boolean; children: ReactNode }) {
+  const id = useId();
+  const content = (
+    <>
+      <span id={group ? id : undefined} className="font-medium">
+        {label}
+      </span>
       {children}
       {note !== undefined && note !== null && <span className="text-[12px] text-muted-foreground">{note}</span>}
-    </label>
+    </>
+  );
+  return group ? (
+    <div role="group" aria-labelledby={id} className="flex flex-col gap-1.5">
+      {content}
+    </div>
+  ) : (
+    <label className="flex flex-col gap-1.5">{content}</label>
   );
 }
 

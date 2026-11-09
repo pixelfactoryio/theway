@@ -249,7 +249,7 @@ function NodeFields({ node, params, apply, select }: { node: StepNode; params: P
           <Row label="Max">
             <TextField mono value={node.max} same={(typed, v) => String(maxOf(typed)) === v} onChange={(v) => set("max", v.trim() === "" ? undefined : maxOf(v))} />
           </Row>
-          <Row label="Until">
+          <Row label="Until" group>
             <Conditions value={node.until} onChange={(v) => set("until", conds(v))} />
           </Row>
           <Row label="Exhausted">
@@ -272,7 +272,7 @@ function NodeFields({ node, params, apply, select }: { node: StepNode; params: P
       return (
         <>
           <Heading>When</Heading>
-          <Row label="Conditions">
+          <Row label="Conditions" group>
             <Conditions value={node.conditions} onChange={(v) => set("when", conds(v))} />
           </Row>
           <Row label="Then">
@@ -325,7 +325,22 @@ function defaultAs(kind: Kind, text: string): ParamValue | null {
 function ParamFields({ param, params, apply, select }: { param: ParamNode; params: ParamNode[]; apply: Apply; select: (s: Selection) => void }) {
   const [kind, setKind] = useState<Kind>(kindOf(param.default));
   const [text, setText] = useState(shown(param.default));
-  const def = (): ParamDef => ({ default: (param.default ?? "") as ParamValue, description: param.description ?? "" });
+  // The form stays mounted while its param is renamed, so the Name field keeps the focus. Another param, or a default
+  // changed otherwise than by the typed text (undo, redo), resets the type and the text to the file's.
+  const fileDefault = `${kindOf(param.default)}:${shown(param.default)}`;
+  const [seen, setSeen] = useState({ name: param.name, fileDefault });
+  const [renamedTo, setRenamedTo] = useState<string | null>(null);
+  if (seen.name !== param.name || seen.fileDefault !== fileDefault) {
+    const typed = defaultAs(kind, text);
+    const other = seen.name !== param.name && param.name !== renamedTo;
+    const matches = typed !== null && `${kindOf(typed)}:${shown(typed)}` === fileDefault;
+    setSeen({ name: param.name, fileDefault });
+    if (other || !matches) {
+      setKind(kindOf(param.default));
+      setText(shown(param.default));
+    }
+  }
+  const def =(): ParamDef => ({ default: (param.default ?? "") as ParamValue, description: param.description ?? "" });
   const writeDefault = (k: Kind, t: string) => {
     const v = defaultAs(k, t);
     if (v !== null) apply((d) => setParam(d, param.name, { ...def(), default: v }));
@@ -344,6 +359,7 @@ function ParamFields({ param, params, apply, select }: { param: ParamNode; param
               setParam(d, param.name, undefined);
               setParam(d, name, def());
             });
+            setRenamedTo(name);
             select({ param: name });
           }}
         />
@@ -440,7 +456,7 @@ export function Settings({
     const node = selection !== null && "node" in selection ? flatten(step.nodes).find((n) => pathKey(n.path) === pathKey(selection.node)) : undefined;
     const param = selection !== null && "param" in selection ? step.params.find((p) => p.name === selection.param) : undefined;
     if (node !== undefined) body = <NodeFields key={`${pathKey(node.path)}:${node.kind}`} node={node} params={step.params} apply={apply} select={select} />;
-    else if (param !== undefined) body = <ParamFields key={param.name} param={param} params={step.params} apply={apply} select={select} />;
+    else if (param !== undefined) body = <ParamFields key="param"param={param} params={step.params} apply={apply} select={select} />;
     else
       body = (
         <>

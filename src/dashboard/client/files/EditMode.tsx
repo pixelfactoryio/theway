@@ -203,7 +203,12 @@ export function EditMode({
           </Button>
         </div>
       </div>
-      <div className="flex flex-1 flex-col items-center gap-3 bg-muted p-6" onClick={() => select(null)}>
+      <div className="flex flex-1 flex-col items-center gap-3 bg-muted p-6"
+        onClick={(e) => {
+          // A click in a portalled `+` menu reaches this handler through the React tree, not the DOM: it selects what it inserts.
+          if (e.currentTarget.contains(e.target as Node)) select(null);
+        }}
+      >
         {yaml ? (
           <pre className="w-full overflow-x-auto rounded-md border bg-background p-3 font-mono text-[13px]">{draft.text}</pre>
         ) : workflow !== null ? (
