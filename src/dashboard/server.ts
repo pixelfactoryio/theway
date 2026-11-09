@@ -6,7 +6,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
-import { allChanges, archivedChange, change, file, files, NOT_JSON, type Reply, saveFile, validateFileText } from "./api";
+import { allChanges, archivedChange, change, file, files, fileVersion, fileVersions, NOT_JSON, type Reply, saveFile, validateFileText } from "./api";
 import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/client.txt" with { type: "text" };
 import html from "./client/index.html" with { type: "text" };
@@ -89,6 +89,16 @@ export function createApp(home: string, port: () => number): Hono {
   app.get("/api/v1/files", () => reply(files(home)));
   app.get("/api/v1/files/global/:kind/:name", (c) => reply(file(home, "global", null, c.req.param("kind"), c.req.param("name"))));
   app.get("/api/v1/files/projects/:key/:kind/:name", (c) => reply(file(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"))));
+  app.get("/api/v1/files/global/:kind/:name/versions", (c) => reply(fileVersions(home, "global", null, c.req.param("kind"), c.req.param("name"))));
+  app.get("/api/v1/files/projects/:key/:kind/:name/versions", (c) =>
+    reply(fileVersions(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"))),
+  );
+  app.get("/api/v1/files/global/:kind/:name/versions/:id", (c) =>
+    reply(fileVersion(home, "global", null, c.req.param("kind"), c.req.param("name"), c.req.param("id"))),
+  );
+  app.get("/api/v1/files/projects/:key/:kind/:name/versions/:id", (c) =>
+    reply(fileVersion(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"), c.req.param("id"))),
+  );
   /** The JSON body of a file write, or `NOT_JSON`, checked by the handler after the route's params. */
   const fileBody = async (c: Context): Promise<unknown> => c.req.json().catch(() => NOT_JSON);
   app.post("/api/v1/files/global/:kind/:name/validate", ...writes, async (c) =>

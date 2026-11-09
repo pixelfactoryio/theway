@@ -10,6 +10,7 @@ import { projectDir, projectReason } from "../core/project";
 import { NAME, type StepItem, type WorkflowItem } from "../core/schema";
 import { namesIn } from "../core/step-files";
 import { listSteps, listWorkflows, resolveStepFile, resolveWorkflow } from "../core/workflow";
+import { isVersionId, snapshot, versionsOf, versionText } from "./history";
 import { renderMarkdown } from "./markdown";
 import { byText, projectLabels } from "./projects";
 import type {
@@ -25,6 +26,8 @@ import type {
   FilesResponse,
   FileUse,
   FileValidateResponse,
+  FileVersionResponse,
+  FileVersionsResponse,
   SaveInvalid,
   SeriesMember,
   SeriesProgress,
@@ -246,11 +249,23 @@ const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typ
 /** A body that is not valid JSON, as the server passes it to the file routes. */
 export const NOT_JSON: unique symbol = Symbol("not JSON");
 
-/** The context, path and labels a file's routes work with; or the reply that stops the request. */
-function fileTarget(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): { target: FileTarget; context: string; label: string | null } | Reply<never> {
+/**
+ * The context, path and labels a file's routes work with; or the reply that stops the request. `check` validates the
+ * route's other params, so every `400` comes before the project's `404`.
+ */
+function fileTarget(
+  home: string,
+  scope: "global" | "project",
+  key: string | null,
+  kind: string,
+  name: string,
+  check: () => Reply<never> | null = () => null,
+): { target: FileTarget; context: string; label: string | null } | Reply<never> {
   if (scope === "project" && projectReason(key as string) !== "") return bad(`invalid project: ${projectReason(key as string)}`);
   const reason = editReason(kind, name);
   if (reason !== "") return bad(reason);
+  const invalid = check();
+  if (invalid !== null) return invalid;
   const target: FileTarget = { scope, key: scope === "global" ? null : key, kind: kind as EditKind, name };
   if (scope === "global") return { target, context: GLOBAL_CONTEXT, label: null };
   const found = projectLabels(home).find((p) => p.key === key);
@@ -369,7 +384,8 @@ export function validateFileText(home: string, scope: "global" | "project", key:
 
 /**
  * `PUT …/files/global/{kind}/{name}` and `PUT …/files/projects/{key}/{kind}/{name}`: `text` written to the file's own
- * path when `base` still matches it and it validates; a file that already holds `text` is not written.
+ * path when `base` still matches it and it validates; a file that already holds `text` is not written. The text an
+ * existing file held is kept as a version first; a version that cannot be kept stops the save.
  */
 export function saveFile(home: string, scope: "global" | "project", key: string | null, kind: string, name: string, body: unknown): Reply<FileSaveResponse | SaveInvalid> {
   const t = fileTarget(home, scope, key, kind, name);
@@ -382,6 +398,7 @@ export function saveFile(home: string, scope: "global" | "project", key: string 
   if (!result.ok) return { status: 422, body: { errors: result.errors, warnings: result.warnings } };
   try {
     if (!(isFile(path) && readFileSync(path, "utf-8") === b.text)) {
+      if (isFile(path)) snapshot(home, t.target, path);
       mkdirSync(dirname(path), { recursive: true });
       writeAtomic(path, b.text);
     }
@@ -389,4 +406,19 @@ export function saveFile(home: string, scope: "global" | "project", key: string 
     return { status: 500, body: { error: e instanceof Error ? e.message : String(e) } };
   }
   return ok({ path, sha256: createHash("sha256").update(b.text, "utf-8").digest("hex") });
+}
+
+/** `GET …/files/global/{kind}/{name}/versions` and `GET …/files/projects/{key}/{kind}/{name}/versions`: the file's versions, newest first. */
+export function fileVersions(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): Reply<FileVersionsResponse> {
+  const t = fileTarget(home, scope, key, kind, name);
+  if ("status" in t) return t;
+  return ok(versionsOf(home, t.target));
+}
+
+/** `GET …/files/global/{kind}/{name}/versions/{id}` and `GET …/files/projects/{key}/{kind}/{name}/versions/{id}`: one version's text; `shipped` names a global file's shipped text. */
+export function fileVersion(home: string, scope: "global" | "project", key: string | null, kind: string, name: string, id: string): Reply<FileVersionResponse> {
+  const t = fileTarget(home, scope, key, kind, name, () => (isVersionId(id) ? null : bad("invalid version id")));
+  if ("status" in t) return t;
+  const text = versionText(home, t.target, id);
+  return text === null ? missing("unknown version") : ok({ text });
 }

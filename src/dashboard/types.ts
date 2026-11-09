@@ -94,3 +94,12 @@ export type FileValidateResponse = { ok: boolean; errors: string[]; warnings: st
 
 /** `PUT …/files/…/{kind}/{name}`: the path written and the sha256 of its text. */
 export type FileSaveResponse = { path: string; sha256: string };
+
+/** A saved version of a file: its ID and the ISO time it was taken. */
+export type FileVersion = { id: string; at: string };
+
+/** `GET …/files/…/{kind}/{name}/versions`: the versions, newest first, and whether a global file has its shipped text. */
+export type FileVersionsResponse = { versions: FileVersion[]; shipped: boolean };
+
+/** `GET …/files/…/{kind}/{name}/versions/{id}`: the version's text. */
+export type FileVersionResponse = { text: string };

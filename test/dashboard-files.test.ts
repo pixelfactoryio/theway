@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { historyDir, snapshot } from "../src/dashboard/history";
 import { CLI, cleanup, put, SHIPPED_HOME, send, shippedHome, start } from "./dashboard-helpers";
 
 afterEach(cleanup);
@@ -262,4 +263,122 @@ test("the file write routes refuse a missing or wrong guard, a non-JSON or overs
     expect([method, unknown.status, unknown.json()]).toEqual([method, 404, { error: "unknown project" }]);
   }
   expect(tree(dir)).toEqual(before);
+});
+
+// ---- Versions ----
+
+const AGENTS = "/api/v1/files/global/workflows/agents";
+/** The shipped agents workflow with `rounds: n` on its review entry. */
+const rounds = (n: number) => shipped("workflows/agents.yaml").replace("  - review:\n", `  - review: {rounds: ${n}}\n`);
+/** The texts of the versions in `dir`, oldest first. */
+const versionTexts = (dir: string) => (readdirSync(dir).sort() as string[]).map((f) => readFileSync(join(dir, f), "utf-8"));
+/** Saves `text` over the file at `path` through `route`. */
+const saveText = (port: number, token: string, route: string, path: string, text: string) =>
+  write(port, token, "PUT", route, { text, base: existsSync(path) ? sha(path) : null });
+
+test("a dashboard save keeps the text it replaces, skips an unchanged text, keeps the newest 20 and none for a new file", async () => {
+  const dir = shippedHome();
+  const { port, token } = await start(dir);
+  const path = join(dir, "workflows", "agents.yaml");
+  const history = join(dir, "history", "global", "workflows", "agents");
+  const original = readFileSync(path, "utf-8");
+
+  for (const n of [1, 2]) expect((await saveText(port, token, AGENTS, path, rounds(n))).status).toBe(200);
+  expect(versionTexts(history)).toEqual([original, rounds(1)]);
+  for (const f of readdirSync(history)) {
+    const id = f.slice(0, -".yaml".length);
+    expect(id).toMatch(/^\d{8}T\d{9}Z-[0-9a-f]{12}$/);
+    expect(id.endsWith(createHash("sha256").update(readFileSync(join(history, f))).digest("hex").slice(0, 12))).toBe(true);
+  }
+
+  // The same text again: nothing written, no version.
+  expect((await saveText(port, token, AGENTS, path, rounds(2))).status).toBe(200);
+  expect(readdirSync(history).length).toBe(2);
+
+  for (let n = 3; n <= 22; n++) expect((await saveText(port, token, AGENTS, path, rounds(n))).status).toBe(200);
+  // 22 saves of different texts: the original and the first 21 saves were replaced; the newest 20 are kept.
+  expect(versionTexts(history)).toEqual(Array.from({ length: 20 }, (_, i) => rounds(i + 2)));
+
+  const fresh = join(dir, "steps", "probe.yaml");
+  expect((await saveText(port, token, "/api/v1/files/global/steps/probe", fresh, PROBE)).status).toBe(200);
+  expect(existsSync(join(dir, "history", "global", "steps", "probe"))).toBe(false);
+});
+
+test("a project save keeps its version under the project's history folder", async () => {
+  const dir = twoProjects();
+  const { port, token } = await start(dir);
+  const path = join(dir, "projects", "q", "workflows", "own.yaml");
+  const before = readFileSync(path, "utf-8");
+  const res = await saveText(port, token, "/api/v1/files/projects/q/workflows/own", path, before.replace("description: Own", "description: Mine"));
+  expect(res.status).toBe(200);
+  expect(versionTexts(join(dir, "history", "projects", "q", "workflows", "own"))).toEqual([before]);
+  expect(existsSync(join(dir, "history", "global"))).toBe(false);
+});
+
+test("two snapshots in the same millisecond get two names, the later one last; the same bytes again add none", () => {
+  const dir = shippedHome();
+  const target = { scope: "global", key: null, kind: "workflows", name: "agents" } as const;
+  const path = join(dir, "workflows", "agents.yaml");
+  const now = new Date("2026-11-09T14:30:12.123Z");
+  snapshot(dir, target, path, now);
+  snapshot(dir, target, path, now);
+  put(path, rounds(1));
+  snapshot(dir, target, path, now);
+  const names = readdirSync(historyDir(dir, target)).sort();
+  expect(names.length).toBe(2);
+  expect(names.map((n) => n.slice(0, 19))).toEqual(["20261109T143012123Z", "20261109T143012124Z"]);
+  expect(readFileSync(join(historyDir(dir, target), names[1] as string), "utf-8")).toBe(rounds(1));
+});
+
+test("the versions routes list a file's versions newest first, return their text, and check the ID", async () => {
+  const dir = twoProjects();
+  const { port, token } = await start(dir);
+  const path = join(dir, "workflows", "agents.yaml");
+  const original = readFileSync(path, "utf-8");
+  expect((await get(port, `${AGENTS}/versions`)).json()).toEqual({ versions: [], shipped: false });
+  for (const n of [1, 2]) expect((await saveText(port, token, AGENTS, path, rounds(n))).status).toBe(200);
+
+  const res = await get(port, `${AGENTS}/versions`);
+  expect(res.status).toBe(200);
+  const body = res.json() as { versions: { id: string; at: string }[]; shipped: boolean };
+  expect(body.shipped).toBe(false);
+  expect(body.versions.length).toBe(2);
+  const [newer, older] = body.versions as [{ id: string; at: string }, { id: string; at: string }];
+  expect(newer.id > older.id).toBe(true);
+  const ts = newer.id.slice(0, 19);
+  expect(newer.at).toBe(`${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}.${ts.slice(15, 18)}Z`);
+  expect((await get(port, `${AGENTS}/versions/${older.id}`)).json()).toEqual({ text: original });
+  expect((await get(port, `${AGENTS}/versions/${newer.id}`)).json()).toEqual({ text: rounds(1) });
+
+  for (const id of ["..%2Fx", "1-2", "SHIPPED", `${older.id}.yaml`]) expect([id, (await get(port, `${AGENTS}/versions/${id}`)).status]).toEqual([id, 400]);
+  expect((await get(port, `${AGENTS}/versions/20200101T000000000Z-000000000000`)).status).toBe(404);
+  expect((await get(port, `${AGENTS}/versions/shipped`)).status).toBe(404);
+  for (const [p, status] of [
+    ["/api/v1/files/global/prompts/fix/versions", 400],
+    ["/api/v1/files/global/steps/gate/versions/shipped", 400],
+    ["/api/v1/files/projects/a.b/workflows/own/versions", 400],
+    ["/api/v1/files/projects/zz/workflows/own/versions", 404],
+    ["/api/v1/files/projects/zz/workflows/own/versions/1-2", 400],
+  ] as const) {
+    expect([p, (await get(port, p)).status]).toEqual([p, status]);
+  }
+
+  put(join(dir, "workflows", "agents.default.yaml"), shipped("workflows/agents.yaml"));
+  expect((await get(port, `${AGENTS}/versions`)).json().shipped).toBe(true);
+  expect((await get(port, `${AGENTS}/versions/shipped`)).json()).toEqual({ text: shipped("workflows/agents.yaml") });
+  put(join(dir, "projects", "q", "workflows", "agents.default.yaml"), shipped("workflows/agents.yaml"));
+  expect((await get(port, "/api/v1/files/projects/q/workflows/own/versions")).json()).toEqual({ versions: [], shipped: false });
+  expect((await get(port, "/api/v1/files/projects/q/workflows/own/versions/shipped")).status).toBe(404);
+});
+
+test("a save whose version cannot be kept gets 500 and leaves the file unchanged", async () => {
+  const dir = shippedHome();
+  put(join(dir, "history", "global", "workflows", "agents"), "not a folder\n");
+  const { port, token } = await start(dir);
+  const path = join(dir, "workflows", "agents.yaml");
+  const before = readFileSync(path, "utf-8");
+  const res = await saveText(port, token, AGENTS, path, rounds(1));
+  expect(res.status).toBe(500);
+  expect(typeof res.json().error).toBe("string");
+  expect(readFileSync(path, "utf-8")).toBe(before);
 });
