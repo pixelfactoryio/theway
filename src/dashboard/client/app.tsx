@@ -6,7 +6,7 @@ import { useHashLocation } from "wouter/use-hash-location";
 import { DraftsProvider } from "@/files/drafts";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
-import { WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
+import { type Mode, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
 import type { FileRef } from "@/lib/api";
 
 const queryClient = new QueryClient();
@@ -45,12 +45,15 @@ function TopBar() {
 
 const isKind = (k: string): k is "workflows" | "steps" => k === "workflows" || k === "steps";
 
-/** The Workflows page of a file, in view or edit mode; `/workflows` for a kind that is not one. */
-function page(file: Omit<FileRef, "kind"> & { kind: string }, editing: boolean) {
+/** The Workflows page of a file, in view, edit or versions mode; `/workflows` for a kind that is not one. */
+function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
   if (!isKind(file.kind)) return <Redirect to="/workflows" replace />;
   const ref: FileRef = { ...file, kind: file.kind };
-  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} editing={editing} />;
+  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} mode={mode} />;
 }
+
+const VIEW: Mode = { view: true };
+const EDIT: Mode = { edit: true };
 
 function Routes() {
   return (
@@ -63,10 +66,20 @@ function Routes() {
       <Route path="/workflows">
         <WorkflowsIndex />
       </Route>
-      <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, false)}</Route>
-      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, true)}</Route>
-      <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, false)}</Route>
-      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, true)}</Route>
+      <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, VIEW)}</Route>
+      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, EDIT)}</Route>
+      <Route path="/workflows/global/:kind/:name/versions">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: null })}</Route>
+      <Route path="/workflows/global/:kind/:name/versions/:id">
+        {(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: p.id })}
+      </Route>
+      <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, VIEW)}</Route>
+      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, EDIT)}</Route>
+      <Route path="/workflows/projects/:key/:kind/:name/versions">
+        {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: null })}
+      </Route>
+      <Route path="/workflows/projects/:key/:kind/:name/versions/:id">
+        {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: p.id })}
+      </Route>
       <Route>
         <Redirect to="/changes" replace />
       </Route>

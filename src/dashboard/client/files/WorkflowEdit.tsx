@@ -1,4 +1,4 @@
-/** A workflow in edit mode: its entries as written, a `+` before, between and after them, and a click that selects. */
+/** A workflow's entries as written: read-only, or in edit mode with their `+` points and a click that selects. */
 import { cn } from "cn";
 import { Fragment, useRef, useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -67,38 +67,37 @@ function EntryPlus({ steps, onChoose, onNewStep }: { steps: FileItem[]; onChoose
   );
 }
 
-/** The workflow's entries in edit mode; `tied` holds the indices of the entries an error line ties to. */
-export function WorkflowEdit({
-  entries,
-  steps,
-  selected,
-  tied,
-  select,
-  insert,
-  onNewStep,
-}: {
-  entries: EntrySource[];
+/** Edit mode of the entries: the usable steps, the selection, the tied entries (by index), and the edits. */
+export type EntryEditing = {
   steps: FileItem[];
   selected: Selection;
   tied: ReadonlySet<number>;
   select: (s: Selection) => void;
   insert: (index: number, c: NewEntryChoice) => void;
   onNewStep: () => void;
-}) {
-  const plus = (index: number) => <EntryPlus steps={steps} onChoose={(c) => insert(index, c)} onNewStep={onNewStep} />;
+};
+
+/** A workflow's entries as written; with `edit`, a `+` before, between and after them, and a click that selects. */
+export function WorkflowEdit({ entries, edit }: { entries: EntrySource[]; edit?: EntryEditing }) {
+  const plus = (index: number) =>
+    edit !== undefined && <EntryPlus steps={edit.steps} onChoose={(c) => edit.insert(index, c)} onNewStep={edit.onNewStep} />;
   return (
     <div className="flex w-full flex-col items-center gap-3">
       {plus(0)}
       {entries.map((e) => {
-        const ring = outline(selected !== null && "entry" in selected && selected.entry === e.index, tied.has(e.index));
+        const ring = edit === undefined ? "" : outline(edit.selected !== null && "entry" in edit.selected && edit.selected.entry === e.index, edit.tied.has(e.index));
         return (
           <Fragment key={`${e.index}:${e.kind === "gate" ? "gate" : e.id}`}>
             <div
-              className={cn("w-full max-w-[400px] cursor-pointer rounded-md border bg-background px-3 py-2.5", ring)}
-              onClick={(ev) => {
-                ev.stopPropagation();
-                select({ entry: e.index });
-              }}
+              className={cn("w-full max-w-[400px] rounded-md border bg-background px-3 py-2.5", edit !== undefined && "cursor-pointer", ring)}
+              onClick={
+                edit === undefined
+                  ? undefined
+                  : (ev) => {
+                      ev.stopPropagation();
+                      edit.select({ entry: e.index });
+                    }
+              }
             >
               {e.kind === "gate" ? (
                 <div className="flex items-baseline justify-between gap-3">

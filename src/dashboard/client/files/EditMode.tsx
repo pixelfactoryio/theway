@@ -8,7 +8,7 @@ import { structuredPatch } from "diff";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { absoluteOf, type FileRef, fileHref, relOf, saveFile, useFiles, validateFile } from "@/lib/api";
+import { absoluteOf, type FileRef, fileHref, relOf, saveFile, useFiles, validateFile, versionsHref } from "@/lib/api";
 import type { FileDetail, FileItem, FilesResponse, FileValidateResponse } from "../../types";
 import { insertEntry, insertNode, parse, setParam, textOf } from "../editor/ops";
 import { type Construct, DEFAULT_CONSTRUCT, NEW_PARAM, newParamName } from "./constructs";
@@ -68,8 +68,8 @@ function reach(file: FileRef, detail: FileDetail | undefined, files: FilesRespon
   return uses.length === 0 ? "no workflow uses it" : `used by ${uses.map((u) => (u.scope === "project" ? `${u.name} (${u.label ?? u.key})` : u.name)).join(", ")}`;
 }
 
-/** The diff from the text the draft started from to its text: 3 context lines, added and removed lines on their colours. */
-function Diff({ from, to }: { from: string; to: string }) {
+/** The diff from one text to another: 3 context lines, added and removed lines on their colours. */
+export function Diff({ from, to }: { from: string; to: string }) {
   const patch = useMemo(() => structuredPatch("a", "b", from, to, "", "", { context: 3 }), [from, to]);
   return (
     <div className="max-h-[200px] overflow-auto rounded-md border bg-background font-mono text-[12px]">
@@ -198,6 +198,11 @@ export function EditMode({
               Close
             </Button>
           )}
+          {!draft.isNew && (
+            <Button variant="outline" onClick={() => navigate(versionsHref(file))}>
+              Versions
+            </Button>
+          )}
           <Button variant="outline" aria-pressed={yaml} onClick={() => setYaml(!yaml)}>
             YAML
           </Button>
@@ -217,15 +222,17 @@ export function EditMode({
           ) : (
             <WorkflowEdit
               entries={workflow.entries}
-              steps={steps}
-              selected={selection}
-              tied={tiedEntries}
-              select={select}
-              insert={(index, c: NewEntryChoice) => {
-                apply((d) => insertEntry(d, index, "step" in c ? c.step : { gate: "Continue?" }));
-                select({ entry: index });
+              edit={{
+                steps,
+                selected: selection,
+                tied: tiedEntries,
+                select,
+                insert: (index, c: NewEntryChoice) => {
+                  apply((d) => insertEntry(d, index, "step" in c ? c.step : { gate: "Continue?" }));
+                  select({ entry: index });
+                },
+                onNewStep: () => onNew("steps"),
               }}
-              onNewStep={() => onNew("steps")}
             />
           )
         ) : (

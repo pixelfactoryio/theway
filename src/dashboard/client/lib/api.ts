@@ -1,6 +1,17 @@
 /** Every read of the dashboard API, through TanStack Query. */
 import { useQuery } from "@tanstack/react-query";
-import type { AllChangesResponse, ChangeDetail, FileDetail, FileItem, FileSaveResponse, FilesResponse, FileValidateResponse, SaveInvalid } from "../../types";
+import type {
+  AllChangesResponse,
+  ChangeDetail,
+  FileDetail,
+  FileItem,
+  FileSaveResponse,
+  FilesResponse,
+  FileValidateResponse,
+  FileVersionResponse,
+  FileVersionsResponse,
+  SaveInvalid,
+} from "../../types";
 
 /** The JSON body of `GET <path>`; an error response throws its `error` text. */
 async function get<T>(path: string): Promise<T> {
@@ -33,6 +44,17 @@ export const filePath = (f: FileRef): string =>
 
 export const useFile = (f: FileRef, enabled = true) =>
   useQuery({ queryKey: ["file", f.scope, f.key, f.kind, f.name], queryFn: () => get<FileDetail>(filePath(f)), enabled });
+
+/** A file's saved versions, newest first; under the file's query key, so a save refreshes them. */
+export const useVersions = (f: FileRef) =>
+  useQuery({ queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions"], queryFn: () => get<FileVersionsResponse>(`${filePath(f)}/versions`) });
+
+/** One version's text: `id` is a version ID or `shipped`. */
+export const useVersion = (f: FileRef, id: string) =>
+  useQuery({
+    queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions", id],
+    queryFn: () => get<FileVersionResponse>(`${filePath(f)}/versions/${encodeURIComponent(id)}`),
+  });
 
 /** The page of a file in the dashboard: `/workflows/global/<kind>/<name>` or `/workflows/projects/<key>/<kind>/<name>`. */
 export const fileHref = (f: FileRef): string =>
@@ -88,3 +110,6 @@ export const saveFile = async (f: FileRef, text: string, base: string | null): P
 
 /** The edit page of a file: its page with `/edit`. */
 export const editHref = (f: FileRef): string => `${fileHref(f)}/edit`;
+
+/** The versions page of a file: its page with `/versions`, and `/<id>` for one version. */
+export const versionsHref = (f: FileRef, id: string | null = null): string => `${fileHref(f)}/versions${id === null ? "" : `/${id}`}`;

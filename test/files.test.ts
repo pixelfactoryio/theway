@@ -190,6 +190,15 @@ test("a draft takes three edits, two undos and one redo, and is dirty until its 
   expect(isDirty(startDraft("a", null, true))).toBe(true);
 });
 
+test("a restored version is one undoable edit that keeps its text byte for byte", () => {
+  const current = shipped("workflows/agents.yaml");
+  const versionText = "version: 1\nsteps:\n  - review: {rounds:   2}   # kept\n";
+  const d = edit(startDraft(current, "a".repeat(64), false), versionText);
+  expect(d.text).toBe(versionText);
+  expect([d.start, d.base, d.isNew, d.undo, isDirty(d)]).toEqual([current, "a".repeat(64), false, [current], true]);
+  expect(undo(d).text).toBe(current);
+});
+
 test("the undo stack keeps the newest 100 texts", () => {
   let d = startDraft("0", null, false);
   for (let i = 1; i <= 150; i++) d = edit(d, String(i));

@@ -8,8 +8,9 @@ import { useDrafts } from "@/files/drafts";
 import { EditMode } from "@/files/EditMode";
 import { NewDialog } from "@/files/NewDialog";
 import { StepView } from "@/files/StepView";
+import { VersionList, VersionView } from "@/files/Versions";
 import { WorkflowView } from "@/files/WorkflowView";
-import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
+import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
 import type { FileDetail, FileItem } from "../../types";
 
 type Kind = FileItem["kind"];
@@ -153,10 +154,11 @@ function Facts({ detail }: { detail: FileDetail }) {
   );
 }
 
-/** The centre: the title row with Edit and the YAML switch, then the drawing or the file's text. */
+/** The centre: the title row with Edit, Versions and the YAML switch, then the drawing or the file's text. */
 function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   const [yaml, setYaml] = useState(false);
-  const { start } = useDrafts();
+  const { drafts, start } = useDrafts();
+  const draft = drafts.get(fileKey(file))?.draft;
   const [, navigate] = useLocation();
   return (
     <>
@@ -168,11 +170,15 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
         <div className="ml-auto flex gap-2">
           <Button
             onClick={() => {
-              start(file, detail.text, detail.sha256, false);
+              // A dirty draft, reachable from versions mode, is kept.
+              if (draft === undefined || !isDirty(draft)) start(file, detail.text, detail.sha256, false);
               navigate(editHref(file));
             }}
           >
             Edit
+          </Button>
+          <Button variant="outline" onClick={() => navigate(versionsHref(file))}>
+            Versions
           </Button>
           <Button variant="outline" aria-pressed={yaml} onClick={() => setYaml(!yaml)}>
             YAML
@@ -193,13 +199,14 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
 }
 
 /**
- * The three columns: the file list, the centre and the facts, then the save bar in edit mode; the New dialog opens
- * from the list or from `onNew`.
+ * The three columns: the file list, the centre and the right column (`factsLabel`), then the save bar in edit mode;
+ * the New dialog opens from the list or from `onNew`.
  */
 function Columns({
   selected,
   centre,
   facts,
+  factsLabel = "Facts",
   bar,
   newKind,
   setNewKind,
@@ -207,6 +214,7 @@ function Columns({
   selected: FileRef | null;
   centre: ReactNode;
   facts: ReactNode;
+  factsLabel?: string;
   bar?: ReactNode;
   newKind: Kind | null;
   setNewKind: (k: Kind | null) => void;
@@ -219,7 +227,7 @@ function Columns({
           <FileList selected={selected} onNew={setNewKind} />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
-        <aside aria-label={bar === undefined ? "Facts" : "Settings"} className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
+        <aside aria-label={factsLabel} className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
           {facts}
         </aside>
       </div>
@@ -244,15 +252,40 @@ export function WorkflowsIndex() {
   return <Columns selected={null} centre={files.data !== undefined && <Empty>No workflows</Empty>} facts={null} newKind={newKind} setNewKind={setNewKind} />;
 }
 
+/** The mode of the Workflows page: the file's view, its edit mode, or its versions with one selected (`null` for Current). */
+export type Mode = { view: true } | { edit: true } | { version: string | null };
+
 /**
- * The Workflows page with one file selected, in view or edit mode. A file with a dirty draft always opens in edit
- * mode; edit mode without a draft goes back to the view.
+ * The Workflows page with one file selected, in view, edit or versions mode. The view of a file with a dirty draft
+ * opens edit mode; edit mode without a draft goes back to the view. Versions mode has no save bar.
  */
-export function WorkflowsPage({ file, editing }: { file: FileRef; editing: boolean }) {
+export function WorkflowsPage({ file, mode }: { file: FileRef; mode: Mode }) {
   const { drafts } = useDrafts();
   const draft = drafts.get(fileKey(file))?.draft;
   const detail = useFile(file, draft === undefined || !draft.isNew);
   const [newKind, setNewKind] = useState<Kind | null>(null);
+  const editing = "edit" in mode;
+  if ("version" in mode) {
+    const loaded =
+      detail.data === undefined ? <Empty error={detail.isError}>{detail.isError ? detail.error.message : "Loading…"}</Empty> : null;
+    return (
+      <Columns
+        selected={file}
+        centre={
+          loaded ??
+          (mode.version === null ? (
+            <Centre key={fileKey(file)} file={file} detail={detail.data as FileDetail} />
+          ) : (
+            <VersionView key={mode.version} file={file} id={mode.version} detail={detail.data as FileDetail} />
+          ))
+        }
+        facts={<VersionList file={file} id={mode.version} />}
+        factsLabel="Versions"
+        newKind={newKind}
+        setNewKind={setNewKind}
+      />
+    );
+  }
   if (!editing && draft !== undefined && isDirty(draft)) return <Redirect to={editHref(file)} replace />;
   if (editing && draft === undefined) return <Redirect to={fileHref(file)} replace />;
   if (editing && draft !== undefined) {
@@ -262,7 +295,9 @@ export function WorkflowsPage({ file, editing }: { file: FileRef; editing: boole
         draft={draft}
         detail={detail.data}
         onNew={setNewKind}
-        layout={({ centre, facts, bar }) => <Columns selected={file} centre={centre} facts={facts} bar={bar} newKind={newKind} setNewKind={setNewKind} />}
+        layout={({ centre, facts, bar }) => (
+          <Columns selected={file} centre={centre} facts={facts} factsLabel="Settings" bar={bar} newKind={newKind} setNewKind={setNewKind} />
+        )}
       />
     );
   }
