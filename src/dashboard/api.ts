@@ -7,9 +7,9 @@ import { isDir, isFile, writeAtomic } from "../core/io";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { projectDir, projectReason } from "../core/project";
-import { NAME, type Out, type WorkflowDoc } from "../core/schema";
+import { NAME, type Out, type StepItem, type WorkflowDoc, type WorkflowItem } from "../core/schema";
 import { dirsOf, fileOf, namesIn } from "../core/step-files";
-import { listSteps, listWorkflows, resolveWorkflow } from "../core/workflow";
+import { listSteps, listWorkflows, resolveStepFile, resolveWorkflow } from "../core/workflow";
 import { renderMarkdown } from "./markdown";
 import { byText, projectLabels } from "./projects";
 import type {
@@ -19,6 +19,12 @@ import type {
   ChangeProperties,
   ChangesResponse,
   ErrorResponse,
+  FileDetail,
+  FileItem,
+  FileSaveResponse,
+  FilesResponse,
+  FileUse,
+  FileValidateResponse,
   ProjectsResponse,
   PromptItem,
   RenderedPrompt,
@@ -37,7 +43,18 @@ import type {
   WorkflowFailure,
   WorkflowsResponse,
 } from "./types";
-import { type Candidate, type EditKind, projectPath, validateSet } from "./validate";
+import {
+  type Candidate,
+  type EditKind,
+  type FileTarget,
+  GLOBAL_CONTEXT,
+  projectPath,
+  readText,
+  stepsNamed,
+  targetPath,
+  validateFile,
+  validateSet,
+} from "./validate";
 
 export { folderOf, labels } from "./projects";
 
@@ -465,4 +482,154 @@ export function revert(home: string, key: string, kind: string, name: string, ba
   if (!result.ok) return { status: 422, body: { errors: result.errors, warnings: result.warnings } };
   rmSync(target);
   return ok({ deleted: target });
+}
+
+// ---- Workflow and step files, addressed by where they live ----
+
+/** A body that is not valid JSON, as the server passes it to the file routes. */
+export const NOT_JSON: unique symbol = Symbol("not JSON");
+
+/** The context, path and labels a file's routes work with; or the reply that stops the request. */
+function fileTarget(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): { target: FileTarget; context: string; label: string | null } | Reply<never> {
+  if (scope === "project" && projectReason(key as string) !== "") return bad(`invalid project: ${projectReason(key as string)}`);
+  const reason = editReason(kind, name);
+  if (reason !== "") return bad(reason);
+  const target: FileTarget = { scope, key: scope === "global" ? null : key, kind: kind as EditKind, name };
+  if (scope === "global") return { target, context: GLOBAL_CONTEXT, label: null };
+  const found = projectLabels(home).find((p) => p.key === key);
+  if (found === undefined || !isDir(projectDir(home, key as string))) return missing("unknown project");
+  return { target, context: key as string, label: found.label };
+}
+
+/** The items of the files of one context: `names` of `kind`, with their description, default and error from that context's list. */
+function itemsOf(home: string, context: string, scope: "global" | "project", key: string | null, label: string | null, kind: EditKind, names: string[]): FileItem[] {
+  const result = kind === "workflows" ? listWorkflows(home, context, () => {}) : listSteps(home, context, () => {});
+  const listed: { error: string } | (WorkflowItem | StepItem)[] = "error" in result ? result : Array.isArray(result) ? result : result.workflows;
+  const base = scope === "global" ? join(home, kind) : join(projectDir(home, key as string), kind);
+  return names.map((name): FileItem => {
+    const item: FileItem = { scope, key, label, kind, name, path: join(base, `${name}.yaml`), description: null, default: false, error: null };
+    if ("error" in listed) return { ...item, error: listed.error };
+    const found = listed.find((i) => i.name === name);
+    if (found === undefined) return item;
+    if ("error" in found && found.error !== undefined) return { ...item, error: found.error };
+    return { ...item, description: "description" in found ? (found.description ?? null) : null, default: kind === "workflows" && (found as WorkflowItem).default === true };
+  });
+}
+
+/** The names of the `kind` files directly in `dir`; `gate` is never a step file. */
+const fileNames = (dir: string, kind: EditKind): string[] => namesIn(dir, kind).filter((n) => kind === "workflows" || n !== "gate");
+
+/** Every file item of `kind`: the global ones, then each project's own, projects in `projectKeys` order. */
+function fileItems(home: string, kind: EditKind, all: { key: string; label: string }[]): FileItem[] {
+  return [
+    ...itemsOf(home, GLOBAL_CONTEXT, "global", null, null, kind, fileNames(join(home, kind), kind)),
+    ...all.flatMap(({ key, label }) => itemsOf(home, key, "project", key, label, kind, fileNames(join(projectDir(home, key), kind), kind))),
+  ];
+}
+
+/** `GET /api/v1/files`: every project, then every workflow and step file, global ones first. */
+export function files(home: string): Reply<FilesResponse> {
+  const all = projectLabels(home);
+  return ok({ projects: all, workflows: fileItems(home, "workflows", all), steps: fileItems(home, "steps", all) });
+}
+
+/**
+ * The workflow files that name the step `name`, in file-list order: for a global step, the global workflow files and
+ * those of each project that has no step file of that name; for a project step, the global workflow files the project
+ * does not have as its own, then the project's.
+ */
+function usedBy(home: string, target: FileTarget, all: { key: string; label: string }[]): FileUse[] {
+  const uses = (dir: string) => fileNames(dir, "workflows").filter((w) => stepsNamed(readText(join(dir, `${w}.yaml`))).includes(target.name));
+  const globalDir = join(home, "workflows");
+  if (target.scope === "global") {
+    return [
+      ...uses(globalDir).map((name): FileUse => ({ scope: "global", key: null, label: null, name })),
+      ...all
+        .filter(({ key }) => !isFile(projectPath(home, key, "steps", target.name)))
+        .flatMap(({ key, label }) => uses(join(projectDir(home, key), "workflows")).map((name): FileUse => ({ scope: "project", key, label, name }))),
+    ];
+  }
+  const key = target.key as string;
+  const ownDir = join(projectDir(home, key), "workflows");
+  const own = fileNames(ownDir, "workflows");
+  const label = all.find((p) => p.key === key)?.label ?? null;
+  return [
+    ...uses(globalDir)
+      .filter((n) => !own.includes(n))
+      .map((name): FileUse => ({ scope: "global", key: null, label: null, name })),
+    ...uses(ownDir).map((name): FileUse => ({ scope: "project", key, label, name })),
+  ];
+}
+
+/** `GET /api/v1/files/global/{kind}/{name}` and `GET /api/v1/files/projects/{key}/{kind}/{name}`: one file with its resolved form and reach. */
+export function file(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): Reply<FileDetail> {
+  const t = fileTarget(home, scope, key, kind, name);
+  if ("status" in t) return t;
+  const { target, context, label } = t;
+  const path = targetPath(home, target);
+  const sha256 = hashOf(path);
+  if (sha256 === null) return missing("not found");
+  const all = projectLabels(home);
+  const item = itemsOf(home, context, scope, target.key, label, target.kind, [name])[0] as FileItem;
+  const warnings: Warning[] = [];
+  const collect: Warn = (file, text) => {
+    warnings.push({ file, text });
+  };
+  const resolved = target.kind === "workflows" ? resolveWorkflow(home, context, name, collect) : resolveStepFile(home, context, name, collect);
+  return ok({
+    ...item,
+    text: readFileSync(path, "utf-8"),
+    sha256,
+    resolved,
+    warnings,
+    overriddenBy: scope === "global" ? all.filter(({ key: k }) => isFile(projectPath(home, k, target.kind, name))) : [],
+    overrides: scope === "project" && isFile(join(home, target.kind, `${name}.yaml`)),
+    usedBy: target.kind === "steps" ? usedBy(home, target, all) : [],
+  });
+}
+
+/** The text of a file validate or save body, checked; with `withBase`, its `base` too. */
+function textOf(body: unknown, withBase: boolean): { text: string; base: string | null } | Reply<never> {
+  if (body === NOT_JSON) return bad("invalid JSON");
+  const text = isObject(body) ? body.text : undefined;
+  if (typeof text !== "string") return bad("text must be a string");
+  if (Buffer.byteLength(text, "utf-8") > MAX_TEXT) return tooLarge();
+  if (!withBase) return { text, base: null };
+  const base = (body as Record<string, unknown>).base;
+  if (!(base === null || (typeof base === "string" && HEX.test(base)))) return bad("base must be a sha256 or null");
+  return { text, base };
+}
+
+/** `POST …/files/global/{kind}/{name}/validate` and `POST …/files/projects/{key}/{kind}/{name}/validate`: `text` validated in every context that reads the file. */
+export function validateFileText(home: string, scope: "global" | "project", key: string | null, kind: string, name: string, body: unknown): Reply<FileValidateResponse> {
+  const t = fileTarget(home, scope, key, kind, name);
+  if ("status" in t) return t;
+  const b = textOf(body, false);
+  if ("status" in b) return b;
+  const { ok: valid, errors, warnings } = validateFile(home, t.target, b.text);
+  return ok({ ok: valid, errors, warnings });
+}
+
+/**
+ * `PUT …/files/global/{kind}/{name}` and `PUT …/files/projects/{key}/{kind}/{name}`: `text` written to the file's own
+ * path when `base` still matches it and it validates; a file that already holds `text` is not written.
+ */
+export function saveFile(home: string, scope: "global" | "project", key: string | null, kind: string, name: string, body: unknown): Reply<FileSaveResponse | SaveInvalid> {
+  const t = fileTarget(home, scope, key, kind, name);
+  if ("status" in t) return t;
+  const b = textOf(body, true);
+  if ("status" in b) return b;
+  const path = targetPath(home, t.target);
+  if (hashOf(path) !== b.base) return { status: 409, body: { error: "changed on disk" } };
+  const result = validateFile(home, t.target, b.text);
+  if (!result.ok) return { status: 422, body: { errors: result.errors, warnings: result.warnings } };
+  try {
+    if (!(isFile(path) && readFileSync(path, "utf-8") === b.text)) {
+      mkdirSync(dirname(path), { recursive: true });
+      writeAtomic(path, b.text);
+    }
+  } catch (e) {
+    return { status: 500, body: { error: e instanceof Error ? e.message : String(e) } };
+  }
+  return ok({ path, sha256: createHash("sha256").update(b.text, "utf-8").digest("hex") });
 }

@@ -1,5 +1,5 @@
 /** The dashboard API's response shapes, shared by the server and the browser client. */
-import type { StepItem, WorkflowDoc, WorkflowList } from "../core/schema";
+import type { StepEntry, StepItem, WorkflowDoc, WorkflowList } from "../core/schema";
 
 /** A change's progress over its numbered tasks. */
 export type Status = "No tasks" | "Not started" | "In progress" | "Ready to archive";
@@ -120,3 +120,44 @@ export type SaveInvalid = { errors: string[]; warnings: string[] };
 
 /** `DELETE /api/v1/projects/{key}/sources/{kind}/{name}`. */
 export type RevertResponse = { deleted: string };
+
+/** A workflow or step file, addressed by where it lives; `key` and `label` are `null` for a global file, `path` is absolute. */
+export type FileItem = {
+  scope: "global" | "project";
+  key: string | null;
+  label: string | null;
+  kind: SourceKind;
+  name: string;
+  path: string;
+  description: string | null;
+  default: boolean;
+  error: string | null;
+};
+
+/** `GET /api/v1/files`: every project, then every global workflow and step file, then each project's own. */
+export type FilesResponse = { projects: { key: string; label: string }[]; workflows: FileItem[]; steps: FileItem[] };
+
+/** A workflow file that names a step in its `steps` entries. */
+export type FileUse = { scope: "global" | "project"; key: string | null; label: string | null; name: string };
+
+/**
+ * `GET /api/v1/files/global/{kind}/{name}` and `GET /api/v1/files/projects/{key}/{kind}/{name}`: the file's text and
+ * the sha256 of its bytes, its resolved form in its own context and the warnings resolving it gave, the projects whose
+ * own file of that name overrides a global one, whether a project file overrides a global one, and the workflow files
+ * that name a step.
+ */
+export type FileDetail = FileItem & {
+  text: string;
+  sha256: string;
+  resolved: { doc: WorkflowDoc } | { step: StepEntry } | { error: string };
+  warnings: Warning[];
+  overriddenBy: { key: string; label: string }[];
+  overrides: boolean;
+  usedBy: FileUse[];
+};
+
+/** `POST …/files/…/{kind}/{name}/validate`. */
+export type FileValidateResponse = { ok: boolean; errors: string[]; warnings: string[] };
+
+/** `PUT …/files/…/{kind}/{name}`: the path written and the sha256 of its text. */
+export type FileSaveResponse = { path: string; sha256: string };

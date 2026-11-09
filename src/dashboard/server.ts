@@ -11,14 +11,19 @@ import {
   archivedChange,
   change,
   changes,
+  file,
+  files,
+  NOT_JSON,
   projects,
   prompts,
   type Reply,
   revert,
   save,
+  saveFile,
   source,
   steps,
   validate,
+  validateFileText,
   workflow,
   workflows,
 } from "./api";
@@ -121,6 +126,24 @@ export function createApp(home: string, initial: string | null, port: () => numb
   });
   app.delete("/api/v1/projects/:key/sources/:kind/:name", ...writes, (c) =>
     reply(revert(home, c.req.param("key"), c.req.param("kind"), c.req.param("name"), c.req.query("base"))),
+  );
+
+  app.get("/api/v1/files", () => reply(files(home)));
+  app.get("/api/v1/files/global/:kind/:name", (c) => reply(file(home, "global", null, c.req.param("kind"), c.req.param("name"))));
+  app.get("/api/v1/files/projects/:key/:kind/:name", (c) => reply(file(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"))));
+  /** The JSON body of a file write, or `NOT_JSON`, checked by the handler after the route's params. */
+  const fileBody = async (c: Context): Promise<unknown> => c.req.json().catch(() => NOT_JSON);
+  app.post("/api/v1/files/global/:kind/:name/validate", ...writes, async (c) =>
+    reply(validateFileText(home, "global", null, c.req.param("kind"), c.req.param("name"), await fileBody(c))),
+  );
+  app.post("/api/v1/files/projects/:key/:kind/:name/validate", ...writes, async (c) =>
+    reply(validateFileText(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"), await fileBody(c))),
+  );
+  app.put("/api/v1/files/global/:kind/:name", ...writes, async (c) =>
+    reply(saveFile(home, "global", null, c.req.param("kind"), c.req.param("name"), await fileBody(c))),
+  );
+  app.put("/api/v1/files/projects/:key/:kind/:name", ...writes, async (c) =>
+    reply(saveFile(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"), await fileBody(c))),
   );
 
   app.notFound(() => json(404, { error: "not found" }));
