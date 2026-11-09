@@ -1,9 +1,7 @@
 import type { Server } from "node:http";
-import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { createApp } from "../dashboard/server";
-import { isDir, thewayHome } from "./io";
-import { projectDir, resolveKey } from "./project";
+import { thewayHome } from "./io";
 
 /**
  * `theway dashboard [--port <n>]`: serves the dashboard on `127.0.0.1` until SIGINT or SIGTERM. Resolves to the exit
@@ -11,10 +9,8 @@ import { projectDir, resolveKey } from "./project";
  */
 export function cmdDashboard(port: number): Promise<number> {
   const home = thewayHome();
-  const key = isDir(join(home, "projects")) ? resolveKey(undefined) : null;
-  const initial = key !== null && isDir(projectDir(home, key)) ? key : null;
   let bound = port;
-  const app = createApp(home, initial, () => bound);
+  const app = createApp(home, () => bound);
   return new Promise((done) => {
     const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
       bound = info.port;

@@ -1,46 +1,36 @@
 /** Groups active changes into series rows for the Changes page. Pure: no DOM, no JSX. */
-import type { ActiveChange, Status } from "../../types";
+import type { ActiveChange, SeriesProgress } from "../../types";
 
-/** A row of the Changes table: a series of two or more members, or one change on its own. */
+/** A row of the Changes page: a series with its active members and its progress, or one change on its own. */
 export type Row =
-  | { kind: "series"; id: string; members: ActiveChange[]; status: Status }
-  | { kind: "change"; id: string; change: ActiveChange; status: Status };
-
-/** The order of the rows by status. */
-export const STATUS_ORDER: Status[] = ["In progress", "Not started", "No tasks", "Ready to archive"];
-
-/**
- * The status of a series from its members' statuses: "No tasks" when every member has none; otherwise, over the
- * members that have tasks, "Ready to archive" or "Not started" when every one is, "In progress" else.
- */
-export function seriesStatus(statuses: Status[]): Status {
-  const counted = statuses.filter((s) => s !== "No tasks");
-  if (counted.length === 0) return "No tasks";
-  if (counted.every((s) => s === "Ready to archive")) return "Ready to archive";
-  if (counted.every((s) => s === "Not started")) return "Not started";
-  return "In progress";
-}
+  | { kind: "series"; id: string; members: ActiveChange[]; done: number; total: number }
+  | { kind: "change"; id: string; change: ActiveChange };
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-/** The rows of the active changes: series members grouped and sorted by ordinal, rows ordered by status, then ID. */
-export function rowsOf(active: ActiveChange[]): Row[] {
-  const series = new Map<string, ActiveChange[]>();
-  for (const c of active) {
-    if (c.series === null) continue;
-    const members = series.get(c.series.id) ?? [];
-    members.push(c);
-    series.set(c.series.id, members);
-  }
+/**
+ * The rows of a project's active changes: an active change whose series is in `series` joins that series' row, even
+ * as its only active member, members sorted by ordinal; every other change is a row of its own. Rows are sorted by ID.
+ */
+export function rowsOf(active: ActiveChange[], series: SeriesProgress[]): Row[] {
+  const progress = new Map(series.map((s) => [s.id, s]));
+  const members = new Map<string, ActiveChange[]>();
   const rows: Row[] = [];
   for (const c of active) {
-    const members = c.series === null ? undefined : series.get(c.series.id);
-    if (members === undefined || members.length < 2) {
-      rows.push({ kind: "change", id: c.id, change: c, status: c.status });
-    } else if (members[0] === c) {
-      const sorted = [...members].sort((a, b) => (a.series?.ordinal ?? 0) - (b.series?.ordinal ?? 0));
-      rows.push({ kind: "series", id: c.series?.id as string, members: sorted, status: seriesStatus(sorted.map((m) => m.status)) });
+    const s = c.series === null ? undefined : progress.get(c.series.id);
+    if (s === undefined) {
+      rows.push({ kind: "change", id: c.id, change: c });
+      continue;
     }
+    const list = members.get(s.id);
+    if (list !== undefined) {
+      list.push(c);
+      continue;
+    }
+    const first = [c];
+    members.set(s.id, first);
+    rows.push({ kind: "series", id: s.id, members: first, done: s.done, total: s.total });
   }
-  return rows.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || byText(a.id, b.id));
+  for (const list of members.values()) list.sort((a, b) => (a.series?.ordinal ?? 0) - (b.series?.ordinal ?? 0));
+  return rows.sort((a, b) => byText(a.id, b.id));
 }

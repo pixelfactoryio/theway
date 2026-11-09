@@ -5,9 +5,9 @@ import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { folderOf, labels } from "../src/dashboard/api";
-import { rowsOf, seriesStatus } from "../src/dashboard/client/lib/series";
+import { rowsOf } from "../src/dashboard/client/lib/series";
 import { keyOf } from "../src/core/project";
-import type { ActiveChange } from "../src/dashboard/types";
+import type { ActiveChange, SeriesProgress } from "../src/dashboard/types";
 
 const ROOT = join(import.meta.dirname, "..");
 const CLI = join(ROOT, "dist", "theway.js");
@@ -117,11 +117,11 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   const css = await get(port, "/app.css");
   expect([css.status, css.headers["content-type"]]).toEqual([200, "text/css; charset=utf-8"]);
   expect(css.body).toContain(".base-ui-disable-scrollbar");
-  const api = await get(port, "/api/v1/projects");
+  const api = await get(port, "/api/v1/changes");
   expect(api.headers["cache-control"]).toBe("no-store");
   expect(api.headers["content-security-policy"]).toBe(CSP);
   expect(page.headers["cache-control"]).toBeUndefined();
-  expect(JSON.parse(api.body)).toEqual({ initial: null, projects: [] });
+  expect(JSON.parse(api.body)).toEqual({ total: 0, projects: [] });
 });
 
 test("dashboard refuses a --port that is not an integer from 0 to 65535", () => {
@@ -151,28 +151,24 @@ test("dashboard exits 0 on SIGTERM", async () => {
 test("dashboard answers 403 to a request whose Host is not its own", async () => {
   const { port } = await start(home());
   for (const host of [`evil.example:${port}`, "127.0.0.1", `localhost:${port + 1}`]) {
-    const res = await get(port, "/api/v1/projects", { host });
+    const res = await get(port, "/api/v1/changes", { host });
     expect([res.status, JSON.parse(res.body)]).toEqual([403, { error: "forbidden host" }]);
     expect(res.headers["content-security-policy"]).toBe(CSP);
   }
   expect((await get(port, "/", { host: `localhost:${port}` })).status).toBe(200);
 });
 
-test("dashboard lists projects and changes with series, statuses and the counts of theway list", async () => {
+test("GET /api/v1/changes gives each project's changes with series, statuses and the counts of theway list", async () => {
   const dir = changesHome();
   const { port } = await start(dir);
-  const projects = await json(port, "/api/v1/projects");
-  expect(projects.type).toBe("application/json; charset=utf-8");
-  expect(projects.body).toEqual({
-    initial: "-Users-me-alpha",
-    projects: [
-      { key: "-Users-me-alpha", label: "alpha", active: 4, archived: 2 },
-      { key: "-Users-me-beta", label: "beta", active: 1, archived: 0 },
-    ],
-  });
-  const changes = await json(port, "/api/v1/projects/-Users-me-alpha/changes");
-  expect(changes.status).toBe(200);
-  expect(changes.body).toEqual({
+  const res = await json(port, "/api/v1/changes");
+  expect(res.type).toBe("application/json; charset=utf-8");
+  expect(res.body.projects.map((p: { key: string; label: string }) => [p.key, p.label])).toEqual([
+    ["-Users-me-alpha", "alpha"],
+    ["-Users-me-beta", "beta"],
+  ]);
+  const alpha = res.body.projects[0];
+  expect({ active: alpha.active, archived: alpha.archived }).toEqual({
     active: [
       { id: "add-feed-01", files: 4, tasks: { done: 2, total: 2 }, status: "Ready to archive", series: { id: "add-feed", ordinal: 1 } },
       { id: "add-feed-02", files: 1, tasks: { done: 1, total: 2 }, status: "In progress", series: { id: "add-feed", ordinal: 2 } },
@@ -185,34 +181,32 @@ test("dashboard lists projects and changes with series, statuses and the counts 
     ],
   });
   const list = spawnSync("node", [CLI, "list", "--project", "-Users-me-alpha"], { encoding: "utf-8", env: { ...process.env, THEWAY_HOME: dir } });
-  for (const c of changes.body.active as ActiveChange[]) {
+  for (const c of alpha.active as ActiveChange[]) {
     expect(list.stdout).toContain(`  ${c.id.padEnd(20)} ${c.files} files   ${c.tasks.done}/${c.tasks.total} tasks done\n`);
   }
 });
 
-test("series status ignores members without tasks and is No tasks when every member has none", () => {
-  expect(seriesStatus(["Ready to archive", "No tasks"])).toBe("Ready to archive");
-  expect(seriesStatus(["Not started", "No tasks", "Not started"])).toBe("Not started");
-  expect(seriesStatus(["Not started", "Ready to archive"])).toBe("In progress");
-  expect(seriesStatus(["No tasks", "No tasks"])).toBe("No tasks");
-  const change = (id: string, done: number, total: number, status: ActiveChange["status"]): ActiveChange => {
-    const m = /^(.+)-([0-9]{2})$/.exec(id);
-    return { id, files: 1, tasks: { done, total }, status, series: m === null ? null : { id: m[1] as string, ordinal: Number(m[2]) } };
-  };
-  const rows = rowsOf([
-    change("add-a-01", 1, 1, "Ready to archive"),
-    change("add-a-02", 0, 0, "No tasks"),
-    change("add-b-01", 0, 0, "No tasks"),
-    change("add-b-02", 0, 0, "No tasks"),
-    change("add-c-01", 0, 2, "Not started"),
-    change("fix-d", 1, 2, "In progress"),
+const change = (id: string, done: number, total: number): ActiveChange => {
+  const m = /^(.+)-([0-9]{2})$/.exec(id);
+  return { id, files: 1, tasks: { done, total }, status: "In progress", series: m === null ? null : { id: m[1] as string, ordinal: Number(m[2]) } };
+};
+
+test("rowsOf joins an active change to its series row when the series is listed, even alone, and sorts rows by ID", () => {
+  const series: SeriesProgress[] = [
+    { id: "add-a", done: 1, total: 2 },
+    { id: "add-c", done: 0, total: 3 },
+  ];
+  const rows = rowsOf([change("fix-d", 1, 2), change("add-c-03", 0, 1), change("add-c-01", 1, 1), change("add-a-02", 0, 2), change("add-b-01", 0, 0)], series);
+  expect(rows.map((r) => [r.kind, r.id])).toEqual([
+    ["series", "add-a"],
+    ["change", "add-b-01"],
+    ["series", "add-c"],
+    ["change", "fix-d"],
   ]);
-  expect(rows.map((r) => [r.kind, r.id, r.status])).toEqual([
-    ["change", "fix-d", "In progress"],
-    ["change", "add-c-01", "Not started"],
-    ["series", "add-b", "No tasks"],
-    ["series", "add-a", "Ready to archive"],
-  ]);
+  expect(rows[0]).toEqual({ kind: "series", id: "add-a", members: [change("add-a-02", 0, 2)], done: 1, total: 2 });
+  const c = rows[2];
+  expect(c?.kind === "series" && [c.members.map((m) => m.id), c.done, c.total]).toEqual([["add-c-01", "add-c-03"], 0, 3]);
+  expect(rows[1]).toEqual({ kind: "change", id: "add-b-01", change: change("add-b-01", 0, 0) });
 });
 
 test("dashboard renders a change's files spec first with raw HTML escaped, and an archived change", async () => {
@@ -299,11 +293,11 @@ test("a change's properties give its PR link from tasks.md and its series from i
 test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a GET route included", async () => {
   const { port } = await start(changesHome());
   for (const path of [
-    "/api/v1/projects/a%2Fb/changes",
+    "/api/v1/projects/a%2Fb/changes/add-x",
     "/api/v1/projects/-Users-me-alpha/changes/..%2Fx",
     "/api/v1/projects/-Users-me-alpha/archive/add-old",
     "/api/v1/projects/-Users-me-alpha/changes/%E0%A4%A",
-    "/api/v1/projects/%E0%A4%A/workflows",
+    "/api/v1/projects/%E0%A4%A/changes/add-x",
     "/api/v1/projects/nope/changes/..%2Fx",
     "/api/v1/projects/nope/archive/add-old",
   ]) {
@@ -311,7 +305,7 @@ test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a
     expect([path, res.status, typeof res.body.error]).toEqual([path, 400, "string"]);
   }
   for (const path of [
-    "/api/v1/projects/nope/changes",
+    "/api/v1/projects/nope/changes/add-x",
     "/api/v1/projects/-Users-me-alpha/changes/add-none",
     "/api/v1/projects/-Users-me-alpha/changes/archive",
     "/api/v1/projects/-Users-me-alpha/archive/2026-01-01-add-none",
@@ -321,112 +315,29 @@ test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a
     const res = await json(port, path);
     expect([path, res.status, typeof res.body.error]).toEqual([path, 404, "string"]);
   }
-  for (const path of ["/api/v1/projects", "/"]) {
+  for (const path of ["/api/v1/changes", "/"]) {
     const res = await get(port, path, { method: "POST" });
     expect([path, res.status]).toEqual([path, 404]);
   }
 });
 
-/** A home holding the shipped config, convention standards, workflows, steps and prompts, and a project `p`. */
-function shippedHome(): string {
-  const dir = home();
-  const shipped = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
-  for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md"]) put(join(dir, rel), shipped(rel));
-  for (const folder of ["workflows", "steps", "prompts"]) {
-    for (const f of readdirSync(join(SHIPPED_HOME, folder))) put(join(dir, folder, f), shipped(`${folder}/${f}`));
-  }
+test("the routes the read-only pages replaced answer 404, and the changes and files routes 200", async () => {
+  const dir = changesHome();
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
-  return dir;
-}
-
-test("dashboard lists the shipped workflows with develop as default, and a broken project workflow with its error", async () => {
-  const dir = shippedHome();
   const { port } = await start(dir);
-  const res = await json(port, "/api/v1/projects/p/workflows");
-  expect(res.status).toBe(200);
-  expect(res.body.defaultName).toBe("develop");
-  expect(res.body.defaultError).toBeNull();
-  expect(res.body.warnings).toEqual([]);
-  const names = res.body.workflows.map((w: { name: string }) => w.name);
-  expect(names).toEqual(["agents", "develop", "engineering", "engineering-light"]);
-  const develop = res.body.workflows[1];
-  expect(develop).toEqual({
-    name: "develop",
-    origin: "global",
-    file: join(dir, "workflows", "develop.yaml"),
-    description: "The tasks done inline in your session, on the working tree, nothing committed",
-    input: "changes",
-    pushes: false,
-    default: true,
-  });
-  expect(res.body.workflows[0].pushes).toBe(true);
-
-  put(join(dir, "projects", "p", "workflows", "broken.yaml"), "version: theway.workflow/v1\nsteps: 3\n");
-  put(join(dir, "projects", "p", "workflows", "Bad_Name.yaml"), "version: theway.workflow/v1\n");
-  const broken = await json(port, "/api/v1/projects/p/workflows");
-  const items = broken.body.workflows as { name: string; origin: string; error?: string; input?: string }[];
-  expect(items.map((w) => w.name)).toEqual(["agents", "broken", "develop", "engineering", "engineering-light"]);
-  expect(items[1]).toEqual({
-    name: "broken",
-    origin: "project",
-    file: join(dir, "projects", "p", "workflows", "broken.yaml"),
-    error: "theway: projects/p/workflows/broken.yaml: steps must be a non-empty list",
-  });
-  for (const w of items.filter((i) => i.name !== "broken")) expect([w.name, w.error, typeof w.input]).toEqual([w.name, undefined, "string"]);
-  expect(broken.body.warnings).toEqual([{ file: "projects/p/workflows/Bad_Name.yaml", text: "not a valid workflow name" }]);
-
-  rmSync(join(dir, "config.yaml"));
-  const missing = await json(port, "/api/v1/projects/p/workflows");
-  expect(missing.status).toBe(200);
-  expect(missing.body.error).toStartWith("theway: config.yaml not found in ");
-  expect(missing.body.workflows).toEqual([]);
-});
-
-test("dashboard serves a workflow resolved as theway workflow prints it, its source and its prompts rendered", async () => {
-  const dir = shippedHome();
-  const { port } = await start(dir);
-  const res = await json(port, "/api/v1/projects/p/workflows/agents");
-  expect(res.status).toBe(200);
-  const cli = spawnSync("node", [CLI, "workflow", "agents", "--project", "p"], { env: { ...process.env, THEWAY_HOME: dir }, encoding: "utf-8" });
-  expect([cli.status, cli.stderr]).toEqual([0, ""]);
-  expect(res.body.workflow).toEqual(JSON.parse(cli.stdout));
-  expect(res.body.default).toBe(false);
-  expect(res.body.warnings).toEqual([]);
-  const file = join(dir, "workflows", "agents.yaml");
-  expect(res.body.source).toEqual({ path: file, text: readFileSync(file, "utf-8") });
-  const paths = [...JSON.stringify(res.body.workflow).matchAll(/"([^"]+\/prompts\/[^"]+\.md)"/g)].map((m) => m[1] as string);
-  expect(Object.keys(res.body.prompts).sort()).toEqual([...new Set(paths)].sort());
-  for (const [path, p] of Object.entries(res.body.prompts as Record<string, { html?: string }>)) {
-    expect([path, typeof p.html]).toEqual([path, "string"]);
-    expect([path, (p.html as string).length > 0]).toEqual([path, true]);
+  for (const path of [
+    "/api/v1/projects",
+    "/api/v1/projects/p/changes",
+    "/api/v1/projects/p/workflows",
+    "/api/v1/projects/p/workflows/agents",
+    "/api/v1/projects/p/sources/workflows/agents",
+    "/api/v1/projects/p/steps",
+    "/api/v1/projects/p/prompts",
+  ]) {
+    const res = await json(port, path);
+    expect([path, res.status, res.body]).toEqual([path, 404, { error: "not found" }]);
   }
-  expect((await json(port, "/api/v1/projects/p/workflows/develop")).body.default).toBe(true);
-
-  rmSync(join(dir, "prompts", "triage.md"));
-  const gone = await json(port, "/api/v1/projects/p/workflows/agents");
-  expect(gone.status).toBe(422);
-  expect(typeof gone.body.error).toBe("string");
-  expect(Array.isArray(gone.body.warnings)).toBe(true);
-
-  put(join(dir, "projects", "p", "workflows", "broken.yaml"), "version: theway.workflow/v1\nsteps: 3\n");
-  const broken = await json(port, "/api/v1/projects/p/workflows/broken");
-  expect([broken.status, broken.body]).toEqual([422, { error: "theway: projects/p/workflows/broken.yaml: steps must be a non-empty list", warnings: [] }]);
-  const unknown = await json(port, "/api/v1/projects/p/workflows/nope");
-  expect([unknown.status, unknown.body]).toEqual([404, { error: "unknown workflow" }]);
-  const bad = await json(port, "/api/v1/projects/p/workflows/Bad_Name");
-  expect([bad.status, bad.body]).toEqual([400, { error: "invalid workflow name 'Bad_Name'" }]);
-  const noProject = await json(port, "/api/v1/projects/nope/workflows/Bad_Name");
-  expect(noProject.status).toBe(400);
-});
-
-test("the client imports React Flow's stylesheet and leaves pan, zoom and fit to React Flow", () => {
-  const client = join(ROOT, "src", "dashboard", "client");
-  expect(readFileSync(join(client, "styles", "globals.css"), "utf-8")).toContain('@import "@xyflow/react/dist/style.css";');
-  const files = (readdirSync(client, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f) && !f.startsWith("components/ui"));
-  for (const f of files) {
-    const text = readFileSync(join(client, f), "utf-8");
-    expect([f, /addEventListener\("wheel"|onWheel|\bsetViewport\(|\.scale\(|matrix\(/.test(text)]).toEqual([f, false]);
-  }
+  for (const path of ["/api/v1/changes", "/api/v1/files"]) expect([path, (await get(port, path)).status]).toEqual([path, 200]);
 });
 
 /** The packages the dashboard pins, each an exact devDependencies entry. */
@@ -448,26 +359,26 @@ const PINS: Record<string, string> = {
   "@hono/node-server": "2.1.5",
   wouter: "3.13.0",
   "@tanstack/react-query": "5.104.5",
-  "@xyflow/react": "12.12.0",
 };
 
 test("package.json has no dependencies and pins every dashboard package exactly", () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf-8"));
   expect(pkg.dependencies).toBeUndefined();
+  expect(pkg.devDependencies["@xyflow/react"]).toBeUndefined();
   for (const [name, version] of Object.entries(PINS)) expect([name, pkg.devDependencies[name]]).toEqual([name, version]);
 });
 
-test("the client uses no cmdk and wraps the app in CSPProvider disableStyleElements and TooltipProvider", () => {
+test("the client uses no cmdk and wraps the app in CSPProvider disableStyleElements", () => {
   const client = join(ROOT, "src", "dashboard", "client");
   const files = (readdirSync(client, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f));
   expect(files.length).toBeGreaterThan(0);
   for (const f of files) expect([f, /from "cmdk"|components\/ui\/command/.test(readFileSync(join(client, f), "utf-8"))]).toEqual([f, false]);
   const app = readFileSync(join(client, "app.tsx"), "utf-8");
   expect(app).toContain("<CSPProvider disableStyleElements>");
-  expect(app).toContain("<TooltipProvider>");
-  for (const ui of ["button", "badge", "tabs", "table", "dialog", "alert-dialog", "select", "input", "label", "checkbox", "textarea", "dropdown-menu", "tooltip", "separator", "scroll-area", "sidebar", "progress", "alert"]) {
-    expect(files).toContain(join("components", "ui", `${ui}.tsx`));
-  }
+  const ui = files.filter((f) => f.startsWith(join("components", "ui"))).sort();
+  expect(ui).toEqual(
+    ["alert-dialog", "button", "checkbox", "dialog", "dropdown-menu", "select", "tabs", "textarea"].map((n) => join("components", "ui", `${n}.tsx`)),
+  );
 });
 
 test("dashboard labels a project by its folder's name, <parent>/<name> when shared, the key prefix rule when not found", () => {

@@ -1,155 +1,188 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
-import { Empty, PageHeader } from "@/components/state";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "cn";
+import { type ReactNode, useState } from "react";
+import { Link, Redirect } from "wouter";
+import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Confirm, type ConfirmAsk, NewFileDialog } from "@/editor/dialogs";
-import { newWorkflowText } from "@/editor/ops";
-import { setPendingWorkflow } from "@/editor/pending";
-import { revertFile, useWorkflowSources, useWorkflows } from "@/lib/api";
-import { useLabel } from "@/lib/projects";
+import { StepView } from "@/files/StepView";
+import { WorkflowView } from "@/files/WorkflowView";
+import { type FileRef, fileHref, useFile, useFiles } from "@/lib/api";
+import type { FileDetail, FileItem } from "../../types";
 
-/**
- * The Workflows page: one row per workflow, linked to its graph, or its error line, then the warnings; New workflow,
- * and Revert to global on a project workflow whose name also exists globally.
- */
-export function WorkflowsPage({ projectKey }: { projectKey: string }) {
-  const label = useLabel(projectKey);
-  const workflows = useWorkflows(projectKey);
-  const data = workflows.data;
-  const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
-  const [creating, setCreating] = useState(0);
-  const [ask, setAsk] = useState<ConfirmAsk | null>(null);
-  const [failed, setFailed] = useState<string[] | null>(null);
-  const own = (data?.workflows ?? []).filter((w) => w.origin === "project").map((w) => w.name);
-  const sources = useWorkflowSources(projectKey, own);
-  const copyOf = (name: string) => {
-    const s = sources[own.indexOf(name)]?.data;
-    return s !== undefined && s !== null && s.globalPath !== null && s.sha256 !== null ? s : null;
-  };
-  const revert = (name: string, base: string) =>
-    setAsk({
-      title: "Revert to global?",
-      text: `This deletes projects/${label}/workflows/${name}.yaml; the project uses the global workflow again.`,
-      action: "Revert",
-      onConfirm: () => {
-        void revertFile(projectKey, "workflows", name, base)
-          .then(async (r) => {
-            if (r.status === 200) {
-              setFailed(null);
-              await queryClient.invalidateQueries({ queryKey: ["sources", projectKey] });
-              await queryClient.invalidateQueries({ queryKey: ["workflows", projectKey] });
-              await queryClient.invalidateQueries({ queryKey: ["workflow", projectKey, name] });
-            } else if ("conflicts" in r.body) setFailed([`${name}: changed on disk since the page loaded; reload it.`]);
-            else if ("errors" in r.body) setFailed(r.body.errors);
-          })
-          .catch((e: Error) => setFailed([e.message]));
-      },
-    });
+const sameFile = (a: FileRef, b: FileRef): boolean => a.scope === b.scope && a.key === b.key && a.kind === b.kind && a.name === b.name;
+
+/** The note on an item's right: `default`, `<label> only` and ` · default`; `null` for none. */
+function itemNote(item: FileItem): string | null {
+  if (item.scope === "global") return item.default ? "default" : null;
+  return `${item.label ?? item.key ?? ""} only${item.default ? " · default" : ""}`;
+}
+
+function Item({ item, selected }: { item: FileItem; selected: boolean }) {
+  const note = itemNote(item);
+  return (
+    <Link
+      href={fileHref(item)}
+      aria-current={selected ? "page" : undefined}
+      className={cn("flex items-baseline justify-between gap-2 rounded-md px-2.5 py-1.5", selected ? "bg-accent" : "hover:bg-accent")}
+    >
+      <span className="truncate font-mono text-[13px]">{item.name}</span>
+      {item.error !== null ? (
+        <span className="shrink-0 text-[12px] text-destructive" title={item.error}>
+          error
+        </span>
+      ) : (
+        note !== null && <span className="shrink-0 text-[12px] text-muted-foreground">{note}</span>
+      )}
+    </Link>
+  );
+}
+
+/** The file list: the workflows, then the steps, in the response's order. */
+function FileList({ selected }: { selected: FileRef | null }) {
+  const files = useFiles();
+  if (files.data === undefined) return <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>;
+  const group = (heading: string, items: FileItem[], first: boolean) => (
+    <>
+      <div className={cn("px-2.5 pb-1 text-[12px] text-muted-foreground", first ? "" : "pt-3.5")}>{heading}</div>
+      {items.map((item) => (
+        <Item key={`${item.scope}/${item.key ?? ""}/${item.kind}/${item.name}`} item={item} selected={selected !== null && sameFile(item, selected)} />
+      ))}
+    </>
+  );
+  return (
+    <nav aria-label="Files" className="flex flex-col gap-px">
+      {group("Workflows", files.data.workflows, true)}
+      {group("Steps", files.data.steps, false)}
+    </nav>
+  );
+}
+
+/** A labelled block of the facts column. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-medium">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** The facts column: the file's path, what uses it, and its warnings. */
+function Facts({ detail }: { detail: FileDetail }) {
+  return (
+    <div className="flex flex-col gap-3.5">
+      <Fact label="File">
+        <span className="font-mono text-[13px] break-all">{detail.path}</span>
+      </Fact>
+      {detail.kind === "workflows" ? (
+        <Fact label="Used by">
+          {detail.scope === "global" ? (
+            <span>
+              all projects
+              {detail.overriddenBy.length > 0 && ` except ${detail.overriddenBy.map((p) => p.label).join(", ")}`}
+            </span>
+          ) : (
+            <>
+              <span>{detail.label ?? detail.key} only</span>
+              {detail.overrides && <span>replaces the global {detail.name}</span>}
+            </>
+          )}
+        </Fact>
+      ) : (
+        <Fact label="Used by">
+          {detail.usedBy.length === 0 ? (
+            <span>no workflow</span>
+          ) : (
+            detail.usedBy.map((u) => (
+              <Link
+                key={`${u.scope}/${u.key ?? ""}/${u.name}`}
+                href={fileHref({ scope: u.scope, key: u.key, kind: "workflows", name: u.name })}
+                className="underline"
+              >
+                {u.name}
+                {u.scope === "project" && ` (${u.label ?? u.key})`}
+              </Link>
+            ))
+          )}
+        </Fact>
+      )}
+      {detail.warnings.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {detail.warnings.map((w) => (
+            <span key={`${w.file}: ${w.text}`} className="text-[12px] text-muted-foreground break-words">
+              {w.file}: {w.text}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The centre: the title row with the YAML switch, then the drawing or the file's text. */
+function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
+  const [yaml, setYaml] = useState(false);
   return (
     <>
-      <PageHeader project={label} crumbs="Workflows">
-        <Button size="sm" variant="outline" onClick={() => setCreating((n) => n + 1)}>
-          New workflow
+      <div className="flex flex-wrap items-center gap-3 py-4 pl-6">
+        <div className="min-w-0">
+          <h1 className="font-mono text-[20px] font-medium break-all">{file.name}</h1>
+          {detail.description !== null && <span className="text-muted-foreground">{detail.description}</span>}
+        </div>
+        <Button variant="outline" className="ml-auto" aria-pressed={yaml} onClick={() => setYaml(!yaml)}>
+          YAML
         </Button>
-      </PageHeader>
-      <NewFileDialog
-        key={creating}
-        open={creating > 0}
-        kind="workflow"
-        taken={(data?.workflows ?? []).map((w) => w.name)}
-        onCancel={() => setCreating(0)}
-        onSubmit={(v) => {
-          setPendingWorkflow(projectKey, v.name, newWorkflowText(v.description));
-          setCreating(0);
-          navigate(`/p/${projectKey}/workflows/${v.name}/edit`);
-        }}
-      />
-      <Confirm ask={ask} onClose={() => setAsk(null)} />
-      {data === undefined ? (
-        <Empty error={workflows.isError}>{workflows.isError ? workflows.error.message : "Loading…"}</Empty>
-      ) : (
-        <main className="flex flex-col gap-5 p-6">
-          {data.error !== undefined && <p className="font-mono text-[12px] text-destructive">{data.error}</p>}
-          {failed !== null && (
-            <Alert variant="destructive">
-              <AlertTitle>Not reverted</AlertTitle>
-              <AlertDescription>
-                <ul className="font-mono text-[12px]">
-                  {failed.map((e) => (
-                    <li key={e}>{e}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
-          {data.defaultError !== null && (
-            <p className="text-destructive">
-              No default workflow: <span className="font-mono text-[12px]">{data.defaultError}</span>
-            </p>
-          )}
-          {data.workflows.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="min-w-[280px] px-4">Workflow</TableHead>
-                    <TableHead>Origin</TableHead>
-                    <TableHead>Input</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.workflows.map((w) => (
-                    <TableRow key={w.name}>
-                      <TableCell className="px-4 py-3 align-top whitespace-normal">
-                        <Link href={`/p/${projectKey}/workflows/${w.name}`} className="font-mono hover:underline" title={w.file}>
-                          {w.name}
-                        </Link>
-                        {w.error !== undefined ? (
-                          <div className="mt-0.5 font-mono text-[12px] text-destructive">{w.error}</div>
-                        ) : (
-                          w.description != null && <div className="mt-0.5 text-muted-foreground">{w.description}</div>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-3 align-top text-muted-foreground">{w.origin}</TableCell>
-                      <TableCell className="py-3 align-top">{w.input ?? ""}</TableCell>
-                      <TableCell className="py-3 align-top">
-                        <div className="flex items-center gap-1.5">
-                          {w.default === true && <Badge variant="secondary">default</Badge>}
-                          {w.pushes === true && <Badge variant="outline">pushes</Badge>}
-                          {w.origin === "project" && copyOf(w.name) !== null && (
-                            <Button variant="ghost" size="xs" onClick={() => revert(w.name, copyOf(w.name)?.sha256 as string)}>
-                              Revert to global
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          {data.workflows.length === 0 && data.error === undefined && <Empty>No workflows.</Empty>}
-          {data.warnings.length > 0 && (
-            <section className="flex flex-col gap-1.5">
-              <h2 className="font-medium">Warnings</h2>
-              <ul className="flex flex-col gap-1 font-mono text-[12px] text-muted-foreground">
-                {data.warnings.map((w, i) => (
-                  <li key={i}>
-                    {w.file}: {w.text}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </main>
-      )}
+      </div>
+      <div className="flex flex-1 flex-col items-center gap-3 bg-muted p-6">
+        {yaml ? (
+          <pre className="w-full overflow-x-auto rounded-md border bg-background p-3 font-mono text-[13px]">{detail.text}</pre>
+        ) : detail.kind === "workflows" ? (
+          <WorkflowView detail={detail} />
+        ) : (
+          <StepView name={detail.name} text={detail.text} />
+        )}
+      </div>
     </>
+  );
+}
+
+/** The three columns: the file list, the centre and the facts. */
+function Columns({ selected, centre, facts }: { selected: FileRef | null; centre: ReactNode; facts: ReactNode }) {
+  return (
+    <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
+      <aside aria-label="Files" className="w-[280px] shrink-0 border-r py-4 pr-4">
+        <FileList selected={selected} />
+      </aside>
+      <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
+      <aside aria-label="Facts" className="w-[280px] shrink-0 border-l py-4 pl-4">
+        {facts}
+      </aside>
+    </div>
+  );
+}
+
+/** `/workflows`: the first workflow of the list. */
+export function WorkflowsIndex() {
+  const files = useFiles();
+  const first = files.data?.workflows[0];
+  if (first !== undefined) return <Redirect to={fileHref(first)} replace />;
+  return <Columns selected={null} centre={files.data !== undefined && <Empty>No workflows</Empty>} facts={null} />;
+}
+
+/** The Workflows page with one file selected. */
+export function WorkflowsPage({ file }: { file: FileRef }) {
+  const detail = useFile(file);
+  const key = `${file.scope}/${file.key ?? ""}/${file.kind}/${file.name}`;
+  return (
+    <Columns
+      selected={file}
+      centre={
+        detail.data === undefined ? (
+          <Empty error={detail.isError}>{detail.isError ? detail.error.message : "Loading…"}</Empty>
+        ) : (
+          <Centre key={key} file={file} detail={detail.data} />
+        )
+      }
+      facts={detail.data !== undefined && <Facts detail={detail.data} />}
+    />
   );
 }

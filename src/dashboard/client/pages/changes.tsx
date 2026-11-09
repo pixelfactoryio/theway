@@ -1,162 +1,124 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Empty, PageHeader, StatusBadge, TaskBar } from "@/components/state";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useChanges } from "@/lib/api";
-import { useLabel } from "@/lib/projects";
+import { Bar, Empty } from "@/components/state";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAllChanges } from "@/lib/api";
 import { type Row, rowsOf } from "@/lib/series";
-import type { ActiveChange, ArchivedChange } from "../../types";
+import type { ActiveChange, AllChangesResponse, ArchivedChange } from "../../types";
 
-/** One of the four totals. */
-function Total({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border p-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`text-2xl font-semibold ${className ?? ""}`}>{children}</span>
-    </div>
-  );
-}
+type Project = AllChangesResponse["projects"][number];
 
-/** A member's bar with its ordinal and task count, linking to the member. */
-function Member({ projectKey, change }: { projectKey: string; change: ActiveChange }) {
-  const ordinal = String(change.series?.ordinal ?? 0).padStart(2, "0");
+/** The value of the Select's first item. */
+const ALL = "";
+
+/** The three columns of a row: the name, the bar and the count. */
+const ROW = "grid grid-cols-[minmax(0,1fr)_160px_170px] items-center gap-6 border-t py-[11px]";
+
+/** The count text: `<done> of <total> tasks`, or `no tasks`. */
+const taskCount = (c: ActiveChange): string => (c.tasks.total === 0 ? "no tasks" : `${c.tasks.done} of ${c.tasks.total} tasks`);
+
+function ChangeRow({ projectKey, change, indent = false }: { projectKey: string; change: ActiveChange; indent?: boolean }) {
   return (
-    <Link href={`/p/${projectKey}/changes/${change.id}`} title={change.id} className="flex w-[72px] flex-col gap-1 hover:opacity-80">
-      <TaskBar tasks={change.tasks} />
-      <span className="text-[11px] text-muted-foreground tabular-nums">
-        {ordinal} · {change.tasks.done}/{change.tasks.total}
-      </span>
+    <Link href={`/changes/${projectKey}/${change.id}`} className={`${ROW} ${indent ? "pl-6" : ""} hover:bg-accent`}>
+      <span className="truncate font-mono text-[13px]">{change.id}</span>
+      <Bar done={change.tasks.done} total={change.tasks.total} />
+      <span className="text-right text-muted-foreground tabular-nums">{taskCount(change)}</span>
     </Link>
   );
 }
 
-function RowView({ projectKey, row }: { projectKey: string; row: Row }) {
+/** A series row: a button that shows or hides its active members beneath it. */
+function SeriesRow({ projectKey, row }: { projectKey: string; row: Extract<Row, { kind: "series" }> }) {
+  const [open, setOpen] = useState(false);
   return (
-    <TableRow>
-      <TableCell className="py-3">
-        {row.kind === "series" ? (
-          <span className="font-mono">{row.id}</span>
-        ) : (
-          <Link href={`/p/${projectKey}/changes/${row.id}`} className="font-mono hover:underline">
-            {row.id}
-          </Link>
-        )}
-      </TableCell>
-      <TableCell className="py-3">
-        {row.kind === "series" ? (
-          <div className="flex flex-wrap gap-1.5">
-            {row.members.map((m) => (
-              <Member key={m.id} projectKey={projectKey} change={m} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex w-[228px] flex-col gap-1">
-            <TaskBar tasks={row.change.tasks} />
-            <span className="text-[11px] text-muted-foreground tabular-nums">
-              {row.change.tasks.done}/{row.change.tasks.total}
-            </span>
-          </div>
-        )}
-      </TableCell>
-      <TableCell className="py-3">
-        <StatusBadge status={row.status} />
-      </TableCell>
-    </TableRow>
+    <>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${ROW} w-full text-left hover:bg-accent`}>
+        <span className="truncate">
+          <span className="font-mono text-[13px]">{row.id}</span> <span className="text-muted-foreground">· {row.total} changes</span>
+        </span>
+        <Bar done={row.done} total={row.total} />
+        <span className="text-right text-muted-foreground tabular-nums">
+          {row.done} of {row.total} done
+        </span>
+      </button>
+      {open && row.members.map((m) => <ChangeRow key={m.id} projectKey={projectKey} change={m} indent />)}
+    </>
   );
 }
 
-function ArchivedList({ projectKey, archived }: { projectKey: string; archived: ArchivedChange[] }) {
-  if (archived.length === 0) return <Empty>No archived changes.</Empty>;
+function ArchivedRow({ projectKey, archived }: { projectKey: string; archived: ArchivedChange }) {
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/40">
-          <TableRow>
-            <TableHead className="w-32 px-4">Date</TableHead>
-            <TableHead className="px-4">Change</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {archived.map((a) => (
-            <TableRow key={a.folder}>
-              <TableCell className="px-4 text-muted-foreground tabular-nums">{a.date ?? "—"}</TableCell>
-              <TableCell className="px-4">
-                {a.id === null ? (
-                  <span className="font-mono">{a.folder}</span>
-                ) : (
-                  <Link href={`/p/${projectKey}/archive/${a.folder}`} className="font-mono hover:underline">
-                    {a.id}
-                  </Link>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <Link href={`/archive/${projectKey}/${archived.folder}`} className={`${ROW} hover:bg-accent`}>
+      <span className="truncate font-mono text-[13px]">{archived.id ?? archived.folder}</span>
+      <span />
+      <span className="text-right text-muted-foreground tabular-nums">{archived.date ?? ""}</span>
+    </Link>
   );
 }
 
-/** The Changes page: the Active and Archived tabs, the four totals, the series table and the archived list. */
-export function ChangesPage({ projectKey }: { projectKey: string }) {
-  const label = useLabel(projectKey);
-  const changes = useChanges(projectKey);
-  const [tab, setTab] = useState<string>("active");
-  const data = changes.data;
-  const done = data?.active.reduce((n, c) => n + c.tasks.done, 0) ?? 0;
-  const total = data?.active.reduce((n, c) => n + c.tasks.total, 0) ?? 0;
-  const ready = data?.active.filter((c) => c.status === "Ready to archive").length ?? 0;
-  const rows = data === undefined ? [] : rowsOf(data.active);
+function Section({ project, showArchived }: { project: Project; showArchived: boolean }) {
+  const rows = rowsOf(project.active, project.series);
   return (
-    <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="gap-0">
-      <PageHeader project={label} crumbs="Changes">
-        <TabsList>
-          <TabsTrigger value="active">Active {data?.active.length ?? ""}</TabsTrigger>
-          <TabsTrigger value="archived">Archived {data?.archived.length ?? ""}</TabsTrigger>
-        </TabsList>
-      </PageHeader>
+    <section className="flex flex-col">
+      <h2 className="mb-1.5 text-[12px] font-medium text-muted-foreground">{project.label}</h2>
+      <div className="flex flex-col border-b">
+        {rows.map((row) =>
+          row.kind === "series" ? (
+            <SeriesRow key={`s:${row.id}`} projectKey={project.key} row={row} />
+          ) : (
+            <ChangeRow key={`c:${row.id}`} projectKey={project.key} change={row.change} />
+          ),
+        )}
+        {showArchived && project.archived.map((a) => <ArchivedRow key={`a:${a.folder}`} projectKey={project.key} archived={a} />)}
+      </div>
+    </section>
+  );
+}
+
+/** The Changes page: every project's active changes, one section per project, and the archived ones on demand. */
+export function ChangesPage() {
+  const query = useAllChanges();
+  const [archived, setArchived] = useState(false);
+  const [selected, setSelected] = useState<string>(ALL);
+  const data = query.data;
+  const projects = data?.projects ?? [];
+  const shown = projects.filter((p) => (selected === ALL || p.key === selected) && (p.active.length > 0 || (archived && p.archived.length > 0)));
+  const others = data === undefined ? 0 : data.total - projects.filter((p) => p.active.length > 0).length;
+  const items = [{ value: ALL, label: "All projects" }, ...projects.map((p) => ({ value: p.key, label: p.label }))];
+  return (
+    <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-6 py-6">
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="text-[20px] font-semibold">Changes</h1>
+        <span className="ml-auto flex items-center gap-4">
+          <label className="flex items-center gap-1.5 text-muted-foreground">
+            <Checkbox checked={archived} onCheckedChange={(v) => setArchived(v === true)} />
+            Archived
+          </label>
+          <Select items={items} value={selected} onValueChange={(v) => setSelected(typeof v === "string" ? v : ALL)}>
+            <SelectTrigger aria-label="Project" className="h-8 min-w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((i) => (
+                <SelectItem key={i.value} value={i.value}>
+                  {i.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </span>
+      </div>
       {data === undefined ? (
-        <Empty error={changes.isError}>{changes.isError ? changes.error.message : "Loading…"}</Empty>
+        <Empty error={query.isError}>{query.isError ? query.error.message : "Loading…"}</Empty>
+      ) : shown.length === 0 ? (
+        <Empty>No active changes</Empty>
       ) : (
-        <main className="flex flex-col gap-5 p-6">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Total label="Active changes">{data.active.length}</Total>
-            <Total label="Tasks done">
-              {done} <span className="text-[15px] font-normal text-muted-foreground">/ {total}</span>
-            </Total>
-            <Total label="Ready to archive" className="text-[#15803D]">
-              {ready}
-            </Total>
-            <Total label="Archived">{data.archived.length}</Total>
-          </div>
-          <TabsContent value="active">
-            {rows.length === 0 ? (
-              <Empty>No active changes.</Empty>
-            ) : (
-              <div className="overflow-x-auto rounded-lg border">
-                <Table>
-                  <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead className="min-w-[260px] px-4">Series / change</TableHead>
-                      <TableHead className="min-w-[340px]">Members · tasks</TableHead>
-                      <TableHead className="w-[130px]">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="[&_td:first-child]:px-4">
-                    {rows.map((row) => (
-                      <RowView key={`${row.kind}:${row.id}`} projectKey={projectKey} row={row} />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="archived">
-            <ArchivedList projectKey={projectKey} archived={data.archived} />
-          </TabsContent>
-        </main>
+        shown.map((p) => <Section key={p.key} project={p} showArchived={archived} />)
       )}
-    </Tabs>
+      {data !== undefined && others > 0 && !archived && selected === ALL && (
+        <p className="text-[12px] text-muted-foreground">{others} other projects have no active changes.</p>
+      )}
+    </main>
   );
 }

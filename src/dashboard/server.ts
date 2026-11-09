@@ -6,27 +6,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
-import {
-  allChanges,
-  archivedChange,
-  change,
-  changes,
-  file,
-  files,
-  NOT_JSON,
-  projects,
-  prompts,
-  type Reply,
-  revert,
-  save,
-  saveFile,
-  source,
-  steps,
-  validate,
-  validateFileText,
-  workflow,
-  workflows,
-} from "./api";
+import { allChanges, archivedChange, change, file, files, NOT_JSON, type Reply, saveFile, validateFileText } from "./api";
 import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/client.txt" with { type: "text" };
 import html from "./client/index.html" with { type: "text" };
@@ -39,10 +19,10 @@ const MAX_BODY = 1048576;
 const TOKEN = randomBytes(32).toString("hex");
 
 /**
- * The app for the home `home`: `initial` is the project of the current directory, `port` the port the server is bound
- * to, read on every request since port 0 is known only once listening.
+ * The app for the home `home`: `port` is the port the server is bound to, read on every request since port 0 is known
+ * only once listening.
  */
-export function createApp(home: string, initial: string | null, port: () => number): Hono {
+export function createApp(home: string, port: () => number): Hono {
   const app = new Hono();
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } });
@@ -67,8 +47,6 @@ export function createApp(home: string, initial: string | null, port: () => numb
   };
   const limit = bodyLimit({ maxSize: MAX_BODY, onError: () => json(413, { error: "too large" }) });
   const writes = [guard, jsonOnly, limit] as const;
-  /** The JSON body of a request, or `undefined` when it is not valid JSON. */
-  const body = async (c: Context): Promise<unknown> => c.req.json().catch(() => undefined);
 
   app.use(
     "*",
@@ -105,29 +83,9 @@ export function createApp(home: string, initial: string | null, port: () => numb
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }));
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
 
-  app.get("/api/v1/projects", () => reply(projects(home, initial)));
   app.get("/api/v1/changes", () => reply(allChanges(home)));
-  app.get("/api/v1/projects/:key/changes", (c) => reply(changes(home, c.req.param("key"))));
   app.get("/api/v1/projects/:key/changes/:id", (c) => reply(change(home, c.req.param("key"), c.req.param("id"))));
   app.get("/api/v1/projects/:key/archive/:folder", (c) => reply(archivedChange(home, c.req.param("key"), c.req.param("folder"))));
-  app.get("/api/v1/projects/:key/workflows", (c) => reply(workflows(home, c.req.param("key"))));
-  app.get("/api/v1/projects/:key/workflows/:name", (c) => reply(workflow(home, c.req.param("key"), c.req.param("name"))));
-  app.get("/api/v1/projects/:key/sources/:kind/:name", (c) => reply(source(home, c.req.param("key"), c.req.param("kind"), c.req.param("name"))));
-  app.get("/api/v1/projects/:key/steps", (c) => reply(steps(home, c.req.param("key"))));
-  app.get("/api/v1/projects/:key/prompts", (c) => reply(prompts(home, c.req.param("key"))));
-
-  app.post("/api/v1/projects/:key/validate", ...writes, async (c) => {
-    const b = await body(c);
-    return b === undefined ? json(400, { error: "invalid JSON" }) : reply(validate(home, c.req.param("key"), b));
-  });
-  app.put("/api/v1/projects/:key/sources", ...writes, async (c) => {
-    const b = await body(c);
-    return b === undefined ? json(400, { error: "invalid JSON" }) : reply(save(home, c.req.param("key"), b));
-  });
-  app.delete("/api/v1/projects/:key/sources/:kind/:name", ...writes, (c) =>
-    reply(revert(home, c.req.param("key"), c.req.param("kind"), c.req.param("name"), c.req.query("base"))),
-  );
-
   app.get("/api/v1/files", () => reply(files(home)));
   app.get("/api/v1/files/global/:kind/:name", (c) => reply(file(home, "global", null, c.req.param("kind"), c.req.param("name"))));
   app.get("/api/v1/files/projects/:key/:kind/:name", (c) => reply(file(home, "project", c.req.param("key"), c.req.param("kind"), c.req.param("name"))));

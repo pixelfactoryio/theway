@@ -1,16 +1,16 @@
-/** Shared by the dashboard write tests: temp homes, a running dashboard and raw requests to it. */
+/** Shared by the dashboard file tests: temp homes, a running dashboard and raw requests to it. */
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export const ROOT = join(import.meta.dirname, "..");
+const ROOT = join(import.meta.dirname, "..");
 export const CLI = join(ROOT, "dist", "theway.js");
 export const SHIPPED_HOME = join(ROOT, "plugin", "home");
 
-export const homes: string[] = [];
-export const servers: ChildProcess[] = [];
+const homes: string[] = [];
+const servers: ChildProcess[] = [];
 
 /** Kills the servers started and removes the homes made since the last call. */
 export function cleanup(): void {
@@ -55,7 +55,7 @@ export async function start(dir: string): Promise<{ port: number; token: string 
   return { port, token: m[1] as string };
 }
 
-export type Res = { status: number; body: string; json: () => Record<string, unknown> };
+type Res = { status: number; body: string; json: () => Record<string, unknown> };
 
 /** One request with exactly the headers given, plus Host and Connection. */
 export function send(port: number, method: string, path: string, headers: Record<string, string>, body?: string | Buffer): Promise<Res> {
