@@ -7,6 +7,7 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import {
+  allChanges,
   archivedChange,
   change,
   changes,
@@ -100,6 +101,7 @@ export function createApp(home: string, initial: string | null, port: () => numb
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
 
   app.get("/api/v1/projects", () => reply(projects(home, initial)));
+  app.get("/api/v1/changes", () => reply(allChanges(home)));
   app.get("/api/v1/projects/:key/changes", (c) => reply(changes(home, c.req.param("key"))));
   app.get("/api/v1/projects/:key/changes/:id", (c) => reply(change(home, c.req.param("key"), c.req.param("id"))));
   app.get("/api/v1/projects/:key/archive/:folder", (c) => reply(archivedChange(home, c.req.param("key"), c.req.param("folder"))));

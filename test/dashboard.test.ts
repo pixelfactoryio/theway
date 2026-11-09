@@ -234,6 +234,68 @@ test("dashboard renders a change's files spec first with raw HTML escaped, and a
   expect(old.body.files.map((f: { name: string }) => f.name)).toEqual(["tasks.md"]);
 });
 
+test("GET /api/v1/changes counts every project and gives the changes and series progress of each one that has a change", async () => {
+  const dir = home();
+  const x = join(dir, "projects", "-Users-me-xray", "changes");
+  put(join(x, "archive", "2026-02-01-add-x-01", "tasks.md"), "- [x] 1. a\n");
+  put(join(x, "add-x-02", "tasks.md"), "- [x] 1. a\n- [x] 2. b\n");
+  put(join(x, "add-x-03", "tasks.md"), "- [ ] 1. a\n");
+  put(join(x, "add-y-01", "tasks.md"), "- [x] 1. a\n");
+  put(join(x, "fix-z", "tasks.md"), "- [ ] 1. a\n");
+  put(join(dir, "projects", "-Users-me-yankee", "changes", "archive", "2026-01-01-add-old", "spec.md"), "# Old\n");
+  mkdirSync(join(dir, "projects", "-Users-me-zulu"), { recursive: true });
+  const { port } = await start(dir);
+  const res = await json(port, "/api/v1/changes");
+  expect(res.status).toBe(200);
+  expect(res.body.total).toBe(3);
+  expect(res.body.projects.map((p: { key: string; label: string }) => [p.key, p.label])).toEqual([
+    ["-Users-me-xray", "xray"],
+    ["-Users-me-yankee", "yankee"],
+  ]);
+  const [xray, yankee] = res.body.projects;
+  expect(xray.series).toEqual([{ id: "add-x", done: 2, total: 3 }]);
+  expect(xray.active.map((c: ActiveChange) => c.id)).toEqual(["add-x-02", "add-x-03", "add-y-01", "fix-z"]);
+  expect(xray.archived).toEqual([{ folder: "2026-02-01-add-x-01", date: "2026-02-01", id: "add-x-01" }]);
+  expect(yankee).toEqual({ key: "-Users-me-yankee", label: "yankee", active: [], archived: [{ folder: "2026-01-01-add-old", date: "2026-01-01", id: "add-old" }], series: [] });
+});
+
+test("a change's properties give its PR link from tasks.md and its series from its ID, its spec and the project's members", async () => {
+  const dir = home();
+  const x = join(dir, "projects", "-Users-me-xray", "changes");
+  put(join(x, "archive", "2026-02-01-add-x-01", "tasks.md"), "- [x] 1. a\n\n**PR:** https://github.com/o/r/pull/1.\n");
+  put(join(x, "add-x-02", "spec.md"), "# Spec\n\n**Series:** add-x — 02 of 03, depends on add-x-01\n");
+  put(join(x, "add-x-02", "tasks.md"), "- [x] 1. a\n\n**PR:** https://github.com/o/r/pull/7, CI green\n**PR:** https://github.com/o/r/pull/8\n");
+  put(join(x, "add-x-03", "tasks.md"), "- [ ] 1. a\n\n**PR:** javascript:alert(1)\n");
+  put(join(x, "add-w-01", "spec.md"), "# Spec\n\nNo series line.\n");
+  put(join(x, "add-w-02", "spec.md"), "# Spec\n\n**Series:** add-w — 02 of 07\n");
+  put(join(x, "fix-z", "tasks.md"), "- [ ] 1. a\n");
+  const { port } = await start(dir);
+  const at = (path: string) => json(port, `/api/v1/projects/-Users-me-xray/${path}`);
+  const two = await at("changes/add-x-02");
+  expect(two.status).toBe(200);
+  expect(two.body.properties).toEqual({
+    pr: "https://github.com/o/r/pull/7",
+    series: {
+      id: "add-x",
+      ordinal: 2,
+      total: 3,
+      members: [
+        { ordinal: 1, id: "add-x-01", folder: "2026-02-01-add-x-01" },
+        { ordinal: 2, id: "add-x-02", folder: null },
+        { ordinal: 3, id: "add-x-03", folder: null },
+      ],
+    },
+  });
+  expect((await at("changes/add-x-03")).body.properties.pr).toBeNull();
+  // No series line: the total is the number of members.
+  const w = await at("changes/add-w-01");
+  expect([w.body.properties.pr, w.body.properties.series.total]).toEqual([null, 2]);
+  expect((await at("changes/add-w-02")).body.properties.series.total).toBe(7);
+  expect((await at("changes/fix-z")).body.properties).toEqual({ pr: null, series: null });
+  const one = await at("archive/2026-02-01-add-x-01");
+  expect([one.body.properties.pr, one.body.properties.series.ordinal, one.body.properties.series.members.length]).toEqual(["https://github.com/o/r/pull/1", 1, 3]);
+});
+
 test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a GET route included", async () => {
   const { port } = await start(changesHome());
   for (const path of [

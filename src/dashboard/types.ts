@@ -27,8 +27,26 @@ export type ArchivedChange = { folder: string; date: string | null; id: string |
 /** `GET /api/v1/projects/{key}/changes`. */
 export type ChangesResponse = { active: ActiveChange[]; archived: ArchivedChange[] };
 
+/** The progress of a series of two or more members: `done` counts the archived members and the active ones ready to archive. */
+export type SeriesProgress = { id: string; done: number; total: number };
+
+/** `GET /api/v1/changes`: `total` is the number of projects; `projects` holds those with an active or archived change. */
+export type AllChangesResponse = {
+  total: number;
+  projects: { key: string; label: string; active: ActiveChange[]; archived: ArchivedChange[]; series: SeriesProgress[] }[];
+};
+
+/** A member of a series: `folder` is its archive folder name, `null` for an active member. */
+export type SeriesMember = { ordinal: number; id: string; folder: string | null };
+
+/** A change's PR link and, for an ID ending in `-NN`, its series with every member, sorted by ordinal. */
+export type ChangeProperties = {
+  pr: string | null;
+  series: { id: string; ordinal: number; total: number; members: SeriesMember[] } | null;
+};
+
 /** `GET /api/v1/projects/{key}/changes/{id}` and `GET /api/v1/projects/{key}/archive/{folder}`. */
-export type ChangeDetail = { id: string; archived: boolean; tasks: Tasks; files: { name: string; html: string }[] };
+export type ChangeDetail = { id: string; archived: boolean; tasks: Tasks; files: { name: string; html: string }[]; properties: ChangeProperties };
 
 /** `GET /api/v1/projects/{key}/workflows`; `error` is the line that stops loading the config, with an empty list. */
 export type WorkflowsResponse = WorkflowList & { warnings: Warning[]; error?: string };

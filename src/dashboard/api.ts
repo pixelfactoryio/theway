@@ -1,19 +1,22 @@
 /** The dashboard API's handlers: each reads the home on every call and returns a status and a JSON body. */
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Warn } from "../core/config";
 import { isDir, isFile, writeAtomic } from "../core/io";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
-import { keyOf, projectDir, projectReason } from "../core/project";
+import { projectDir, projectReason } from "../core/project";
 import { NAME, type Out, type WorkflowDoc } from "../core/schema";
 import { dirsOf, fileOf, namesIn } from "../core/step-files";
 import { listSteps, listWorkflows, resolveWorkflow } from "../core/workflow";
 import { renderMarkdown } from "./markdown";
+import { byText, projectLabels } from "./projects";
 import type {
   ActiveChange,
+  AllChangesResponse,
   ChangeDetail,
+  ChangeProperties,
   ChangesResponse,
   ErrorResponse,
   ProjectsResponse,
@@ -23,6 +26,8 @@ import type {
   SaveConflict,
   SaveInvalid,
   SaveResponse,
+  SeriesMember,
+  SeriesProgress,
   SourceFile,
   Status,
   StepsResponse,
@@ -33,6 +38,8 @@ import type {
   WorkflowsResponse,
 } from "./types";
 import { type Candidate, type EditKind, projectPath, validateSet } from "./validate";
+
+export { folderOf, labels } from "./projects";
 
 export type Reply<T> = { status: 200 | 400 | 404 | 409 | 413 | 422 | 500; body: T | ErrorResponse };
 
@@ -48,8 +55,6 @@ const MEMBER = /^(.+)-([0-9]{2})$/;
 /** The files shown first in a change, in this order, when present. */
 const FIRST = ["spec.md", "tasks.md", "design.md"];
 
-const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-
 /** The status of a change with `done` of `total` numbered tasks done. */
 export function statusOf(done: number, total: number): Status {
   if (total === 0) return "No tasks";
@@ -58,88 +63,14 @@ export function statusOf(done: number, total: number): Status {
   return "In progress";
 }
 
-/** The project keys of a home, sorted: its `projects/` folder names that are valid keys. */
-function projectKeys(home: string): string[] {
-  const dir = join(home, "projects");
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return names.filter((n) => projectReason(n) === "" && isDir(join(dir, n))).sort(byText);
-}
-
-/**
- * The folder whose project key is `key`, found by walking the file system from `dir`: each level follows the
- * subfolders whose `-` + key of their name starts the rest of the key, longest first; `null` when none consumes it all.
- */
-export function folderOf(key: string, dir = "/", rest = key): string | null {
-  if (rest === "") return dir;
-  let names: string[];
-  try {
-    names = readdirSync(dir).sort(byText);
-  } catch {
-    return null;
-  }
-  // The longest match first, so `revecto-docs` wins over `revecto` and its own `docs` subfolder.
-  const matches = names
-    .map((name) => ({ name, part: `-${keyOf(name)}` }))
-    .filter(({ part }) => rest.startsWith(part) && (rest.length === part.length || rest[part.length] === "-"))
-    .sort((a, b) => b.part.length - a.part.length || byText(a.name, b.name));
-  for (const { name, part } of matches) {
-    const after = rest.slice(part.length);
-    const path = join(dir, name);
-    if (!isDir(path)) continue;
-    const found = folderOf(key, path, after);
-    if (found !== null) return found;
-  }
-  return null;
-}
-
-/**
- * The fallback label of each key: with two or more keys, the key without the longest prefix common to all keys that
- * ends in `-`; with one, the key without its leading `-`. A label that would be empty is the key.
- */
-function prefixLabels(keys: string[]): string[] {
-  if (keys.length === 1) {
-    const only = keys[0] as string;
-    return [only.replace(/^-/, "") || only];
-  }
-  let common = keys[0] ?? "";
-  for (const key of keys) {
-    while (!key.startsWith(common)) common = common.slice(0, -1);
-  }
-  const cut = common.lastIndexOf("-") + 1;
-  return keys.map((key) => key.slice(cut) || key);
-}
-
-/**
- * The label of each key: the name of its project folder (`folderOf`), or `<parent>/<name>` when two projects share a
- * name; the `prefixLabels` label when its folder cannot be found.
- */
-export function labels(keys: string[], find: (key: string) => string | null = folderOf): string[] {
-  const fallback = prefixLabels(keys);
-  const folders = keys.map((key) => find(key));
-  const names = folders.map((f) => (f === null ? null : basename(f)));
-  return keys.map((_, i) => {
-    const folder = folders[i];
-    const name = names[i];
-    if (folder === null || folder === undefined || !name) return fallback[i] as string;
-    const shared = names.filter((n) => n === name).length > 1;
-    return shared ? `${basename(dirname(folder))}/${name}` : name;
-  });
-}
-
 /** `GET /api/v1/projects`: every project with its active and archived counts, and the initially selected one. */
 export function projects(home: string, current: string | null): Reply<ProjectsResponse> {
-  const keys = projectKeys(home);
-  const names = labels(keys);
-  const list = keys.map((key, i) => {
+  const all = projectLabels(home);
+  const list = all.map(({ key, label }) => {
     const dir = projectDir(home, key);
-    return { key, label: names[i] as string, active: activeIds(dir).length, archived: archiveDirs(dir).length };
+    return { key, label, active: activeIds(dir).length, archived: archiveDirs(dir).length };
   });
-  const initial = current !== null && keys.includes(current) ? current : (keys[0] ?? null);
+  const initial = current !== null && all.some((p) => p.key === current) ? current : (all[0]?.key ?? null);
   return ok({ initial, projects: list });
 }
 
@@ -157,12 +88,10 @@ function project(home: string, key: string, check: () => Reply<never> | null = (
   return { dir };
 }
 
-/** `GET /api/v1/projects/{key}/changes`: the active changes, sorted by ID, and the archived ones, newest first. */
-export function changes(home: string, key: string): Reply<ChangesResponse> {
-  const p = project(home, key);
-  if ("status" in p) return p;
-  const active = activeIds(p.dir).map((id): ActiveChange => {
-    const dir = join(p.dir, "changes", id);
+/** The active changes of the project folder `pdir`, sorted by ID, and the archived ones, newest first. */
+function changesOf(pdir: string): ChangesResponse {
+  const active = activeIds(pdir).map((id): ActiveChange => {
+    const dir = join(pdir, "changes", id);
     const [done, total] = taskCounts(dir);
     const member = MEMBER.exec(id);
     return {
@@ -173,17 +102,112 @@ export function changes(home: string, key: string): Reply<ChangesResponse> {
       series: member === null ? null : { id: member[1] as string, ordinal: Number(member[2]) },
     };
   });
-  const archived = archiveDirs(p.dir)
+  const archived = archiveDirs(pdir)
     .reverse()
     .map((folder) => {
       const m = ARCHIVED.exec(folder);
       return m !== null && changeIdReason(m[2] as string) === "" ? { folder, date: m[1] as string, id: m[2] as string } : { folder, date: null, id: null };
     });
-  return ok({ active, archived });
+  return { active, archived };
+}
+
+/** `GET /api/v1/projects/{key}/changes`: the active changes, sorted by ID, and the archived ones, newest first. */
+export function changes(home: string, key: string): Reply<ChangesResponse> {
+  const p = project(home, key);
+  if ("status" in p) return p;
+  return ok(changesOf(p.dir));
+}
+
+/** Every member of every series of a project: its active `<series>-NN` changes and its archived `YYYY-MM-DD-<series>-NN` folders. */
+function seriesMembers(pdir: string): Map<string, (SeriesMember & { done: boolean })[]> {
+  const out = new Map<string, (SeriesMember & { done: boolean })[]>();
+  const add = (id: string, folder: string | null, done: boolean) => {
+    const m = MEMBER.exec(id);
+    if (m === null) return;
+    const series = m[1] as string;
+    const members = out.get(series) ?? [];
+    members.push({ ordinal: Number(m[2]), id, folder, done });
+    out.set(series, members);
+  };
+  for (const id of activeIds(pdir)) {
+    const [done, total] = taskCounts(join(pdir, "changes", id));
+    add(id, null, statusOf(done, total) === "Ready to archive");
+  }
+  for (const folder of archiveDirs(pdir)) {
+    const m = ARCHIVED.exec(folder);
+    if (m !== null && changeIdReason(m[2] as string) === "") add(m[2] as string, folder, true);
+  }
+  for (const members of out.values()) members.sort((a, b) => a.ordinal - b.ordinal || byText(a.folder ?? "", b.folder ?? ""));
+  return out;
+}
+
+/** The progress of each series of two or more members of a project, sorted by series ID. */
+function seriesProgress(pdir: string): SeriesProgress[] {
+  return [...seriesMembers(pdir)]
+    .filter(([, members]) => members.length >= 2)
+    .sort(([a], [b]) => byText(a, b))
+    .map(([id, members]) => ({ id, done: members.filter((m) => m.done).length, total: members.length }));
+}
+
+/** `GET /api/v1/changes`: the number of projects, and the changes and series progress of each project that has a change. */
+export function allChanges(home: string): Reply<AllChangesResponse> {
+  const list = projectLabels(home);
+  const projects = list.flatMap(({ key, label }) => {
+    const dir = projectDir(home, key);
+    const { active, archived } = changesOf(dir);
+    if (active.length === 0 && archived.length === 0) return [];
+    return [{ key, label, active, archived, series: seriesProgress(dir) }];
+  });
+  return ok({ total: list.length, projects });
+}
+
+/** A PR link token: `https://` and no whitespace, quote, angle bracket or closing bracket. */
+const PR_URL = /^https:\/\/[^\s<>"')\]]+/;
+/** A spec's series line: `**Series:** <id> — NN of TOTAL`. */
+const SERIES_LINE = /^\*\*Series:\*\*\s+(\S+)\s+—\s+([0-9]+)\s+of\s+([0-9]+)\b/;
+
+/** The PR link of a change folder: the first `https://` token of the first `**PR:**` line of its `tasks.md`; `null` otherwise. */
+function prOf(dir: string): string | null {
+  const path = join(dir, "tasks.md");
+  if (!isFile(path)) return null;
+  const line = readFileSync(path, "utf-8")
+    .split("\n")
+    .find((l) => l.startsWith("**PR:**"));
+  if (line === undefined) return null;
+  for (const token of line.slice("**PR:**".length).split(/\s+/)) {
+    const m = PR_URL.exec(token);
+    if (m === null) continue;
+    const url = m[0].replace(/[.,;:]+$/, "");
+    return url.length > "https://".length ? url : null;
+  }
+  return null;
+}
+
+/** The series total a spec states: from its `**Series:**` line among the first three non-empty lines after its H1. */
+function statedTotal(dir: string, series: string): number | null {
+  const path = join(dir, "spec.md");
+  if (!isFile(path)) return null;
+  const lines = readFileSync(path, "utf-8").split("\n");
+  const h1 = lines.findIndex((l) => l.startsWith("# "));
+  if (h1 === -1) return null;
+  for (const l of lines.slice(h1 + 1).filter((l) => l.trim() !== "").slice(0, 3)) {
+    const m = SERIES_LINE.exec(l);
+    if (m !== null && m[1] === series) return Number(m[3]);
+  }
+  return null;
+}
+
+/** The properties of the change `id` whose folder is `dir`, in the project folder `pdir`. */
+function propertiesOf(pdir: string, dir: string, id: string): ChangeProperties {
+  const m = MEMBER.exec(id);
+  if (m === null) return { pr: prOf(dir), series: null };
+  const series = m[1] as string;
+  const members = (seriesMembers(pdir).get(series) ?? []).map(({ ordinal, id, folder }) => ({ ordinal, id, folder }));
+  return { pr: prOf(dir), series: { id: series, ordinal: Number(m[2]), total: statedTotal(dir, series) ?? members.length, members } };
 }
 
 /** The detail of the change folder `dir`: its tasks and every `.md` file rendered, `spec.md`, `tasks.md` and `design.md` first. */
-function detail(dir: string, id: string, archived: boolean): ChangeDetail {
+function detail(pdir: string, dir: string, id: string, archived: boolean): ChangeDetail {
   const names = filesEndingWith(dir, ".md").sort(byText);
   const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n))];
   const [done, total] = taskCounts(dir);
@@ -192,6 +216,7 @@ function detail(dir: string, id: string, archived: boolean): ChangeDetail {
     archived,
     tasks: { done, total },
     files: ordered.map((name) => ({ name, html: renderMarkdown(readFileSync(join(dir, name), "utf-8")) })),
+    properties: propertiesOf(pdir, dir, id),
   };
 }
 
@@ -203,7 +228,7 @@ export function change(home: string, key: string, id: string): Reply<ChangeDetai
   });
   if ("status" in p) return p;
   if (!activeIds(p.dir).includes(id)) return missing("unknown change");
-  return ok(detail(join(p.dir, "changes", id), id, false));
+  return ok(detail(p.dir, join(p.dir, "changes", id), id, false));
 }
 
 /** `GET /api/v1/projects/{key}/archive/{folder}`: an archived change. */
@@ -216,7 +241,7 @@ export function archivedChange(home: string, key: string, folder: string): Reply
   });
   if ("status" in p) return p;
   if (!archiveDirs(p.dir).includes(folder)) return missing("unknown archived change");
-  return ok(detail(join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
+  return ok(detail(p.dir, join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
 }
 
 /** `GET /api/v1/projects/{key}/workflows`: every workflow and the warnings resolving them gave. */
