@@ -9,8 +9,6 @@ import {
   insertEntry,
   insertNode,
   moveEntry,
-  newStepText,
-  newWorkflowText,
   parse,
   removeEntry,
   removeNode,
@@ -193,18 +191,4 @@ test("replacing a block value keeps the comments inside it, once each", () => {
   setParam(doc, "rounds", undefined);
   const removed = textOf(doc);
   for (const c of comments(block)) expect([c, removed.split(c).length - 1]).toEqual([c, 1]);
-});
-
-test("the new-file templates carry the schema line and resolve", () => {
-  const wf = newWorkflowText("Mine");
-  expect(wf).toBe(
-    "# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json\nversion: theway.workflow/v1\ndescription: Mine\nsteps:\n  - implement:\n",
-  );
-  const w = resolveWorkflow(HOME, "p", "mine", quiet, overlay("workflows", "mine", wf));
-  expect("doc" in w).toBe(true);
-  const step = newStepText("Fix it", "fix", "work");
-  expect(step).toBe(
-    "# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json\nversion: theway.step/v1\ndescription: Fix it\ndo:\n  - agent: {prompt: fix, returns: work}\n",
-  );
-  expect("step" in resolveStepFile(HOME, "p", "mine", quiet, overlay("steps", "mine", step))).toBe(true);
 });

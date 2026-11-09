@@ -1,12 +1,18 @@
 import { cn } from "cn";
 import { type ReactNode, useState } from "react";
-import { Link, Redirect } from "wouter";
+import { Link, Redirect, useLocation } from "wouter";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
+import { isDirty } from "@/files/draft";
+import { useDrafts } from "@/files/drafts";
+import { EditMode } from "@/files/EditMode";
+import { NewDialog } from "@/files/NewDialog";
 import { StepView } from "@/files/StepView";
 import { WorkflowView } from "@/files/WorkflowView";
-import { type FileRef, fileHref, useFile, useFiles } from "@/lib/api";
+import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
 import type { FileDetail, FileItem } from "../../types";
+
+type Kind = FileItem["kind"];
 
 const sameFile = (a: FileRef, b: FileRef): boolean => a.scope === b.scope && a.key === b.key && a.kind === b.kind && a.name === b.name;
 
@@ -16,7 +22,8 @@ function itemNote(item: FileItem): string | null {
   return `${item.label ?? item.key ?? ""} only${item.default ? " · default" : ""}`;
 }
 
-function Item({ item, selected }: { item: FileItem; selected: boolean }) {
+/** An item of the list; `mark` is `edited` or `new` for a file with a draft. */
+function Item({ item, selected, mark }: { item: FileItem; selected: boolean; mark: "edited" | "new" | null }) {
   const note = itemNote(item);
   return (
     <Link
@@ -25,7 +32,9 @@ function Item({ item, selected }: { item: FileItem; selected: boolean }) {
       className={cn("flex items-baseline justify-between gap-2 rounded-md px-2.5 py-1.5", selected ? "bg-accent" : "hover:bg-accent")}
     >
       <span className="truncate font-mono text-[13px]">{item.name}</span>
-      {item.error !== null ? (
+      {mark !== null ? (
+        <span className="shrink-0 text-[12px] text-muted-foreground">{mark}</span>
+      ) : item.error !== null ? (
         <span className="shrink-0 text-[12px] text-destructive" title={item.error}>
           error
         </span>
@@ -36,22 +45,48 @@ function Item({ item, selected }: { item: FileItem; selected: boolean }) {
   );
 }
 
-/** The file list: the workflows, then the steps, in the response's order. */
-function FileList({ selected }: { selected: FileRef | null }) {
+/**
+ * The file list: the workflows, then the steps, in the response's order, each group followed by its new files and
+ * its New button.
+ */
+function FileList({ selected, onNew }: { selected: FileRef | null; onNew: (kind: Kind) => void }) {
   const files = useFiles();
+  const { drafts } = useDrafts();
   if (files.data === undefined) return <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>;
-  const group = (heading: string, items: FileItem[], first: boolean) => (
-    <>
-      <div className={cn("px-2.5 pb-1 text-[12px] text-muted-foreground", first ? "" : "pt-3.5")}>{heading}</div>
-      {items.map((item) => (
-        <Item key={`${item.scope}/${item.key ?? ""}/${item.kind}/${item.name}`} item={item} selected={selected !== null && sameFile(item, selected)} />
-      ))}
-    </>
-  );
+  const labels = new Map(files.data.projects.map((p) => [p.key, p.label]));
+  const group = (heading: string, kind: Kind, items: FileItem[], first: boolean) => {
+    const fresh = [...drafts.values()]
+      .filter((e) => e.draft.isNew && e.file.kind === kind)
+      .map(
+        (e): FileItem => ({
+          ...e.file,
+          label: e.file.key === null ? null : (labels.get(e.file.key) ?? null),
+          path: "",
+          description: null,
+          default: false,
+          error: null,
+        }),
+      );
+    const mark = (item: FileItem) => {
+      const d = drafts.get(fileKey(item))?.draft;
+      return d === undefined || !isDirty(d) ? null : d.isNew ? "new" : "edited";
+    };
+    return (
+      <>
+        <div className={cn("px-2.5 pb-1 text-[12px] text-muted-foreground", first ? "" : "pt-3.5")}>{heading}</div>
+        {[...items, ...fresh].map((item) => (
+          <Item key={fileKey(item)} item={item} selected={selected !== null && sameFile(item, selected)} mark={mark(item)} />
+        ))}
+        <Button variant="ghost" className="justify-start text-muted-foreground" onClick={() => onNew(kind)}>
+          {kind === "workflows" ? "New workflow" : "New step"}
+        </Button>
+      </>
+    );
+  };
   return (
     <nav aria-label="Files" className="flex flex-col gap-px">
-      {group("Workflows", files.data.workflows, true)}
-      {group("Steps", files.data.steps, false)}
+      {group("Workflows", "workflows", files.data.workflows, true)}
+      {group("Steps", "steps", files.data.steps, false)}
     </nav>
   );
 }
@@ -118,9 +153,11 @@ function Facts({ detail }: { detail: FileDetail }) {
   );
 }
 
-/** The centre: the title row with the YAML switch, then the drawing or the file's text. */
+/** The centre: the title row with Edit and the YAML switch, then the drawing or the file's text. */
 function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   const [yaml, setYaml] = useState(false);
+  const { start } = useDrafts();
+  const [, navigate] = useLocation();
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-4 pl-6">
@@ -128,9 +165,19 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
           <h1 className="font-mono text-[20px] font-medium break-all">{file.name}</h1>
           {detail.description !== null && <span className="text-muted-foreground">{detail.description}</span>}
         </div>
-        <Button variant="outline" className="ml-auto" aria-pressed={yaml} onClick={() => setYaml(!yaml)}>
-          YAML
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button
+            onClick={() => {
+              start(file, detail.text, detail.sha256, false);
+              navigate(editHref(file));
+            }}
+          >
+            Edit
+          </Button>
+          <Button variant="outline" aria-pressed={yaml} onClick={() => setYaml(!yaml)}>
+            YAML
+          </Button>
+        </div>
       </div>
       <div className="flex flex-1 flex-col items-center gap-3 bg-muted p-6">
         {yaml ? (
@@ -145,33 +192,80 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   );
 }
 
-/** The three columns: the file list, the centre and the facts. */
-function Columns({ selected, centre, facts }: { selected: FileRef | null; centre: ReactNode; facts: ReactNode }) {
+/**
+ * The three columns: the file list, the centre and the facts, then the save bar in edit mode; the New dialog opens
+ * from the list or from `onNew`.
+ */
+function Columns({
+  selected,
+  centre,
+  facts,
+  bar,
+  newKind,
+  setNewKind,
+}: {
+  selected: FileRef | null;
+  centre: ReactNode;
+  facts: ReactNode;
+  bar?: ReactNode;
+  newKind: Kind | null;
+  setNewKind: (k: Kind | null) => void;
+}) {
+  const files = useFiles();
   return (
-    <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
-      <aside aria-label="Files" className="w-[280px] shrink-0 border-r border-divider py-4 pr-4">
-        <FileList selected={selected} />
-      </aside>
-      <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
-      <aside aria-label="Facts" className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
-        {facts}
-      </aside>
-    </div>
+    <>
+      <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
+        <aside aria-label="Files" className="w-[280px] shrink-0 border-r border-divider py-4 pr-4">
+          <FileList selected={selected} onNew={setNewKind} />
+        </aside>
+        <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
+        <aside aria-label={bar === undefined ? "Facts" : "Settings"} className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
+          {facts}
+        </aside>
+      </div>
+      {bar !== undefined && (
+        <div className="sticky bottom-0 bg-background">
+          <div className="mx-auto w-full max-w-[1120px] px-6">
+            <div className="border-t border-divider">{bar}</div>
+          </div>
+        </div>
+      )}
+      <NewDialog kind={newKind} files={files.data} open={selected} onClose={() => setNewKind(null)} />
+    </>
   );
 }
 
 /** `/workflows`: the first workflow of the list. */
 export function WorkflowsIndex() {
   const files = useFiles();
+  const [newKind, setNewKind] = useState<Kind | null>(null);
   const first = files.data?.workflows[0];
   if (first !== undefined) return <Redirect to={fileHref(first)} replace />;
-  return <Columns selected={null} centre={files.data !== undefined && <Empty>No workflows</Empty>} facts={null} />;
+  return <Columns selected={null} centre={files.data !== undefined && <Empty>No workflows</Empty>} facts={null} newKind={newKind} setNewKind={setNewKind} />;
 }
 
-/** The Workflows page with one file selected. */
-export function WorkflowsPage({ file }: { file: FileRef }) {
-  const detail = useFile(file);
-  const key = `${file.scope}/${file.key ?? ""}/${file.kind}/${file.name}`;
+/**
+ * The Workflows page with one file selected, in view or edit mode. A file with a dirty draft always opens in edit
+ * mode; edit mode without a draft goes back to the view.
+ */
+export function WorkflowsPage({ file, editing }: { file: FileRef; editing: boolean }) {
+  const { drafts } = useDrafts();
+  const draft = drafts.get(fileKey(file))?.draft;
+  const detail = useFile(file, draft === undefined || !draft.isNew);
+  const [newKind, setNewKind] = useState<Kind | null>(null);
+  if (!editing && draft !== undefined && isDirty(draft)) return <Redirect to={editHref(file)} replace />;
+  if (editing && draft === undefined) return <Redirect to={fileHref(file)} replace />;
+  if (editing && draft !== undefined) {
+    return (
+      <EditMode
+        file={file}
+        draft={draft}
+        detail={detail.data}
+        onNew={setNewKind}
+        layout={({ centre, facts, bar }) => <Columns selected={file} centre={centre} facts={facts} bar={bar} newKind={newKind} setNewKind={setNewKind} />}
+      />
+    );
+  }
   return (
     <Columns
       selected={file}
@@ -179,10 +273,12 @@ export function WorkflowsPage({ file }: { file: FileRef }) {
         detail.data === undefined ? (
           <Empty error={detail.isError}>{detail.isError ? detail.error.message : "Loading…"}</Empty>
         ) : (
-          <Centre key={key} file={file} detail={detail.data} />
+          <Centre key={fileKey(file)} file={file} detail={detail.data} />
         )
       }
       facts={detail.data !== undefined && <Facts detail={detail.data} />}
+      newKind={newKind}
+      setNewKind={setNewKind}
     />
   );
 }

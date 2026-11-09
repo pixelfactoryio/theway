@@ -41,6 +41,7 @@
     "class-variance-authority": "0.7.1",
     "cn": "0.5.0",
     "commander": "15.0.0",
+    "diff": "9.0.0",
     "hono": "4.13.13",
     "lucide-react": "1.61.0",
     "markdownlint-cli2": "0.24.0",

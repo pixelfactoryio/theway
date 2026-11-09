@@ -17,12 +17,6 @@ export const textOf = (doc: Document): string => doc.toString(TEXT_OPTIONS);
 /** A document parsed from a file's text; `doc.errors` holds why it does not parse. */
 export const parse = (text: string): Document => parseDocument(text);
 
-/** The schema modeline of each kind of file. */
-export const SCHEMA_LINE = {
-  workflow: "# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json",
-  step: "# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json",
-} as const;
-
 /** Whether a value is a whole `${…}` reference. */
 export const isRef = (v: unknown): v is string => typeof v === "string" && /^\$\{[^}]*\}$/.test(v);
 
@@ -357,22 +351,4 @@ export function setDescription(doc: Document, text: string): void {
     return;
   }
   setKey(doc, root, "description", text);
-}
-
-// ---- New files ----
-
-/** A new workflow: the schema line, its version and description, and one `implement` entry. */
-export function newWorkflowText(description: string): string {
-  const doc = parse(`${SCHEMA_LINE.workflow}\nversion: theway.workflow/v1\nsteps:\n  - implement:\n`);
-  setWorkflowField(doc, "description", description);
-  return textOf(doc);
-}
-
-/** A new step: the schema line, its version and description, and one agent with its prompt and result type. */
-export function newStepText(description: string, prompt: string, returns: string): string {
-  const doc = parse(`${SCHEMA_LINE.step}\nversion: theway.step/v1\ndo: []\n`);
-  setDescription(doc, description);
-  const list = doc.createNode([constructNode(doc, { agent: { prompt, returns } })]);
-  (doc.contents as YAMLMap).set("do", list);
-  return textOf(doc);
 }

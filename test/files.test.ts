@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { parseDocument } from "yaml";
 import type { StepEntry } from "../src/core/schema";
 import { resolveWorkflow } from "../src/core/workflow";
+import { parse, setWorkflowField, textOf } from "../src/dashboard/client/editor/ops";
+import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
+import { chainOf, deepest, locate } from "../src/dashboard/client/files/locate";
+import { newFileText } from "../src/dashboard/client/files/new-file";
 import { type StepNode, stepSource, workflowSource } from "../src/dashboard/client/files/source";
 import { summary } from "../src/dashboard/client/files/summary";
 
@@ -126,4 +130,82 @@ test("the source of a workflow file gives its entries as written", () => {
       { kind: "step", index: 2, id: "review", agents: false, params: { rounds: 2 } },
     ],
   });
+});
+
+/** The constructs of a tree, depth first. */
+const flatten = (list: StepNode[]): StepNode[] => list.flatMap((n) => [n, ...("children" in n ? flatten(n.children) : [])]);
+
+/** The construct of the shipped review.yaml a line ties to, `null` for none. */
+function reviewTie(line: string): StepNode | null {
+  const source = stepSource(parseDocument(shipped("steps/review.yaml")));
+  if ("error" in source) throw new Error(source.error);
+  const at = locate(line, "steps/review.yaml", []);
+  if (at === null || !("path" in at)) return null;
+  const nodes = flatten(source.nodes);
+  const i = deepest(
+    nodes.map((n) => chainOf(n.path)),
+    at.path,
+  );
+  return i === -1 ? null : (nodes[i] as StepNode);
+}
+
+test("locate ties a workflow line to its entry, only in the open file, with or without a project label", () => {
+  const line = "theway: workflows/agents.yaml: steps[1].review.rounds must be an integer";
+  expect(locate(line, "workflows/agents.yaml", [])).toEqual({ entry: 1 });
+  expect(locate("theway: workflows/x.yaml: input must be changes or request", "workflows/x.yaml", [])).toBeNull();
+  expect(locate("theway: workflows/develop.yaml: steps[1].review.rounds must be an integer", "workflows/agents.yaml", [])).toBeNull();
+  expect(locate(`q: ${line}`, "workflows/agents.yaml", ["q"])).toEqual({ entry: 1 });
+  expect(locate(`q: ${line}`, "workflows/agents.yaml", ["r"])).toBeNull();
+  expect(locate("theway: projects/k/workflows/agents.yaml: steps[0].gate must be a non-empty question", "projects/k/workflows/agents.yaml", [])).toEqual({ entry: 0 });
+});
+
+test("locate ties a step line to the deepest construct of review.yaml its do indices start", () => {
+  expect(reviewTie("theway: steps/review.yaml: do[0].loop.until must be one of findings, no-findings, …")).toMatchObject({ kind: "loop", path: ["do", 0] });
+  expect(reviewTie("theway: steps/review.yaml: do[0].loop.do[1].when.do[0].agent.returns must be one of work, findings, …")).toMatchObject({
+    kind: "agent",
+    prompts: ["verdicts", "triage"],
+  });
+  expect(reviewTie("theway: steps/review.yaml: do[0].loop.do[0].foreach[item=conformance].do[0].agent.returns must be one of …")).toMatchObject({
+    kind: "agent",
+    path: ["do", 0, "loop", "do", 0, "do", 0],
+    prompts: ["reviewer", "${item}"],
+  });
+  expect(reviewTie("theway: steps/review.yaml: do[0].loop.max: ${nope} is not a param of review (params: rounds, lenses, model, fix_model)")).toMatchObject({ kind: "loop" });
+  expect(reviewTie("theway: steps/other.yaml: do[0].loop.until must be one of …")).toBeNull();
+});
+
+test("a draft takes three edits, two undos and one redo, and is dirty until its text is again the start", () => {
+  let d = startDraft("a", "sha", false);
+  expect(isDirty(d)).toBe(false);
+  d = edit(edit(edit(d, "b"), "c"), "d");
+  d = redo(undo(undo(d)));
+  expect(d.text).toBe("c");
+  expect(isDirty(d)).toBe(true);
+  d = undo(d);
+  expect(d.text).toBe("b");
+  d = undo(d);
+  expect(d.text).toBe("a");
+  expect(isDirty(d)).toBe(false);
+  expect(edit(d, "a")).toBe(d);
+  expect(isDirty(startDraft("a", null, true))).toBe(true);
+});
+
+test("the undo stack keeps the newest 100 texts", () => {
+  let d = startDraft("0", null, false);
+  for (let i = 1; i <= 150; i++) d = edit(d, String(i));
+  expect(d.undo.length).toBe(100);
+  expect(d.undo[0]).toBe("50");
+});
+
+test("a new workflow copied from develop has its description, no default key, and every comment", () => {
+  const develop = shipped("workflows/develop.yaml");
+  const doc = parse(develop);
+  setWorkflowField(doc, "default", true);
+  const text = newFileText("workflows", textOf(doc), "x");
+  const root = parseDocument(text).toJS() as Record<string, unknown>;
+  expect(root.description).toBe("x");
+  expect("default" in root).toBe(false);
+  const comments = develop.split("\n").filter((l) => l.trimStart().startsWith("#"));
+  expect(comments.length).toBeGreaterThan(0);
+  for (const c of comments) expect(text).toContain(c.trim());
 });

@@ -2,10 +2,12 @@ import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Link, Redirect, Route, Router, Switch, useLocation } from "wouter";
-import { useGuardedHashLocation } from "@/lib/leave";
+import { useHashLocation } from "wouter/use-hash-location";
+import { DraftsProvider } from "@/files/drafts";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
 import { WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
+import type { FileRef } from "@/lib/api";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,13 @@ function TopBar() {
 
 const isKind = (k: string): k is "workflows" | "steps" => k === "workflows" || k === "steps";
 
+/** The Workflows page of a file, in view or edit mode; `/workflows` for a kind that is not one. */
+function page(file: Omit<FileRef, "kind"> & { kind: string }, editing: boolean) {
+  if (!isKind(file.kind)) return <Redirect to="/workflows" replace />;
+  const ref: FileRef = { ...file, kind: file.kind };
+  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} editing={editing} />;
+}
+
 function Routes() {
   return (
     <Switch>
@@ -54,12 +63,10 @@ function Routes() {
       <Route path="/workflows">
         <WorkflowsIndex />
       </Route>
-      <Route path="/workflows/global/:kind/:name">
-        {(p) => (isKind(p.kind) ? <WorkflowsPage file={{ scope: "global", key: null, kind: p.kind, name: p.name }} /> : <Redirect to="/workflows" replace />)}
-      </Route>
-      <Route path="/workflows/projects/:key/:kind/:name">
-        {(p) => (isKind(p.kind) ? <WorkflowsPage file={{ scope: "project", key: p.key, kind: p.kind, name: p.name }} /> : <Redirect to="/workflows" replace />)}
-      </Route>
+      <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, false)}</Route>
+      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, true)}</Route>
+      <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, false)}</Route>
+      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, true)}</Route>
       <Route>
         <Redirect to="/changes" replace />
       </Route>
@@ -71,12 +78,14 @@ export function App() {
   return (
     <CSPProvider disableStyleElements>
       <QueryClientProvider client={queryClient}>
-        <Router hook={useGuardedHashLocation}>
-          <div className="flex min-h-screen flex-col">
-            <TopBar />
-            <Routes />
-          </div>
-        </Router>
+        <DraftsProvider>
+          <Router hook={useHashLocation}>
+            <div className="flex min-h-screen flex-col">
+              <TopBar />
+              <Routes />
+            </div>
+          </Router>
+        </DraftsProvider>
       </QueryClientProvider>
     </CSPProvider>
   );
