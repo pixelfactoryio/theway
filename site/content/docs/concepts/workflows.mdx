@@ -52,6 +52,7 @@ steps:
 - A workflow, step or prompt is found by name: the project file, else the global one. Its name is its file stem.
 - The naming rule: names (workflows, steps, prompts, conditions, types) are kebab-case, lowercase letters and digits in words separated by single hyphens (`security-audit`); params and step-file fields are snake_case (`fix_model`); result and Input fields are camelCase JSON (`failedRunIds`); enum values are snake_case (`this_pr`).
 - `gate` is reserved: a `steps/gate.yaml` is never read, and `theway workflow` and `theway steps` warn about one.
+- The Workflows page of [`theway dashboard`](../cli.mdx#editing-a-file) edits a file where it is, and its New dialog makes a copy for one project.
 - Install writes the shipped files into `<home>/workflows/`, `<home>/steps/` and `<home>/prompts/` and treats them as it treats the shipped [standards](./standards.mdx): it updates a file you have not edited, keeps one you have and writes the shipped version next to it as `<name>.default.yaml` or `<name>.default.md`, keeps your own file when theway starts shipping one with its name, and removes an unedited file theway stops shipping. A `*.default.*` file is never read.
 
 ## Versions and schemas
