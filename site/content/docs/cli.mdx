@@ -548,3 +548,11 @@ Each edit goes through the YAML document of the file, so the text of every comme
 The write requests need an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and an `X-Theway-Token` header holding a random token the server makes when it starts and puts in its page; any other request gets `403`. A web page on another site cannot read the token, and the custom header makes its browser ask the server first, which it never allows.
 
 When the file changed on disk since you opened it, Save gets `409` and writes nothing: the bar says "Changed on disk since you opened it.", and Reload drops your edits and loads the file as it is now.
+
+### Versions
+
+Before a save from the dashboard replaces a file, the text it held is kept as a version: under `<home>/history/global/<kind>/<name>/` for a global file, `<home>/history/projects/<key>/<kind>/<name>/` for a project's. A file keeps its 20 newest versions; a new file has none until its first save replaces it. Only dashboard saves are recorded: a file you change by hand, through an agent or with `theway install` gets no version, though the next dashboard save keeps whatever was on disk. Nothing else reads `<home>/history/`, so deleting it is safe and only drops the versions.
+
+Versions, on a file's title row, lists them in the right column at its page with `/versions`: Current, then each version by its date and time, newest first, then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml`). Select a version to draw it as written, with the diff from it to the current file.
+
+Restore puts the version's text, byte for byte, in the editor as your edits, after a confirm when the file already has edits; it is disabled when the version holds the current text. Nothing is written until you save it, through the same check as any edit, and that save keeps the replaced text as a version in turn.
