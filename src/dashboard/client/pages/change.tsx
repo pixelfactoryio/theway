@@ -101,7 +101,7 @@ function Detail({ projectKey, id, archived, query }: { projectKey: string; id: s
           </div>
           {current !== undefined && (
             <Tabs value={current.name} onValueChange={(v) => setTab(String(v))} className="gap-4">
-              <TabsList variant="line" className="h-auto w-full justify-start gap-6 rounded-none border-b p-0">
+              <TabsList variant="line" className="h-auto w-full justify-start gap-6 rounded-none border-b border-divider p-0">
                 {files.map((f) => (
                   <TabsTrigger
                     key={f.name}

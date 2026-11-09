@@ -149,11 +149,11 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
 function Columns({ selected, centre, facts }: { selected: FileRef | null; centre: ReactNode; facts: ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
-      <aside aria-label="Files" className="w-[280px] shrink-0 border-r py-4 pr-4">
+      <aside aria-label="Files" className="w-[280px] shrink-0 border-r border-divider py-4 pr-4">
         <FileList selected={selected} />
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
-      <aside aria-label="Facts" className="w-[280px] shrink-0 border-l py-4 pl-4">
+      <aside aria-label="Facts" className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
         {facts}
       </aside>
     </div>

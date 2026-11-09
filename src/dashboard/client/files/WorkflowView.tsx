@@ -37,7 +37,7 @@ function StepCard({ entry }: { entry: StepEntry }) {
         {note !== null && <span className="text-[12px] text-muted-foreground">{note}</span>}
       </div>
       {lines.map((l, i) => (
-        <div key={i} className={`flex items-baseline justify-between gap-3 border-t py-1 ${i === 0 ? "mt-1.5" : ""}`}>
+        <div key={i} className={`flex items-baseline justify-between gap-3 border-t border-divider-row py-1 ${i === 0 ? "mt-1.5" : ""}`}>
           <span>{l.names}</span>
           {l.note !== null && <span className="shrink-0 text-[12px] text-muted-foreground">{l.note}</span>}
         </div>

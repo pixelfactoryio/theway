@@ -13,7 +13,7 @@ type Project = AllChangesResponse["projects"][number];
 const ALL = "";
 
 /** The three columns of a row: the name, the bar and the count. */
-const ROW = "grid grid-cols-[minmax(0,1fr)_160px_170px] items-center gap-6 border-t py-[11px]";
+const ROW = "grid grid-cols-[minmax(0,1fr)_160px_170px] items-center gap-6 border-t border-divider-row py-[11px]";
 
 /** The count text: `<done> of <total> tasks`, or `no tasks`. */
 const taskCount = (c: ActiveChange): string => (c.tasks.total === 0 ? "no tasks" : `${c.tasks.done} of ${c.tasks.total} tasks`);
@@ -62,7 +62,7 @@ function Section({ project, showArchived }: { project: Project; showArchived: bo
   return (
     <section className="flex flex-col">
       <h2 className="mb-1.5 text-[12px] font-medium text-muted-foreground">{project.label}</h2>
-      <div className="flex flex-col border-b">
+      <div className="flex flex-col border-b border-divider-row">
         {rows.map((row) =>
           row.kind === "series" ? (
             <SeriesRow key={`s:${row.id}`} projectKey={project.key} row={row} />

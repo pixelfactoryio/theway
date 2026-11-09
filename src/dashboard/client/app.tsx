@@ -27,7 +27,7 @@ function TopBar() {
   const [location] = useLocation();
   const changes = location.startsWith("/changes") || location.startsWith("/archive");
   return (
-    <header className="border-b">
+    <header className="border-b border-divider">
       <nav aria-label="Main" className="mx-auto flex max-w-[1120px] items-center gap-6 px-6">
         <span className="mr-2 font-semibold">theway</span>
         <Tab href="/changes" active={changes}>

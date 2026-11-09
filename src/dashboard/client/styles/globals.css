@@ -25,6 +25,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-divider: var(--divider);
+  --color-divider-row: var(--divider-row);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) * 0.6);
@@ -54,6 +56,8 @@
   --accent-foreground: #111111;
   --destructive: #B42318;
   --border: #CCCCCC;
+  --divider: #E5E5E5;
+  --divider-row: #EEEEEE;
   --input: #CCCCCC;
   --ring: #111111;
 }
