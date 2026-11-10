@@ -25,7 +25,7 @@ const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const ENTRIES: Entry[] = [
   { term: literal("theway:" + "setup"), flags: "", files: ["plugin/", "src/", "test/", "site/"], allow: [] },
   {
-    // Engineering is a workflow: its config moved to workflow.defaults.spec-review, its standards and templates to prompts/.
+    // Engineering is a workflow: its standards and templates moved to prompts/.
     term: [
       literal("engineering." + "review"),
       literal("standards/" + "spec-review.md"),
@@ -146,6 +146,18 @@ const ENTRIES: Entry[] = [
     flags: "",
     files: ["site/content/", "README.md", "SECURITY.md", "plugin/"],
     allow: [],
+  },
+  {
+    // v1 is removed: no step file, and no condition of a typed result.
+    term: [literal("theway.step" + "/v1"), literal("no-" + "confirmed"), literal("no-" + "findings"), literal("no-" + "decision")].join("|"),
+    flags: "",
+    files: REPOSITORY,
+    allow: [
+      // The home installed from the previous layout holds v1 step files.
+      { file: "test/install.test.ts" },
+      // Its "Moving from v1" section says what replaces each term.
+      { file: "site/content/docs/concepts/workflows.mdx" },
+    ],
   },
   {
     term: literal("ai-" + "marketplace") + "|" + literal("github:" + "pixelfactoryio"),
