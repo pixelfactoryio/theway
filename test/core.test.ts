@@ -2099,6 +2099,26 @@ test("v1beta: the resolved agents workflow matches test/fixtures/agents-resolved
   expect(res.stdout).toBe(expected);
 });
 
+test("v1beta: prompt files with CRLF line endings or a leading BOM resolve like their LF version", () => {
+  const dir = fixtureHome();
+  const lf = v1beta(dir, "agents", "--input", "change=add-foo");
+  expect([lf.status, lf.stderr]).toEqual([0, ""]);
+  const prompts = join(dir, "prompts");
+  const originals = readdirSync(prompts).map((f) => [join(prompts, f), readFileSync(join(prompts, f), "utf-8")] as const);
+  for (const rewrite of [(t: string) => t.replaceAll("\n", "\r\n"), (t: string) => `﻿${t}`]) {
+    for (const [path, text] of originals) put(path, rewrite(text));
+    const res = v1beta(dir, "agents", "--input", "change=add-foo");
+    expect([res.status, res.stderr, res.stdout]).toEqual([0, "", lf.stdout]);
+  }
+});
+
+test("v1beta: workflow --help shows no default for --input", () => {
+  const res = run(home(), "workflow", "--help");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("--input <name=value>");
+  expect(res.stdout).not.toContain("(default: [])");
+});
+
 test("v1beta: other ${{ … }} text in a prompt body is kept as written", () => {
   const dir = fixtureHome();
   const ci = join(dir, "prompts", "ci.md");
@@ -2177,6 +2197,14 @@ test("v1beta: each mistake gives one line naming its place, and nothing on stdou
     [`${T_HEAD}steps: []\n`, "workflows/t.yaml: steps: "],
     [`${T_HEAD}steps:\n${OPEN_PR}    matrix:\n      a: [x]\n      b: [y]\n`, "workflows/t.yaml: steps[0].matrix: "],
     [`${T_HEAD}steps:\n${OPEN_PR}    matrix:\n      a: []\n`, "workflows/t.yaml: steps[0].matrix: "],
+    [
+      `${T_HEAD}steps:\n  - uses: prompts/review.md\n    matrix:\n      lens: [x]\n      other: [y]\n    with:\n      change: \${{ inputs.change }}\n      lens: \${{ matrix.lens }}\n`,
+      "workflows/t.yaml: steps[0].matrix: must be a map with exactly one key",
+    ],
+    [
+      `${T_HEAD}steps:\n  - uses: prompts/review.md\n    matrix:\n      lens: []\n    with:\n      change: \${{ inputs.change }}\n      lens: \${{ matrix.other }}\n`,
+      "workflows/t.yaml: steps[0].matrix: lens must be a non-empty list of strings",
+    ],
     [`${T_HEAD}steps:\n  - uses: prompts/branch.md\n    with:\n      change: \${{ inputs.change }}\n`, "workflows/t.yaml: steps[0].model: "],
     [`${T_HEAD.replace("description: t\n", "")}steps:\n${OPEN_PR}`, "workflows/t.yaml: description: "],
     [`${T_HEAD.replace("runs-on: agents\n", "")}steps:\n${OPEN_PR}`, "workflows/t.yaml: runs-on: "],

@@ -79,8 +79,8 @@ export function buildProgram(): Command {
     .command("workflow")
     .argument("[name]")
     .option("--project <key>")
-    .option("--input <name=value>", "", (value: string, previous: string[]) => [...previous, value], [] as string[])
-    .action((name: string | undefined, o: { project?: string; input: string[] }) => exit(cmdWorkflow(name, o.project, o.input)));
+    .option("--input <name=value>", "", (value: string, previous: string[] | undefined) => [...(previous ?? []), value])
+    .action((name: string | undefined, o: { project?: string; input?: string[] }) => exit(cmdWorkflow(name, o.project, o.input)));
   program
     .command("steps")
     .argument("[name]")

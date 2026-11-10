@@ -148,7 +148,9 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
  * followed by a closing `---` line, or when that YAML is not a map holding a `description` key; `body` is then the
  * whole text. `headerErrors` holds the header rule errors as `<where>: <message>` lines, `[]` when `header` is `null`.
  */
-export function parsePromptFile(text: string): { header: PromptHeader | null; headerErrors: string[]; body: string } {
+export function parsePromptFile(raw: string): { header: PromptHeader | null; headerErrors: string[]; body: string } {
+  // A leading BOM is ignored and CRLF line endings read as LF, header and body alike.
+  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
   const none = { header: null, headerErrors: [], body: text };
   const lines = text.split("\n");
   const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
@@ -240,10 +242,11 @@ function promptOf(ctx: Ctx, v: unknown, where: string, out: string[]): Prompt | 
 
 /**
  * A `with` map at `where`, checked against its prompt: every key declared, every value a string, a number or a boolean,
- * every reference naming something declared, every required input set. Returns each written input's text, `""` for
+ * every reference naming something declared (a `matrix` one is not checked when `matrixKey` is `undefined`, the step's
+ * matrix having a mistake), every required input set. Returns each written input's text, `""` for
  * `null`; a required input written `""` or `null` counts as not set, an optional one is the empty string.
  */
-function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matrixKey: string | null, onFail: boolean, out: string[]): Map<string, string> {
+function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matrixKey: string | null | undefined, onFail: boolean, out: string[]): Map<string, string> {
   const set = new Map<string, string>();
   const err = (msg: string) => out.push(`${ctx.rel}: ${where}: ${msg}`);
   if (v !== undefined && v !== null && !isMap(v)) err("must be a map of prompt input name to a value");
@@ -261,7 +264,7 @@ function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matr
           if (!ctx.inputs.has(r.name)) err(`\${{ inputs.${r.name} }} names no input of the workflow`);
         } else if (onFail) {
           err(`\${{ matrix.${r.name} }} is not allowed in an on-fail`);
-        } else if (matrixKey !== r.name) {
+        } else if (matrixKey !== undefined && matrixKey !== r.name) {
           err(`\${{ matrix.${r.name} }} names no matrix key of this step`);
         }
       }
@@ -314,9 +317,8 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
       matrix = { key: String(first?.[0]), values: first[1] as string[] };
     }
   }
-  // A reference to the matrix key is checked against the key written, even when the matrix itself has a mistake.
-  const rawMatrix = raw.get("matrix");
-  const matrixKey = isMap(rawMatrix) && rawMatrix.size === 1 ? String([...rawMatrix.keys()][0]) : null;
+  // A matrix with a mistake has its one error line: no reference to a matrix key of this step is checked then.
+  const matrixKey = has("matrix") && matrix === null ? undefined : (matrix?.key ?? null);
   const set = withOf(ctx, raw.get("with"), `${at}.with`, prompt, matrixKey, false, lines("with"));
   const written: Record<string, WithValue> = {};
   if (isMap(raw.get("with"))) {
