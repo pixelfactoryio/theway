@@ -128,10 +128,18 @@ async function runStep(step, round) {
   } else {
     // parallel() turns a throw into null, so each run returns its own stop to keep its message.
     results = await parallel(step.runs.map((r) => () => call(r, step.model, phase).catch((e) => e)))
+    // The runs that finished are recorded before the first stop is thrown, so their reports are not lost.
+    let stop = null
+    const ran = []
     for (const [i, o] of results.entries()) {
-      if (o instanceof Stop) throw o
-      if (o === null || o === undefined) throw new Stop('failed', `${step.runs[i].label} returned no result`)
+      if (o instanceof Stop || o === null || o === undefined) {
+        if (stop === null) stop = o instanceof Stop ? o : new Stop('failed', `${step.runs[i].label} returned no result`)
+      } else {
+        ran.push(record(step.runs[i].label, round, o))
+      }
     }
+    if (stop !== null) throw stop
+    return ran
   }
   return results.map((r, i) => record(step.runs[i].label, round, r))
 }

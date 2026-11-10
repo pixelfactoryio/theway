@@ -793,6 +793,14 @@ test("run-pipeline.js fails on an agent that returns no result or throws", async
   expect([threw.result.status, threw.result.error]).toEqual(["failed", "2.implement threw: rate limited"]);
   const copy = await drive(engineArgs(wf, [2]), { "3.review[prompts/conformance.md]": [pass()], "3.review[prompts/correctness.md]": [null] });
   expect([copy.result.status, copy.result.error]).toEqual(["failed", "3.review[prompts/correctness.md] returned no result"]);
+  // The copies that finished keep their reports, in list order, when another copy throws or returns nothing.
+  expect(copy.result.reports).toEqual([{ label: "3.review[prompts/conformance.md]", round: 1, result: "pass", report: "ok" }]);
+  const sibling = await drive(engineArgs(wf, [2]), {
+    "3.review[prompts/conformance.md]": [new Error("rate limited")],
+    "3.review[prompts/correctness.md]": [fail("edge case")],
+  });
+  expect([sibling.result.status, sibling.result.error]).toEqual(["failed", "3.review[prompts/conformance.md] threw: rate limited"]);
+  expect(sibling.result.reports).toEqual([{ label: "3.review[prompts/correctness.md]", round: 1, result: "fail", report: "edge case" }]);
 });
 
 test("run-pipeline.js refuses args that do not match its rules", async () => {
