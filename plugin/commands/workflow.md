@@ -1,5 +1,5 @@
 ---
-description: "Run a workflow of prompt steps, inline or through agents, on changes or a request"
+description: "Run a workflow of prompt steps, inline or through agents, with the inputs it declares"
 author: Amine
 allowed-tools: Bash(theway:*)
 ---

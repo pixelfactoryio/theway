@@ -1,6 +1,6 @@
 ---
 title: /theway:workflow
-description: "Run a workflow of prompt steps, inline or through agents, on changes or a request"
+description: "Run a workflow of prompt steps, inline or through agents, with the inputs it declares"
 ---
 
 It runs a [workflow](../concepts/workflows.mdx): a flat list of steps, each using a prompt, that answer `pass`, `fail` or `blocked` in turn. The default, the shipped `develop` workflow, does a change's tasks in your session and commits nothing. Steps whose `runs-on` is `agents` run through agents in the plugin workflow `theway:run-pipeline`: the shipped `agents` workflow implements, reviews and opens the PR that way, while your session orchestrates.
