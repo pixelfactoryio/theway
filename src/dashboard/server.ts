@@ -27,6 +27,11 @@ const FONTS: Record<string, Uint8Array<ArrayBuffer>> = {
 };
 const FONT_HEADERS = { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400" };
 
+/** The page's icon: the logo mark, three white lines on a rounded primary square. */
+const ICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22"><rect width="22" height="22" rx="7" fill="#4F46E5"/>' +
+  '<path d="M7 8h8M7 11h5M7 14h8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>';
+
 /**
  * The app for the home `home`: `port` is the port the server is bound to, read on every request since port 0 is known
  * only once listening.
@@ -92,6 +97,7 @@ export function createApp(home: string, port: () => number): Hono {
   app.get("/", (c) => c.body(page, 200, { "Content-Type": "text/html; charset=utf-8" }));
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }));
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
+  app.get("/favicon.svg", (c) => c.body(ICON, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" }));
   for (const [path, bytes] of Object.entries(FONTS)) app.get(path, (c) => c.body(bytes, 200, FONT_HEADERS));
 
   app.get("/api/v1/changes", () => reply(allChanges(home)));

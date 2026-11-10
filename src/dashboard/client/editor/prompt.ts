@@ -48,8 +48,20 @@ export function editHeader(text: string, op: (doc: Document) => void): string {
 /** The prompt file with its body replaced by `body`; the header is kept byte for byte. */
 export const setBody = (text: string, body: string): string => joinPrompt({ ...splitPrompt(text), body });
 
-/** The body of a prompt file: the text after its header, or the whole text. */
-export const bodyOf = (text: string): string => splitPrompt(text).body;
+/** The blank line between a file's header and its body, `""` for a file with none or no header: not part of the editable body. */
+const separatorOf = (p: PromptParts): string => (p.open === null ? "" : (/^\r?\n/.exec(p.body)?.[0] ?? ""));
+
+/** The body of a prompt file as the editor shows it: the text after its header and the blank line that follows it, or the whole text. */
+export function editableBody(text: string): string {
+  const p = splitPrompt(text);
+  return p.body.slice(separatorOf(p).length);
+}
+
+/** The prompt file with its editable body replaced by `body`; the header and the blank line after it are kept byte for byte. */
+export function setEditableBody(text: string, body: string): string {
+  const p = splitPrompt(text);
+  return joinPrompt({ ...p, body: `${separatorOf(p)}${body}` });
+}
 
 /** "Use as a step": a header with an empty description put before the text, kept byte for byte after it; a file with a header is returned as is. */
 export function addHeader(text: string): string {

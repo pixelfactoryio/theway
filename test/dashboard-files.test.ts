@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { tildePath } from "../src/dashboard/api";
 import { historyDir, snapshot } from "../src/dashboard/history";
 import { CLI, cleanup, SHIPPED_HOME, put, send, shippedHome, start } from "./dashboard-helpers";
 
@@ -50,6 +51,14 @@ function twoProjects(): string {
 /** The step prompts of the fixture home, as `listPromptFiles` gives them. */
 const STEP_PROMPTS = ["branch", "ci", "fix-ci", "fix-review", "fix-spec", "implement", "open-pr", "review", "scaffold", "scaffold-light", "spec-review", "spec-triage", "triage"];
 
+test("tildePath shows a path under the user's home with ~, and any other path as given", () => {
+  expect(tildePath("/home/me/.theway", "/home/me")).toBe("~/.theway");
+  expect(tildePath("/home/me", "/home/me")).toBe("~");
+  expect(tildePath("/home/meta/.theway", "/home/me")).toBe("/home/meta/.theway");
+  expect(tildePath("/srv/theway", "/home/me")).toBe("/srv/theway");
+  expect(tildePath("/srv/theway", "/")).toBe("/srv/theway");
+});
+
 test("GET /api/v1/files lists every project, the global workflows and prompts, then each project's own, with absolute paths", async () => {
   const dir = twoProjects();
   put(join(dir, "workflows", "agents.default.yaml"), fixture("workflows/agents.yaml"));
@@ -60,6 +69,7 @@ test("GET /api/v1/files lists every project, the global workflows and prompts, t
   expect(res.status).toBe(200);
   const body = res.json() as { projects: unknown[]; workflows: WorkflowItem[]; prompts: PromptItem[]; steps?: unknown };
   expect(body.steps).toBeUndefined();
+  expect((body as { home?: unknown }).home).toBe(tildePath(dir));
   expect(body.projects).toEqual([
     { key: "p", label: "p" },
     { key: "q", label: "q" },

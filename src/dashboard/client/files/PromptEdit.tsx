@@ -1,12 +1,15 @@
-/** Edit mode's centre for a prompt: its body in one text area, as tall as its content; the header stays byte for byte. */
+/**
+ * Edit mode's centre for a prompt: its body in one text area, as tall as its content; the header and the blank line
+ * after it stay byte for byte.
+ */
 import { cn } from "cn";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { bodyOf } from "../editor/prompt";
+import { editableBody } from "../editor/prompt";
 
 /** The body's text area: it keeps what is typed while the draft's body is that text, and shows the draft's otherwise, as on undo. */
 export function PromptEdit({ text, setBody }: { text: string; setBody: (body: string) => void }) {
-  const body = bodyOf(text);
+  const body = editableBody(text);
   const [typed, setTyped] = useState(body);
   const [seen, setSeen] = useState(body);
   if (seen !== body) {
@@ -15,9 +18,11 @@ export function PromptEdit({ text, setBody }: { text: string; setBody: (body: st
   }
   return (
     <div className="flex w-full max-w-[720px] flex-col gap-2">
-      <h2 className="font-medium">Instructions</h2>
+      <label htmlFor="instructions" className="text-[12px] text-muted-foreground">
+        Instructions, in Markdown
+      </label>
       <Textarea
-        aria-label="Instructions"
+        id="instructions"
         className={cn("min-h-40 bg-card font-mono text-[13px] md:text-[13px]")}
         value={typed}
         spellCheck={false}

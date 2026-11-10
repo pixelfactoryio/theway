@@ -72,8 +72,11 @@ export type PromptItem = FileBase & { kind: "prompts"; step: boolean };
 
 export type FileItem = WorkflowItem | PromptItem;
 
-/** `GET /api/v1/files`: every project, then every global workflow and prompt file, then each project's own. */
-export type FilesResponse = { projects: { key: string; label: string }[]; workflows: WorkflowItem[]; prompts: PromptItem[] };
+/**
+ * `GET /api/v1/files`: the home as shown (`~/…` under the user's home, else absolute), every project, then every global
+ * workflow and prompt file, then each project's own.
+ */
+export type FilesResponse = { home: string; projects: { key: string; label: string }[]; workflows: WorkflowItem[]; prompts: PromptItem[] };
 
 /**
  * A workflow file that names a prompt: in a step's `uses` (`step`), in its `on-fail` (`on-fail`), or as a `with` or

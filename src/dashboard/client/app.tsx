@@ -12,14 +12,22 @@ import { EXT, type SourceKind } from "../types";
 
 const queryClient = new QueryClient();
 
-/** The top bar: the word theway, then Changes and Workflows as a segmented control. */
+/** The top bar: the logo mark and the word theway, then Changes and Workflows as a segmented control. */
 function TopBar() {
   const [location, navigate] = useLocation();
   const changes = location.startsWith("/changes") || location.startsWith("/archive");
   return (
     <header className="border-b border-divider bg-card">
       <nav aria-label="Main" className="mx-auto flex max-w-[1120px] items-center gap-6 px-6 py-2.5">
-        <span className="font-semibold">theway</span>
+        <span className="flex items-center gap-2 font-semibold">
+          {/* The logo mark: three lines on a rounded primary square. */}
+          <span className="inline-flex size-[22px] items-center justify-center rounded-[7px] bg-primary">
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M2 3h8M2 6h5M2 9h8" />
+            </svg>
+          </span>
+          theway
+        </span>
         <Tabs value={changes ? "changes" : "workflows"}>
           <TabsList>
             <TabsTrigger value="changes" className="px-3" onClick={() => navigate("/changes")}>

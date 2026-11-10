@@ -39,6 +39,12 @@ export type Apply = (op: (doc: Document) => void) => void;
 /** The value of a select that stands for "not written". */
 const UNSET = "";
 
+/** The label of a model select's UNSET: the prompt's model, `Prompt's (<model>)`, or `Prompt's` when its header sets none. */
+const promptModel = (ctx: PromptContext, name: string | null): string => {
+  const model = ctx.info(name)?.header?.model ?? null;
+  return model === null ? "Prompt's" : `Prompt's (${model})`;
+};
+
 /** The names of a prompt's declared inputs, `null` while its header is not known. */
 const declaredOf = (ctx: PromptContext, name: string | null): string[] | null => {
   const header = ctx.info(name)?.header;
@@ -130,11 +136,21 @@ function TriesField({ value, onChange }: { value: string; onChange: (n: number) 
   );
 }
 
-/** The Inputs panel: Add, then for each input its name, description, type (a workflow's), required and default, and Remove. */
+/**
+ * The Inputs panel: Add at its top right, then for each input its name, description, type (a workflow's), required and
+ * default, and Remove; under a prompt's input, how its text writes it.
+ */
 function InputsPanel({ inputs, workflow, apply }: { inputs: InputSource[]; workflow: boolean; apply: Apply }) {
   const names = inputs.map((i) => i.name);
   return (
-    <Panel title="Inputs">
+    <Panel
+      title="Inputs"
+      action={
+        <Button variant="outline" size="xs" onClick={() => apply((d) => void addInput(d, workflow ? WORKFLOW_ORDER : HEADER_ORDER))}>
+          <Plus /> Add
+        </Button>
+      }
+    >
       {inputs.length === 0 && <span className="text-muted-foreground">no input</span>}
       {inputs.map((input, i) => (
         // By position, so a rename keeps the focus in its field.
@@ -181,16 +197,13 @@ function InputsPanel({ inputs, workflow, apply }: { inputs: InputSource[]; workf
           <Button variant="ghost" size="sm" className="self-start text-destructive" onClick={() => apply((d) => removeInput(d, input.name))}>
             <Trash2 /> Remove
           </Button>
+          {!workflow && (
+            <span className="text-[12px] text-muted-foreground">
+              Written in the text as <span className="font-mono">{`\${{ inputs.${input.name} }}`}</span>
+            </span>
+          )}
         </div>
       ))}
-      <Button
-        variant="outline"
-        size="sm"
-        className="self-start"
-        onClick={() => apply((d) => void addInput(d, workflow ? WORKFLOW_ORDER : HEADER_ORDER))}
-      >
-        <Plus /> Add
-      </Button>
     </Panel>
   );
 }
@@ -346,7 +359,7 @@ function StepPanels({
                 <Choice
                   value={onFail.model ?? UNSET}
                   options={[UNSET, ...MODELS]}
-                  labels={{ [UNSET]: "As the prompt" }}
+                  labels={{ [UNSET]: promptModel(ctx, onFail.name) }}
                   onChange={(m) => writeOnFail({ ...onFail, model: m === UNSET ? null : m })}
                 />
               </Row>
@@ -357,13 +370,14 @@ function StepPanels({
           </>
         )}
       </Panel>
+      {/* One field per line, so each select shows its value in full at the column's width. */}
       <Panel title="Runs on and model">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-2">
           <Row label="Runs on">
             <Choice
               value={step.runsOn ?? UNSET}
               options={[UNSET, ...RUNS_ON]}
-              labels={{ [UNSET]: "As the workflow" }}
+              labels={{ [UNSET]: "Workflow's", agents: "Agents", session: "Your session" }}
               onChange={(v) => apply((d) => setStepField(d, index, "runs-on", v === UNSET ? undefined : v))}
             />
           </Row>
@@ -371,7 +385,7 @@ function StepPanels({
             <Choice
               value={step.model ?? UNSET}
               options={[UNSET, ...MODELS]}
-              labels={{ [UNSET]: "As the prompt" }}
+              labels={{ [UNSET]: promptModel(ctx, step.name) }}
               onChange={(v) => apply((d) => setStepField(d, index, "model", v === UNSET ? undefined : v))}
             />
           </Row>
@@ -421,7 +435,12 @@ export function WorkflowSettings({
           Default workflow
         </Check>
         <Row label="Runs on">
-          <Choice value={source.runsOn} options={RUNS_ON} onChange={(v) => apply((d) => setWorkflowField(d, "runs-on", v))} />
+          <Choice
+            value={source.runsOn}
+            options={RUNS_ON}
+            labels={{ agents: "Agents", session: "Your session" }}
+            onChange={(v) => apply((d) => setWorkflowField(d, "runs-on", v))}
+          />
         </Row>
       </Panel>
       <InputsPanel inputs={source.inputs} workflow apply={apply} />

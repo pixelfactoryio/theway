@@ -152,6 +152,16 @@ test("dashboard serves its two fonts as woff2 from its own origin", async () => 
   }
 });
 
+test("dashboard serves its icon, the logo mark as SVG, linked from the page", async () => {
+  const { port } = await start(home());
+  const page = await get(port, "/");
+  expect(page.body).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />');
+  const icon = await get(port, "/favicon.svg");
+  expect([icon.status, icon.headers["content-type"], icon.headers["content-security-policy"]]).toEqual([200, "image/svg+xml", CSP]);
+  expect(icon.body).toStartWith('<svg xmlns="http://www.w3.org/2000/svg"');
+  expect(icon.body).toContain('d="M7 8h8M7 11h5M7 14h8"');
+});
+
 test("the build ships each font's licence in dist/licenses", () => {
   for (const [pkg, out] of [
     ["inter", "inter-OFL.txt"],

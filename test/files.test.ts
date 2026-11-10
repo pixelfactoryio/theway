@@ -6,8 +6,9 @@ import type { Document } from "yaml";
 import type { Overlay } from "../src/core/io";
 import { parsePromptFile, resolveWorkflowFile } from "../src/core/language";
 import { addInput, HEADER_ORDER, type PromptChoice, parse, removeInput, setStepPrompt, textOf } from "../src/dashboard/client/editor/ops";
-import { addHeader, editHeader, joinPrompt, setBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
+import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
+import { MAX_PART, pathParts, shownPath } from "../src/dashboard/client/lib/path";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
 
 const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
@@ -93,6 +94,22 @@ test("each header edit of review.md keeps its body byte for byte, and a body edi
   expect(replaced).toBe(`---\n${header}---\nNew text.\n`);
 });
 
+test("the editor's body leaves out the blank line after the header, and an edit writes it back", () => {
+  const review = fixture("prompts/review.md");
+  const { header, body } = splitPrompt(review);
+  expect(body.startsWith("\n#")).toBe(true);
+  expect(editableBody(review)).toBe(body.slice(1));
+  expect(setEditableBody(review, editableBody(review))).toBe(review);
+  expect(setEditableBody(review, "New text.\n")).toBe(`---\n${header}---\n\nNew text.\n`);
+  // A CRLF separator is kept as it is; a header with no blank line after it, or no header, has none to leave out.
+  expect(editableBody("---\r\ndescription: d\r\n---\r\n\r\nText\r\n")).toBe("Text\r\n");
+  expect(setEditableBody("---\r\ndescription: d\r\n---\r\n\r\nText\r\n", "New")).toBe("---\r\ndescription: d\r\n---\r\n\r\nNew");
+  expect(editableBody("---\ndescription: d\n---\nText\n")).toBe("Text\n");
+  expect(setEditableBody("---\ndescription: d\n---\nText\n", "New\n")).toBe("---\ndescription: d\n---\nNew\n");
+  expect(editableBody("\nNotes.\n")).toBe("\nNotes.\n");
+  expect(setEditableBody("\nNotes.\n", "Other.\n")).toBe("Other.\n");
+});
+
 test("Use as a step on conformance.md adds a header and keeps its text byte for byte after it", () => {
   const conformance = fixture("prompts/conformance.md");
   expect(splitPrompt(conformance).open).toBeNull();
@@ -129,4 +146,15 @@ test("a copy keeps its source's text and sets the description", () => {
   expect(copyText("prompts", review, "A review")).toBe(review.replace("description: Review the change's diff through one lens\n", "description: A review\n"));
   const conformance = fixture("prompts/conformance.md");
   expect(copyText("prompts", conformance, "A lens")).toBe(`---\ndescription: A lens\n---\n\n${conformance}`);
+});
+
+test("the File panel's path starts at the home as shown and breaks only after a /", () => {
+  expect(shownPath("~/.theway", "workflows/agents.yaml")).toBe("~/.theway/workflows/agents.yaml");
+  expect(shownPath("/srv/theway/", "prompts/triage.md")).toBe("/srv/theway/prompts/triage.md");
+  expect(pathParts("~/.theway/workflows/engineering-light.yaml")).toEqual(["~/", ".theway/", "workflows/", "engineering-light.yaml"]);
+  expect(pathParts("/srv/theway/prompts/triage.md")).toEqual(["/", "srv/", "theway/", "prompts/", "triage.md"]);
+  expect(pathParts("~/.theway/workflows/agents.yaml").join("")).toBe("~/.theway/workflows/agents.yaml");
+  // A project key longer than the panel is the one part that may break anywhere.
+  expect("-Users-me-Dev-github-com-acme-widgets/".length).toBeGreaterThan(MAX_PART);
+  expect("engineering-light.yaml".length).toBeLessThanOrEqual(MAX_PART);
 });

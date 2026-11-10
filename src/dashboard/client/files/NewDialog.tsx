@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { absoluteOf, editHref, type FileRef, fileKey, useFile, useFiles } from "@/lib/api";
+import { editHref, type FileRef, fileKey, useFile, useFiles } from "@/lib/api";
 import { NAME } from "../../../core/language-schema";
-import type { FileItem, FilesResponse, SourceKind } from "../../types";
+import { EXT, type FileItem, type FilesResponse, type SourceKind } from "../../types";
 import { usePromptContext } from "./context";
 import { useDrafts } from "./drafts";
 import { Choice, Input, Row } from "./fields";
@@ -58,27 +58,45 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
   return (
     <>
       <DialogHeader>
-        <DialogTitle>New file</DialogTitle>
+        <DialogTitle>New</DialogTitle>
+        <DialogDescription>Opens in the editor as a draft. Nothing is written until you save.</DialogDescription>
       </DialogHeader>
-      <Tabs
-        value={kind}
-        onValueChange={(v) => {
-          setKind(v as SourceKind);
-          setFrom(EMPTY);
-        }}
+      <Row label="What" group>
+        <Tabs
+          value={kind}
+          onValueChange={(v) => {
+            setKind(v as SourceKind);
+            setFrom(EMPTY);
+          }}
+        >
+          <TabsList>
+            <TabsTrigger value="workflows" className="px-3">
+              Workflow
+            </TabsTrigger>
+            <TabsTrigger value="prompts" className="px-3">
+              Prompt
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </Row>
+      <Row
+        label="Name"
+        note={
+          tried && reason !== "" ? (
+            <span className="text-destructive">{reason}</span>
+          ) : (
+            <>
+              Saved as <span className="font-mono break-all">{`${kind}/${name === "" ? "<name>" : name}${EXT[kind]}`}</span>
+            </>
+          )
+        }
       >
-        <TabsList className="w-full">
-          <TabsTrigger value="workflows">Workflow</TabsTrigger>
-          <TabsTrigger value="prompts">Prompt</TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <Row label="Name" note={tried && reason !== "" ? <span className="text-destructive">{reason}</span> : undefined}>
         <Input className="font-mono text-[13px]" value={name} aria-invalid={(tried && reason !== "") || undefined} onChange={(e) => setName(e.target.value)} />
       </Row>
       <Row label="Description">
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </Row>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Row label="Start from">
           <Choice
             value={from}
@@ -100,7 +118,6 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
           />
         </Row>
       </div>
-      <span className="font-mono text-[12px] break-all text-muted-foreground">{absoluteOf(files, { ...target, name: name === "" ? "<name>" : name })}</span>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>
           Cancel
@@ -118,7 +135,7 @@ export function NewDialog({ kind, onClose }: { kind: SourceKind | null; onClose:
   const files = useFiles();
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[460px] sm:max-w-[460px]">
+      <DialogContent className="sm:max-w-[460px]">
         {kind !== null && files.data !== undefined && <NewForm initial={kind} files={files.data} onClose={onClose} />}
       </DialogContent>
     </Dialog>

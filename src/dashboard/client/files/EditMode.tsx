@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { type FileRef, fileHref, saveFile, useFiles, validateFile } from "@/lib/api";
 import type { FileDetail, FilesResponse, FileValidateResponse } from "../../types";
 import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
-import { addHeader, editHeader, setBody } from "../editor/prompt";
+import { addHeader, editHeader, setEditableBody } from "../editor/prompt";
 import { usePromptContext } from "./context";
 import { Diff } from "./Diff";
 import { type Draft, isDirty } from "./draft";
@@ -142,7 +142,7 @@ export function EditMode({
 
   const centre = (
     <>
-      <div className="flex flex-wrap items-center gap-3 py-4 pl-6">
+      <div className="flex flex-wrap items-center gap-3 py-4 lg:px-6">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h1 className="font-mono text-[20px] font-medium break-all">{file.name}</h1>
           <Badge variant="primary-light">editing</Badge>
@@ -163,7 +163,7 @@ export function EditMode({
       </div>
       {/* A click outside a card clears the selection. */}
       <div
-        className="flex flex-1 flex-col items-center gap-3 px-6 pb-28"
+        className="flex flex-1 flex-col items-center gap-3 pb-6 lg:px-6"
         onClick={(e) => {
           // A click in a portalled menu reaches this handler through the React tree, not the DOM.
           if (e.currentTarget.contains(e.target as Node)) select(null);
@@ -192,7 +192,7 @@ export function EditMode({
             />
           )
         ) : (
-          <PromptEdit text={draft.text} setBody={(body) => update(file, (text) => setBody(text, body))} />
+          <PromptEdit text={draft.text} setBody={(body) => update(file, (text) => setEditableBody(text, body))} />
         )}
       </div>
     </>
@@ -207,7 +207,6 @@ export function EditMode({
       <PromptSettings header={header} apply={applyHeader} useAsStep={() => update(file, addHeader)} />
     );
 
-  const changes = draft.undo.length;
   const status = validation.pending ? (
     <span className="opacity-70">checking…</span>
   ) : errors.length > 0 ? (
@@ -217,8 +216,10 @@ export function EditMode({
   ) : (
     <span className="opacity-70">{files.data === undefined ? "" : `check passes · ${reach(file, detail, files.data)}`}</span>
   );
-  const bar = (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-6">
+  // Shown only while there is something to save; sticky in the page's flow, so the page ends below it and it never
+  // covers the end of a column.
+  const bar = dirty && (
+    <div className="pointer-events-none sticky bottom-4 z-40 mt-4 mb-4 flex justify-center px-6">
       <div className="pointer-events-auto flex w-full max-w-[880px] flex-col gap-2 rounded-xl bg-invert px-4 py-2.5 text-invert-foreground shadow-lg">
         {conflict && (
           <div className="flex items-center gap-3">
@@ -248,25 +249,22 @@ export function EditMode({
             {w}
           </span>
         ))}
-        {diff && dirty && (
+        {diff && (
           <div className="text-foreground">
             <Diff from={draft.start} to={draft.text} />
           </div>
         )}
-        <div className="flex items-center gap-3">
-          {dirty && (
-            // The dark-scheme colours of the badge, on the bar's dark background.
-            <Badge variant="warning-light" className="border-warning/25 bg-warning/15 text-warning">
-              {changes} {changes > 1 ? "changes" : "change"}
-            </Badge>
-          )}
-          <span className="min-w-0 truncate text-[13px]">{dirty ? status : <span className="opacity-70">no changes</span>}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* The dark-scheme colours of the badge, on the bar's dark background. */}
+          <Badge variant="warning-light" className="border-warning/25 bg-warning/15 text-warning">
+            {draft.isNew ? "New file" : "Unsaved changes"}
+          </Badge>
+          <span className="min-w-0 flex-1 basis-40 truncate text-[13px]">{status}</span>
           <div className="ml-auto flex shrink-0 gap-2">
             <Button
               variant="ghost"
               className="hover:bg-white/10 hover:text-invert-foreground aria-pressed:bg-white/15"
               aria-pressed={diff}
-              disabled={!dirty}
               onClick={() => setDiff(!diff)}
             >
               Diff
@@ -274,7 +272,7 @@ export function EditMode({
             <Button
               variant="ghost"
               className="hover:bg-white/10 hover:text-invert-foreground"
-              disabled={!dirty || saving}
+              disabled={saving}
               onClick={() => setDiscarding(true)}
             >
               Discard

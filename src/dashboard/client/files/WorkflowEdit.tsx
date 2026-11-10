@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { PromptContext } from "./context";
 import type { StepSource } from "./source";
-import { Card, ModelBadge } from "./WorkflowView";
+import { promptName } from "./source";
+import { Card, indicator, LINE, ModelBadge } from "./WorkflowView";
 
 /** The `+` button on the timeline's line and its menu: every step prompt, by name with its description. */
 function AddStep({ ctx, onPick, className }: { ctx: PromptContext; onPick: (name: string) => void; className?: string }) {
@@ -66,7 +67,7 @@ function StepCard({ step, runsOn, ctx, selected, tied }: { step: StepSource; run
           <span className="font-mono text-[12px] text-muted-foreground">{step.matrix.key}</span>
           {step.matrix.values.map((v, i) => (
             <Badge key={`${i}:${v}`} variant="secondary">
-              {v}
+              {promptName(v) ?? v}
             </Badge>
           ))}
         </div>
@@ -95,7 +96,7 @@ export function WorkflowEdit({ steps, runsOn, ctx, selected, tied, select, inser
   const ids = steps.map((_, i) => idOf(i));
   return (
     <div className="flex w-full max-w-[640px] flex-col">
-      <Timeline value={steps.length} className="w-full pl-1">
+      <Timeline value={0} className="w-full pl-1">
         <Sortable
           value={ids}
           getItemValue={(id) => id}
@@ -107,15 +108,8 @@ export function WorkflowEdit({ steps, runsOn, ctx, selected, tied, select, inser
           {steps.map((step, i) => (
             <SortableItem key={idOf(i)} value={idOf(i)} render={<TimelineItem step={i + 1} />}>
               <TimelineHeader>
-                <TimelineSeparator className="group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-6.5" />
-                <TimelineIndicator
-                  className={cn(
-                    "flex size-6 items-center justify-center text-[11px] font-medium",
-                    selected === i ? "border-primary bg-primary text-primary-foreground" : "bg-card text-primary",
-                  )}
-                >
-                  {i + 1}
-                </TimelineIndicator>
+                <TimelineSeparator className={LINE} />
+                <TimelineIndicator className={indicator(selected === i)}>{i + 1}</TimelineIndicator>
               </TimelineHeader>
               <TimelineContent className="text-foreground">
                 {/* A div, not a button: the card holds the drag handle. */}
@@ -140,11 +134,12 @@ export function WorkflowEdit({ steps, runsOn, ctx, selected, tied, select, inser
                 </div>
               </TimelineContent>
               {i < steps.length - 1 && (
+                // Shown while the gap is hovered, without Tailwind's `(hover: hover)` query, or while the + has focus.
                 <div className="group/gap absolute bottom-0 left-[-2.25rem] flex h-6 w-[calc(100%+2.25rem)] items-center">
                   <AddStep
                     ctx={ctx}
                     onPick={(name) => insert(i + 1, name)}
-                    className="opacity-0 group-hover/gap:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+                    className="opacity-0 focus-visible:opacity-100 aria-expanded:opacity-100 [.group\/gap:hover_&]:opacity-100"
                   />
                 </div>
               )}

@@ -1,7 +1,8 @@
 /** The dashboard API's handlers: each reads the home on every call and returns a status and a JSON body. */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, sep } from "node:path";
 import { isDir, isFile, type Overlay, writeAtomic } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
 import { NAME } from "../core/language-schema";
@@ -308,11 +309,18 @@ const placesOf = (all: { key: string; label: string }[]): Place[] => [
   ...all.map(({ key, label }): Place => ({ scope: "project", key, label })),
 ];
 
-/** `GET /api/v1/files`: every project, then every workflow and prompt file, global ones first. */
+/** A path as the page shows it: `~` for the user's home and `~/<rest>` under it, else as given. */
+export function tildePath(path: string, user = homedir()): string {
+  if (user === "" || user === sep) return path;
+  if (path === user) return "~";
+  return path.startsWith(`${user}${sep}`) ? `~/${path.slice(user.length + 1)}` : path;
+}
+
+/** `GET /api/v1/files`: the home as shown, every project, then every workflow and prompt file, global ones first. */
 export function files(home: string): Reply<FilesResponse> {
   const all = projectLabels(home);
   const places = placesOf(all);
-  return ok({ projects: all, workflows: places.flatMap((p) => workflowItems(home, p)), prompts: places.flatMap((p) => promptItems(home, p)) });
+  return ok({ home: tildePath(home), projects: all, workflows: places.flatMap((p) => workflowItems(home, p)), prompts: places.flatMap((p) => promptItems(home, p)) });
 }
 
 /** The uses of the prompt `name` by the workflows `items` of a context, one item per workflow, step and kind of use. */

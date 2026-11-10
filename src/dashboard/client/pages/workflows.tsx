@@ -10,8 +10,9 @@ import { EditMode } from "@/files/EditMode";
 import { NewDialog } from "@/files/NewDialog";
 import { HeaderErrors, PromptBadges, PromptView, UsedBy } from "@/files/PromptView";
 import { VersionList, VersionView } from "@/files/Versions";
-import { Panel, WorkflowPanels, WorkflowView } from "@/files/WorkflowView";
-import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
+import { Panel, SMALL_CAPS, WorkflowPanels, WorkflowView } from "@/files/WorkflowView";
+import { editHref, type FileRef, fileHref, fileKey, relOf, useFile, useFiles, versionsHref } from "@/lib/api";
+import { MAX_PART, pathParts, shownPath } from "@/lib/path";
 import type { FileDetail, FileItem, SourceKind } from "../../types";
 
 const sameFile = (a: FileRef, b: FileRef): boolean => a.scope === b.scope && a.key === b.key && a.kind === b.kind && a.name === b.name;
@@ -25,9 +26,9 @@ function Item({ item, selected, edited }: { item: FileItem; selected: boolean; e
       aria-current={selected ? "page" : undefined}
       className={cn("flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5", selected ? "bg-primary/10 text-primary" : "hover:bg-accent")}
     >
-      <span className="truncate font-mono text-[13px]">{item.name}</span>
-      <span className="flex shrink-0 items-center gap-1.5">
-        {item.scope === "project" && <span className="text-[12px] text-muted-foreground">{item.label ?? item.key} only</span>}
+      <span className="max-w-full shrink-0 truncate font-mono text-[13px]">{item.name}</span>
+      <span className="flex min-w-0 items-center gap-1.5 [&>*]:shrink-0">
+        {item.scope === "project" && <span className="min-w-0 shrink! truncate text-[12px] text-muted-foreground">{item.label ?? item.key} only</span>}
         {edited ? (
           <Badge variant="warning-light">edited</Badge>
         ) : error !== null ? (
@@ -51,7 +52,7 @@ function Group({ heading, items, selected, first }: { heading: string; items: Fi
   };
   return (
     <>
-      <div className={cn("flex items-baseline justify-between px-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase", first ? "" : "pt-4")}>
+      <div className={cn("flex items-baseline justify-between px-2.5 pb-1", SMALL_CAPS, first ? "" : "pt-4")}>
         <span>{heading}</span>
         <span className="tabular-nums">{items.length}</span>
       </div>
@@ -96,15 +97,30 @@ function FileList({ selected, onNew }: { selected: FileRef | null; onNew: (kind:
   );
 }
 
-/** The File panel: the file's path, and what overrides it or what it overrides. */
+/** A path that breaks only after a `/`; a part too long for the panel breaks anywhere. */
+function PathText({ path }: { path: string }) {
+  return (
+    <span className="font-mono text-[12px]">
+      {pathParts(path).map((part, i) => (
+        <span key={`${i}:${part}`} className={part.length > MAX_PART ? "break-all" : "whitespace-nowrap"}>
+          {part}
+          <wbr />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** The File panel: the file's path from the home, and what overrides it or what it overrides. */
 function FilePanel({ detail }: { detail: FileDetail }) {
+  const files = useFiles();
   return (
     <Panel title="File">
-      <span className="font-mono text-[12px] break-all">{detail.path}</span>
+      <PathText path={files.data === undefined ? detail.path : shownPath(files.data.home, relOf(detail))} />
       {detail.scope === "global" ? (
-        detail.overriddenBy.length > 0 && (
-          <span className="text-[12px] text-muted-foreground">overridden in {detail.overriddenBy.map((p) => p.label).join(", ")}</span>
-        )
+        <span className="text-[12px] text-muted-foreground">
+          {detail.overriddenBy.length > 0 ? `Overridden in ${detail.overriddenBy.map((p) => p.label).join(", ")}` : "Not overridden in any project"}
+        </span>
       ) : (
         <span className="text-[12px] text-muted-foreground">
           {detail.label ?? detail.key} only{detail.overrides && ` · replaces the global ${detail.name}`}
@@ -124,7 +140,7 @@ function Facts({ detail }: { detail: FileDetail }) {
   );
 }
 
-/** The centre: the title row with its badges, Edit, Versions and the source toggle, then the drawing or the file's text. */
+/** The centre: the title row with its badges, Versions, the source toggle and Edit, then the drawing or the file's text. */
 function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   const [source, setSource] = useState(false);
   const [, navigate] = useLocation();
@@ -132,7 +148,7 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   const draft = drafts.get(fileKey(file))?.draft;
   return (
     <>
-      <div className="flex flex-wrap items-start gap-3 py-4 pl-6">
+      <div className="flex flex-wrap items-start gap-3 py-4 lg:px-6">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-mono text-[20px] font-medium break-all">{file.name}</h1>
@@ -142,6 +158,12 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
           {detail.kind === "prompts" && <HeaderErrors resolved={detail.resolved} usedBy={detail.usedBy} />}
         </div>
         <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => navigate(versionsHref(file))}>
+            Versions
+          </Button>
+          <Button variant="outline" aria-pressed={source} onClick={() => setSource(!source)}>
+            {detail.kind === "workflows" ? "YAML" : "Markdown"}
+          </Button>
           <Button
             onClick={() => {
               // A dirty draft, reachable from versions mode, is kept.
@@ -151,15 +173,9 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
           >
             Edit
           </Button>
-          <Button variant="outline" onClick={() => navigate(versionsHref(file))}>
-            Versions
-          </Button>
-          <Button variant="outline" aria-pressed={source} onClick={() => setSource(!source)}>
-            {detail.kind === "workflows" ? "YAML" : "Markdown"}
-          </Button>
         </div>
       </div>
-      <div className="flex flex-1 flex-col items-center gap-3 px-6 pb-6">
+      <div className="flex flex-1 flex-col items-center gap-3 pb-6 lg:px-6">
         {source ? (
           <pre className="w-full overflow-x-auto rounded-lg border bg-card p-3 font-mono text-[13px]">{detail.text}</pre>
         ) : detail.kind === "workflows" ? (
@@ -172,7 +188,10 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   );
 }
 
-/** The three columns: the file list, the centre and the right column (`factsLabel`), then the save bar in edit mode, and the New dialog. */
+/**
+ * The three columns: the file list, the centre and the right column (`factsLabel`), then the save bar in edit mode, and
+ * the New dialog. Below the `lg` breakpoint they stack in that order, each the page's width.
+ */
 function Columns({
   selected,
   centre,
@@ -189,12 +208,12 @@ function Columns({
   const [newKind, setNewKind] = useState<SourceKind | null>(null);
   return (
     <>
-      <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
-        <aside aria-label="Files" className="w-[260px] shrink-0 border-r border-divider py-4 pr-4">
+      <div className="mx-auto flex w-full max-w-[1120px] flex-1 flex-col px-6 lg:flex-row">
+        <aside aria-label="Files" className="border-b border-divider py-4 lg:w-[260px] lg:shrink-0 lg:border-r lg:border-b-0 lg:pr-4">
           <FileList selected={selected} onNew={setNewKind} />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
-        <aside aria-label={factsLabel} className="w-[280px] shrink-0 border-l border-divider py-4 pb-28 pl-4">
+        <aside aria-label={factsLabel} className="border-t border-divider py-4 lg:w-[280px] lg:shrink-0 lg:border-t-0 lg:border-l lg:pl-4">
           {facts}
         </aside>
       </div>

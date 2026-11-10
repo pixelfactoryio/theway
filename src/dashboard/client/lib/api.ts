@@ -73,14 +73,6 @@ export const fileKey = (f: FileRef): string => `${f.scope}/${f.key ?? ""}/${f.ki
 export const relOf = (f: FileRef): string =>
   f.scope === "global" ? `${f.kind}/${f.name}${EXT[f.kind]}` : `projects/${f.key ?? ""}/${f.kind}/${f.name}${EXT[f.kind]}`;
 
-/** The absolute path of a file, from the path of any file the list gives; `<home>/<rel>` when it gives none. */
-export function absoluteOf(files: FilesResponse, f: FileRef): string {
-  const any = [...files.workflows, ...files.prompts][0];
-  if (any === undefined) return `<home>/${relOf(f)}`;
-  const home = any.path.slice(0, any.path.length - relOf(any).length - 1);
-  return `${home}/${relOf(f)}`;
-}
-
 /** The process token the server put in the page, sent on every write. */
 const token = (): string => document.querySelector('meta[name="theway-token"]')?.getAttribute("content") ?? "";
 

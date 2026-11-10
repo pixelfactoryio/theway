@@ -12,8 +12,14 @@ type Project = AllChangesResponse["projects"][number];
 /** The value of the Select's first item. */
 const ALL = "";
 
-/** The three columns of a row: the name, the bar and the count. */
-const ROW = "grid grid-cols-[minmax(0,1fr)_160px_170px] items-center gap-6 border-t border-divider-row py-[11px]";
+/**
+ * The three columns of a row: the name, the bar and the count; below the `sm` breakpoint, the name and the count, with
+ * the bar on a line of its own under them.
+ */
+const ROW =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-t border-divider-row py-[11px] sm:grid-cols-[minmax(0,1fr)_160px_170px] sm:gap-6";
+/** The bar's cell: last and the row's width below `sm`, the middle column from `sm`. */
+const BAR = "order-last col-span-2 sm:order-none sm:col-span-1";
 
 /** The count text: `<done> of <total> tasks`, or `no tasks`. */
 const taskCount = (c: ActiveChange): string => (c.tasks.total === 0 ? "no tasks" : `${c.tasks.done} of ${c.tasks.total} tasks`);
@@ -22,7 +28,9 @@ function ChangeRow({ projectKey, change, indent = false }: { projectKey: string;
   return (
     <Link href={`/changes/${projectKey}/${change.id}`} className={`${ROW} ${indent ? "pl-6" : ""} hover:bg-accent`}>
       <span className="truncate font-mono text-[13px]">{change.id}</span>
-      <Bar done={change.tasks.done} total={change.tasks.total} />
+      <span className={BAR}>
+        <Bar done={change.tasks.done} total={change.tasks.total} />
+      </span>
       <span className="text-right text-muted-foreground tabular-nums">{taskCount(change)}</span>
     </Link>
   );
@@ -37,7 +45,9 @@ function SeriesRow({ projectKey, row }: { projectKey: string; row: Extract<Row, 
         <span className="truncate">
           <span className="font-mono text-[13px]">{row.id}</span> <span className="text-muted-foreground">· {row.total} changes</span>
         </span>
-        <Bar done={row.done} total={row.total} />
+        <span className={BAR}>
+          <Bar done={row.done} total={row.total} />
+        </span>
         <span className="text-right text-muted-foreground tabular-nums">
           {row.done} of {row.total} done
         </span>
@@ -51,7 +61,7 @@ function ArchivedRow({ projectKey, archived }: { projectKey: string; archived: A
   return (
     <Link href={`/archive/${projectKey}/${archived.folder}`} className={`${ROW} hover:bg-accent`}>
       <span className="truncate font-mono text-[13px]">{archived.id ?? archived.folder}</span>
-      <span />
+      <span className="hidden sm:block" />
       <span className="text-right text-muted-foreground tabular-nums">{archived.date ?? ""}</span>
     </Link>
   );

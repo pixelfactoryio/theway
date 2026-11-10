@@ -15,15 +15,24 @@ export function Card({ className, children }: { className?: string; children: Re
   return <div className={cn("rounded-lg border bg-card px-4 py-3 shadow-xs", className)}>{children}</div>;
 }
 
-/** A panel of the right column: a card with a small heading. */
-export function Panel({ title, children }: { title: string; children: ReactNode }) {
+/** The small-capitals heading of the file list's groups and the right column's panels. */
+export const SMALL_CAPS = "text-[11px] font-medium tracking-wide text-muted-foreground uppercase";
+
+/** A panel of the right column: a card with a small-capitals heading, and an optional action at its right. */
+export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <Card className="flex flex-col gap-1.5 px-3.5">
-      <span className="text-[12px] font-medium text-muted-foreground">{title}</span>
+      <div className="flex min-h-5 items-center gap-2">
+        <span className={SMALL_CAPS}>{title}</span>
+        {action !== undefined && <span className="ml-auto">{action}</span>}
+      </div>
       {children}
     </Card>
   );
 }
+
+/** Where a workflow or a step runs, in words. */
+export const runsOnText = (runsOn: string): string => (runsOn === "session" ? "Your session" : runsOn === "agents" ? "Agents" : runsOn);
 
 /** A model's badge: `info-light` for opus, `secondary` for the others. */
 export function ModelBadge({ model }: { model: string }) {
@@ -133,15 +142,23 @@ function StepCard({ file, step }: { file: FileRef; step: ResolvedStep }) {
   );
 }
 
-/** The timeline: one item per card, numbered from 1, joined by a line. */
+/** The classes of a timeline's line and of its indicators, neutral; the selected step's indicator is in the primary colour. */
+export const LINE = "bg-input group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-6.5";
+export const indicator = (selected: boolean): string =>
+  cn(
+    "flex size-6 items-center justify-center text-[11px] font-medium",
+    selected ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card text-muted-foreground",
+  );
+
+/** The timeline: one item per card, numbered from 1, joined by a line; no step is selected. */
 function Steps({ cards }: { cards: ReactNode[] }) {
   return (
-    <Timeline value={cards.length} className="w-full max-w-[640px] pl-1">
+    <Timeline value={0} className="w-full max-w-[640px] pl-1">
       {cards.map((card, i) => (
         <TimelineItem key={i} step={i + 1}>
           <TimelineHeader>
-            <TimelineSeparator className="group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-6.5" />
-            <TimelineIndicator className="flex size-6 items-center justify-center bg-card text-[11px] font-medium text-primary">{i + 1}</TimelineIndicator>
+            <TimelineSeparator className={LINE} />
+            <TimelineIndicator className={indicator(false)}>{i + 1}</TimelineIndicator>
           </TimelineHeader>
           <TimelineContent className="text-foreground">{card}</TimelineContent>
         </TimelineItem>
@@ -225,7 +242,7 @@ export function WorkflowPanels({ doc }: { doc: ResolvedWorkflow }) {
   return (
     <>
       <Panel title="Runs on">
-        <span className="font-mono text-[13px]">{doc.runs_on}</span>
+        <span>{runsOnText(doc.runs_on)}</span>
       </Panel>
       {inputs.length > 0 && (
         <Panel title="Inputs">
