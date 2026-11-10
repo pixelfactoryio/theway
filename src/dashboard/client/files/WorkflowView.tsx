@@ -183,7 +183,8 @@ function usesOf(text: string): string[] {
   });
 }
 
-/** A workflow that does not resolve: its lines, each `steps[<i>]` line under the card of that step, then its text. */
+/** A workflow that does not resolve: its lines, each `steps[<i>]` line under the card of that step, then its text.
+ * The step cards are drawn only when a line names one of them. */
 function Unresolved({ name, errors, text }: { name: string; errors: string[]; text: string }) {
   const uses = useMemo(() => usesOf(text), [text]);
   const tied = (i: number) => errors.filter((l) => stepOf(l, name) === i);
@@ -193,7 +194,7 @@ function Unresolved({ name, errors, text }: { name: string; errors: string[]; te
   });
   return (
     <Broken lines={untied} text={text}>
-      {uses.length > 0 && (
+      {untied.length < errors.length && (
         <Steps
           cards={uses.map((u, i) => (
             <Fragment key={i}>
