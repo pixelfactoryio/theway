@@ -407,6 +407,9 @@ const PINS: Record<string, string> = {
   "@tanstack/react-query": "5.104.5",
   "@fontsource-variable/inter": "5.3.0",
   "@fontsource-variable/jetbrains-mono": "5.3.0",
+  "@dnd-kit/core": "6.3.1",
+  "@dnd-kit/sortable": "10.0.0",
+  "@dnd-kit/utilities": "3.2.2",
 };
 
 test("package.json has no dependencies and pins every dashboard package exactly", () => {
@@ -428,7 +431,8 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
     ["alert-dialog", "button", "checkbox", "dialog", "dropdown-menu", "select", "tabs", "textarea"].map((n) => join("components", "ui", `${n}.tsx`)),
   );
   const reui = files.filter((f) => f.startsWith(join("components", "reui"))).sort();
-  expect(reui).toEqual(["badge", "timeline"].map((n) => join("components", "reui", `${n}.tsx`)));
+  expect(reui).toEqual(["badge", "sortable", "timeline"].map((n) => join("components", "reui", `${n}.tsx`)));
+  expect(existsSync(join(client, "components", "reui", "sortable.tsx"))).toBe(true);
   expect(existsSync(join(ROOT, "src", "components"))).toBe(false);
 });
 
