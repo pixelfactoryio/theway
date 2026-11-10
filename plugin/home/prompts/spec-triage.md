@@ -21,7 +21,7 @@ For a confirmed finding, set its final kind: `fixable` (the spec can be correcte
 
 ## A fix in the reports above
 
-Check that fix: read the change files it edited. For each confirmed finding, answer resolved or not resolved with a one-line reason. Look for no new problem, except that a fix that makes the spec contradict a standard is not resolved.
+Check that fix: read the change files it edited. For each confirmed finding, answer resolved or not resolved with a one-line reason. Look for no new problem, except that a fix that makes the spec contradict a standard is not resolved: run `theway context engineering` and read every file its `standards` lists.
 
 ## Answer
 

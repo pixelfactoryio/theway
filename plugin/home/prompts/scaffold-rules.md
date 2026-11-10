@@ -12,6 +12,7 @@ When the request names a change ID, use it. The request form `<change-id>: <requ
 
 ## What a scaffold does
 
+- Run `theway context engineering` and read every file its `standards` lists: they are the standards the change must follow.
 - Write only under the change folders `theway path <change-id>` prints. Throwaway probes may also write to a temporary directory created with `mktemp -d`; the change files still go only under the change folders.
 - Action words in the request ("rename X", "try the fix") describe what the spec should plan, not something to do now.
 - Do not suggest entering plan mode — its approval step is a "start coding" trigger that collapses scaffolding into implementation.

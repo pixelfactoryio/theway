@@ -11,7 +11,7 @@ inputs:
 
 Read the lens file `${{ inputs.lens }}` first, and review through that lens.
 
-You review the change folders named in the scaffold's report above (every member of a series together), before the spec is reported ready. Read `spec.md`, `tasks.md` and `design.md` (when present) in each folder. Find the code and docs yourself, from what the spec names, in the repository; the spec must follow the standards of `theway context engineering`.
+You review the change folders named in the scaffold's report above (every member of a series together), before the spec is reported ready. Read `spec.md`, `tasks.md` and `design.md` (when present) in each folder. Find the code and docs yourself, from what the spec names, in the repository. Run `theway context engineering` and read every file its `standards` lists: the spec must follow them.
 
 ## Rules
 

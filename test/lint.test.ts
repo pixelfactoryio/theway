@@ -370,7 +370,9 @@ test("the change prompts read the standards from theway context, and the spec re
   for (const marker of ["`theway context develop <change-id>`", "every file its `standards` lists", "`<home>/standards/develop.md`", "`docs/architecture/coding-standards.md`"]) {
     expect(change).toContain(marker);
   }
-  expect(prompt("spec-review.md")).toContain("the spec must follow the standards of `theway context engineering`");
+  expect(prompt("spec-review.md")).toContain("Run `theway context engineering` and read every file its `standards` lists: the spec must follow them.");
+  expect(prompt("scaffold-rules.md")).toContain("- Run `theway context engineering` and read every file its `standards` lists: they are the standards the change must follow.");
+  expect(prompt("spec-triage.md")).toContain("run `theway context engineering` and read every file its `standards` lists.");
   for (const f of ["implement.md", "review.md", "triage.md", "fix-review.md", "open-pr.md", "branch.md"]) {
     expect([f, prompt(f).includes("Read `prompts/change.md` first")]).toEqual([f, true]);
   }
