@@ -1,7 +1,7 @@
 import { join, relative } from "node:path";
 import { warnLoud } from "./config";
 import { escaped, invalidName, thewayHome } from "./io";
-import { listWorkflowFiles, resolveWorkflowFile } from "./language";
+import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language";
 import { projectDir, resolveKey } from "./project";
 
 /**
@@ -25,12 +25,18 @@ const joinAnd = (items: string[]) =>
   items.length === 1 ? (items[0] as string) : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
 /**
- * The name of the workflow a run without a name uses: the one workflow file of the project and the home (a project
- * file hiding the global one) that sets `default: true`; or the line that refuses: none sets it, or several do.
+ * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta` file of the project and the
+ * home (a project file hiding the global one) that sets `default: true`; or the lines that refuse: the v1 error of each
+ * v1 file when none sets it and v1 files are left, else that none sets it, or that several do.
  */
 function defaultName(home: string, key: string): { name: string } | { error: string } {
-  const marked = listWorkflowFiles(home, key, warnLoud).filter((w) => w.default);
-  if (marked.length === 0) return { error: "theway: no workflow sets default: true" };
+  const listed = listWorkflowFiles(home, key, warnLoud);
+  const marked = listed.filter((w) => w.default);
+  if (marked.length === 0) {
+    const v1 = listed.filter((w) => w.error === v1Line(`workflows/${w.name}.yaml`));
+    if (v1.length > 0) return { error: v1.map((w) => `theway: ${w.error}`).join("\n") };
+    return { error: "theway: no workflow sets default: true" };
+  }
   if (marked.length > 1) {
     const files = marked.map((w) => relative(home, join(w.scope === "project" ? projectDir(home, key) : home, "workflows", `${w.name}.yaml`)));
     return { error: `theway: ${joinAnd(files)} both set default: true` };

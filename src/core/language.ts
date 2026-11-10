@@ -28,6 +28,9 @@ import { dirsOf, fileOf, namesIn, searched } from "./step-files";
 /** The version of the language this one replaces. */
 const V1 = "theway.workflow/v1";
 
+/** The error line of a `theway.workflow/v1` file at `rel`. */
+export const v1Line = (rel: string) => `${rel}: ${V1} is no longer read: rewrite it as ${VERSION}`;
+
 const WORKFLOW_KEYS = ["version", "description", "default", "inputs", "runs-on", "steps"];
 const STEP_KEYS = ["uses", "with", "matrix", "on-fail", "tries", "runs-on", "model"];
 const ON_FAIL_KEYS = ["uses", "with", "model"];
@@ -438,7 +441,7 @@ export function resolveWorkflowFile(
   if ("reason" in parsed) return { errors: [`${rel}: ${parsed.reason}`] };
   const root = parsed.root;
   const version = isMap(root) ? root.get("version") : undefined;
-  if (version === V1) return { errors: [`${rel}: ${V1} is no longer read: rewrite it as ${VERSION}`] };
+  if (version === V1) return { errors: [v1Line(rel)] };
   if (!isMap(root) || version !== VERSION) return { errors: [`${rel}: version: must be ${VERSION}`] };
 
   const ctx: Ctx = { home, key, rel, inputs: new Map(), prompts: new Map() };
@@ -562,7 +565,7 @@ function scopedNames(
 
 /**
  * Every workflow file of a project and of the home, a project file hiding the global one of the same name, sorted by
- * name: its description (`null` when unreadable), its `default`, and the first error line of `resolveWorkflowFile`
+ * name: its description (`null` when unreadable), its `default` (false for a file of another version), and the first error line of `resolveWorkflowFile`
  * when it does not resolve. A `.yaml` file whose stem is not a valid name is warned about and left out.
  */
 export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay?: Overlay): WorkflowFileItem[] {
@@ -572,7 +575,9 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
     const parsed = text === null ? null : parseYaml(text);
     const root = parsed !== null && "root" in parsed ? parsed.root : null;
     const description = isMap(root) && nonEmpty(root.get("description")) ? (root.get("description") as string) : null;
-    const item: WorkflowFileItem = { name, scope, description, default: isMap(root) && root.get("default") === true };
+    // Only a theway.workflow/v1beta file can be the default: a v1 file's `default:` is not read.
+    const isDefault = isMap(root) && root.get("version") === VERSION && root.get("default") === true;
+    const item: WorkflowFileItem = { name, scope, description, default: isDefault };
     const result = resolveWorkflowFile(home, key, name, {}, overlay);
     if ("errors" in result) item.error = result.errors[0] as string;
     return item;

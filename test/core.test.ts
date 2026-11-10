@@ -1297,6 +1297,26 @@ test("workflow exits 1 on a v1 file with the line naming the new version, and th
   expect([agents.status, agents.stderr]).toEqual([0, ""]);
 });
 
+test("workflow with no name names the v1 files when no v1beta workflow sets default: true, and never takes a v1 file as the default", () => {
+  const dir = fixtureHome();
+  const develop = join(dir, "workflows", "develop.yaml");
+  // A kept v1 develop.yaml, with the v1beta text beside it as develop.default.yaml.
+  put(join(dir, "workflows", "develop.default.yaml"), readFileSync(develop, "utf-8"));
+  put(develop, "version: theway.workflow/v1\ndescription: Old develop\nsteps:\n  - implement:\n");
+  const none = v1beta(dir);
+  expect([none.status, none.stdout, none.stderr]).toEqual([
+    1,
+    "",
+    "theway: workflows/develop.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta\n",
+  ]);
+  // A v1 file with default: true is not a default: the v1beta one still runs, with no "both set" error.
+  put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1\ndefault: true\ndescription: Old\nsteps:\n  - implement:\n");
+  put(join(dir, "workflows", "mine.yaml"), readFileSync(join(dir, "workflows", "develop.default.yaml"), "utf-8"));
+  const one = v1beta(dir);
+  expect([one.status, one.stderr]).toEqual([0, ""]);
+  expect((JSON.parse(one.stdout) as { name: string }).name).toBe("mine");
+});
+
 test("steps is no longer a command", () => {
   const res = run(home(), "steps");
   expect(res.status).toBe(1);
