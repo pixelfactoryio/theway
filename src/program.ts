@@ -80,7 +80,10 @@ export function buildProgram(): Command {
     .argument("[name]")
     .option("--project <key>")
     .option("--input <name=value>", "", (value: string, previous: string[] | undefined) => [...(previous ?? []), value])
-    .action((name: string | undefined, o: { project?: string; input?: string[] }) => exit(cmdWorkflow(name, o.project, o.input)));
+    .option("--compact")
+    .action((name: string | undefined, o: { project?: string; input?: string[]; compact?: boolean }) =>
+      exit(cmdWorkflow(name, o.project, o.input, o.compact === true)),
+    );
   program.command("authority").action(() => exit(cmdAuthority()));
   program
     .command("next-id")

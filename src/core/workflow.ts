@@ -2,6 +2,7 @@ import { join, relative } from "node:path";
 import { warnLoud } from "./config";
 import { escaped, invalidName, thewayHome } from "./io";
 import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language";
+import type { ResolvedWorkflow } from "./language-schema";
 import { projectDir, resolveKey } from "./project";
 
 /**
@@ -45,10 +46,40 @@ function defaultName(home: string, key: string): { name: string } | { error: str
 }
 
 /**
- * `theway workflow [<name>] [--project <key>] [--input <name>=<value>]…`: one `theway.workflow/v1beta` workflow,
- * checked and resolved, as JSON; the one that sets `default: true` when no name is given.
+ * The resolved document without its bulky text, for a session to pass on: no prompt text, no description, no `with` as
+ * written. A step keeps its `uses`, `file`, `runs_on`, `model`, `matrix`, `tries` and `index`; a run its `label` and
+ * `with`; an `on_fail` its `uses`, `file`, `model`, `label` and `with`.
  */
-export function cmdWorkflow(wanted: string | undefined, override: string | undefined, given: string[] = []): number {
+export function compactWorkflow(doc: ResolvedWorkflow) {
+  return {
+    name: doc.name,
+    file: doc.file,
+    resolved: doc.resolved,
+    runs_on: doc.runs_on,
+    inputs: doc.inputs,
+    steps: doc.steps.map((s) => ({
+      index: s.index,
+      uses: s.uses,
+      file: s.file,
+      runs_on: s.runs_on,
+      model: s.model,
+      matrix: s.matrix,
+      runs: s.runs.map((r) => ({ label: r.label, with: r.with })),
+      on_fail:
+        s.on_fail === null
+          ? null
+          : { uses: s.on_fail.uses, file: s.on_fail.file, model: s.on_fail.model, label: s.on_fail.label, with: s.on_fail.with },
+      tries: s.tries,
+    })),
+  };
+}
+
+/**
+ * `theway workflow [<name>] [--project <key>] [--input <name>=<value>]… [--compact]`: one `theway.workflow/v1beta` workflow,
+ * checked and resolved, as JSON; the one that sets `default: true` when no name is given. `--compact` prints it without
+ * its prompt text (`compactWorkflow`).
+ */
+export function cmdWorkflow(wanted: string | undefined, override: string | undefined, given: string[] = [], compact = false): number {
   const key = resolveKey(override);
   if (key === null) return 1;
   if (invalidName("workflow", wanted)) return 1;
@@ -72,6 +103,6 @@ export function cmdWorkflow(wanted: string | undefined, override: string | undef
     process.stderr.write(resolved.errors.map((e) => `theway: ${e}\n`).join(""));
     return 1;
   }
-  process.stdout.write(`${JSON.stringify(resolved.doc, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(compact ? compactWorkflow(resolved.doc) : resolved.doc, null, 2)}\n`);
   return 0;
 }

@@ -1205,6 +1205,56 @@ test("v1beta: the resolved agents workflow matches test/fixtures/agents-resolved
   expect(res.stdout).toBe(expected);
 });
 
+test("v1beta: --compact prints the resolved workflow without prompt text, descriptions or the as-written with", () => {
+  const dir = fixtureHome();
+  const res = v1beta(dir, "agents", "--input", "change=add-foo", "--compact");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(res.stdout) as Record<string, unknown> & { steps: Record<string, unknown>[] };
+  const full = JSON.parse(readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8").replaceAll("<home>", dir));
+  expect(Object.keys(doc)).toEqual(["name", "file", "resolved", "runs_on", "inputs", "steps"]);
+  expect([doc.name, doc.file, doc.resolved, doc.runs_on, doc.inputs]).toEqual([full.name, full.file, true, "agents", full.inputs]);
+  expect(doc.steps.map((s) => Object.keys(s))).toEqual(
+    doc.steps.map(() => ["index", "uses", "file", "runs_on", "model", "matrix", "runs", "on_fail", "tries"]),
+  );
+  expect(doc.steps[1]).toEqual({
+    index: 1,
+    uses: "prompts/implement.md",
+    file: join(dir, "prompts", "implement.md"),
+    runs_on: "agents",
+    model: "opus",
+    matrix: null,
+    runs: [{ label: "2.implement", with: { change: "add-foo", commit: "yes" } }],
+    on_fail: null,
+    tries: null,
+  });
+  expect(doc.steps[2]?.runs).toEqual([
+    { label: "3.review[prompts/conformance.md]", with: { change: "add-foo", lens: "prompts/conformance.md" } },
+    { label: "3.review[prompts/correctness.md]", with: { change: "add-foo", lens: "prompts/correctness.md" } },
+  ]);
+  expect(doc.steps[3]?.on_fail).toEqual({
+    uses: "prompts/fix-review.md",
+    file: join(dir, "prompts", "fix-review.md"),
+    model: "opus",
+    label: "4.fix-review",
+    with: { change: "add-foo" },
+  });
+  expect(res.stdout).not.toContain('"prompt"');
+  expect(JSON.stringify(doc.steps)).not.toContain('"description"');
+  expect(res.stdout.length).toBeLessThan(full.steps.length * 1000);
+});
+
+test("v1beta: --compact checks the workflow as without it", () => {
+  const dir = fixtureHome();
+  for (const args of [["agents", "--input", "nope=1"], ["agents", "--input", "change=Bad ID"], ["missing"]]) {
+    const plain = v1beta(dir, ...args);
+    const compact = v1beta(dir, ...args, "--compact");
+    expect(plain.status).toBe(1);
+    expect([compact.status, compact.stderr, compact.stdout]).toEqual([1, plain.stderr, ""]);
+  }
+  const unresolved = JSON.parse(v1beta(dir, "agents", "--compact").stdout) as V1betaDoc;
+  expect([unresolved.resolved, unresolved.inputs.change?.value]).toEqual([false, null]);
+});
+
 test("v1beta: prompt files with CRLF line endings or a leading BOM resolve like their LF version", () => {
   const dir = fixtureHome();
   const lf = v1beta(dir, "agents", "--input", "change=add-foo");

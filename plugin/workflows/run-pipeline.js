@@ -3,8 +3,9 @@ export const meta = {
   description: 'Run the agent steps of a resolved theway workflow; started by /theway:workflow',
 }
 
-// run-pipeline is started by /theway:workflow with its args: the resolved workflow (theway workflow), the segment to run
-// (steps: consecutive indices of steps whose runs_on is agents) and the reports of the steps before it. It knows no
+// run-pipeline is started by /theway:workflow with its args: the resolved workflow (theway workflow, with or without
+// --compact), the segment to run (steps: consecutive indices of steps whose runs_on is agents) and the reports of the
+// steps before it. It knows no
 // prompt, step or workflow by name: each run of a step is one agent that answers pass, fail or blocked with a report,
 // and on_fail and tries decide what happens after a fail.
 
@@ -13,15 +14,17 @@ const RESULTS = ['pass', 'fail', 'blocked']
 
 const isString = (v) => typeof v === 'string'
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
-const isCall = (c) => isObject(c) && isString(c.label) && isString(c.prompt)
+const isWith = (w) => isObject(w) && Object.values(w).every(isString)
+/** A run or an on_fail: with its prompt text, or, in the compact document, with its inputs and the file to read. */
+const isCall = (c, file) => isObject(c) && isString(c.label) && (isString(c.prompt) || (c.prompt === undefined && isString(file) && isWith(c.with)))
 const isReport = (r) => isObject(r) && isString(r.label) && Number.isInteger(r.round) && RESULTS.includes(r.result) && isString(r.report)
 
 /** A step the engine can run: through agents, with its runs and, when it has an on_fail, a number of tries. */
 function validStep(s) {
   if (!isObject(s) || s.runs_on !== 'agents') return false
-  if (!Array.isArray(s.runs) || s.runs.length === 0 || !s.runs.every(isCall)) return false
+  if (!Array.isArray(s.runs) || s.runs.length === 0 || !s.runs.every((r) => isCall(r, s.file))) return false
   if (s.on_fail === null) return true
-  return isCall(s.on_fail) && Number.isInteger(s.tries) && s.tries >= 1
+  return isCall(s.on_fail, s.on_fail?.file) && Number.isInteger(s.tries) && s.tries >= 1
 }
 
 function validArgs(a) {
@@ -84,6 +87,17 @@ function reportsBlock() {
   return ['Reports of the steps before you:', ...all.map((r) => `## ${r.label} (round ${r.round}): ${r.result}\n${r.report}`)].join('\n\n')
 }
 
+/** The instructions of a run or an on_fail: its prompt text, or, without one, the file to read and its inputs' values. */
+function instructionsOf(c, file) {
+  if (isString(c.prompt)) return c.prompt
+  const lines = [`Read ${file}. Its text after the header (the part between the first two --- lines) is your instructions.`]
+  const inputs = Object.entries(c.with)
+  if (inputs.length > 0) {
+    lines.push('Where it says ${{ inputs.<name> }}, use:', ...inputs.map(([name, value]) => `${name}: ${value === '' ? '(empty)' : value}`))
+  }
+  return lines.join('\n')
+}
+
 const promptOf = (text) => [args.authority.trimEnd(), CONTEXT, DATA, reportsBlock(), text, ANSWER].join('\n\n')
 
 // ---- Agents ----
@@ -93,13 +107,13 @@ const reasonOf = (e) => (e instanceof Error ? e.message : String(e))
 /** The step's label without a matrix suffix. */
 const phaseOf = (step) => step.runs[0].label.replace(/\[.*\]$/, '')
 
-/** Calls one agent for `c` (a run or an on_fail); a throw or a null result stops the run. */
-async function call(c, model, phase) {
+/** Calls one agent for `c` (a run or an on_fail, whose prompt file is `file`); a throw or a null result stops the run. */
+async function call(c, model, phase, file) {
   const options = { label: c.label, phase, schema: SCHEMA }
   if (isString(model)) options.model = model
   let result
   try {
-    result = await agent(promptOf(c.prompt), options)
+    result = await agent(promptOf(instructionsOf(c, file)), options)
   } catch (e) {
     throw new Stop('failed', `${c.label} threw: ${reasonOf(e)}`)
   }
@@ -124,10 +138,10 @@ async function runStep(step, round) {
   const phase = phaseOf(step)
   let results
   if (step.runs.length === 1) {
-    results = [await call(step.runs[0], step.model, phase)]
+    results = [await call(step.runs[0], step.model, phase, step.file)]
   } else {
     // parallel() turns a throw into null, so each run returns its own stop to keep its message.
-    results = await parallel(step.runs.map((r) => () => call(r, step.model, phase).catch((e) => e)))
+    results = await parallel(step.runs.map((r) => () => call(r, step.model, phase, step.file).catch((e) => e)))
     // The runs that finished are recorded before the first stop is thrown, so their reports are not lost.
     let stop = null
     const ran = []
@@ -157,7 +171,7 @@ async function driveStep(step) {
     if (failedRuns.length === 0) return
     if (step.on_fail === null || fixes >= step.tries) throw new Stop('failed', errorOf(failedRuns))
     fixes++
-    const fix = record(step.on_fail.label, round, await call(step.on_fail, step.on_fail.model, phase))
+    const fix = record(step.on_fail.label, round, await call(step.on_fail, step.on_fail.model, phase, step.on_fail.file))
     if (fix.result === 'blocked') throw new Stop('blocked', errorOf([fix]))
     if (fix.result === 'fail') throw new Stop('failed', errorOf([fix]))
   }

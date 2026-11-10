@@ -15,7 +15,7 @@ theway project [--project <key>]
 theway config [--project <key>]
 theway standards <engineering|develop|document> [--project <key>]
 theway context <engineering|develop|document> [<change-id>] [--project <key>]
-theway workflow [<name>] [--input <name>=<value>]... [--project <key>]
+theway workflow [<name>] [--input <name>=<value>]... [--compact] [--project <key>]
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
@@ -306,9 +306,10 @@ It writes the warnings of `config` to stderr once. It exits 1 and prints nothing
 theway workflow
 theway workflow <name>
 theway workflow <name> --input <name>=<value> [--input <name>=<value>]...
+theway workflow <name> --input <name>=<value> --compact
 ```
 
-Reads one [workflow](./concepts/workflows.mdx) and every prompt its steps use, checks them, and prints the resolved document as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it first to read the workflow's inputs, then with `--input` to get the document it runs.
+Reads one [workflow](./concepts/workflows.mdx) and every prompt its steps use, checks them, and prints the resolved document as JSON on stdout. [`/theway:workflow`](./commands/workflow.mdx) runs it first to read the workflow's inputs, then with `--input` and `--compact` to get the document it runs.
 
 Which file:
 
@@ -377,6 +378,54 @@ Which file:
 - Each step has its `index`, `uses` and the prompt's absolute `file` and `description`, its effective `runs_on` (its own, else the workflow's) and `model` (its own, else its prompt's; `null` for a step that runs in your session), its `matrix`, its `with` as written, its `runs` and its `on_fail` and `tries`.
 - A step has one run, or one per matrix value. Each run has its `label`, `<n>.<prompt>` (`<n>.<prompt>[<value>]` for a matrix copy), every input of its prompt with its final value, and the prompt's body with the values substituted.
 - The `on_fail` has its own `label`, `<n>.<prompt>`, `model` and `prompt`.
+
+`--compact` prints the same document without its bulky text, for a session to pass on whole. It checks the workflow the same way and fails with the same lines.
+
+- The top level keeps `name`, `file`, `resolved`, `runs_on` and `inputs`, each with its `value`.
+- Each step keeps `index`, `uses`, `file`, `runs_on`, `model`, `matrix`, `runs`, `on_fail` and `tries`; no `description` and no `with` as written.
+- Each run keeps its `label` and its `with`, the final values; the `on_fail` its `uses`, `file`, `model`, `label` and `with`. Neither has a `prompt`: an agent reads the prompt's `file` and uses the `with` values where its text says `${{ inputs.<name> }}`.
+
+```json
+{
+  "name": "agents",
+  "file": "/home/you/.theway/workflows/agents.yaml",
+  "resolved": true,
+  "runs_on": "agents",
+  "inputs": {
+    "change": { "description": "The change to implement", "required": true, "default": null, "type": "change", "value": "add-foo" }
+  },
+  "steps": [
+    {
+      "index": 0,
+      "uses": "prompts/branch.md",
+      "file": "/home/you/.theway/prompts/branch.md",
+      "runs_on": "session",
+      "model": null,
+      "matrix": null,
+      "runs": [{ "label": "1.branch", "with": { "change": "add-foo" } }],
+      "on_fail": null,
+      "tries": null
+    },
+    { "index": 1, "uses": "prompts/implement.md", "...": "..." },
+    { "index": 2, "uses": "prompts/review.md", "...": "..." },
+    {
+      "index": 3,
+      "uses": "prompts/triage.md",
+      "...": "...",
+      "on_fail": {
+        "uses": "prompts/fix-review.md",
+        "file": "/home/you/.theway/prompts/fix-review.md",
+        "model": "opus",
+        "label": "4.fix-review",
+        "with": { "change": "add-foo" }
+      },
+      "tries": 1
+    },
+    { "index": 4, "uses": "prompts/open-pr.md", "...": "..." },
+    { "index": 5, "uses": "prompts/ci.md", "...": "...", "tries": 2 }
+  ]
+}
+```
 
 A file whose `version` is `theway.workflow/v1` is no longer read:
 

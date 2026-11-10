@@ -11,7 +11,7 @@ This is an illustrative run on the sample project `my-api`. It takes the `add-ra
 /theway:workflow --workflow agents add-rate-limiting
 ```
 
-`--workflow agents` picks the shipped `agents` workflow. `theway workflow agents` showed its one input, `change`, of `type: change`, so the argument is the change ID; `theway workflow agents --input change=add-rate-limiting` then printed its six steps resolved, each run's prompt with the change ID in place: `branch` in the session, then `implement`, `review` through the `conformance` and `correctness` lenses, `triage` with `fix-review` on fail (`tries: 1`), `open-pr`, and `ci` with `fix-ci` on fail (`tries: 2`), through agents.
+`--workflow agents` picks the shipped `agents` workflow. `theway workflow agents` showed its one input, `change`, of `type: change`, so the argument is the change ID; `theway workflow agents --input change=add-rate-limiting --compact` then printed its six steps resolved, each run with its prompt file and the change ID as its input value: `branch` in the session, then `implement`, `review` through the `conformance` and `correctness` lenses, `triage` with `fix-review` on fail (`tries: 1`), `open-pr`, and `ci` with `fix-ci` on fail (`tries: 2`), through agents.
 
 ## The branch
 

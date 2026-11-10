@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { compactWorkflow } from "../src/core/workflow";
 import { buildProgram } from "../src/program";
 
 const REPO = join(import.meta.dirname, "..");
@@ -387,7 +388,7 @@ test("the develop standard has a Standards section and the Authority rule names 
 
 test("workflow takes its workflow from theway workflow, its authority from theway authority and its project folder from theway project", () => {
   const load = step(read(join(COMMANDS, "workflow.md")), "Step 1:");
-  for (const call of ["`theway workflow [<name>] --input <name>=<value>`", "`theway authority`", "`theway project`"]) expect(load).toContain(call);
+  for (const call of ["`theway workflow [<name>] --input <name>=<value> --compact`", "`theway authority`", "`theway project`"]) expect(load).toContain(call);
 });
 
 test("document reads the standards from theway context", () => {
@@ -513,6 +514,8 @@ test("workflow.md runs agent segments through theway:run-pipeline with the engin
   const text = read(join(COMMANDS, "workflow.md"));
   const load = step(text, "Step 1:");
   expect(load).toContain('A document with `"resolved": false` is never run: stop and ask for the required inputs.');
+  expect(load).toContain("Run `theway workflow [<name>] --input <name>=<value> --compact`");
+  expect(load).toContain("passed as an object, never as a string, never retyped or abridged");
   const run = step(text, "Step 2:");
   for (const key of ["repo", "home", "projectDir", "authority", "workflow", "steps", "reports"]) expect(run).toContain(`| \`${key}\` |`);
   for (const marker of [
@@ -523,7 +526,9 @@ test("workflow.md runs agent segments through theway:run-pipeline with the engin
     "**When neither the Workflow tool nor the Agent tool is available:**",
     '"inline"',
     "**Session step.** A step whose `runs_on` is `session` is done by you",
-    "Its `on_fail` is done by you too.",
+    "Its `on_fail` is done by you too",
+    "read the step's `file` and follow its text after the header",
+    "using the run's `with` values where it says `${{ inputs.<name> }}`",
     "`Reports of the steps before you: none`",
     "`Answer with result (pass, fail or blocked) and report, as your instructions say.`",
     "When it answers `pass`, run the step again, every run, as the next round",
@@ -537,6 +542,8 @@ test("workflow.md runs agent segments through theway:run-pipeline with the engin
     "A file path in these instructions is relative to the project folder when the file exists there, else to the theway home.",
     "Answer with result (pass, fail or blocked) and report, as your instructions say.",
     "Reports of the steps before you: none",
+    "Its text after the header (the part between the first two --- lines) is your instructions.",
+    "Where it says ${{ inputs.<name> }}, use:",
   ]) {
     expect(pipeline).toContain(sentence);
     expect(run).toContain(sentence);
@@ -564,14 +571,27 @@ test("workflow.md gates each run and reports every report, the authority reports
 
 // ---- run-pipeline.js: the interpreter of a resolved workflow, driven with scripted agent answers ----
 
-type Run = { label: string; prompt: string };
-type ResolvedStep = { index: number; runs_on: string; model: string | null; runs: Run[]; on_fail: (Run & { model: string | null }) | null; tries: number | null };
+type Run = { label: string; with: Record<string, string>; prompt?: string };
+type OnFail = Run & { file: string; model: string | null };
+type ResolvedStep = { index: number; file: string; runs_on: string; model: string | null; runs: Run[]; on_fail: OnFail | null; tries: number | null };
 type Resolved = { name: string; inputs: Record<string, { value: string | null }>; resolved: boolean; steps: ResolvedStep[] };
 type Report = { label: string; round: number; result: string; report: string };
 type Call = { label: string; text: string; opts: Record<string, unknown>; applied: number };
 
 /** The resolved agents workflow of `test/fixtures/agents-resolved.json`, with `<home>` set to `/h`. */
 const resolvedAgents = () => JSON.parse(read(join(REPO, "test", "fixtures", "agents-resolved.json")).replaceAll("<home>", "/h")) as Resolved;
+
+/** The same workflow as `theway workflow --compact` prints it: no prompt text. */
+const compactAgents = () => compactWorkflow(resolvedAgents() as unknown as Parameters<typeof compactWorkflow>[0]) as unknown as Resolved;
+
+/** The instructions of a compact run: the file to read, then each input's value. */
+const readFileText = (file: string, w: Record<string, string>) =>
+  [
+    `Read ${file}. Its text after the header (the part between the first two --- lines) is your instructions.`,
+    ...(Object.keys(w).length === 0
+      ? []
+      : ["Where it says ${{ inputs.<name> }}, use:", ...Object.entries(w).map(([n, v]) => `${n}: ${v === "" ? "(empty)" : v}`)]),
+  ].join("\n");
 
 const AUTHORITY = "## Authority\n\nThe authority rules.";
 const ARGS_ERROR = "run-pipeline is started by /theway:workflow with its args";
@@ -607,8 +627,8 @@ function callOf(workflow: Resolved, label: string): { prompt: string; model: str
   for (const s of workflow.steps) {
     const phase = (s.runs[0] as Run).label.replace(/\[.*\]$/, "");
     const run = s.runs.find((r) => r.label === label);
-    if (run !== undefined) return { prompt: run.prompt, model: s.model, phase };
-    if (s.on_fail?.label === label) return { prompt: s.on_fail.prompt, model: s.on_fail.model, phase };
+    if (run !== undefined) return { prompt: run.prompt ?? readFileText(s.file, run.with), model: s.model, phase };
+    if (s.on_fail?.label === label) return { prompt: s.on_fail.prompt ?? readFileText(s.on_fail.file, s.on_fail.with), model: s.on_fail.model, phase };
   }
   throw new Error(`no run labelled ${label}`);
 }
@@ -763,7 +783,7 @@ test("run-pipeline.js stops blocked on a blocked step or on-fail, with that repo
 test("run-pipeline.js runs a matrix through parallel: one failing copy runs the fix once, then both copies again", async () => {
   const wf = resolvedAgents();
   const review = wf.steps[2] as ResolvedStep;
-  review.on_fail = { ...(wf.steps[3]?.on_fail as Run & { model: string | null }), label: "3.fix-review" };
+  review.on_fail = { ...(wf.steps[3]?.on_fail as OnFail), label: "3.fix-review" };
   review.tries = 1;
   const a = "3.review[prompts/conformance.md]";
   const b = "3.review[prompts/correctness.md]";
@@ -803,6 +823,54 @@ test("run-pipeline.js fails on an agent that returns no result or throws", async
   expect(sibling.result.reports).toEqual([{ label: "3.review[prompts/correctness.md]", round: 1, result: "fail", report: "edge case" }]);
 });
 
+test("run-pipeline.js runs the compact document: each agent reads its prompt file, with the inputs' values", async () => {
+  const wf = compactAgents();
+  expect(JSON.stringify(wf)).not.toContain('"prompt"');
+  const { result, calls } = await driveChecked(wf, [1, 2, 3, 4, 5], {
+    "2.implement": [pass()],
+    "3.review[prompts/conformance.md]": [pass()],
+    "3.review[prompts/correctness.md]": [pass()],
+    "4.triage": [fail("finding 0 confirmed"), pass()],
+    "4.fix-review": [pass()],
+    "5.open-pr": [pass()],
+    "6.ci": [pass()],
+  });
+  expect(result.status).toBe("succeeded");
+  // Part 6: between the reports block and the answer sentence (a report may hold blank lines).
+  const part6 = (label: string) => {
+    const text = calls.find((c) => c.label === label)?.text ?? "";
+    return text.slice(text.lastIndexOf("\n\nRead /h/") + 2, text.lastIndexOf(`\n\n${ANSWER}`));
+  };
+  expect(part6("2.implement")).toBe(
+    [
+      "Read /h/prompts/implement.md. Its text after the header (the part between the first two --- lines) is your instructions.",
+      "Where it says ${{ inputs.<name> }}, use:",
+      "change: add-foo",
+      "commit: yes",
+    ].join("\n"),
+  );
+  expect(part6("3.review[prompts/correctness.md]")).toBe(
+    [
+      "Read /h/prompts/review.md. Its text after the header (the part between the first two --- lines) is your instructions.",
+      "Where it says ${{ inputs.<name> }}, use:",
+      "change: add-foo",
+      "lens: prompts/correctness.md",
+    ].join("\n"),
+  );
+  expect(part6("4.fix-review")).toBe(
+    [
+      "Read /h/prompts/fix-review.md. Its text after the header (the part between the first two --- lines) is your instructions.",
+      "Where it says ${{ inputs.<name> }}, use:",
+      "change: add-foo",
+    ].join("\n"),
+  );
+  expect(part6("6.ci")).toBe("Read /h/prompts/ci.md. Its text after the header (the part between the first two --- lines) is your instructions.");
+  // An empty value is written (empty).
+  (wf.steps[1]?.runs[0] as Run).with.commit = "";
+  const empty = await drive(engineArgs(wf, [1]), { "2.implement": [pass()] });
+  expect(empty.calls[0]?.text).toContain("\nchange: add-foo\ncommit: (empty)\n\nAnswer with result");
+});
+
 test("run-pipeline.js refuses args that do not match its rules", async () => {
   const wf = resolvedAgents();
   const unresolved = { ...wf, resolved: false };
@@ -813,6 +881,16 @@ test("run-pipeline.js refuses args that do not match its rules", async () => {
     engineArgs(wf, []),
     engineArgs(wf, [6]),
   ];
+  // A compact run needs its step's file and its inputs' values.
+  for (const broken of [
+    (w: Resolved) => delete (w.steps[1] as Partial<ResolvedStep>).file,
+    (w: Resolved) => delete (w.steps[1]?.runs[0] as Partial<Run>).with,
+    (w: Resolved) => delete (w.steps[3]?.on_fail as Partial<OnFail>).file,
+  ]) {
+    const w = compactAgents();
+    broken(w);
+    cases.push(engineArgs(w, [1, 2, 3]));
+  }
   for (const key of ["repo", "home", "projectDir", "authority", "workflow", "steps", "reports"]) {
     const args: Record<string, unknown> = engineArgs(wf, [1]);
     delete args[key];
