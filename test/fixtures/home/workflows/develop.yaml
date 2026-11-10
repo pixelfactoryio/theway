@@ -1,0 +1,14 @@
+version: theway.workflow/v1beta
+description: The tasks done inline in your session, on the working tree, nothing committed
+default: true
+inputs:
+  change:
+    description: The change to implement
+    required: true
+    type: change
+runs-on: session
+steps:
+  - uses: prompts/implement.md
+    with:
+      change: ${{ inputs.change }}
+      commit: "no"

@@ -1,0 +1,189 @@
+{
+  "name": "agents",
+  "version": "theway.workflow/v1beta",
+  "description": "Implement, review and open the PR through agents",
+  "file": "<home>/workflows/agents.yaml",
+  "default": false,
+  "inputs": {
+    "change": {
+      "description": "The change to implement",
+      "required": true,
+      "default": null,
+      "type": "change",
+      "value": "add-foo"
+    }
+  },
+  "runs_on": "agents",
+  "resolved": true,
+  "steps": [
+    {
+      "index": 0,
+      "uses": "prompts/branch.md",
+      "file": "<home>/prompts/branch.md",
+      "description": "Sync the default branch and create or check out the change's feature branch",
+      "runs_on": "session",
+      "model": null,
+      "matrix": null,
+      "with": {
+        "change": "${{ inputs.change }}"
+      },
+      "runs": [
+        {
+          "label": "1.branch",
+          "with": {
+            "change": "add-foo"
+          },
+          "prompt": "# Branch\n\nYou prepare the feature branch of the change `add-foo`. Read `prompts/change.md` first.\n\nBefore any branch, check the repository in this order:\n\n1. **No commit.** When `git rev-parse --verify HEAD` fails, answer `blocked`: `the repository has no commit: run git init and commit once`.\n2. **No remote.** When `git remote` prints nothing, the base is the current branch (`git branch --show-current`), with no sync. When that prints nothing (detached HEAD), answer `blocked`: `HEAD is detached: check out a branch`.\n\nOtherwise find the default branch and sync it, as \"Default branch\" and \"Sync the default branch\" in `standards/git-host.md` say. Then create the change's feature branch from the base, or check it out when it already exists, named as `standards/commits.md` says.\n\nAnswer `pass` with the feature branch and its base. Answer `fail` with the git error, quoted, when a git command fails.\n"
+        }
+      ],
+      "on_fail": null,
+      "tries": null
+    },
+    {
+      "index": 1,
+      "uses": "prompts/implement.md",
+      "file": "<home>/prompts/implement.md",
+      "description": "Implement the change's tasks as its spec says",
+      "runs_on": "agents",
+      "model": "opus",
+      "matrix": null,
+      "with": {
+        "change": "${{ inputs.change }}"
+      },
+      "runs": [
+        {
+          "label": "2.implement",
+          "with": {
+            "change": "add-foo",
+            "commit": "yes"
+          },
+          "prompt": "# Implement\n\nYou are the implementer of the change `add-foo`. Read `prompts/change.md` first.\n\nFollow the development standard (`develop.md`): implement the numbered tasks of `tasks.md`, in order, as `spec.md` and `design.md` (when present) describe. Read `docs/architecture/coding-standards.md` when it exists, and every standard `prompts/change.md` lists.\n\nCommit: `yes`. When it is `yes`, commit the work on the feature branch; do not push. When it is `no`, leave the work uncommitted in the working tree.\n\nVerify as `develop.md` says, including the CI's commands that can run locally, and check each Success Criterion of `spec.md`.\n\nTick each finished task in `tasks.md` (`- [x] N.`), and write your discoveries, the choices the spec does not settle and, for a fix change, the regression check's outputs in the Notes of `tasks.md`.\n\nFor a fix change, run the regression check of `develop.md`, with the feature branch's base as `<base>`.\n\nWhen the spec does not fit the code, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop instead of redesigning.\n\nAnswer `pass` when every task is done and verified, with the commands you ran and their results, and each Success Criterion with how you verified it. Answer `fail` when a check fails and you cannot make it pass, with the check and its output. Answer `blocked` when you stopped on a decision: what you found, and the options.\n"
+        }
+      ],
+      "on_fail": null,
+      "tries": null
+    },
+    {
+      "index": 2,
+      "uses": "prompts/review.md",
+      "file": "<home>/prompts/review.md",
+      "description": "Review the change's diff through one lens",
+      "runs_on": "agents",
+      "model": "opus",
+      "matrix": {
+        "key": "lens",
+        "values": [
+          "prompts/conformance.md",
+          "prompts/correctness.md"
+        ]
+      },
+      "with": {
+        "change": "${{ inputs.change }}",
+        "lens": "${{ matrix.lens }}"
+      },
+      "runs": [
+        {
+          "label": "3.review[prompts/conformance.md]",
+          "with": {
+            "change": "add-foo",
+            "lens": "prompts/conformance.md"
+          },
+          "prompt": "# Review\n\nYou review the change `add-foo`. Read `prompts/change.md` first, then the lens file `prompts/conformance.md`, and review through that lens.\n\nTry to refute or break the change's diff: `git diff <base>...<branch>`. Also check the diff against every standard `prompts/change.md` lists: a violation is a finding whose evidence names the standard file and the rule it breaks.\n\nEdit nothing: do not edit, commit or push anything.\n\nReport every finding, each with its title, file, line, the problem and its evidence, or \"no findings\".\n\nAlways answer `pass`: the triage judges the findings.\n"
+        },
+        {
+          "label": "3.review[prompts/correctness.md]",
+          "with": {
+            "change": "add-foo",
+            "lens": "prompts/correctness.md"
+          },
+          "prompt": "# Review\n\nYou review the change `add-foo`. Read `prompts/change.md` first, then the lens file `prompts/correctness.md`, and review through that lens.\n\nTry to refute or break the change's diff: `git diff <base>...<branch>`. Also check the diff against every standard `prompts/change.md` lists: a violation is a finding whose evidence names the standard file and the rule it breaks.\n\nEdit nothing: do not edit, commit or push anything.\n\nReport every finding, each with its title, file, line, the problem and its evidence, or \"no findings\".\n\nAlways answer `pass`: the triage judges the findings.\n"
+        }
+      ],
+      "on_fail": null,
+      "tries": null
+    },
+    {
+      "index": 3,
+      "uses": "prompts/triage.md",
+      "file": "<home>/prompts/triage.md",
+      "description": "Judge the reviewers' findings, or check the fix of the confirmed ones",
+      "runs_on": "agents",
+      "model": "opus",
+      "matrix": null,
+      "with": {
+        "change": "${{ inputs.change }}"
+      },
+      "runs": [
+        {
+          "label": "4.triage",
+          "with": {
+            "change": "add-foo"
+          },
+          "prompt": "# Triage\n\nYou triage the review of the change `add-foo`. Read `prompts/change.md` first. Edit nothing.\n\n## No fix in the reports above\n\nNumber every reviewer finding of the reports above from 0, in the order reported. Check each one against the code and `spec.md`, and give it one verdict with a one-line reason:\n\n- `confirmed` (real);\n- `false_positive` (refuted);\n- `duplicate` (the same problem as an earlier finding, which it names by its number);\n- `nit` (real, cosmetic);\n- `out_of_scope` (not this change's).\n\n## A fix in the reports above\n\nCheck that fix: read its commits and its diff. For each confirmed finding, answer resolved or not resolved with a one-line reason. Look for no new problem, except that a fix that breaks a standard `prompts/change.md` lists is not resolved. For a fix change, a finding whose fix touched the regression test or the fix is resolved only when the fix's regression outputs pass the regression check of `develop.md`.\n\n## Answer\n\nAnswer `pass` when no finding is confirmed, or every confirmed finding is resolved. Otherwise answer `fail`: every verdict, then each confirmed or unresolved finding in full (title, file, line, problem, evidence).\n"
+        }
+      ],
+      "on_fail": {
+        "uses": "prompts/fix-review.md",
+        "file": "<home>/prompts/fix-review.md",
+        "description": "Fix the findings the triage confirmed",
+        "model": "opus",
+        "with": {
+          "change": "add-foo"
+        },
+        "label": "4.fix-review",
+        "prompt": "# Fix the Review\n\nYou fix the change `add-foo`. Read `prompts/change.md` first.\n\nFix the findings the triage of the reports above confirmed, and nothing else, following the development standard (`develop.md`). Commit the fixes on the feature branch, re-run the CI's commands that can run locally, and do not push.\n\nWrite each finding and its fix in the Notes of `tasks.md`.\n\nFor a fix change, when your fixes touch the regression test or the fix, re-run the regression check of `develop.md` on the new head, with the feature branch's base as `<base>`, and report its outputs.\n\nAnswer `pass` when every confirmed finding is fixed, with each finding and its fix. Answer `fail` when a check fails and you cannot make it pass, with the check and its output. Answer `blocked` when a finding cannot be fixed without a decision the spec does not make: what you found, and the options.\n"
+      },
+      "tries": 1
+    },
+    {
+      "index": 4,
+      "uses": "prompts/open-pr.md",
+      "file": "<home>/prompts/open-pr.md",
+      "description": "Push the feature branch and open its PR",
+      "runs_on": "agents",
+      "model": "sonnet",
+      "matrix": null,
+      "with": {
+        "change": "${{ inputs.change }}"
+      },
+      "runs": [
+        {
+          "label": "5.open-pr",
+          "with": {
+            "change": "add-foo"
+          },
+          "prompt": "# Open the PR\n\nYou open the PR of the change `add-foo`. Read `prompts/change.md` first.\n\nPush the feature branch once, as \"Push the feature branch\" in `standards/git-host.md` says (never force), and open its PR against its base, as \"Open the PR\" says.\n\nWrite the PR title and body as `standards/commits.md` says, consistent with the change's commits already on the feature branch (`git log <base>..<branch>`).\n\nAnswer `pass` with the PR's number and URL. Answer `fail` with the reason, quoted, when the push or the PR fails.\n"
+        }
+      ],
+      "on_fail": null,
+      "tries": null
+    },
+    {
+      "index": 5,
+      "uses": "prompts/ci.md",
+      "file": "<home>/prompts/ci.md",
+      "description": "Wait for the checks of the PR",
+      "runs_on": "agents",
+      "model": "sonnet",
+      "matrix": null,
+      "with": {},
+      "runs": [
+        {
+          "label": "6.ci",
+          "with": {},
+          "prompt": "# Wait for CI\n\nWait for the checks of the PR named in the reports above, on its latest commit, to finish, as \"Wait for the checks\" in `standards/git-host.md` says. Do not push, edit or re-run anything.\n\nAnswer `pass` when no check failed, as that standard defines a failed check. Answer `fail` with each failed check: its run ID when it has one, else its name and link. Answer `blocked` when the PR is red with no failed check to name.\n"
+        }
+      ],
+      "on_fail": {
+        "uses": "prompts/fix-ci.md",
+        "file": "<home>/prompts/fix-ci.md",
+        "description": "Diagnose the failed checks of the PR, then fix them or re-run them",
+        "model": "opus",
+        "with": {},
+        "label": "6.fix-ci",
+        "prompt": "# Fix CI\n\nThe checks of the PR named in the reports above failed. For each failed check with a run ID, fetch its log as \"Read a failed check's log\" in `standards/git-host.md` says and quote the real error line; never diagnose from memory. A failed check with no run ID is caused by this PR.\n\nThen, by cause:\n\n- **This PR causes it:** fix the failure, commit on the feature branch and push it once, as \"Push the feature branch\" says (never force).\n- **The base fails the same way, and a commit on the base fixes it:** port that commit onto the feature branch and push it once.\n- **The base fails the same way with no fix, or the infrastructure failed:** re-run the failed jobs of each failed run once, as \"Re-run failed jobs\" says.\n\nCommits go only on the feature branch; write their messages as `standards/commits.md` says.\n\nAnswer `pass` when a fix was pushed or a re-run started, with the quoted error lines and what you did. Answer `fail` when neither happened, with why. Answer `blocked` when the failure cannot be fixed without a decision the spec does not make: what you found, and the options.\n"
+      },
+      "tries": 2
+    }
+  ]
+}

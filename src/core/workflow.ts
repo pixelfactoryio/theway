@@ -11,7 +11,9 @@ import {
   type Warn,
   warnLoud,
 } from "./config";
-import { invalidName, isFile, type Overlay, thewayHome } from "./io";
+import { escaped, invalidName, isFile, type Overlay, thewayHome } from "./io";
+import { isV1betaWorkflow, resolveWorkflowFile } from "./language";
+import { VERSION } from "./language-schema";
 import { projectDir as projectOf, resolveKey } from "./project";
 import {
   ACCESS,
@@ -936,12 +938,50 @@ export function listWorkflows(home: string, key: string, warn: Warn, overlay?: O
   return { defaultName, defaultError: "error" in chosen ? chosen.error : null, workflows };
 }
 
-/** `theway workflow [<name>] [--project <key>]`: one workflow, resolved, validated and with every field filled, as JSON. */
-export function cmdWorkflow(wanted: string | undefined, override: string | undefined): number {
+/**
+ * The `--input <name>=<value>` options as a record, or the line that refuses one: a value without `=`, an empty name,
+ * or a name given twice.
+ */
+function parseInputs(given: string[]): Record<string, string> | { error: string } {
+  const out: Record<string, string> = {};
+  for (const raw of given) {
+    const at = raw.indexOf("=");
+    if (at <= 0) return { error: `theway: --input ${escaped(raw)}: must be <name>=<value>` };
+    const name = raw.slice(0, at);
+    if (Object.hasOwn(out, name)) return { error: `theway: --input ${escaped(name)}: given twice` };
+    out[name] = raw.slice(at + 1);
+  }
+  return out;
+}
+
+/**
+ * `theway workflow [<name>] [--project <key>] [--input <name>=<value>]…`: one workflow, resolved, validated and with
+ * every field filled, as JSON. A named `theway.workflow/v1beta` file goes to its own resolver; `--input` is only for one.
+ */
+export function cmdWorkflow(wanted: string | undefined, override: string | undefined, given: string[] = []): number {
   const key = resolveKey(override);
   if (key === null) return 1;
   if (invalidName("workflow", wanted)) return 1;
-  const result = resolveWorkflow(thewayHome(), key, wanted, warnLoud);
+  const home = thewayHome();
+  if (wanted !== undefined && isV1betaWorkflow(home, key, wanted)) {
+    const inputs = parseInputs(given);
+    if ("error" in inputs) {
+      process.stderr.write(`${inputs.error}\n`);
+      return 1;
+    }
+    const resolved = resolveWorkflowFile(home, key, wanted, inputs);
+    if ("errors" in resolved) {
+      process.stderr.write(resolved.errors.map((e) => `theway: ${e}\n`).join(""));
+      return 1;
+    }
+    process.stdout.write(`${JSON.stringify(resolved.doc, null, 2)}\n`);
+    return 0;
+  }
+  if (given.length > 0) {
+    process.stderr.write(`theway: --input needs a ${VERSION} workflow\n`);
+    return 1;
+  }
+  const result = resolveWorkflow(home, key, wanted, warnLoud);
   if ("error" in result) {
     process.stderr.write(`${result.error}\n`);
     return 1;

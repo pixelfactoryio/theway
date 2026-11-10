@@ -2030,3 +2030,242 @@ test("removeIfEmpty removes only an empty folder and never follows a symlink", (
   expect(lstatSync(link).isSymbolicLink()).toBe(true);
   expect(existsSync(target)).toBe(true);
 });
+
+// ---- theway.workflow/v1beta ----
+
+const FIXTURE_HOME = join(import.meta.dirname, "fixtures", "home");
+
+/** A home whose `workflows/` and `prompts/` are copies of `test/fixtures/home/`. */
+function fixtureHome(): string {
+  const dir = home();
+  for (const folder of ["workflows", "prompts"]) {
+    for (const f of readdirSync(join(FIXTURE_HOME, folder))) put(join(dir, folder, f), readFileSync(join(FIXTURE_HOME, folder, f), "utf-8"));
+  }
+  return dir;
+}
+
+type V1betaRun = { label: string; with: Record<string, string>; prompt: string };
+type V1betaStep = {
+  uses: string;
+  file: string;
+  runs: V1betaRun[];
+  on_fail: { uses: string; with: Record<string, string>; prompt: string } | null;
+  tries: number | null;
+};
+type V1betaDoc = { resolved: boolean; inputs: Record<string, { value: string | null }>; steps: V1betaStep[] };
+
+const v1beta = (dir: string, ...args: string[]) => run(dir, "workflow", "--project", "p", ...args);
+const v1betaDoc = (dir: string, ...args: string[]): V1betaDoc => JSON.parse(v1beta(dir, ...args).stdout) as V1betaDoc;
+
+test("v1beta: agents without --input prints resolved false, six steps, the review matrix and the triage on-fail", () => {
+  const dir = fixtureHome();
+  const res = v1beta(dir, "agents");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  const doc = JSON.parse(res.stdout) as V1betaDoc;
+  expect(doc.resolved).toBe(false);
+  expect(doc.inputs.change?.value).toBeNull();
+  expect(doc.steps.map((s) => s.uses)).toEqual([
+    "prompts/branch.md",
+    "prompts/implement.md",
+    "prompts/review.md",
+    "prompts/triage.md",
+    "prompts/open-pr.md",
+    "prompts/ci.md",
+  ]);
+  expect(doc.steps[2]?.runs.map((r) => r.label)).toEqual(["3.review[prompts/conformance.md]", "3.review[prompts/correctness.md]"]);
+  expect([doc.steps[3]?.on_fail?.uses, doc.steps[3]?.tries]).toEqual(["prompts/fix-review.md", 1]);
+  expect(doc.steps[1]?.runs[0]?.prompt).toContain("${{ inputs.change }}");
+});
+
+test("v1beta: agents with --input substitutes every reference theway knows and keeps the lens as written", () => {
+  const dir = fixtureHome();
+  const doc = v1betaDoc(dir, "agents", "--input", "change=add-foo");
+  expect(doc.resolved).toBe(true);
+  expect(doc.inputs.change?.value).toBe("add-foo");
+  const substituted = JSON.stringify(doc.steps.map((s) => [s.runs, s.on_fail]));
+  expect(substituted).not.toContain("${{ inputs.");
+  expect(substituted).not.toContain("${{ matrix.");
+  expect(doc.steps[1]?.runs[0]?.prompt).toContain("add-foo");
+  expect(doc.steps[2]?.runs[0]?.prompt).toContain("prompts/conformance.md");
+  expect(doc.steps[2]?.runs[1]?.prompt).toContain("prompts/correctness.md");
+  expect(doc.steps[3]?.on_fail?.with).toEqual({ change: "add-foo" });
+});
+
+test("v1beta: the resolved agents workflow matches test/fixtures/agents-resolved.json", () => {
+  const dir = fixtureHome();
+  const res = v1beta(dir, "agents", "--input", "change=add-foo");
+  expect(res.status).toBe(0);
+  const expected = readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8").replaceAll("<home>", dir);
+  expect(res.stdout).toBe(expected);
+});
+
+test("v1beta: other ${{ … }} text in a prompt body is kept as written", () => {
+  const dir = fixtureHome();
+  const ci = join(dir, "prompts", "ci.md");
+  put(ci, `${readFileSync(ci, "utf-8")}\nThe commit is \${{ github.sha }}.\n`);
+  const res = v1beta(dir, "agents", "--input", "change=add-foo");
+  expect(res.status).toBe(0);
+  const doc = JSON.parse(res.stdout) as V1betaDoc;
+  expect(doc.steps[5]?.runs[0]?.prompt).toContain("${{ github.sha }}");
+});
+
+test("v1beta: develop, engineering and engineering-light resolve", () => {
+  const dir = fixtureHome();
+  for (const name of ["develop", "engineering", "engineering-light"]) {
+    expect([name, v1beta(dir, name).status]).toEqual([name, 0]);
+  }
+  const develop = v1betaDoc(dir, "develop", "--input", "change=add-foo");
+  expect(develop.steps[0]?.runs[0]?.with).toEqual({ change: "add-foo", commit: "no" });
+});
+
+test("v1beta: --input refuses an invalid change ID, an undeclared input, and a v1 workflow", () => {
+  const dir = fixtureHome();
+  const bad = v1beta(dir, "agents", "--input", "change=Bad_ID");
+  expect(bad.status).toBe(1);
+  expect(bad.stderr.startsWith("theway: --input change:")).toBe(true);
+  const nope = v1beta(dir, "agents", "--input", "nope=x");
+  expect(nope.status).toBe(1);
+  expect(nope.stderr).toContain("theway: --input nope: workflows/agents.yaml declares no such input\n");
+  const v1 = run(shippedHome(), "workflow", "--project", "p", "agents", "--input", "x=1");
+  expect([v1.status, v1.stdout, v1.stderr]).toEqual([1, "", "theway: --input needs a theway.workflow/v1beta workflow\n"]);
+});
+
+const T_HEAD = `version: theway.workflow/v1beta
+description: t
+inputs:
+  change: {description: c, required: true, type: change}
+runs-on: agents
+`;
+const OPEN_PR = "  - uses: prompts/open-pr.md\n    with:\n      change: ${{ inputs.change }}\n";
+
+/** Writes `workflows/t.yaml` and runs `theway workflow t`. */
+function tWorkflow(dir: string, text: string) {
+  put(join(dir, "workflows", "t.yaml"), text);
+  return v1beta(dir, "t");
+}
+
+/** Replaces `from` by `to` in the fixture prompt `name`. */
+function editPrompt(dir: string, name: string, from: string, to: string): void {
+  const path = join(dir, "prompts", `${name}.md`);
+  const text = readFileSync(path, "utf-8");
+  expect(text).toContain(from);
+  put(path, text.replace(from, to));
+}
+
+test("v1beta: each mistake gives one line naming its place, and nothing on stdout", () => {
+  const cases: [string, string, ((dir: string) => void)?][] = [
+    [`${T_HEAD}steps:\n  - uses: prompts/nope.md\n`, "workflows/t.yaml: steps[0].uses: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    on-fail: prompts/nope.md\n    tries: 1\n`, "workflows/t.yaml: steps[0].on-fail: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}      nope: x\n`, "workflows/t.yaml: steps[0].with: prompts/open-pr.md declares no input nope"],
+    [`${T_HEAD}steps:\n  - uses: prompts/open-pr.md\n`, "workflows/t.yaml: steps[0].with: required input change is not set"],
+    [`${T_HEAD}steps:\n  - uses: prompts/open-pr.md\n    with:\n      change: \${{ inputs.nope }}\n`, "workflows/t.yaml: steps[0].with: ${{ inputs.nope }}"],
+    [
+      `${T_HEAD}steps:\n  - uses: prompts/review.md\n    with:\n      change: \${{ inputs.change }}\n      lens: \${{ matrix.lens }}\n`,
+      "workflows/t.yaml: steps[0].with: ${{ matrix.lens }}",
+    ],
+    [
+      `${T_HEAD}steps:\n  - uses: prompts/triage.md\n    matrix:\n      lens: [a]\n    with:\n      change: \${{ inputs.change }}\n    on-fail:\n      uses: prompts/fix-review.md\n      with:\n        change: \${{ matrix.lens }}\n    tries: 1\n`,
+      "workflows/t.yaml: steps[0].on-fail.with: ${{ matrix.lens }}",
+    ],
+    [`${T_HEAD}steps:\n${OPEN_PR}`, "prompts/open-pr.md: body: ${{ inputs.nope }}", (dir) => editPrompt(dir, "open-pr", "# Open the PR", "# Open the PR ${{ inputs.nope }}")],
+    [`${T_HEAD}steps:\n${OPEN_PR}    on-fail: prompts/fix-ci.md\n`, "workflows/t.yaml: steps[0].on-fail: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    tries: 1\n`, "workflows/t.yaml: steps[0].tries: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    on-fail: prompts/fix-ci.md\n    tries: 0\n`, "workflows/t.yaml: steps[0].tries: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    on-fail: prompts/fix-ci.md\n    tries: 11\n`, "workflows/t.yaml: steps[0].tries: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    foo: 1\n`, "workflows/t.yaml: steps[0].foo: "],
+    [`${T_HEAD}steps:\n  - with:\n      change: x\n`, "workflows/t.yaml: steps[0]: uses is required"],
+    [`${T_HEAD}steps: []\n`, "workflows/t.yaml: steps: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    matrix:\n      a: [x]\n      b: [y]\n`, "workflows/t.yaml: steps[0].matrix: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}    matrix:\n      a: []\n`, "workflows/t.yaml: steps[0].matrix: "],
+    [`${T_HEAD}steps:\n  - uses: prompts/branch.md\n    with:\n      change: \${{ inputs.change }}\n`, "workflows/t.yaml: steps[0].model: "],
+    [`${T_HEAD.replace("description: t\n", "")}steps:\n${OPEN_PR}`, "workflows/t.yaml: description: "],
+    [`${T_HEAD.replace("runs-on: agents\n", "")}steps:\n${OPEN_PR}`, "workflows/t.yaml: runs-on: "],
+    [`${T_HEAD.replace("runs-on: agents\n", "runs-on: cloud\n")}steps:\n${OPEN_PR}`, "workflows/t.yaml: runs-on: "],
+    [`${T_HEAD}steps:\n  - uses: prompts/conformance.md\n`, "prompts/conformance.md: header: "],
+    [`${T_HEAD}steps:\n${OPEN_PR}`, "prompts/open-pr.md: foo: unknown key", (dir) => editPrompt(dir, "open-pr", "model: sonnet\n", "model: sonnet\nfoo: 1\n")],
+    [
+      `${T_HEAD}steps:\n${OPEN_PR}`,
+      "prompts/open-pr.md: inputs.change: ",
+      (dir) => editPrompt(dir, "open-pr", "    required: true\n", "    required: true\n    default: x\n"),
+    ],
+  ];
+  for (const [text, place, setup] of cases) {
+    const dir = fixtureHome();
+    setup?.(dir);
+    const res = tWorkflow(dir, text);
+    const lines = res.stderr.split("\n").filter((l) => l !== "");
+    expect([place, res.status, res.stdout, lines.length]).toEqual([place, 1, "", 1]);
+    expect(lines[0]?.startsWith(`theway: ${place}`)).toBe(true);
+  }
+});
+
+test("v1beta: two mistakes in one file give two lines, in file order", () => {
+  const dir = fixtureHome();
+  const res = tWorkflow(dir, `${T_HEAD}steps:\n${OPEN_PR}    tries: 0\n    on-fail: prompts/fix-ci.md\n${OPEN_PR}    foo: 1\n`);
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe("theway: workflows/t.yaml: steps[0].tries: must be an integer from 1 to 10\ntheway: workflows/t.yaml: steps[1].foo: unknown key\n");
+});
+
+test("v1beta: a required prompt input written empty or null is not set, never a type error", () => {
+  for (const value of [' ""', ""]) {
+    const dir = fixtureHome();
+    const res = tWorkflow(dir, `${T_HEAD}steps:\n  - uses: prompts/open-pr.md\n    with:\n      change:${value}\n`);
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: workflows/t.yaml: steps[0].with: required input change is not set\n"]);
+  }
+});
+
+test("v1beta: a project copy of a prompt replaces the global one for that project only", () => {
+  const dir = fixtureHome();
+  const own = join(dir, "projects", "p", "prompts", "review.md");
+  put(own, readFileSync(join(dir, "prompts", "review.md"), "utf-8").replace("# Review", "# Project review"));
+  const mine = v1betaDoc(dir, "agents", "--input", "change=add-foo").steps[2] as V1betaStep;
+  expect([mine.file, mine.runs[0]?.prompt.startsWith("# Project review")]).toEqual([own, true]);
+  const other = JSON.parse(run(dir, "workflow", "--project", "q", "agents", "--input", "change=add-foo").stdout) as V1betaDoc;
+  expect([other.steps[2]?.file, other.steps[2]?.runs[0]?.prompt.startsWith("# Review")]).toEqual([join(dir, "prompts", "review.md"), true]);
+});
+
+test("v1beta: NAME, MODELS and PARAM are defined in language-schema only; schema re-exports them", async () => {
+  const schema = await import("../src/core/schema");
+  const language = await import("../src/core/language-schema");
+  expect([schema.NAME, schema.MODELS, schema.PARAM]).toEqual([language.NAME, language.MODELS, language.PARAM]);
+  expect(schema.NAME).toBe(language.NAME);
+  const text = readFileSync(join(import.meta.dirname, "..", "src", "core", "schema.ts"), "utf-8");
+  expect(text).not.toMatch(/export const (NAME|MODELS|PARAM)\b/);
+  expect(text).toContain('export { MODELS, NAME, PARAM } from "./language-schema";');
+  const { resolveWorkflowFile, parsePromptFile } = await import("../src/core/language");
+  expect([typeof resolveWorkflowFile, typeof parsePromptFile]).toEqual(["function", "function"]);
+});
+
+test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its error", async () => {
+  const { listWorkflowFiles } = await import("../src/core/language");
+  const dir = fixtureHome();
+  const warned: string[] = [];
+  const before = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
+  expect(before).toEqual([
+    { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false },
+    { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true },
+    { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false },
+    { name: "engineering-light", scope: "global", description: "A short spec and 1 to 3 tasks, reviewed by one grounding critic", default: false },
+  ]);
+  put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1\ndescription: Old\nsteps:\n  - implement:\n");
+  const after = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
+  expect(after.filter((w) => w.name !== "old")).toEqual(before);
+  expect(after.find((w) => w.name === "old")).toEqual({
+    name: "old",
+    scope: "global",
+    description: "Old",
+    default: false,
+    error: "workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
+  });
+  expect(warned).toEqual([]);
+});
+
+test("v1beta: listPromptFiles marks exactly the prompts the workflows use as steps", async () => {
+  const { listPromptFiles } = await import("../src/core/language");
+  const dir = fixtureHome();
+  const items = listPromptFiles(dir, "p");
+  expect(items.map((p) => p.name)).toEqual(readdirSync(join(FIXTURE_HOME, "prompts")).map((f) => f.slice(0, -".md".length)).sort());
+  const steps = ["branch", "ci", "fix-ci", "fix-review", "fix-spec", "implement", "open-pr", "review", "scaffold", "scaffold-light", "spec-review", "spec-triage", "triage"];
+  expect(items.filter((p) => p.step).map((p) => p.name)).toEqual(steps);
+  for (const p of items) expect([p.name, p.scope, p.description === null]).toEqual([p.name, "global", !steps.includes(p.name)]);
+});

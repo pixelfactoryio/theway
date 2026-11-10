@@ -1,0 +1,21 @@
+version: theway.workflow/v1beta
+description: A short spec and 1 to 3 tasks, reviewed by one grounding critic
+inputs:
+  request:
+    description: What the change should do
+    required: true
+runs-on: agents
+steps:
+  - uses: prompts/scaffold-light.md
+    runs-on: session
+    with:
+      request: ${{ inputs.request }}
+  - uses: prompts/spec-review.md
+    with:
+      lens: prompts/grounding.md
+  - uses: prompts/spec-triage.md
+    on-fail:
+      uses: prompts/fix-spec.md
+      with:
+        on_decision: "escalated: run /theway:engineering without --light for this request"
+    tries: 1

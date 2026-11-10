@@ -1,0 +1,20 @@
+version: theway.workflow/v1beta
+description: Investigate a request and write its spec and tasks, then review them
+inputs:
+  request:
+    description: What the change should do
+    required: true
+runs-on: agents
+steps:
+  - uses: prompts/scaffold.md
+    runs-on: session
+    with:
+      request: ${{ inputs.request }}
+  - uses: prompts/spec-review.md
+    matrix:
+      lens: [prompts/grounding.md, prompts/implementability.md]
+    with:
+      lens: ${{ matrix.lens }}
+  - uses: prompts/spec-triage.md
+    on-fail: prompts/fix-spec.md
+    tries: 1

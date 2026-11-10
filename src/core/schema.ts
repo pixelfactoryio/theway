@@ -1,13 +1,9 @@
 /**
  * The workflow vocabulary and the resolved-document types, shared by the CLI and the dashboard's browser client.
- * This module imports nothing, so a program without node types can import it.
+ * This module imports only `language-schema`, which imports nothing, so a program without node types can import it.
  */
 
-/** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
-export const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** The models an agent or a model config key may name. */
-export const MODELS = ["opus", "sonnet", "haiku"] as const;
+export { MODELS, NAME, PARAM } from "./language-schema";
 
 export const TYPES = ["work", "findings", "verdicts", "resolutions", "pr", "ci", "diagnosis", "scaffold", "edits"] as const;
 export type ResultType = (typeof TYPES)[number];
@@ -30,9 +26,6 @@ export type Access = (typeof ACCESS)[number];
 export const INPUTS = ["changes", "request"] as const;
 export type Input = (typeof INPUTS)[number];
 export const EXHAUSTED = ["continue", "fail"] as const;
-
-/** A param name: snake_case. */
-export const PARAM = /^[a-z][a-z0-9_]*$/;
 
 /** A param value: a string, an integer, a boolean or a non-empty list of names without duplicates. */
 export type ParamValue = string | number | boolean | string[];
