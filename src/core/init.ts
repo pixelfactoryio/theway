@@ -12,6 +12,8 @@ import {
 } from "node:fs";
 import { parse } from "yaml";
 import { removeIfEmpty, writeAtomic } from "./io";
+import { parsePromptFile } from "./language";
+import { VERSION } from "./language-schema";
 
 /**
  * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
@@ -186,7 +188,7 @@ function retireSteps(home: string, previous: Manifest | undefined): void {
         rmSync(`${dir}/${name}`, { force: true });
         continue;
       }
-      process.stdout.write(`Kept your edited ${STEPS}/${name}: ${why}\n`);
+      process.stdout.write(`Kept ${STEPS}/${name}: ${why}\n`);
     }
     removeIfEmpty(dir);
   }
@@ -259,6 +261,32 @@ function retireMoved(home: string): void {
   if (changed && previous !== undefined) writeManifest(home, previous);
 }
 
+/** The `version` of a workflow file's text, or undefined when it does not parse as a map. */
+function versionOf(text: string): unknown {
+  try {
+    const doc: unknown = parse(text);
+    return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>).version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The line that follows "Kept your edited <dir>/<name>" when the kept file will no longer work: a workflow that is not
+ * `theway.workflow/v1beta`, or a prompt with no header whose shipped version has one; else null.
+ */
+function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer): string | null {
+  if (dir === "workflows" && versionOf(current.toString("utf-8")) !== VERSION) {
+    const stem = name.slice(0, -".yaml".length);
+    return `workflows/${name} is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/${stem}.default.yaml`;
+  }
+  if (dir === "prompts" && parsePromptFile(current.toString("utf-8")).header === null && parsePromptFile(shipped.toString("utf-8")).header !== null) {
+    const stem = name.slice(0, -".md".length);
+    return `prompts/${name} has no header, so the workflows that use it fail: merge your edits into prompts/${stem}.default.md and replace it`;
+  }
+  return null;
+}
+
 /**
  * Writes the shipped standards, templates, workflows and prompts into `home`: a file the user has not edited is updated,
  * an edited one is kept and the shipped version goes next to it as `<stem>.default.<ext>`.
@@ -299,6 +327,8 @@ function copyShipped(src: string, home: string): void {
             removeSibling = false;
             writeAtomic(`${home}/${sibling}`, shipped);
             process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
+            const stale = staleKept(dir, name, current, shipped);
+            if (stale !== null) process.stdout.write(`${stale}\n`);
           } else if (isShared) {
             removeSibling = false;
             record = false;

@@ -925,7 +925,8 @@ test("install over the previous layout keeps an edited or user step file and an 
   const res = run(env, "install");
   expect(res.status).toBe(0);
   expect(res.stdout).toContain(`Kept your edited steps/review.yaml: ${STEPS_WHY}\n`);
-  expect(res.stdout).toContain(`Kept your edited steps/mine.yaml: ${STEPS_WHY}\n`);
+  expect(res.stdout).toContain(`Kept steps/mine.yaml: ${STEPS_WHY}\n`);
+  expect(res.stdout).not.toContain("Kept your edited steps/mine.yaml");
   expect(res.stdout).toContain("Removed steps/implement.yaml: theway no longer ships it\n");
   expect(res.stdout).toContain("Kept your edited schemas/step.v1.json: theway no longer ships it\n");
   expect(res.stdout).toContain("Removed schemas/workflow.v1.json: theway no longer ships it\n");
@@ -940,9 +941,33 @@ test("install over the previous layout keeps an edited v1 agents workflow with t
   const edited = `${V1_AGENTS}  - mine:\n`;
   put(join(env.theway, "workflows", "agents.yaml"), edited);
   const res = run(env, "install");
-  expect(res.stdout).toContain("Kept your edited workflows/agents.yaml (shipped version: workflows/agents.default.yaml)\n");
+  expect(res.stdout).toContain(
+    "Kept your edited workflows/agents.yaml (shipped version: workflows/agents.default.yaml)\n" +
+      "workflows/agents.yaml is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/agents.default.yaml\n",
+  );
   expect(readFileSync(join(env.theway, "workflows", "agents.yaml"), "utf-8")).toBe(edited);
   expect(readFileSync(join(env.theway, "workflows", "agents.default.yaml"), "utf-8")).toBe(shipped("workflows/agents.yaml"));
+});
+
+test("install says when a kept edited prompt has no header while the shipped one has", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  // An edited v1 prompt still shipped under its name, and an edited v1beta workflow and prompt that still work.
+  const v1Triage = "# Triage\n\nJudge the findings.\n";
+  put(join(env.theway, "prompts", "triage.md"), v1Triage);
+  put(join(env.theway, "prompts", "ci.md"), `${shipped("prompts/ci.md")}\nMine.\n`);
+  put(join(env.theway, "workflows", "develop.yaml"), `${shipped("workflows/develop.yaml")}# mine\n`);
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), "prompts/triage.md": sha256(v1Triage.replace("Judge", "Check")) }));
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(
+    "Kept your edited prompts/triage.md (shipped version: prompts/triage.default.md)\n" +
+      "prompts/triage.md has no header, so the workflows that use it fail: merge your edits into prompts/triage.default.md and replace it\n",
+  );
+  expect(res.stdout).toContain("Kept your edited prompts/ci.md (shipped version: prompts/ci.default.md)\n");
+  expect(res.stdout).toContain("Kept your edited workflows/develop.yaml (shipped version: workflows/develop.default.yaml)\n");
+  expect(res.stdout).not.toContain("prompts/ci.md has no header");
+  expect(res.stdout).not.toContain("workflows/develop.yaml is a theway.workflow/v1 file");
 });
 
 test("install keeps each project's steps/ files with a line, removes nothing there, and removes an empty one", () => {
