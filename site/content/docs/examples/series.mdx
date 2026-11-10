@@ -77,7 +77,7 @@ R1-1 settled: `POST /login` returns `200` with a JSON body on success, as every 
 /theway:workflow --workflow agents add-user-auth-01 add-user-auth-02 add-user-auth-03
 ```
 
-The default `develop` workflow commits nothing, so a series runs with a workflow that commits, here the shipped `agents`. The members run in order, each from the synced `main`. After each PR is green, the command asks before merging:
+The default `develop` workflow opens no PR, so a series runs with a workflow that does, here the shipped `agents`; with one that opens none, the series stops after its first change. The members run in order, each from the synced `main`. After each run succeeds, the command asks before merging the PR it opened:
 
 ```text
 add-user-auth-01: PR #13 https://github.com/example/my-api/pull/13, CI green (1 of 2 attempts), 2 files changed, +55 -0
@@ -88,7 +88,7 @@ On `yes`, it squash-merged PR #13, synced `main`, and created `add-user-auth-02`
 
 ## The list
 
-The orchestrator ticked every task, so each member's `tasks.md` shows its three tasks done:
+Each implementer ticked its tasks, so each member's `tasks.md` shows its three tasks done:
 
 ```text
 $ theway list

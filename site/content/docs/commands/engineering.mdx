@@ -7,7 +7,7 @@ The spec is written so that someone else can implement it without guessing: the 
 
 For a small change with nothing to decide, `--light` is the light path: a short spec, 1 to 3 tasks and one critic (see [Light](#light)).
 
-`/theway:engineering` is an alias: `/theway:engineering <request>` runs [`/theway:workflow --workflow engineering <request>`](./workflow.mdx#request-runs), and `/theway:engineering --light <request>` runs `/theway:workflow --workflow engineering-light <request>`. Both are shipped [`input: request` workflows](../concepts/workflows.mdx#two-kinds-of-workflow), built from step files and prompts like any other, so you can change them (see [Customize](#customize)).
+`/theway:engineering` is an alias: `/theway:engineering <request>` runs [`/theway:workflow --workflow engineering <request>`](./workflow.mdx), and `/theway:engineering --light <request>` runs `/theway:workflow --workflow engineering-light <request>`. Both are shipped [workflows](../concepts/workflows.mdx) with one required input, `request`, built from prompts like any other, so you can change them (see [Customize](#customize)).
 
 ## Usage
 
@@ -32,11 +32,12 @@ add-user-auth-02
 add-user-auth-03
 ```
 
-Each member's `spec.md` starts with its `**Series:**` line, for example `**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01`. The report ends with the review outcome, trimmed here to one row:
+Each member's `spec.md` starts with its `**Series:**` line, for example `**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01`. The report ends with the triage's report, trimmed here to one verdict:
 
-| # | Finding | Verdict | Fix |
-|---|---------|---------|-----|
-| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `204` with no body: `my-api` has no sessions, and `-02`'s Out of Scope excludes tokens |
+```text
+3.spec-triage (round 2): pass
+1: confirmed, settled: add-user-auth-02 does not say what POST /login returns on success. -02 returns 204 with no body: my-api has no sessions, and -02's Out of Scope excludes tokens. Resolved: spec.md of -02 says so.
+```
 
 ## Steps
 
@@ -44,15 +45,30 @@ The shipped `engineering` workflow:
 
 ```yaml
 # workflows/engineering.yaml
-version: theway.workflow/v1
-input: request
+version: theway.workflow/v1beta
+description: Investigate a request and write its spec and tasks, then review them
+inputs:
+  request:
+    description: What the change should do
+    required: true
+runs-on: agents
 steps:
-  - scaffold: {agents: false}
-  - spec-review:
+  - uses: prompts/scaffold.md
+    runs-on: session
+    with:
+      request: ${{ inputs.request }}
+  - uses: prompts/spec-review.md
+    matrix:
+      lens: [prompts/grounding.md, prompts/implementability.md]
+    with:
+      lens: ${{ matrix.lens }}
+  - uses: prompts/spec-triage.md
+    on-fail: prompts/fix-spec.md
+    tries: 1
 ```
 
-1. **Load:** [`/theway:workflow`](./workflow.mdx#request-runs) resolves the workflow, runs [`theway authority`](../cli.mdx#authority) and [`theway context engineering`](../cli.mdx#context), and reads the [standards](../concepts/standards.mdx) it lists: the enabled standards, shipped opt-in or yours; each applies to every phase unless its `applies_to` narrows it. The spec and tasks follow them, and a request that contradicts one is an open question for you. There is no branch and no commit: a request run writes only the change folders it creates.
-2. **`scaffold`, inline in your session** (`agents: false`): one agent node, `returns: scaffold`, that reads the prompts `tamm-framework`, `spec-investigation`, `scaffold-rules`, `spec-template`, `fix-spec-template`, `tasks-template` and `scaffold`, in that order.
+1. **Load:** [`/theway:workflow`](./workflow.mdx) resolves the workflow with the request as its `request` input and runs [`theway authority`](../cli.mdx#authority). There is no branch and no commit: the run writes only the change folders it creates, and throwaway probes in `mktemp -d` directories.
+2. **`scaffold`, in your session:** the `scaffold` prompt, which reads `scaffold-rules`, `tamm-framework` and `spec-investigation` first.
    - **Change folder:** it picks a [change ID](../concepts/changes.mdx#change-ids) and validates it with `theway validate-id <change-id>`. It must exit 0 before any folder is written. For a series, [`theway next-id <series-id> --count <N>`](../cli.mdx#next-id) validates the series ID and prints the member IDs.
    - **Investigate:** read the code involved, check how it behaves today and settle the unknowns, for example by cloning a repository, running a small throwaway script or calling a service. Each investigation answers one question. What it learns goes into the spec as findings (question, method, result), not as code or diffs.
 
@@ -63,16 +79,15 @@ steps:
 
      After a stop, run `/theway:engineering` again with the new information: it keeps no state between runs.
    - **Documents:** the `spec-template` prompt produces `spec.md` (the `fix-spec-template` prompt for a `fix-` change), the `tasks-template` prompt produces `tasks.md`, following each template's frontmatter instructions; in a `fix-` change, task 1 writes the regression test. `design.md` is optional, for API contracts and data models, architecture decisions, and diagrams.
-   - **Result:** `outcome` `ready`, `open` (a question it cannot settle, or an open point recorded in the spec), `stopped` (a `fix-` stop) or `escalated` (light only), the change folders, the open questions, the findings that shaped the spec and the stop report. Anything but `ready` stops the run as `blocked`: the review does not run.
-3. **`spec-review`, through agents:** up to `rounds` rounds (default `1`, set by [`workflow.defaults.spec-review.rounds`](../configuration.mdx#workflow)), on `model` (default `opus`). Each round:
-   - spawns one critic per lens in parallel (`lenses`, default `[grounding, implementability]`), each reading the `spec-reviewer` prompt and its lens prompt, covering every member of a series together:
-     - the **grounding** critic checks the spec's claims about the code, tools, providers and libraries against the code and official docs; for a `fix-` change, it also re-runs the recorded reproduction and reports it when the output differs;
-     - the **implementability** critic checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, contradictions, and a spec or task that contradicts a standard;
-   - when there are findings, a triage agent (the `verdicts` and `spec-triage` prompts) verifies each one and gives it a verdict (`confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`) and a final `kind`: `fixable` or `decision`;
-   - when a confirmed finding is `fixable`, a fix agent (the `spec-fix` prompt, `returns: edits`) edits the change files;
-   - then a confirmed `decision` stops the run as `blocked`, `open question: <titles>` (the `on_decision` param).
+   - **Answer:** `pass` with each change folder and the findings that shaped the spec; `blocked` with each open question (one it cannot settle, or an open point recorded in the spec), or with a `fix-` stop report. A `blocked` scaffold stops the run: the review does not run.
+3. **`spec-review`, through agents:** one critic per lens, at the same time, each reading the `spec-review` prompt and its lens prompt, covering every member of a series together:
+   - the **grounding** critic checks the spec's claims about the code, tools, providers and libraries against the code and official docs; for a `fix-` change, it also re-runs the recorded reproduction and reports it when the output differs;
+   - the **implementability** critic checks whether a cold-start implementer could carry out the change without guessing: choices left open, Success Criteria that cannot be checked or have no task, tasks outside the Scope, tasks that cannot be done as written, contradictions, and a spec or task that contradicts a standard.
 
-   A round with no confirmed findings ends the review. Critics never edit anything; their probes answer one question each and write only to a temporary directory. Every agent's prompt starts with the output of `theway authority`, and a report of data that asked to change the steps or widen the authorization is quoted in the report. The triage and the fix agents write only the change folders of the run (`access: spec`).
+   Critics never edit anything, always answer `pass`, and their probes answer one question each and write only to a temporary directory.
+4. **`spec-triage`, through agents:** verifies each finding and gives it a verdict (`confirmed`, `false_positive`, `duplicate`, `nit` or `out_of_scope`) and, when confirmed, a final kind: `fixable` or `decision`. It answers `fail` when a finding is confirmed. Then `fix-spec` edits the change files for every confirmed `fixable` finding, and answers `blocked` with `open question:` and each question when a confirmed finding is a `decision`; otherwise the triage runs again and checks each fix (`tries: 1`).
+
+Every agent's prompt starts with the output of `theway authority`, and a line of a report starting `Authority report:` is quoted in the run's report.
 
 Action words in the request, such as "rename X" or "try the fix", describe what the spec should plan, not something to do now. It does not suggest plan mode, whose approval step starts implementation.
 
@@ -87,11 +102,11 @@ Everything is written under `<home>/projects/<key>/changes/<change-id>/`:
 - `tasks.md`: numbered tasks grouped in phases, with a Notes section for blockers, discoveries and adjustments.
 - `design.md`, when needed.
 
-It reports the change folder, the findings that shaped the spec, the standards given (or "none"), and any open question. If a question is open, it stops: the spec is not ready until the question is answered.
+The run's report gives each step's result and the full report of the last step: on success, the triage's verdicts; when the run stops, the open question, the stop report or the confirmed decisions, verbatim. If a question is open, the spec is not ready until it is answered.
 
-When a `fix-` change stopped in the scaffold, no folder is written and no review runs: it reports the outcome, the attempts or the evidence, and the question for you.
+When a `fix-` change stopped in the scaffold, no folder is written and no review runs: the report gives the outcome, the attempts or the evidence, and the question for you.
 
-It also reports the review outcome: how the review ran (the rounds used, "not run because a question was already open", "not run: the scaffold stopped", or inline), then every finding in one table with the columns `#` (`R<round>-<index>`), `Finding`, `Verdict` and `Fix`. A confirmed `decision` reads `open question:` and its question in `Fix`. A `decision` the triage settled from the code, the docs or the spec's own decisions reads `confirmed, settled`, and is listed again under the table with the choice made, so you can overturn it.
+A `decision` the triage settled from the code, the docs or the spec's own decisions reads `confirmed, settled`, with the choice made in its reason, so you can overturn it.
 
 ## Light
 
@@ -114,11 +129,12 @@ On `my-api`, a bug with a known cause (see [A light fix](../examples/light-fix.m
 ```
 
 ```text
-Change folder: <home>/projects/-home-you-code-my-api/changes/fix-health-query-limited/
-Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
-Standards read: none.
+Workflow: engineering-light (/home/you/.theway/workflows/engineering-light.yaml)
+- 1.scaffold-light: pass (inline)
+- 2.spec-review: pass
+- 3.spec-triage: pass
 
-Review: 1 round (grounding critic).
+3.spec-triage: no finding confirmed.
 ```
 
 A request that needs a decision writes nothing and sends you to `/theway:engineering` without `--light`: see [An escalation](../examples/escalation.mdx).
@@ -129,21 +145,38 @@ The shipped `engineering-light` workflow:
 
 ```yaml
 # workflows/engineering-light.yaml
-version: theway.workflow/v1
-input: request
+version: theway.workflow/v1beta
+description: A short spec and 1 to 3 tasks, reviewed by one grounding critic
+inputs:
+  request:
+    description: What the change should do
+    required: true
+runs-on: agents
 steps:
-  - scaffold-light: {agents: false}
-  - spec-review: {lenses: [grounding], on_decision: "escalated: run /theway:engineering <change-id>: <request> without --light"}
+  - uses: prompts/scaffold-light.md
+    runs-on: session
+    with:
+      request: ${{ inputs.request }}
+  - uses: prompts/spec-review.md
+    with:
+      lens: prompts/grounding.md
+  - uses: prompts/spec-triage.md
+    on-fail:
+      uses: prompts/fix-spec.md
+      with:
+        on_decision: "escalated: run /theway:engineering without --light for this request"
+    tries: 1
 ```
 
 1. **Load:** the same as without `--light`.
-2. **`scaffold-light`, inline:** the prompts `tamm-framework`, `spec-investigation`, `scaffold-rules`, `light-spec-template`, `tasks-template` and `scaffold-light`.
-   - **Series:** a light change is never a series member: a series request stops before anything else, writes nothing, and tells you to run `/theway:engineering` without `--light`.
+2. **`scaffold-light`, in your session:** the `scaffold-light` prompt, which reads `scaffold-rules`, `tamm-framework` and `spec-investigation` first.
+   - **Series:** a light change is never a series member: a series request answers `blocked` before anything else, writes nothing, and tells you to run `/theway:engineering` without `--light`.
    - **Change folder:** it validates the [change ID](../concepts/changes.mdx#change-ids) with `theway validate-id <change-id>`. It must exit 0 before any folder is written.
    - **Investigate:** as without `--light`; what it learns goes into the spec's Evidence. For a `fix-` change, it reproduces the bug first and has the same three stop outcomes; after a stop, run `/theway:engineering --light` again with the new information. A question the investigation cannot settle is a decision, and escalates.
-   - **Escalation check:** it escalates when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series, and when the request contradicts a standard. It writes no change file and tells you to run `/theway:engineering` with the original request, without `--light`.
+   - **Escalation check:** it escalates when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series, and when the request contradicts a standard. It writes no change file and answers `blocked` with `escalated: <what was found>; run /theway:engineering <request> without --light`.
    - **Documents:** the `light-spec-template` prompt produces `spec.md`, with `**Mode:** light` under its title; the `tasks-template` prompt produces `tasks.md`, without phases: 1 to 3 numbered tasks, then the Notes section. In a `fix-` change, task 1 writes the regression test. A light change has no `design.md`.
-3. **`spec-review`:** the same step with one grounding critic, which then also reports a spec or task that contradicts a standard. A confirmed `decision` escalates: the light files stay, and the run stops with `escalated: run /theway:engineering <change-id>: <request> without --light`, followed by the decision titles; that command writes over them.
+3. **`spec-review`:** one grounding critic, which also reports a spec or task that contradicts a standard.
+4. **`spec-triage`:** as without `--light`, except that a confirmed `decision` escalates: the light files stay, and `fix-spec` answers `blocked` with `escalated: run /theway:engineering without --light for this request`, followed by each question; that command writes over them.
 
 ### Output
 
@@ -156,29 +189,27 @@ Everything is written under `<home>/projects/<key>/changes/<change-id>/`:
   - For a `fix-` change, the first two Success Criteria are always the same: the regression test fails before the fix and passes with it, and the reproduction no longer reproduces.
 - `tasks.md`: 1 to 3 numbered tasks and a Notes section.
 
-It reports the change folder, the findings that shaped the spec, the standards given (or "none") and the review outcome, in the same table as without `--light`; a confirmed `decision` reads `escalated` in `Fix`. An escalation reports what was found and the command to run.
+The run's report is the same as without `--light`. An escalation reports what was found and the command to run.
 
 ### Downstream
 
-[`/theway:workflow`](./workflow.mdx) reads `**Mode:** light`: it proves a light `fix-` change's regression test without the base-commit worktree ([fix checks](./workflow.mdx#fix-checks)), the test running before the fix and failing, then after it and passing; it runs its `review` steps as for any change, and the `conformance` lens prompt checks the diff against the Change section.
+[`/theway:workflow`](./workflow.mdx) reads `**Mode:** light`: it proves a light `fix-` change's regression test without the base-commit worktree ([fix checks](./workflow.mdx#fix-checks)), the test running before the fix and failing, then after it and passing; it reviews it as any change, and the `conformance` lens prompt checks the diff against the Change section.
 
 ## Customize
 
 The engineering workflows are files under the theway home like any other, so a project changes them with its own copies under `<home>/projects/<key>/` (see [Workflows](../concepts/workflows.mdx)):
 
-- **Add a critic:** write its lens as a prompt, for example `<home>/projects/<key>/prompts/security.md`, and add it to the lenses in a project copy of `engineering.yaml`:
+- **Add a critic:** write its lens as a prompt, for example `<home>/projects/<key>/prompts/security.md`, and add it to the matrix in a project copy of `engineering.yaml`:
 
   ```yaml
-  # <home>/projects/<key>/workflows/engineering.yaml
-  # yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-  version: theway.workflow/v1
-  input: request
-  steps:
-    - scaffold: {agents: false}
-    - spec-review: {lenses: [grounding, implementability, security]}
+  # <home>/projects/<key>/workflows/engineering.yaml, the shipped file with one more lens
+    - uses: prompts/spec-review.md
+      matrix:
+        lens: [prompts/grounding.md, prompts/implementability.md, prompts/security.md]
+      with:
+        lens: ${{ matrix.lens }}
   ```
 
-- **Add a gate:** an entry `- gate: Review the spec before the critics run?` between `scaffold` and `spec-review` asks you before the review.
-- **Override a template:** a project `prompts/spec-template.md` replaces the shipped one for that project; the scaffold reads it by name.
-- **More rounds, another model:** `workflow.defaults.spec-review` in `config.yaml`, for example `spec-review: {rounds: 2, model: sonnet}` (see [Configuration](../configuration.mdx#workflow)). To skip the review, use a project copy of the workflow without `spec-review`.
-- **Run the scaffold through an agent:** `- scaffold: {agents: true}`.
+- **Override a template:** a project `prompts/spec-template.md` replaces the shipped one for that project; the scaffold reads it by path.
+- **Another model, more fix rounds:** set `model` on the step, or in a project copy of its prompt's header; raise `tries` on `spec-triage` for more fix rounds. To skip the review, use a project copy of the workflow without `spec-review` and `spec-triage`.
+- **Run the scaffold through an agent:** remove `runs-on: session` from the `scaffold` step; its prompt's header sets `model: opus`.
