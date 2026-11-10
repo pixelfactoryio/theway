@@ -43,8 +43,10 @@ export const filePath = (f: FileRef): string =>
     ? `/api/v1/files/global/${f.kind}/${encodeURIComponent(f.name)}`
     : `/api/v1/files/projects/${encodeURIComponent(f.key ?? "")}/${f.kind}/${encodeURIComponent(f.name)}`;
 
-export const useFile = (f: FileRef, enabled = true) =>
-  useQuery({ queryKey: ["file", f.scope, f.key, f.kind, f.name], queryFn: () => get<FileDetail>(filePath(f)), enabled });
+/** The query of a file's detail, shared by `useFile` and the editor's prompt context. */
+export const fileQuery = (f: FileRef) => ({ queryKey: ["file", f.scope, f.key, f.kind, f.name], queryFn: () => get<FileDetail>(filePath(f)) });
+
+export const useFile = (f: FileRef, enabled = true) => useQuery({ ...fileQuery(f), enabled });
 
 /** A file's saved versions, newest first; under the file's query key, so a save refreshes them. */
 export const useVersions = (f: FileRef) =>
@@ -60,6 +62,9 @@ export const useVersion = (f: FileRef, id: string) =>
 /** The page of a file in the dashboard: `/workflows/global/<kind>/<name>` or `/workflows/projects/<key>/<kind>/<name>`. */
 export const fileHref = (f: FileRef): string =>
   f.scope === "global" ? `/workflows/global/${f.kind}/${f.name}` : `/workflows/projects/${f.key ?? ""}/${f.kind}/${f.name}`;
+
+/** The edit mode of a file: its page with `/edit`. */
+export const editHref = (f: FileRef): string => `${fileHref(f)}/edit`;
 
 /** The key of a file in the client's maps: `<scope>/<key>/<kind>/<name>`. */
 export const fileKey = (f: FileRef): string => `${f.scope}/${f.key ?? ""}/${f.kind}/${f.name}`;

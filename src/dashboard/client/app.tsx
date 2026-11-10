@@ -37,7 +37,7 @@ function TopBar() {
 
 const isKind = (k: string): k is SourceKind => Object.hasOwn(EXT, k);
 
-/** The Workflows page of a file, in view or versions mode; `/workflows` for a kind that is not one. */
+/** The Workflows page of a file, in view, edit or versions mode; `/workflows` for a kind that is not one. */
 function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
   if (!isKind(file.kind)) return <Redirect to="/workflows" replace />;
   const ref: FileRef = { ...file, kind: file.kind };
@@ -45,6 +45,7 @@ function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
 }
 
 const VIEW: Mode = { view: true };
+const EDIT: Mode = { edit: true };
 
 function Routes() {
   return (
@@ -58,11 +59,13 @@ function Routes() {
         <WorkflowsIndex />
       </Route>
       <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, VIEW)}</Route>
+      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, EDIT)}</Route>
       <Route path="/workflows/global/:kind/:name/versions">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: null })}</Route>
       <Route path="/workflows/global/:kind/:name/versions/:id">
         {(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: p.id })}
       </Route>
       <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, VIEW)}</Route>
+      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, EDIT)}</Route>
       <Route path="/workflows/projects/:key/:kind/:name/versions">
         {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: null })}
       </Route>

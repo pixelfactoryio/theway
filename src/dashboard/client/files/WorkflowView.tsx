@@ -8,6 +8,7 @@ import { type FileRef, fileHref, useFiles } from "@/lib/api";
 import type { ResolvedStep, ResolvedWorkflow } from "../../../core/language-schema";
 import type { FilesResponse, PromptItem, WorkflowResolved } from "../../types";
 import { parse } from "../editor/ops";
+import { promptName } from "./source";
 
 /** A card of the centre and the right column: the card colour, a border, rounded, a light shadow. */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -62,9 +63,6 @@ export function Broken({ lines, text, children }: { lines: string[]; text: strin
     </div>
   );
 }
-
-/** The `<name>` of a `prompts/<name>.md` value; `null` for any other value. */
-export const promptName = (value: string): string | null => /^prompts\/([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/.exec(value)?.[1] ?? null;
 
 /** The prompt file a workflow reads by name: a project workflow's own project file first, then the global one. */
 export function promptFor(files: FilesResponse | undefined, file: FileRef, name: string): PromptItem | undefined {

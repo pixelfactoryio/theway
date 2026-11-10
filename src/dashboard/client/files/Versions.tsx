@@ -1,14 +1,18 @@
 /**
  * Versions mode of the Workflows page: the right column's list of a file's saved versions, and one version drawn with
- * the file's own view and its diff to the current file.
+ * the file's own view, its diff to the current file, and Restore.
  */
 import { cn } from "cn";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
-import { type FileRef, fileHref, useVersion, useVersions, versionsHref } from "@/lib/api";
+import { editHref, type FileRef, fileHref, fileKey, useVersion, useVersions, versionsHref } from "@/lib/api";
 import type { FileDetail, PromptResolved, WorkflowResolved } from "../../types";
 import { Diff } from "./Diff";
+import { isDirty } from "./draft";
+import { useDrafts } from "./drafts";
+import { Confirm } from "./fields";
 import { PromptView } from "./PromptView";
 import { WorkflowView } from "./WorkflowView";
 
@@ -58,16 +62,28 @@ export function VersionList({ file, id }: { file: FileRef; id: string | null }) 
   );
 }
 
-/** The centre in versions mode with a version selected: its title row with Close, its drawing, and its diff to the current file. */
+/**
+ * The centre in versions mode with a version selected: its title row with Close and Restore, its drawing, and its
+ * diff to the current file. Restore makes the version's text the draft, byte for byte, and opens the editor; it asks
+ * first when the file has unsaved changes.
+ */
 export function VersionView({ file, id, detail }: { file: FileRef; id: string; detail: FileDetail }) {
   const version = useVersion(file, id);
   const [, navigate] = useLocation();
   const versions = useVersions(file);
+  const { drafts, start, edit } = useDrafts();
+  const [confirming, setConfirming] = useState(false);
   if (version.data === undefined) return <Empty error={version.isError}>{version.isError ? version.error.message : "Loading…"}</Empty>;
   const { text, resolved } = version.data;
   const at = versions.data?.versions.find((v) => v.id === id)?.at;
   const subtitle = id === "shipped" ? "As shipped" : `Version of ${at === undefined ? id : whenOf(at)}`;
   const same = text === detail.text;
+  const draft = drafts.get(fileKey(file))?.draft;
+  const restore = () => {
+    start(file, detail.text, detail.sha256, false);
+    edit(file, text);
+    navigate(editHref(file));
+  };
   return (
     <>
       <div className="flex flex-wrap items-center gap-3 py-4 pl-6">
@@ -78,6 +94,9 @@ export function VersionView({ file, id, detail }: { file: FileRef; id: string; d
         <div className="ml-auto flex gap-2">
           <Button variant="outline" onClick={() => navigate(fileHref(file))}>
             Close
+          </Button>
+          <Button disabled={same} onClick={() => (draft !== undefined && isDirty(draft) ? setConfirming(true) : restore())}>
+            Restore
           </Button>
         </div>
       </div>
@@ -92,6 +111,7 @@ export function VersionView({ file, id, detail }: { file: FileRef; id: string; d
           {same ? <span>Same as the current file.</span> : <Diff from={text} to={detail.text} />}
         </div>
       </div>
+      <Confirm open={confirming} title={`Replace your unsaved changes to ${file.name}?`} action="Replace" onConfirm={restore} onClose={() => setConfirming(false)} />
     </>
   );
 }

@@ -4,16 +4,20 @@ import { Link, Redirect, useLocation } from "wouter";
 import { Badge } from "@/components/reui/badge";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
+import { isDirty } from "@/files/draft";
+import { useDrafts } from "@/files/drafts";
+import { EditMode } from "@/files/EditMode";
+import { NewDialog } from "@/files/NewDialog";
 import { HeaderErrors, PromptBadges, PromptView, UsedBy } from "@/files/PromptView";
 import { VersionList, VersionView } from "@/files/Versions";
 import { Panel, WorkflowPanels, WorkflowView } from "@/files/WorkflowView";
-import { type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
-import type { FileDetail, FileItem } from "../../types";
+import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
+import type { FileDetail, FileItem, SourceKind } from "../../types";
 
 const sameFile = (a: FileRef, b: FileRef): boolean => a.scope === b.scope && a.key === b.key && a.kind === b.kind && a.name === b.name;
 
-/** An item of the list: its name, then the `default` badge, its error mark, or the project it belongs to. */
-function Item({ item, selected }: { item: FileItem; selected: boolean }) {
+/** An item of the list: its name, then the `edited` badge of a dirty draft, the `default` badge, its error mark, or the project it belongs to. */
+function Item({ item, selected, edited }: { item: FileItem; selected: boolean; edited: boolean }) {
   const error = item.kind === "workflows" ? item.error : null;
   return (
     <Link
@@ -24,7 +28,9 @@ function Item({ item, selected }: { item: FileItem; selected: boolean }) {
       <span className="truncate font-mono text-[13px]">{item.name}</span>
       <span className="flex shrink-0 items-center gap-1.5">
         {item.scope === "project" && <span className="text-[12px] text-muted-foreground">{item.label ?? item.key} only</span>}
-        {error !== null ? (
+        {edited ? (
+          <Badge variant="warning-light">edited</Badge>
+        ) : error !== null ? (
           <span className="text-[12px] text-destructive" title={error}>
             error
           </span>
@@ -38,6 +44,11 @@ function Item({ item, selected }: { item: FileItem; selected: boolean }) {
 
 /** A group of the list: its heading in small capitals with its count on the right, then its items. */
 function Group({ heading, items, selected, first }: { heading: string; items: FileItem[]; selected: FileRef | null; first: boolean }) {
+  const { drafts } = useDrafts();
+  const edited = (item: FileItem) => {
+    const d = drafts.get(fileKey(item))?.draft;
+    return d !== undefined && isDirty(d);
+  };
   return (
     <>
       <div className={cn("flex items-baseline justify-between px-2.5 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase", first ? "" : "pt-4")}>
@@ -45,21 +56,41 @@ function Group({ heading, items, selected, first }: { heading: string; items: Fi
         <span className="tabular-nums">{items.length}</span>
       </div>
       {items.map((item) => (
-        <Item key={fileKey(item)} item={item} selected={selected !== null && sameFile(item, selected)} />
+        <Item key={fileKey(item)} item={item} selected={selected !== null && sameFile(item, selected)} edited={edited(item)} />
       ))}
     </>
   );
 }
 
-/** The file list: the workflows, the step prompts, then the other prompt files, in the response's order. */
-function FileList({ selected }: { selected: FileRef | null }) {
+/**
+ * The file list: New, the workflows, the step prompts, then the other prompt files, in the response's order; a new
+ * file's draft is listed with its kind, workflows first and prompts with the step prompts.
+ */
+function FileList({ selected, onNew }: { selected: FileRef | null; onNew: (kind: SourceKind) => void }) {
   const files = useFiles();
+  const { drafts } = useDrafts();
   if (files.data === undefined) return <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>;
-  const { workflows, prompts } = files.data;
+  const { workflows, prompts, projects } = files.data;
+  const labels = new Map(projects.map((p) => [p.key, p.label]));
+  const fresh = (kind: SourceKind): FileItem[] =>
+    [...drafts.values()]
+      .filter((e) => e.draft.isNew && e.file.kind === kind)
+      .map((e) => {
+        const base = { ...e.file, label: e.file.key === null ? null : (labels.get(e.file.key) ?? null), path: "", description: null };
+        return e.file.kind === "workflows" ? { ...base, kind: "workflows", default: false, error: null } : { ...base, kind: "prompts", step: false };
+      });
   return (
     <nav aria-label="Files" className="flex flex-col gap-px">
-      <Group heading="Workflows" items={workflows} selected={selected} first />
-      <Group heading="Prompts" items={prompts.filter((p) => p.step)} selected={selected} first={false} />
+      <div className="flex gap-1.5 pb-3">
+        <Button variant="outline" size="sm" onClick={() => onNew("workflows")}>
+          New workflow
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onNew("prompts")}>
+          New prompt
+        </Button>
+      </div>
+      <Group heading="Workflows" items={[...workflows, ...fresh("workflows")]} selected={selected} first />
+      <Group heading="Prompts" items={[...prompts.filter((p) => p.step), ...fresh("prompts")]} selected={selected} first={false} />
       <Group heading="Reference files" items={prompts.filter((p) => !p.step)} selected={selected} first={false} />
     </nav>
   );
@@ -93,10 +124,12 @@ function Facts({ detail }: { detail: FileDetail }) {
   );
 }
 
-/** The centre: the title row with its badges, Versions and the source toggle, then the drawing or the file's text. */
+/** The centre: the title row with its badges, Edit, Versions and the source toggle, then the drawing or the file's text. */
 function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   const [source, setSource] = useState(false);
   const [, navigate] = useLocation();
+  const { drafts, start } = useDrafts();
+  const draft = drafts.get(fileKey(file))?.draft;
   return (
     <>
       <div className="flex flex-wrap items-start gap-3 py-4 pl-6">
@@ -109,6 +142,15 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
           {detail.kind === "prompts" && <HeaderErrors resolved={detail.resolved} usedBy={detail.usedBy} />}
         </div>
         <div className="ml-auto flex gap-2">
+          <Button
+            onClick={() => {
+              // A dirty draft, reachable from versions mode, is kept.
+              if (draft === undefined || !isDirty(draft)) start(file, detail.text, detail.sha256, false);
+              navigate(editHref(file));
+            }}
+          >
+            Edit
+          </Button>
           <Button variant="outline" onClick={() => navigate(versionsHref(file))}>
             Versions
           </Button>
@@ -130,18 +172,35 @@ function Centre({ file, detail }: { file: FileRef; detail: FileDetail }) {
   );
 }
 
-/** The three columns: the file list, the centre and the right column (`factsLabel`). */
-function Columns({ selected, centre, facts, factsLabel = "Facts" }: { selected: FileRef | null; centre: ReactNode; facts: ReactNode; factsLabel?: string }) {
+/** The three columns: the file list, the centre and the right column (`factsLabel`), then the save bar in edit mode, and the New dialog. */
+function Columns({
+  selected,
+  centre,
+  facts,
+  factsLabel = "Facts",
+  bar,
+}: {
+  selected: FileRef | null;
+  centre: ReactNode;
+  facts: ReactNode;
+  factsLabel?: string;
+  bar?: ReactNode;
+}) {
+  const [newKind, setNewKind] = useState<SourceKind | null>(null);
   return (
-    <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
-      <aside aria-label="Files" className="w-[260px] shrink-0 border-r border-divider py-4 pr-4">
-        <FileList selected={selected} />
-      </aside>
-      <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
-      <aside aria-label={factsLabel} className="w-[280px] shrink-0 border-l border-divider py-4 pl-4">
-        {facts}
-      </aside>
-    </div>
+    <>
+      <div className="mx-auto flex w-full max-w-[1120px] flex-1 px-6">
+        <aside aria-label="Files" className="w-[260px] shrink-0 border-r border-divider py-4 pr-4">
+          <FileList selected={selected} onNew={setNewKind} />
+        </aside>
+        <main className="flex min-w-0 flex-1 flex-col">{centre}</main>
+        <aside aria-label={factsLabel} className="w-[280px] shrink-0 border-l border-divider py-4 pb-28 pl-4">
+          {facts}
+        </aside>
+      </div>
+      {bar}
+      <NewDialog kind={newKind} onClose={() => setNewKind(null)} />
+    </>
   );
 }
 
@@ -153,12 +212,17 @@ export function WorkflowsIndex() {
   return <Columns selected={null} centre={files.data !== undefined && <Empty>No workflows</Empty>} facts={null} />;
 }
 
-/** The mode of the Workflows page: the file's view, or its versions with one selected (`null` for Current). */
-export type Mode = { view: true } | { version: string | null };
+/** The mode of the Workflows page: the file's view, its edit mode, or its versions with one selected (`null` for Current). */
+export type Mode = { view: true } | { edit: true } | { version: string | null };
 
-/** The Workflows page with one file selected, in view or versions mode. */
+/**
+ * The Workflows page with one file selected, in view, edit or versions mode. The view of a file with a dirty draft
+ * opens edit mode; edit mode without a draft goes back to the view.
+ */
 export function WorkflowsPage({ file, mode }: { file: FileRef; mode: Mode }) {
-  const detail = useFile(file);
+  const { drafts } = useDrafts();
+  const draft = drafts.get(fileKey(file))?.draft;
+  const detail = useFile(file, draft === undefined || !draft.isNew);
   const loading = detail.data === undefined ? <Empty error={detail.isError}>{detail.isError ? detail.error.message : "Loading…"}</Empty> : null;
   if ("version" in mode) {
     return (
@@ -174,6 +238,18 @@ export function WorkflowsPage({ file, mode }: { file: FileRef; mode: Mode }) {
         }
         facts={<VersionList file={file} id={mode.version} />}
         factsLabel="Versions"
+      />
+    );
+  }
+  if ("view" in mode && draft !== undefined && isDirty(draft)) return <Redirect to={editHref(file)} replace />;
+  if ("edit" in mode && draft === undefined) return <Redirect to={fileHref(file)} replace />;
+  if ("edit" in mode && draft !== undefined) {
+    return (
+      <EditMode
+        file={file}
+        draft={draft}
+        detail={detail.data}
+        layout={({ centre, facts, bar }) => <Columns selected={file} centre={centre} facts={facts} factsLabel="Settings" bar={bar} />}
       />
     );
   }
