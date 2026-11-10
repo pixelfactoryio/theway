@@ -11,7 +11,7 @@ import { Badge } from "@/components/reui/badge";
 import { Button } from "@/components/ui/button";
 import { type FileRef, fileHref, saveFile, useFiles, validateFile } from "@/lib/api";
 import type { FileDetail, FilesResponse, FileValidateResponse } from "../../types";
-import { insertStep, moveStep, parse, textOf } from "../editor/ops";
+import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
 import { addHeader, editHeader, setBody } from "../editor/prompt";
 import { usePromptContext } from "./context";
 import { Diff } from "./Diff";
@@ -187,7 +187,7 @@ export function EditMode({
               }}
               move={(from, to) => {
                 apply((d) => moveStep(d, from, to));
-                if (selected === from) select(to);
+                if (selected !== null) select(movedIndex(selected, from, to));
               }}
             />
           )

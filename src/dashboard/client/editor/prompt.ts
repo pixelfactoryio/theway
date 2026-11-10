@@ -34,11 +34,12 @@ export function headerDoc(text: string): Document | null {
   return p.open === null ? null : parse(p.header);
 }
 
-/** The prompt file with `op` applied to its header's Document; the body is kept byte for byte. A file with no header is returned as is. */
+/** The prompt file with `op` applied to its header's Document; the body is kept byte for byte. A file with no header, or a header that does not parse, is returned as is. */
 export function editHeader(text: string, op: (doc: Document) => void): string {
   const p = splitPrompt(text);
   if (p.open === null) return text;
   const doc = parse(p.header);
+  if (doc.errors.length > 0) return text;
   op(doc);
   const header = doc.contents === null ? "" : textOf(doc);
   return joinPrompt({ ...p, header });

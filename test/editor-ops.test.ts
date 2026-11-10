@@ -10,6 +10,7 @@ import {
   defaultOnFail,
   HEADER_ORDER,
   insertStep,
+  movedIndex,
   moveStep,
   type PromptChoice,
   parse,
@@ -27,7 +28,8 @@ import {
   textOf,
   WORKFLOW_ORDER,
 } from "../src/dashboard/client/editor/ops";
-import { editHeader } from "../src/dashboard/client/editor/prompt";
+import { editHeader, setHeaderField } from "../src/dashboard/client/editor/prompt";
+import { headerSource } from "../src/dashboard/client/files/source";
 
 const FIXTURE_HOME = join(import.meta.dirname, "fixtures", "home");
 
@@ -210,4 +212,19 @@ test("an input added to the review.md header writes input then input2, and agent
   const twice = editHeader(once, (h) => addInput(h, HEADER_ORDER));
   expect(twice).toContain("  input:\n    description: Describe this input.\n  input2:\n    description: Describe this input.\n---\n");
   expect(errorsOf(AGENTS, { review: twice })).toEqual([]);
+});
+
+test("a move keeps the selection on the same step: the moved one, one it passes over, and one it does not reach", () => {
+  expect(movedIndex(4, 4, 2)).toBe(2);
+  expect(movedIndex(3, 4, 2)).toBe(4);
+  expect(movedIndex(2, 4, 1)).toBe(3);
+  expect(movedIndex(2, 1, 3)).toBe(1);
+  expect(movedIndex(0, 4, 2)).toBe(0);
+  expect(movedIndex(5, 1, 3)).toBe(5);
+});
+
+test("a header that does not parse is reported by headerSource and left as is by a header edit", () => {
+  const broken = "---\ndescription: [a\n---\nbody\n";
+  expect(headerSource(broken)).toHaveProperty("error");
+  expect(editHeader(broken, (h) => setHeaderField(h, "description", "x"))).toBe(broken);
 });

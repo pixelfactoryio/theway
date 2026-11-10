@@ -117,10 +117,10 @@ export function TextField({
 }
 
 /** A checkbox with its label. */
-export function Check({ checked, onChange, children }: { checked: boolean; onChange: (on: boolean) => void; children: ReactNode }) {
+export function Check({ checked, onChange, disabled, children }: { checked: boolean; onChange: (on: boolean) => void; disabled?: boolean; children: ReactNode }) {
   return (
-    <label className="flex items-center gap-2">
-      <Checkbox checked={checked} onCheckedChange={(on) => onChange(on === true)} />
+    <label className={disabled === true ? "flex items-center gap-2 text-muted-foreground" : "flex items-center gap-2"}>
+      <Checkbox checked={checked} disabled={disabled} onCheckedChange={(on) => onChange(on === true)} />
       {children}
     </label>
   );

@@ -90,11 +90,12 @@ export function workflowSource(src: string): WorkflowSource | { error: string } 
   };
 }
 
-/** A prompt file's header as written; `null` for a file with no header. */
-export function headerSource(src: string): HeaderSource | null {
+/** A prompt file's header as written; `null` for a file with no header, `error` when the header does not parse. */
+export function headerSource(src: string): HeaderSource | { error: string } | null {
   const doc = headerDoc(src);
   if (doc === null) return null;
-  const root = doc.errors.length > 0 ? {} : (doc.toJS() as unknown);
+  if (doc.errors.length > 0) return { error: `invalid YAML in the header: ${doc.errors[0]?.message.split("\n")[0] ?? ""}` };
+  const root = doc.toJS() as unknown;
   const h = isObj(root) ? root : {};
   return { description: text(h.description), model: textOrNull(h.model), inputs: inputsOf(h.inputs) };
 }

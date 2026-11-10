@@ -201,6 +201,14 @@ export function moveStep(doc: Document, from: number, to: number): void {
   items.splice(to, 0, moved);
 }
 
+/** Where step `index` sits after `moveStep(from, to)`. */
+export function movedIndex(index: number, from: number, to: number): number {
+  if (index === from) return to;
+  if (from < index && index <= to) return index - 1;
+  if (to <= index && index < from) return index + 1;
+  return index;
+}
+
 /** Removes step `index`, keeping its comments. */
 export function removeStep(doc: Document, index: number): void {
   const seq = stepsOf(doc);

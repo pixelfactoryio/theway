@@ -304,12 +304,13 @@ function StepPanels({
       <Panel title="On fail">
         <Check
           checked={step.onFail !== null}
+          disabled={step.onFail === null && fallback === null}
           onChange={(on) => {
             if (!on) apply((d) => setStepOnFail(d, index, undefined));
             else if (fallback !== null) apply((d) => setStepOnFail(d, index, fallback));
           }}
         >
-          <span className={step.onFail === null && fallback === null ? "text-muted-foreground" : undefined}>Run a prompt, then this step again</span>
+          Run a prompt, then this step again
         </Check>
         {step.onFail !== null && (
           <>
@@ -320,7 +321,8 @@ function StepPanels({
                 onChange={(name) => {
                   const declared = declaredOf(ctx, name);
                   const kept = (onFail?.with ?? []).filter(([k]) => declared === null || declared.includes(k));
-                  writeOnFail({ name, with: kept, model: onFail?.model ?? null });
+                  const required = Object.entries(ctx.info(name)?.header?.inputs ?? {}).flatMap(([k, i]) => (i.required && !kept.some(([w]) => w === k) ? [[k, ""] as [string, string]] : []));
+                  writeOnFail({ name, with: [...kept, ...required], model: onFail?.model ?? null });
                 }}
               />
             </Row>
@@ -428,7 +430,16 @@ export function WorkflowSettings({
 }
 
 /** A prompt's right column: its Header and Inputs panels, or "Use as a step" for a file with no header. */
-export function PromptSettings({ header, apply, useAsStep }: { header: HeaderSource | null; apply: Apply; useAsStep: () => void }) {
+export function PromptSettings({ header, apply, useAsStep }: { header: HeaderSource | { error: string } | null; apply: Apply; useAsStep: () => void }) {
+  if (header !== null && "error" in header) {
+    return (
+      <Column>
+        <Panel title="Header">
+          <p className="text-[12px] break-words text-destructive">{header.error}</p>
+        </Panel>
+      </Column>
+    );
+  }
   if (header === null) {
     return (
       <Column>
