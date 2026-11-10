@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +13,7 @@ const ROOT = join(import.meta.dirname, "..");
 const CLI = join(ROOT, "dist", "theway.js");
 const SHIPPED_HOME = join(ROOT, "plugin", "home");
 const CSP =
-  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 const PORT_ERROR = (v: string) => `error: option '--port <n>' argument '${v}' is invalid. must be an integer from 0 to 65535\n`;
 
 const homes: string[] = [];
@@ -117,11 +117,57 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   const css = await get(port, "/app.css");
   expect([css.status, css.headers["content-type"]]).toEqual([200, "text/css; charset=utf-8"]);
   expect(css.body).toContain(".base-ui-disable-scrollbar");
+  expect(css.body).toContain("/fonts/inter.woff2");
   const api = await get(port, "/api/v1/changes");
   expect(api.headers["cache-control"]).toBe("no-store");
   expect(api.headers["content-security-policy"]).toBe(CSP);
   expect(page.headers["cache-control"]).toBeUndefined();
   expect(JSON.parse(api.body)).toEqual({ total: 0, projects: [] });
+});
+
+/** The bytes of one GET, with its headers. */
+function bytes(port: number, path: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: Buffer }> {
+  return new Promise((resolve, reject) => {
+    const req = request({ host: "127.0.0.1", port, path, headers: { Host: `127.0.0.1:${port}`, Connection: "close" } }, (res) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (c: Buffer) => chunks.push(c));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("dashboard serves its two fonts as woff2 from its own origin", async () => {
+  const { port } = await start(home());
+  for (const [path, file] of [
+    ["/fonts/inter.woff2", "inter/files/inter-latin-wght-normal.woff2"],
+    ["/fonts/jetbrains-mono.woff2", "jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2"],
+  ] as const) {
+    const res = await bytes(port, path);
+    expect([path, res.status, res.headers["content-type"], res.headers["cache-control"]]).toEqual([path, 200, "font/woff2", "public, max-age=86400"]);
+    expect(res.body.subarray(0, 4).toString("latin1")).toBe("wOF2");
+    expect(res.body.equals(readFileSync(join(ROOT, "node_modules", "@fontsource-variable", file)))).toBe(true);
+    expect(res.headers["content-security-policy"]).toBe(CSP);
+  }
+});
+
+test("the build ships each font's licence in dist/licenses", () => {
+  for (const [pkg, out] of [
+    ["inter", "inter-OFL.txt"],
+    ["jetbrains-mono", "jetbrains-mono-OFL.txt"],
+  ]) {
+    const license = readFileSync(join(ROOT, "node_modules", "@fontsource-variable", pkg as string, "LICENSE"), "utf-8");
+    expect(readFileSync(join(ROOT, "dist", "licenses", out as string), "utf-8").startsWith(license)).toBe(true);
+  }
+});
+
+test("the stylesheet holds the theme's tokens and no dark theme", () => {
+  const css = readFileSync(join(ROOT, "src", "dashboard", "client", "styles", "globals.css"), "utf-8");
+  expect(css).toContain("--primary: #4F46E5;");
+  expect(css).toContain("--radius: 0.625rem;");
+  expect(css.split("\n").some((l) => l.startsWith(".dark"))).toBe(false);
+  expect(css).toContain("@custom-variant dark (&:is(.dark *));");
 });
 
 test("dashboard refuses a --port that is not an integer from 0 to 65535", () => {
@@ -359,6 +405,8 @@ const PINS: Record<string, string> = {
   "@hono/node-server": "2.1.5",
   wouter: "3.13.0",
   "@tanstack/react-query": "5.104.5",
+  "@fontsource-variable/inter": "5.3.0",
+  "@fontsource-variable/jetbrains-mono": "5.3.0",
 };
 
 test("package.json has no dependencies and pins every dashboard package exactly", () => {
@@ -379,6 +427,9 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
   expect(ui).toEqual(
     ["alert-dialog", "button", "checkbox", "dialog", "dropdown-menu", "select", "tabs", "textarea"].map((n) => join("components", "ui", `${n}.tsx`)),
   );
+  const reui = files.filter((f) => f.startsWith(join("components", "reui"))).sort();
+  expect(reui).toEqual(["badge", "timeline"].map((n) => join("components", "reui", `${n}.tsx`)));
+  expect(existsSync(join(ROOT, "src", "components"))).toBe(false);
 });
 
 test("dashboard labels a project by its folder's name, <parent>/<name> when shared, the key prefix rule when not found", () => {

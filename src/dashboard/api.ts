@@ -2,39 +2,40 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { Warn } from "../core/config";
-import { isDir, isFile, writeAtomic } from "../core/io";
+import { isDir, isFile, type Overlay, writeAtomic } from "../core/io";
+import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
+import { NAME } from "../core/language-schema";
 import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { projectDir, projectReason } from "../core/project";
-import { NAME, type StepItem, type WorkflowItem } from "../core/schema";
-import { namesIn } from "../core/step-files";
-import { listSteps, listWorkflows, resolveStepFile, resolveWorkflow } from "../core/workflow";
 import { isVersionId, snapshot, versionsOf, versionText } from "./history";
 import { renderMarkdown } from "./markdown";
 import { byText, projectLabels } from "./projects";
-import type {
-  ActiveChange,
-  AllChangesResponse,
-  ChangeDetail,
-  ChangeProperties,
-  ChangesResponse,
-  ErrorResponse,
-  FileDetail,
-  FileItem,
-  FileSaveResponse,
-  FilesResponse,
-  FileUse,
-  FileValidateResponse,
-  FileVersionResponse,
-  FileVersionsResponse,
-  SaveInvalid,
-  SeriesMember,
-  SeriesProgress,
-  Status,
-  Warning,
+import {
+  type ActiveChange,
+  type AllChangesResponse,
+  type ChangeDetail,
+  type ChangeProperties,
+  type ChangesResponse,
+  EXT,
+  type ErrorResponse,
+  type FileDetail,
+  type FileSaveResponse,
+  type FilesResponse,
+  type FileUse,
+  type FileValidateResponse,
+  type FileVersionResponse,
+  type FileVersionsResponse,
+  type PromptItem,
+  type PromptResolved,
+  type SaveInvalid,
+  type SeriesMember,
+  type SeriesProgress,
+  type Status,
+  type WorkflowItem,
+  type WorkflowResolved,
 } from "./types";
-import { type EditKind, type FileTarget, GLOBAL_CONTEXT, projectPath, readText, stepsNamed, targetPath, validateFile } from "./validate";
+import { type EditKind, type FileTarget, GLOBAL_CONTEXT, projectPath, promptUses, readText, targetPath, validateFile } from "./validate";
 
 export { folderOf, labels } from "./projects";
 
@@ -222,11 +223,11 @@ export function archivedChange(home: string, key: string, folder: string): Reply
   return ok(detail(p.dir, join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
 }
 
-// ---- Workflow and step files, addressed by where they live ----
+// ---- Workflow and prompt files, addressed by where they live ----
 
 /** The most bytes one file text of a validate or save may hold. */
 export const MAX_TEXT = 256 * 1024;
-const KINDS: readonly EditKind[] = ["workflows", "steps"];
+const KINDS = Object.keys(EXT) as EditKind[];
 const HEX = /^[0-9a-f]{64}$/;
 const tooLarge = (): Reply<never> => ({ status: 413, body: { error: "too large" } });
 
@@ -236,11 +237,10 @@ function hashOf(path: string): string | null {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Why `kind` and `name` do not name an editable file, `""` when they do. */
+/** Why `kind` and `name` do not name a file, `""` when they do. */
 function editReason(kind: string, name: string): string {
-  if (!(KINDS as readonly string[]).includes(kind)) return `invalid kind '${kind}': must be workflows or steps`;
-  if (!NAME.test(name)) return `invalid ${kind === "workflows" ? "workflow" : "step"} name '${name}'`;
-  if (kind === "steps" && name === "gate") return "gate is reserved for the gate entry";
+  if (!(KINDS as readonly string[]).includes(kind)) return `invalid kind '${kind}': must be ${KINDS.join(" or ")}`;
+  if (!NAME.test(name)) return `invalid ${kind === "workflows" ? "workflow" : "prompt"} name '${name}'`;
   return "";
 }
 
@@ -273,65 +273,93 @@ function fileTarget(
   return { target, context: key as string, label: found.label };
 }
 
-/** The items of the files of one context: `names` of `kind`, with their description, default and error from that context's list. */
-function itemsOf(home: string, context: string, scope: "global" | "project", key: string | null, label: string | null, kind: EditKind, names: string[]): FileItem[] {
-  const result = kind === "workflows" ? listWorkflows(home, context, () => {}) : listSteps(home, context, () => {});
-  const listed: { error: string } | (WorkflowItem | StepItem)[] = "error" in result ? result : Array.isArray(result) ? result : result.workflows;
-  const base = scope === "global" ? join(home, kind) : join(projectDir(home, key as string), kind);
-  return names.map((name): FileItem => {
-    const item: FileItem = { scope, key, label, kind, name, path: join(base, `${name}.yaml`), description: null, default: false, error: null };
-    if ("error" in listed) return { ...item, error: listed.error };
-    const found = listed.find((i) => i.name === name);
-    if (found === undefined) return item;
-    if ("error" in found && found.error !== undefined) return { ...item, error: found.error };
-    return { ...item, description: "description" in found ? (found.description ?? null) : null, default: kind === "workflows" && (found as WorkflowItem).default === true };
+/** Where the files of one context live: the global folder (`key` `null`) or a project's own. */
+type Place = { scope: "global" | "project"; key: string | null; label: string | null };
+
+const contextOf = (p: Place): string => (p.scope === "global" ? GLOBAL_CONTEXT : (p.key as string));
+const pathOf = (home: string, p: Place, kind: EditKind, name: string): string =>
+  p.scope === "global" ? join(home, kind, `${name}${EXT[kind]}`) : projectPath(home, p.key as string, kind, name);
+
+/** The workflow items of one place: the files of its own folder, each resolved in its context with no input. */
+function workflowItems(home: string, p: Place): WorkflowItem[] {
+  return listWorkflowFiles(home, contextOf(p), () => {})
+    .filter((w) => w.scope === p.scope)
+    .map((w) => ({
+      ...p,
+      kind: "workflows",
+      name: w.name,
+      path: pathOf(home, p, "workflows", w.name),
+      description: w.description,
+      default: w.default,
+      error: w.error ?? null,
+    }));
+}
+
+/** The prompt items of one place: the files of its own folder. */
+function promptItems(home: string, p: Place): PromptItem[] {
+  return listPromptFiles(home, contextOf(p))
+    .filter((f) => f.scope === p.scope)
+    .map((f) => ({ ...p, kind: "prompts", name: f.name, path: pathOf(home, p, "prompts", f.name), description: f.description, step: f.step }));
+}
+
+/** The global place, then each project's, in `projectKeys` order. */
+const placesOf = (all: { key: string; label: string }[]): Place[] => [
+  { scope: "global", key: null, label: null },
+  ...all.map(({ key, label }): Place => ({ scope: "project", key, label })),
+];
+
+/** `GET /api/v1/files`: every project, then every workflow and prompt file, global ones first. */
+export function files(home: string): Reply<FilesResponse> {
+  const all = projectLabels(home);
+  const places = placesOf(all);
+  return ok({ projects: all, workflows: places.flatMap((p) => workflowItems(home, p)), prompts: places.flatMap((p) => promptItems(home, p)) });
+}
+
+/** The uses of the prompt `name` by the workflows `items` of a context, one item per workflow, step and kind of use. */
+function usesIn(home: string, context: string, items: { name: string; scope: "global" | "project" }[], name: string, label: string | null): FileUse[] {
+  return items.flatMap((w) => {
+    const place: Place = w.scope === "global" ? { scope: "global", key: null, label: null } : { scope: "project", key: context, label };
+    return promptUses(readText(pathOf(home, place, "workflows", w.name)), name).map((u): FileUse => ({ ...place, name: w.name, ...u }));
   });
 }
 
-/** The names of the `kind` files directly in `dir`; `gate` is never a step file. */
-const fileNames = (dir: string, kind: EditKind): string[] => namesIn(dir, kind).filter((n) => kind === "workflows" || n !== "gate");
-
-/** Every file item of `kind`: the global ones, then each project's own, projects in `projectKeys` order. */
-function fileItems(home: string, kind: EditKind, all: { key: string; label: string }[]): FileItem[] {
-  return [
-    ...itemsOf(home, GLOBAL_CONTEXT, "global", null, null, kind, fileNames(join(home, kind), kind)),
-    ...all.flatMap(({ key, label }) => itemsOf(home, key, "project", key, label, kind, fileNames(join(projectDir(home, key), kind), kind))),
-  ];
-}
-
-/** `GET /api/v1/files`: every project, then every workflow and step file, global ones first. */
-export function files(home: string): Reply<FilesResponse> {
-  const all = projectLabels(home);
-  return ok({ projects: all, workflows: fileItems(home, "workflows", all), steps: fileItems(home, "steps", all) });
-}
-
 /**
- * The workflow files that name the step `name`, in file-list order: for a global step, the global workflow files and
- * those of each project that has no step file of that name; for a project step, the global workflow files the project
- * does not have as its own, then the project's.
+ * The workflow files that name the prompt `name`, in file-list order: for a global prompt, the global workflow files
+ * and those of each project that has no prompt file of that name; for a project prompt, the global workflow files the
+ * project does not have as its own, then the project's.
  */
 function usedBy(home: string, target: FileTarget, all: { key: string; label: string }[]): FileUse[] {
-  const uses = (dir: string) => fileNames(dir, "workflows").filter((w) => stepsNamed(readText(join(dir, `${w}.yaml`))).includes(target.name));
-  const globalDir = join(home, "workflows");
   if (target.scope === "global") {
     return [
-      ...uses(globalDir).map((name): FileUse => ({ scope: "global", key: null, label: null, name })),
+      ...usesIn(home, GLOBAL_CONTEXT, listWorkflowFiles(home, GLOBAL_CONTEXT, () => {}), target.name, null),
       ...all
-        .filter(({ key }) => !isFile(projectPath(home, key, "steps", target.name)))
-        .flatMap(({ key, label }) => uses(join(projectDir(home, key), "workflows")).map((name): FileUse => ({ scope: "project", key, label, name }))),
+        .filter(({ key }) => !isFile(projectPath(home, key, "prompts", target.name)))
+        .flatMap(({ key, label }) =>
+          usesIn(
+            home,
+            key,
+            listWorkflowFiles(home, key, () => {}).filter((w) => w.scope === "project"),
+            target.name,
+            label,
+          ),
+        ),
     ];
   }
   const key = target.key as string;
-  const ownDir = join(projectDir(home, key), "workflows");
-  const own = fileNames(ownDir, "workflows");
+  const listed = listWorkflowFiles(home, key, () => {});
   const label = all.find((p) => p.key === key)?.label ?? null;
-  return [
-    ...uses(globalDir)
-      .filter((n) => !own.includes(n))
-      .map((name): FileUse => ({ scope: "global", key: null, label: null, name })),
-    ...uses(ownDir).map((name): FileUse => ({ scope: "project", key, label, name })),
-  ];
+  return usesIn(home, key, [...listed.filter((w) => w.scope === "global"), ...listed.filter((w) => w.scope === "project")], target.name, label);
 }
+
+/** A prompt's text resolved: its header, its header rule errors and its body rendered. */
+function promptResolved(text: string): PromptResolved {
+  const { header, headerErrors, body } = parsePromptFile(text);
+  return { header, headerErrors, html: renderMarkdown(body) };
+}
+
+/** A workflow resolved in `context` with no input; `overlay` holds a version's text. */
+const workflowResolved = (home: string, context: string, name: string, overlay?: Overlay): WorkflowResolved =>
+  resolveWorkflowFile(home, context, name, {}, overlay);
 
 /** `GET /api/v1/files/global/{kind}/{name}` and `GET /api/v1/files/projects/{key}/{kind}/{name}`: one file with its resolved form and reach. */
 export function file(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): Reply<FileDetail> {
@@ -342,22 +370,20 @@ export function file(home: string, scope: "global" | "project", key: string | nu
   const sha256 = hashOf(path);
   if (sha256 === null) return missing("not found");
   const all = projectLabels(home);
-  const item = itemsOf(home, context, scope, target.key, label, target.kind, [name])[0] as FileItem;
-  const warnings: Warning[] = [];
-  const collect: Warn = (file, text) => {
-    warnings.push({ file, text });
-  };
-  const resolved = target.kind === "workflows" ? resolveWorkflow(home, context, name, collect) : resolveStepFile(home, context, name, collect);
-  return ok({
-    ...item,
-    text: readFileSync(path, "utf-8"),
+  const place: Place = { scope, key: target.key, label };
+  const text = readFileSync(path, "utf-8");
+  const common = {
+    text,
     sha256,
-    resolved,
-    warnings,
     overriddenBy: scope === "global" ? all.filter(({ key: k }) => isFile(projectPath(home, k, target.kind, name))) : [],
-    overrides: scope === "project" && isFile(join(home, target.kind, `${name}.yaml`)),
-    usedBy: target.kind === "steps" ? usedBy(home, target, all) : [],
-  });
+    overrides: scope === "project" && isFile(join(home, target.kind, `${name}${EXT[target.kind]}`)),
+  };
+  if (target.kind === "workflows") {
+    const item = workflowItems(home, place).find((w) => w.name === name) as WorkflowItem;
+    return ok({ ...item, ...common, resolved: workflowResolved(home, context, name), usedBy: [] });
+  }
+  const item = promptItems(home, place).find((p) => p.name === name) as PromptItem;
+  return ok({ ...item, ...common, resolved: promptResolved(text), usedBy: usedBy(home, target, all) });
 }
 
 /** The text of a file validate or save body, checked; with `withBase`, its `base` too. */
@@ -415,10 +441,17 @@ export function fileVersions(home: string, scope: "global" | "project", key: str
   return ok(versionsOf(home, t.target));
 }
 
-/** `GET …/files/global/{kind}/{name}/versions/{id}` and `GET …/files/projects/{key}/{kind}/{name}/versions/{id}`: one version's text; `shipped` names a global file's shipped text. */
+/**
+ * `GET …/files/global/{kind}/{name}/versions/{id}` and `GET …/files/projects/{key}/{kind}/{name}/versions/{id}`: one
+ * version's text and what it resolves to, built as the file detail builds it; `shipped` names a global file's shipped
+ * text.
+ */
 export function fileVersion(home: string, scope: "global" | "project", key: string | null, kind: string, name: string, id: string): Reply<FileVersionResponse> {
   const t = fileTarget(home, scope, key, kind, name, () => (isVersionId(id) ? null : bad("invalid version id")));
   if ("status" in t) return t;
   const text = versionText(home, t.target, id);
-  return text === null ? missing("unknown version") : ok({ text });
+  if (text === null) return missing("unknown version");
+  const resolved =
+    t.target.kind === "workflows" ? workflowResolved(home, t.context, name, new Map([[targetPath(home, t.target), text]])) : promptResolved(text);
+  return ok({ text, resolved });
 }

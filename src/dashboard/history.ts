@@ -1,17 +1,17 @@
 /**
- * The versions of a workflow or step file: the text each dashboard save replaced, kept under `<home>/history/` as
- * `<ts>-<sha12>.yaml`, the newest `HISTORY_LIMIT` per file.
+ * The versions of a workflow or prompt file: the text each dashboard save replaced, kept under `<home>/history/` as
+ * `<ts>-<sha12><ext>` (`.yaml` for a workflow, `.md` for a prompt), the newest `HISTORY_LIMIT` per file.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { isDir, isFile, writeAtomic } from "../core/io";
-import type { FileVersion } from "./types";
+import { EXT, type FileVersion } from "./types";
 import type { FileTarget } from "./validate";
 
 /** The most versions kept per file. */
 export const HISTORY_LIMIT = 20;
-/** A version's ID: its `<ts>-<sha12>` file name without `.yaml`. */
+/** A version's ID: its `<ts>-<sha12>` file name without its extension. */
 export const VERSION_ID = /^\d{8}T\d{9}Z-[0-9a-f]{12}$/;
 /** The ID that names a global file's shipped text. */
 export const SHIPPED = "shipped";
@@ -20,8 +20,8 @@ export const SHIPPED = "shipped";
 export const historyDir = (home: string, t: FileTarget): string =>
   t.scope === "global" ? join(home, "history", "global", t.kind, t.name) : join(home, "history", "projects", t.key as string, t.kind, t.name);
 
-/** The shipped text's path of a global file: `<home>/<kind>/<name>.default.yaml`; `null` for a project file. */
-const shippedPath = (home: string, t: FileTarget): string | null => (t.scope === "global" ? join(home, t.kind, `${t.name}.default.yaml`) : null);
+/** The shipped text's path of a global file: `<home>/<kind>/<name>.default<ext>`; `null` for a project file. */
+const shippedPath = (home: string, t: FileTarget): string | null => (t.scope === "global" ? join(home, t.kind, `${t.name}.default${EXT[t.kind]}`) : null);
 
 /** `date` as a `<ts>`: its ISO form without `-`, `:` and `.`. */
 const stampOf = (date: Date): string => date.toISOString().replace(/[-:.]/g, "");
@@ -30,11 +30,11 @@ const stampOf = (date: Date): string => date.toISOString().replace(/[-:.]/g, "")
 const dateOf = (ts: string): Date =>
   new Date(`${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}T${ts.slice(9, 11)}:${ts.slice(11, 13)}:${ts.slice(13, 15)}.${ts.slice(15, 18)}Z`);
 
-/** The version IDs in `dir`, oldest first; a missing folder throws. */
-const idsIn = (dir: string): string[] =>
+/** The version IDs in `dir` of files ending in `ext`, oldest first; a missing folder throws. */
+const idsIn = (dir: string, ext: string): string[] =>
   readdirSync(dir)
-    .filter((f) => f.endsWith(".yaml") && VERSION_ID.test(f.slice(0, -".yaml".length)))
-    .map((f) => f.slice(0, -".yaml".length))
+    .filter((f) => f.endsWith(ext) && VERSION_ID.test(f.slice(0, -ext.length)))
+    .map((f) => f.slice(0, -ext.length))
     .sort();
 
 /**
@@ -46,8 +46,9 @@ export function snapshot(home: string, target: FileTarget, path: string, now: Da
   const bytes = readFileSync(path);
   const sha12 = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
   const dir = historyDir(home, target);
+  const ext = EXT[target.kind];
   mkdirSync(dir, { recursive: true });
-  const ids = idsIn(dir);
+  const ids = idsIn(dir, ext);
   const newest = ids[ids.length - 1];
   if (newest !== undefined && newest.endsWith(`-${sha12}`)) return;
   let ts = stampOf(now);
@@ -56,14 +57,14 @@ export function snapshot(home: string, target: FileTarget, path: string, now: Da
     if (ts <= last) ts = stampOf(new Date(dateOf(last).getTime() + 1));
   }
   const id = `${ts}-${sha12}`;
-  writeAtomic(join(dir, `${id}.yaml`), bytes);
-  for (const old of [...ids, id].slice(0, -HISTORY_LIMIT)) rmSync(join(dir, `${old}.yaml`), { force: true });
+  writeAtomic(join(dir, `${id}${ext}`), bytes);
+  for (const old of [...ids, id].slice(0, -HISTORY_LIMIT)) rmSync(join(dir, `${old}${ext}`), { force: true });
 }
 
 /** The versions of `target`, newest first, `[]` without a folder; and whether a global file has its shipped text. */
 export function versionsOf(home: string, target: FileTarget): { versions: FileVersion[]; shipped: boolean } {
   const dir = historyDir(home, target);
-  const ids = isDir(dir) ? idsIn(dir).reverse() : [];
+  const ids = isDir(dir) ? idsIn(dir, EXT[target.kind]).reverse() : [];
   const shipped = shippedPath(home, target);
   return {
     versions: ids.map((id) => ({ id, at: dateOf(id.slice(0, id.indexOf("-"))).toISOString() })),
@@ -73,7 +74,7 @@ export function versionsOf(home: string, target: FileTarget): { versions: FileVe
 
 /** The text of the version `id` of `target`, `null` when there is none; `id` is `shipped` or matches `VERSION_ID`. */
 export function versionText(home: string, target: FileTarget, id: string): string | null {
-  const path = id === SHIPPED ? shippedPath(home, target) : join(historyDir(home, target), `${id}.yaml`);
+  const path = id === SHIPPED ? shippedPath(home, target) : join(historyDir(home, target), `${id}${EXT[target.kind]}`);
   if (path === null || !isFile(path)) return null;
   return readFileSync(path, "utf-8");
 }

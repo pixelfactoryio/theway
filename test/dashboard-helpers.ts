@@ -8,6 +8,8 @@ import { join } from "node:path";
 const ROOT = join(import.meta.dirname, "..");
 export const CLI = join(ROOT, "dist", "theway.js");
 export const SHIPPED_HOME = join(ROOT, "plugin", "home");
+/** The v1beta workflows and prompts the dashboard tests run on. */
+export const FIXTURE_HOME = join(ROOT, "test", "fixtures", "home");
 
 const homes: string[] = [];
 const servers: ChildProcess[] = [];
@@ -23,14 +25,14 @@ export function put(path: string, text: string): void {
   writeFileSync(path, text);
 }
 
-/** A home holding the shipped config, convention standards, workflows, steps and prompts, and a project `p`. */
+/** A home holding the shipped config and convention standards, the fixture's workflows and prompts, and a project `p`. */
 export function shippedHome(): string {
   const dir = mkdtempSync(join(tmpdir(), "theway-edit-"));
   homes.push(dir);
   const shipped = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
   for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md"]) put(join(dir, rel), shipped(rel));
-  for (const folder of ["workflows", "steps", "prompts"]) {
-    for (const f of readdirSync(join(SHIPPED_HOME, folder))) put(join(dir, folder, f), shipped(`${folder}/${f}`));
+  for (const folder of ["workflows", "prompts"]) {
+    for (const f of readdirSync(join(FIXTURE_HOME, folder))) put(join(dir, folder, f), readFileSync(join(FIXTURE_HOME, folder, f), "utf-8"));
   }
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
   return dir;

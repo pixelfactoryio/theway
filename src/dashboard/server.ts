@@ -9,6 +9,8 @@ import { secureHeaders } from "hono/secure-headers";
 import { allChanges, archivedChange, change, file, files, fileVersion, fileVersions, NOT_JSON, type Reply, saveFile, validateFileText } from "./api";
 import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/client.txt" with { type: "text" };
+import inter from "./generated/inter.woff2.txt" with { type: "text" };
+import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" };
 import html from "./client/index.html" with { type: "text" };
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -17,6 +19,13 @@ const MAX_BODY = 1048576;
 
 /** The token every write request carries in `X-Theway-Token`: 32 random bytes, hex, made once per process. */
 const TOKEN = randomBytes(32).toString("hex");
+
+/** The two fonts the page uses, embedded as base64 text and decoded once. */
+const FONTS: Record<string, Uint8Array<ArrayBuffer>> = {
+  "/fonts/inter.woff2": Uint8Array.from(Buffer.from(inter, "base64")),
+  "/fonts/jetbrains-mono.woff2": Uint8Array.from(Buffer.from(jetbrainsMono, "base64")),
+};
+const FONT_HEADERS = { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400" };
 
 /**
  * The app for the home `home`: `port` is the port the server is bound to, read on every request since port 0 is known
@@ -56,6 +65,7 @@ export function createApp(home: string, port: () => number): Hono {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
+        fontSrc: ["'self'"],
         connectSrc: ["'self'"],
         baseUri: ["'none'"],
         formAction: ["'none'"],
@@ -82,6 +92,7 @@ export function createApp(home: string, port: () => number): Hono {
   app.get("/", (c) => c.body(page, 200, { "Content-Type": "text/html; charset=utf-8" }));
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }));
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
+  for (const [path, bytes] of Object.entries(FONTS)) app.get(path, (c) => c.body(bytes, 200, FONT_HEADERS));
 
   app.get("/api/v1/changes", () => reply(allChanges(home)));
   app.get("/api/v1/projects/:key/changes/:id", (c) => reply(change(home, c.req.param("key"), c.req.param("id"))));

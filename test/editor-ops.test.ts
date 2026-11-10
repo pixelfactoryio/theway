@@ -1,194 +1,49 @@
 import { afterAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Document } from "yaml";
 import type { Overlay } from "../src/core/io";
-import { resolveStepFile, resolveWorkflow } from "../src/core/workflow";
-import {
-  insertEntry,
-  insertNode,
-  moveEntry,
-  parse,
-  removeEntry,
-  removeNode,
-  setEntryAgents,
-  setEntryParam,
-  setNodeField,
-  setParam,
-  setWorkflowField,
-  textOf,
-} from "../src/dashboard/client/editor/ops";
+import { resolveWorkflowFile } from "../src/core/language";
+import { parse, textOf } from "../src/dashboard/client/editor/ops";
 
-const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
-const shipped = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
+const FIXTURE_HOME = join(import.meta.dirname, "fixtures", "home");
 
-/** A home holding the shipped config, convention standards, workflows, steps and prompts, and a project `p`. */
+/** A home holding the fixture's workflows and prompts, and a project `p`. */
 const HOME = (() => {
   const dir = mkdtempSync(join(tmpdir(), "theway-ops-"));
-  const put = (rel: string, text: string) => {
-    mkdirSync(join(dir, rel, ".."), { recursive: true });
-    writeFileSync(join(dir, rel), text);
-  };
-  for (const rel of ["config.yaml", "standards/commits.md", "standards/git-host.md"]) put(rel, shipped(rel));
-  for (const folder of ["workflows", "steps", "prompts"]) for (const f of readdirSync(join(SHIPPED_HOME, folder))) put(`${folder}/${f}`, shipped(`${folder}/${f}`));
+  for (const folder of ["workflows", "prompts"]) cpSync(join(FIXTURE_HOME, folder), join(dir, folder), { recursive: true });
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
   return dir;
 })();
 afterAll(() => rmSync(HOME, { recursive: true, force: true }));
 
-const quiet = () => {};
-const overlay = (kind: string, name: string, text: string): Overlay => new Map([[join(HOME, "projects", "p", kind, `${name}.yaml`), text]]);
-
-/** The workflow `agents` resolved with `text` as its project file; the error line when it does not resolve. */
-function resolvesAsAgents(text: string): string | null {
-  const r = resolveWorkflow(HOME, "p", "agents", quiet, overlay("workflows", "agents", text));
-  return "error" in r ? r.error : null;
-}
-
-/** The step `review` resolved with `text` as its project file, and `agents` with it; the first error line. */
-function resolvesAsReview(text: string): string | null {
-  const o = overlay("steps", "review", text);
-  const step = resolveStepFile(HOME, "p", "review", quiet, o);
-  if ("error" in step) return step.error;
-  const r = resolveWorkflow(HOME, "p", "agents", quiet, o);
-  return "error" in r ? r.error : null;
-}
-
-/** Every comment of a text: from the first `#` of a line to its end. */
-const comments = (text: string): string[] =>
-  text
-    .split("\n")
-    .filter((l) => l.includes("#"))
-    .map((l) => l.slice(l.indexOf("#")).trim());
-
-/** `text` with a full-line comment before every list item and an inline comment on every list item line. */
+/** `text` with a full-line comment above each step and a comment at the end of each step's first line. */
 function commented(text: string): string {
   let n = 0;
   return text
     .split("\n")
     .flatMap((line) => {
-      const m = /^(\s*)- /.exec(line);
+      const m = /^(\s*)- uses: /.exec(line);
       if (m === null) return [line];
       n += 1;
-      return [`${m[1]}# before item ${n}`, `${line} # on item ${n}`];
+      return [`${m[1]}# before step ${n}`, `${line} # on step ${n}`];
     })
     .join("\n");
 }
 
-const AGENTS = shipped("workflows/agents.yaml");
-const REVIEW = shipped("steps/review.yaml");
-
-/** Runs `op` on a document of `text`, then checks every comment survives and the result resolves. */
-function check(text: string, op: (doc: Document) => void, resolves: (text: string) => string | null): string {
-  const doc = parse(text);
-  op(doc);
-  const out = textOf(doc);
-  for (const c of comments(text)) expect([c, out.includes(c)]).toEqual([c, true]);
-  expect(resolves(out)).toBeNull();
-  return out;
-}
-
-test("the shipped files and their commented copies round-trip byte for byte, and each copy resolves", () => {
-  for (const dir of ["workflows", "steps"]) {
-    for (const f of readdirSync(join(SHIPPED_HOME, dir))) {
-      const text = shipped(`${dir}/${f}`);
-      expect([f, textOf(parse(text))]).toEqual([f, text]);
+test("each fixture workflow, as is and commented, round-trips byte for byte and resolves through an overlay", () => {
+  const names = readdirSync(join(FIXTURE_HOME, "workflows")).map((f) => f.slice(0, -".yaml".length));
+  expect(names.length).toBe(4);
+  for (const name of names) {
+    const text = readFileSync(join(FIXTURE_HOME, "workflows", `${name}.yaml`), "utf-8");
+    const copy = commented(text);
+    expect(copy).toContain("# before step 1\n");
+    expect(copy).toMatch(/- uses: prompts\/[a-z-]+\.md # on step 1\n/);
+    for (const t of [text, copy]) {
+      expect([name, textOf(parse(t))]).toEqual([name, t]);
+      const overlay: Overlay = new Map([[join(HOME, "projects", "p", "workflows", `${name}.yaml`), t]]);
+      const r = resolveWorkflowFile(HOME, "p", name, {}, overlay);
+      expect([name, "errors" in r ? r.errors : []]).toEqual([name, []]);
     }
   }
-  expect(commented(AGENTS)).toContain("  # before item 1\n  - implement: # on item 1\n");
-  expect(resolvesAsAgents(commented(AGENTS))).toBeNull();
-  expect(resolvesAsReview(commented(REVIEW))).toBeNull();
-});
-
-for (const [label, wf, step] of [
-  ["shipped", AGENTS, REVIEW],
-  ["commented", commented(AGENTS), commented(REVIEW)],
-] as const) {
-  test(`workflow operations on the ${label} agents.yaml keep every comment and resolve`, () => {
-    const gated = check(wf, (d) => insertEntry(d, 2, { gate: "Ready to open the PR?" }), resolvesAsAgents);
-    expect(gated).toContain("- gate: Ready to open the PR?");
-    expect(gated.indexOf("gate:")).toBeLessThan(gated.indexOf("- pr:"));
-
-    const moved = check(wf, (d) => moveEntry(d, 1, 0), resolvesAsAgents);
-    expect(moved.indexOf("- review:")).toBeLessThan(moved.indexOf("- implement:"));
-
-    const rounds = check(wf, (d) => setEntryParam(d, 1, "rounds", 2), resolvesAsAgents);
-    expect(rounds).toContain("- review: {rounds: 2}");
-    const r = resolveWorkflow(HOME, "p", "agents", quiet, overlay("workflows", "agents", rounds));
-    expect("doc" in r && r.doc.steps[1] !== undefined && "params" in r.doc.steps[1] && r.doc.steps[1].params.rounds?.value).toBe(2);
-    const cleared = check(rounds, (d) => setEntryParam(d, 1, "rounds", undefined), resolvesAsAgents);
-    if (label === "shipped") expect(cleared).toBe(wf);
-
-    const inline = check(wf, (d) => setEntryAgents(d, 0, false), resolvesAsAgents);
-    expect(inline).toContain("- implement: {agents: false}");
-    const mode = check(inline, (d) => setEntryAgents(d, 0, undefined), resolvesAsAgents);
-    if (label === "shipped") expect(mode).toBe(wf);
-
-    const removed = check(wf, (d) => removeEntry(d, 1), resolvesAsAgents);
-    expect(removed).not.toContain("- review:");
-
-    const described = check(wf, (d) => setWorkflowField(d, "description", undefined), resolvesAsAgents);
-    expect(described).not.toContain("description:");
-    const back = check(described, (d) => setWorkflowField(d, "description", "Again"), resolvesAsAgents);
-    expect(back).toContain("version: theway.workflow/v1\ndescription: Again\n");
-  });
-
-  test(`step operations on the ${label} review.yaml keep every comment and resolve`, () => {
-    const added = check(
-      step,
-      (d) => insertNode(d, ["do", 0, "loop", "do"], 3, { when: "findings", do: [{ agent: { prompt: ["verdicts", "triage"], returns: "verdicts" } }] }),
-      resolvesAsReview,
-    );
-    expect(added.match(/prompt: \[verdicts, triage\]/g)?.length).toBe(2);
-
-    const agent = check(step, (d) => insertNode(d, ["do", 0, "loop", "do", 2, "do"], 2, { agent: { prompt: "fix-check", returns: "resolutions", model: "${model}" } }), resolvesAsReview);
-    expect(agent).toContain('- agent: {prompt: fix-check, returns: resolutions, model: "${model}"}');
-
-    const deleted = check(step, (d) => removeNode(d, ["do", 0, "loop", "do", 2, "do", 1]), resolvesAsReview);
-    expect(deleted).not.toContain("fix-check");
-
-    const param = check(step, (d) => setParam(d, "rounds", { default: 2, description: "Maximum review rounds" }), resolvesAsReview);
-    expect(param).toContain("rounds: {default: 2, description: Maximum review rounds}");
-
-    const sonnet = check(step, (d) => setNodeField(d, ["do", 0, "loop", "do", 1, "do", 0], "model", "sonnet"), resolvesAsReview);
-    expect(sonnet).toContain("- agent: {prompt: [verdicts, triage], returns: verdicts, model: sonnet}");
-    const max = check(step, (d) => setNodeField(d, ["do", 0, "loop"], "max", 3), resolvesAsReview);
-    expect(max).toContain("max: 3");
-    const serial = check(step, (d) => setNodeField(d, ["do", 0, "loop", "do", 0], "parallel", undefined), resolvesAsReview);
-    expect(serial).not.toContain("parallel:");
-  });
-}
-
-test("setParam keeps the comments of a param it replaces or removes", () => {
-  const step = REVIEW.replace("  rounds: {default: 1, description: Maximum review rounds}", "  # before rounds\n  rounds: {default: 1, description: Maximum review rounds} # on rounds");
-  const set = check(step, (d) => setParam(d, "rounds", { default: 2, description: "Maximum review rounds" }), resolvesAsReview);
-  expect(set).toContain("rounds: {default: 2, description: Maximum review rounds} # on rounds");
-
-  const only = "version: theway.step/v1\ndescription: x\nparams:\n  # before keep\n  keep: {default: 1, description: x} # on keep\ndo:\n  - agent: {prompt: fix, returns: work}\n";
-  const doc = parse(only);
-  setParam(doc, "keep", undefined);
-  const out = textOf(doc);
-  expect(out).not.toContain("params:");
-  for (const c of comments(only)) expect([c, out.includes(c)]).toEqual([c, true]);
-});
-
-test("replacing a block value keeps the comments inside it, once each", () => {
-  const block = REVIEW.replace(
-    "  rounds: {default: 1, description: Maximum review rounds}",
-    "  # before rounds\n  rounds: # on rounds\n    default: 1 # inner default\n    # before description\n    description: Maximum review rounds",
-  );
-  const set = check(block, (d) => setParam(d, "rounds", { default: 2, description: "Maximum review rounds" }), resolvesAsReview);
-  expect(set).toContain("rounds: {default: 2, description: Maximum review rounds}");
-  for (const c of comments(block)) expect([c, set.split(c).length - 1]).toEqual([c, 1]);
-
-  const list = REVIEW.replace("      until: no-confirmed", "      until: # on until\n        - no-confirmed # why");
-  const until = check(list, (d) => setNodeField(d, ["do", 0], "until", ["no-confirmed", "no-findings"]), resolvesAsReview);
-  expect(until).toContain("until: [no-confirmed, no-findings]");
-  for (const c of comments(list)) expect([c, until.split(c).length - 1]).toEqual([c, 1]);
-
-  const doc = parse(block);
-  setParam(doc, "rounds", undefined);
-  const removed = textOf(doc);
-  for (const c of comments(block)) expect([c, removed.split(c).length - 1]).toEqual([c, 1]);
 });

@@ -1,51 +1,43 @@
 import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cn } from "cn";
-import { Link, Redirect, Route, Router, Switch, useLocation } from "wouter";
+import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DraftsProvider } from "@/files/drafts";
+import type { FileRef } from "@/lib/api";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
 import { type Mode, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
-import type { FileRef } from "@/lib/api";
+import { EXT, type SourceKind } from "../types";
 
 const queryClient = new QueryClient();
 
-/** One top tab: a link with a 2px bottom border in the foreground colour when active. */
-function Tab({ href, active, children }: { href: string; active: boolean; children: string }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cn("border-b-2 py-3.5", active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/** The top bar: the word theway, then the Changes and Workflows tabs. */
+/** The top bar: the word theway, then Changes and Workflows as a segmented control. */
 function TopBar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const changes = location.startsWith("/changes") || location.startsWith("/archive");
   return (
-    <header className="border-b border-divider">
-      <nav aria-label="Main" className="mx-auto flex max-w-[1120px] items-center gap-6 px-6">
-        <span className="mr-2 font-semibold">theway</span>
-        <Tab href="/changes" active={changes}>
-          Changes
-        </Tab>
-        <Tab href="/workflows" active={location.startsWith("/workflows")}>
-          Workflows
-        </Tab>
+    <header className="border-b border-divider bg-card">
+      <nav aria-label="Main" className="mx-auto flex max-w-[1120px] items-center gap-6 px-6 py-2.5">
+        <span className="font-semibold">theway</span>
+        <Tabs value={changes ? "changes" : "workflows"}>
+          <TabsList>
+            <TabsTrigger value="changes" className="px-3" onClick={() => navigate("/changes")}>
+              Changes
+            </TabsTrigger>
+            <TabsTrigger value="workflows" className="px-3" onClick={() => navigate("/workflows")}>
+              Workflows
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </nav>
     </header>
   );
 }
 
-const isKind = (k: string): k is "workflows" | "steps" => k === "workflows" || k === "steps";
+const isKind = (k: string): k is SourceKind => Object.hasOwn(EXT, k);
 
-/** The Workflows page of a file, in view, edit or versions mode; `/workflows` for a kind that is not one. */
+/** The Workflows page of a file, in view or versions mode; `/workflows` for a kind that is not one. */
 function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
   if (!isKind(file.kind)) return <Redirect to="/workflows" replace />;
   const ref: FileRef = { ...file, kind: file.kind };
@@ -53,7 +45,6 @@ function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
 }
 
 const VIEW: Mode = { view: true };
-const EDIT: Mode = { edit: true };
 
 function Routes() {
   return (
@@ -67,13 +58,11 @@ function Routes() {
         <WorkflowsIndex />
       </Route>
       <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, VIEW)}</Route>
-      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, EDIT)}</Route>
       <Route path="/workflows/global/:kind/:name/versions">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: null })}</Route>
       <Route path="/workflows/global/:kind/:name/versions/:id">
         {(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: p.id })}
       </Route>
       <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, VIEW)}</Route>
-      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, EDIT)}</Route>
       <Route path="/workflows/projects/:key/:kind/:name/versions">
         {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: null })}
       </Route>

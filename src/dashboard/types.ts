@@ -1,5 +1,5 @@
 /** The dashboard API's response shapes, shared by the server and the browser client. */
-import type { StepEntry, WorkflowDoc } from "../core/schema";
+import type { PromptHeader, ResolvedWorkflow } from "../core/language-schema";
 
 /** A change's progress over its numbered tasks. */
 export type Status = "No tasks" | "Not started" | "In progress" | "Ready to archive";
@@ -42,48 +42,69 @@ export type ChangeProperties = {
 /** `GET /api/v1/projects/{key}/changes/{id}` and `GET /api/v1/projects/{key}/archive/{folder}`. */
 export type ChangeDetail = { id: string; archived: boolean; tasks: Tasks; files: { name: string; html: string }[]; properties: ChangeProperties };
 
-/** A warning resolving a project's workflows: the file, relative to the home, and its text. */
-export type Warning = { file: string; text: string };
-
 /** Every error response. */
 export type ErrorResponse = { error: string };
 
-/** The kinds of workflow file: workflows and steps. */
-export type SourceKind = "workflows" | "steps";
+/** The kinds of file the Workflows page reads: workflows and prompts. */
+export type SourceKind = "workflows" | "prompts";
+
+/** The extension of each kind's files. */
+export const EXT: Record<SourceKind, string> = { workflows: ".yaml", prompts: ".md" };
 
 /** The `422` body of a save. */
 export type SaveInvalid = { errors: string[]; warnings: string[] };
 
-/** A workflow or step file, addressed by where it lives; `key` and `label` are `null` for a global file, `path` is absolute. */
-export type FileItem = {
+/** A workflow or prompt file, addressed by where it lives; `key` and `label` are `null` for a global file, `path` is absolute. */
+type FileBase = {
   scope: "global" | "project";
   key: string | null;
   label: string | null;
-  kind: SourceKind;
   name: string;
   path: string;
   description: string | null;
-  default: boolean;
-  error: string | null;
 };
 
-/** `GET /api/v1/files`: every project, then every global workflow and step file, then each project's own. */
-export type FilesResponse = { projects: { key: string; label: string }[]; workflows: FileItem[]; steps: FileItem[] };
+/** A workflow file: whether it is the default, and the first error line when it does not resolve. */
+export type WorkflowItem = FileBase & { kind: "workflows"; default: boolean; error: string | null };
 
-/** A workflow file that names a step in its `steps` entries. */
-export type FileUse = { scope: "global" | "project"; key: string | null; label: string | null; name: string };
+/** A prompt file: `step` when it has a header that passes the header rules. */
+export type PromptItem = FileBase & { kind: "prompts"; step: boolean };
+
+export type FileItem = WorkflowItem | PromptItem;
+
+/** `GET /api/v1/files`: every project, then every global workflow and prompt file, then each project's own. */
+export type FilesResponse = { projects: { key: string; label: string }[]; workflows: WorkflowItem[]; prompts: PromptItem[] };
+
+/**
+ * A workflow file that names a prompt: in a step's `uses` (`step`), in its `on-fail` (`on-fail`), or as a `with` or
+ * `matrix` value (`value`); `step` is the 1-based position of that step.
+ */
+export type FileUse = {
+  scope: "global" | "project";
+  key: string | null;
+  label: string | null;
+  name: string;
+  use: "step" | "on-fail" | "value";
+  step: number;
+};
+
+/** A workflow's resolved document with no input given, or its error lines. */
+export type WorkflowResolved = { doc: ResolvedWorkflow } | { errors: string[] };
+
+/** A prompt's header and its header rule errors, and its body rendered. */
+export type PromptResolved = { header: PromptHeader | null; headerErrors: string[]; html: string };
+
+/** What a file's text resolves to, by kind. */
+export type Resolved = WorkflowResolved | PromptResolved;
 
 /**
  * `GET /api/v1/files/global/{kind}/{name}` and `GET /api/v1/files/projects/{key}/{kind}/{name}`: the file's text and
- * the sha256 of its bytes, its resolved form in its own context and the warnings resolving it gave, the projects whose
- * own file of that name overrides a global one, whether a project file overrides a global one, and the workflow files
- * that name a step.
+ * the sha256 of its bytes, its resolved form in its own context, the projects whose own file of that name overrides a
+ * global one, whether a project file overrides a global one, and the workflow files that name a prompt.
  */
-export type FileDetail = FileItem & {
+export type FileDetail = ((WorkflowItem & { resolved: WorkflowResolved }) | (PromptItem & { resolved: PromptResolved })) & {
   text: string;
   sha256: string;
-  resolved: { doc: WorkflowDoc } | { step: StepEntry } | { error: string };
-  warnings: Warning[];
   overriddenBy: { key: string; label: string }[];
   overrides: boolean;
   usedBy: FileUse[];
@@ -101,5 +122,5 @@ export type FileVersion = { id: string; at: string };
 /** `GET …/files/…/{kind}/{name}/versions`: the versions, newest first, and whether a global file has its shipped text. */
 export type FileVersionsResponse = { versions: FileVersion[]; shipped: boolean };
 
-/** `GET …/files/…/{kind}/{name}/versions/{id}`: the version's text. */
-export type FileVersionResponse = { text: string };
+/** `GET …/files/…/{kind}/{name}/versions/{id}`: the version's text, and what it resolves to as the file detail builds it. */
+export type FileVersionResponse = { text: string; resolved: Resolved };

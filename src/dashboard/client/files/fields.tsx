@@ -13,7 +13,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CONDITIONS } from "../../../core/schema";
 
 /** A text input, styled as the select triggers and the textarea. */
 export function Input({ className, ...props }: ComponentProps<"input">) {
@@ -124,19 +123,6 @@ export function Check({ checked, onChange, children }: { checked: boolean; onCha
       <Checkbox checked={checked} onCheckedChange={(on) => onChange(on === true)} />
       {children}
     </label>
-  );
-}
-
-/** One checkbox per condition, in `CONDITIONS` order. */
-export function Conditions({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
-  return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-      {CONDITIONS.map((c) => (
-        <Check key={c} checked={value.includes(c)} onChange={(on) => onChange(CONDITIONS.filter((x) => (x === c ? on : value.includes(x))))}>
-          <span className="font-mono text-[12px]">{c}</span>
-        </Check>
-      ))}
-    </div>
   );
 }
 

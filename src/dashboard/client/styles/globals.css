@@ -7,6 +7,20 @@
 /* No dark theme: `dark:` utilities apply only under a `.dark` ancestor, which the page never sets. */
 @custom-variant dark (&:is(.dark *));
 
+/* The two fonts, served by the dashboard itself. */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -24,6 +38,14 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-invert: var(--invert);
+  --color-invert-foreground: var(--invert-foreground);
   --color-border: var(--border);
   --color-divider: var(--divider);
   --color-divider-row: var(--divider-row);
@@ -36,30 +58,41 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
 :root {
-  --radius: 0.375rem;
-  --background: #FFFFFF;
-  --foreground: #111111;
+  --radius: 0.625rem;
+  --background: #F5F6F8;
+  --foreground: #0F172A;
   --card: #FFFFFF;
-  --card-foreground: #111111;
+  --card-foreground: #0F172A;
   --popover: #FFFFFF;
-  --popover-foreground: #111111;
-  --primary: #111111;
+  --popover-foreground: #0F172A;
+  --primary: #4F46E5;
   --primary-foreground: #FFFFFF;
-  --secondary: #F6F6F6;
-  --secondary-foreground: #111111;
-  --muted: #F6F6F6;
-  --muted-foreground: #555555;
-  --accent: #F0F0F0;
-  --accent-foreground: #111111;
+  --secondary: #ECEEF2;
+  --secondary-foreground: #0F172A;
+  --muted: #ECEEF2;
+  --muted-foreground: #556070;
+  --accent: #ECEEF2;
+  --accent-foreground: #0F172A;
   --destructive: #B42318;
-  --border: #CCCCCC;
-  --divider: #E5E5E5;
-  --divider-row: #EEEEEE;
-  --input: #CCCCCC;
-  --ring: #111111;
+  --border: #E2E5EA;
+  --divider: #E2E5EA;
+  --divider-row: #ECEEF2;
+  --input: #D5D9E0;
+  --ring: #4F46E5;
+  --destructive-foreground: var(--color-red-800);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-900);
+  --info: var(--color-violet-500);
+  --info-foreground: var(--color-violet-900);
+  --warning: var(--color-yellow-500);
+  --warning-foreground: var(--color-yellow-900);
+  --invert: var(--color-zinc-900);
+  --invert-foreground: var(--color-zinc-50);
 }
 
 @layer base {
@@ -67,7 +100,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground text-[14px];
+    @apply bg-background font-sans text-foreground text-[14px];
   }
 }
 

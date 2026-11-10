@@ -1,16 +1,17 @@
 /** Every read of the dashboard API, through TanStack Query. */
 import { useQuery } from "@tanstack/react-query";
-import type {
-  AllChangesResponse,
-  ChangeDetail,
-  FileDetail,
-  FileItem,
-  FileSaveResponse,
-  FilesResponse,
-  FileValidateResponse,
-  FileVersionResponse,
-  FileVersionsResponse,
-  SaveInvalid,
+import {
+  type AllChangesResponse,
+  type ChangeDetail,
+  EXT,
+  type FileDetail,
+  type FileSaveResponse,
+  type FilesResponse,
+  type FileValidateResponse,
+  type FileVersionResponse,
+  type FileVersionsResponse,
+  type SaveInvalid,
+  type SourceKind,
 } from "../../types";
 
 /** The JSON body of `GET <path>`; an error response throws its `error` text. */
@@ -33,8 +34,8 @@ export const useArchived = (key: string, folder: string) =>
 
 export const useFiles = () => useQuery({ queryKey: ["files"], queryFn: () => get<FilesResponse>("/api/v1/files") });
 
-/** Where a workflow or step file lives: the global folder, or one project's (`key`). */
-export type FileRef = { scope: "global" | "project"; key: string | null; kind: FileItem["kind"]; name: string };
+/** Where a workflow or prompt file lives: the global folder, or one project's (`key`). */
+export type FileRef = { scope: "global" | "project"; key: string | null; kind: SourceKind; name: string };
 
 /** The API path of a file: `/api/v1/files/global/<kind>/<name>` or `/api/v1/files/projects/<key>/<kind>/<name>`. */
 export const filePath = (f: FileRef): string =>
@@ -49,7 +50,7 @@ export const useFile = (f: FileRef, enabled = true) =>
 export const useVersions = (f: FileRef) =>
   useQuery({ queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions"], queryFn: () => get<FileVersionsResponse>(`${filePath(f)}/versions`) });
 
-/** One version's text: `id` is a version ID or `shipped`. */
+/** One version's text and what it resolves to: `id` is a version ID or `shipped`. */
 export const useVersion = (f: FileRef, id: string) =>
   useQuery({
     queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions", id],
@@ -63,12 +64,13 @@ export const fileHref = (f: FileRef): string =>
 /** The key of a file in the client's maps: `<scope>/<key>/<kind>/<name>`. */
 export const fileKey = (f: FileRef): string => `${f.scope}/${f.key ?? ""}/${f.kind}/${f.name}`;
 
-/** A file's path relative to the home: `<kind>/<name>.yaml` or `projects/<key>/<kind>/<name>.yaml`. */
-export const relOf = (f: FileRef): string => (f.scope === "global" ? `${f.kind}/${f.name}.yaml` : `projects/${f.key ?? ""}/${f.kind}/${f.name}.yaml`);
+/** A file's path relative to the home: `<kind>/<name><ext>` or `projects/<key>/<kind>/<name><ext>`. */
+export const relOf = (f: FileRef): string =>
+  f.scope === "global" ? `${f.kind}/${f.name}${EXT[f.kind]}` : `projects/${f.key ?? ""}/${f.kind}/${f.name}${EXT[f.kind]}`;
 
 /** The absolute path of a file, from the path of any file the list gives; `<home>/<rel>` when it gives none. */
 export function absoluteOf(files: FilesResponse, f: FileRef): string {
-  const any = [...files.workflows, ...files.steps][0];
+  const any = [...files.workflows, ...files.prompts][0];
   if (any === undefined) return `<home>/${relOf(f)}`;
   const home = any.path.slice(0, any.path.length - relOf(any).length - 1);
   return `${home}/${relOf(f)}`;
@@ -107,9 +109,6 @@ export type SaveResult = { status: 200; body: FileSaveResponse } | { status: 409
 /** `PUT` of a file: `text` written where the file lives when `base` still matches it and it validates. */
 export const saveFile = async (f: FileRef, text: string, base: string | null): Promise<SaveResult> =>
   expectStatus(await write<unknown>("PUT", filePath(f), { text, base }), [200, 409, 422]) as SaveResult;
-
-/** The edit page of a file: its page with `/edit`. */
-export const editHref = (f: FileRef): string => `${fileHref(f)}/edit`;
 
 /** The versions page of a file: its page with `/versions`, and `/<id>` for one version. */
 export const versionsHref = (f: FileRef, id: string | null = null): string => `${fileHref(f)}/versions${id === null ? "" : `/${id}`}`;

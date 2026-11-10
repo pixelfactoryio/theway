@@ -1,37 +1,24 @@
 /**
- * The validation of a workflow or step file's new text: the resolver run over it, held in memory as an overlay, before
- * anything is written.
+ * The validation of a workflow or prompt file's new text: the resolver run over it, held in memory as an overlay,
+ * before anything is written.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
-import type { Warn } from "../core/config";
 import { isFile, type Overlay } from "../core/io";
+import { listWorkflowFiles, resolveWorkflowFile } from "../core/language";
 import { projectDir } from "../core/project";
-import { listWorkflows, resolveStepFile, resolveWorkflow } from "../core/workflow";
 import { projectLabels } from "./projects";
+import { EXT, type FileUse, type SourceKind } from "./types";
 
-/** The kinds of file the editor writes. */
-export type EditKind = "workflows" | "steps";
+/** The kinds of file the dashboard reads and writes. */
+export type EditKind = SourceKind;
 
 /** The outcome: `ok` when no error line blocks the file. */
 export type Validation = { ok: boolean; errors: string[]; warnings: string[] };
 
-/** The project file of a workflow or step: `<home>/projects/<key>/<kind>/<name>.yaml`. */
-export const projectPath = (home: string, key: string, kind: EditKind, name: string): string => join(projectDir(home, key), kind, `${name}.yaml`);
-
-/** The step names the `steps` entries of a workflow file's text name; none when it does not parse. */
-export function stepsNamed(text: string): string[] {
-  let root: unknown;
-  try {
-    root = parse(text, { logLevel: "silent" });
-  } catch {
-    return [];
-  }
-  const steps = (root as { steps?: unknown } | null)?.steps;
-  if (!Array.isArray(steps)) return [];
-  return steps.flatMap((e) => (e !== null && typeof e === "object" && !Array.isArray(e) ? Object.keys(e) : []));
-}
+/** The project file of a workflow or prompt: `<home>/projects/<key>/<kind>/<name><ext>`. */
+export const projectPath = (home: string, key: string, kind: EditKind, name: string): string => join(projectDir(home, key), kind, `${name}${EXT[kind]}`);
 
 /** A file's text, `""` when it cannot be read. */
 export function readText(path: string): string {
@@ -42,26 +29,64 @@ export function readText(path: string): string {
   }
 }
 
-/** The resolver's key for a global file: no project can have it, so only the global files and config are read. */
+/** The resolver's key for a global file: no project can have it, so only the global files are read. */
 export const GLOBAL_CONTEXT = ".global";
 
-/** A workflow or step file addressed by where it lives: the global folder, or one project's folder (`key`). */
+/** A workflow or prompt file addressed by where it lives: the global folder, or one project's folder (`key`). */
 export type FileTarget = { scope: "global" | "project"; key: string | null; kind: EditKind; name: string };
 
-/** The path of a file target: `<home>/<kind>/<name>.yaml` or `<home>/projects/<key>/<kind>/<name>.yaml`. */
+/** The path of a file target: `<home>/<kind>/<name><ext>` or `<home>/projects/<key>/<kind>/<name><ext>`. */
 export const targetPath = (home: string, t: FileTarget): string =>
-  t.scope === "global" ? join(home, t.kind, `${t.name}.yaml`) : projectPath(home, t.key as string, t.kind, t.name);
+  t.scope === "global" ? join(home, t.kind, `${t.name}${EXT[t.kind]}`) : projectPath(home, t.key as string, t.kind, t.name);
+
+const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * The uses of the prompt `name` in a workflow file's text, by step then in the order step, on-fail, value: a step's
+ * `uses`, its `on-fail` (a value or the map's `uses`), and a `with` or `matrix` value equal to `prompts/<name>.md`,
+ * compared as text. None when the text does not parse.
+ */
+export function promptUses(text: string, name: string): { use: FileUse["use"]; step: number }[] {
+  let root: unknown;
+  try {
+    root = parse(text, { logLevel: "silent" });
+  } catch {
+    return [];
+  }
+  const steps = isObject(root) ? root.steps : undefined;
+  if (!Array.isArray(steps)) return [];
+  const ref = `prompts/${name}.md`;
+  const isRef = (v: unknown) => typeof v === "string" && v === ref;
+  const out: { use: FileUse["use"]; step: number }[] = [];
+  steps.forEach((s, i) => {
+    if (!isObject(s)) return;
+    const step = i + 1;
+    if (isRef(s.uses)) out.push({ use: "step", step });
+    const onFail = s["on-fail"];
+    if (isRef(onFail) || (isObject(onFail) && isRef(onFail.uses))) out.push({ use: "on-fail", step });
+    const values = [
+      ...(isObject(s.with) ? Object.values(s.with) : []),
+      ...(isObject(s.matrix) ? Object.values(s.matrix).flatMap((v) => (Array.isArray(v) ? v : [])) : []),
+      ...(isObject(onFail) && isObject(onFail.with) ? Object.values(onFail.with) : []),
+    ];
+    if (values.some(isRef)) out.push({ use: "value", step });
+  });
+  return out;
+}
+
+/** The workflow file of a listed workflow of a context: the project's own, or the global one. */
+const workflowPath = (home: string, scope: "global" | "project", key: string, name: string): string =>
+  scope === "global" ? join(home, "workflows", `${name}.yaml`) : projectPath(home, key, "workflows", name);
 
 /**
  * Validates `text` as the new content of one file, in every context that reads it: a project file in its project's
  * context; a global file in `GLOBAL_CONTEXT`, then in every project (in `projectKeys` order) that has no file of that
  * kind and name. In each context:
  *
- * - a config that does not load is the context's only line: it blocks in the file's own context, and is a warning
- *   `<label>: <line>` in another project's;
- * - a workflow is resolved with the overlay (in another project, a workflow that already failed without it is only a
- *   warning), then the default (a default that already failed is a warning `default: <error>`);
- * - a step is resolved with the overlay, then every workflow that resolves and names it.
+ * - a workflow is resolved with the overlay and no input; in another project, a workflow that already failed without
+ *   it is only a warning;
+ * - a prompt: every workflow of the context that names it (by `uses`, `on-fail` or as a value), and that resolves
+ *   without the overlay, is resolved with it.
  *
  * A line from another project's context is prefixed with `<label>: `, and dropped when the same line was already
  * reported without a prefix; warnings follow the same rule.
@@ -71,7 +96,6 @@ export function validateFile(home: string, target: FileTarget, text: string): Va
   const errors: string[] = [];
   const warnings: string[] = [];
   const plain = { errors: new Set<string>(), warnings: new Set<string>() };
-  const quiet: Warn = () => {};
   const contexts: { key: string; label: string | null }[] =
     target.scope === "project"
       ? [{ key: target.key as string, label: null }]
@@ -90,30 +114,18 @@ export function validateFile(home: string, target: FileTarget, text: string): Va
         list.push(`${label}: ${line}`);
       }
     };
-    const warn: Warn = (file, t) => report("warnings", `${file}: ${t}`);
-    const listed = listWorkflows(home, key, quiet);
-    if ("error" in listed) {
-      report(label === null ? "errors" : "warnings", listed.error);
-      continue;
-    }
     if (target.kind === "workflows") {
-      const r = resolveWorkflow(home, key, target.name, warn, overlay);
-      if ("error" in r) {
-        const before = label === null ? null : resolveWorkflow(home, key, target.name, quiet);
-        report(before === null || !("error" in before) ? "errors" : "warnings", r.error);
-      }
-      const d = resolveWorkflow(home, key, undefined, warn, overlay);
-      if ("error" in d) {
-        if ("error" in resolveWorkflow(home, key, undefined, quiet)) report("warnings", `default: ${d.error}`);
-        else report("errors", d.error);
+      const r = resolveWorkflowFile(home, key, target.name, {}, overlay);
+      if ("errors" in r) {
+        const before = label === null ? null : resolveWorkflowFile(home, key, target.name, {});
+        for (const line of r.errors) report(before === null || !("errors" in before) ? "errors" : "warnings", line);
       }
     } else {
-      const r = resolveStepFile(home, key, target.name, warn, overlay);
-      if ("error" in r) report("errors", r.error);
-      for (const item of listed.workflows) {
-        if (item.error !== undefined || !stepsNamed(readText(item.file)).includes(target.name)) continue;
-        const w = resolveWorkflow(home, key, item.name, warn, overlay);
-        if ("error" in w) report("errors", w.error);
+      for (const item of listWorkflowFiles(home, key, () => {})) {
+        if (item.error !== undefined) continue;
+        if (promptUses(readText(workflowPath(home, item.scope, key, item.name)), target.name).length === 0) continue;
+        const r = resolveWorkflowFile(home, key, item.name, {}, overlay);
+        if ("errors" in r) for (const line of r.errors) report("errors", line);
       }
     }
   }

@@ -1,73 +1,253 @@
-import { Fragment, type ReactNode } from "react";
+/** The workflow page's drawing: its steps as a timeline of cards, the legend of answers, and its right-column panels. */
+import { cn } from "cn";
+import { Fragment, type ReactNode, useMemo } from "react";
 import { Link } from "wouter";
-import { fileHref, useFiles } from "@/lib/api";
-import type { StepEntry } from "../../../core/schema";
-import type { FileDetail } from "../../types";
-import { summary } from "./summary";
+import { Badge } from "@/components/reui/badge";
+import { Timeline, TimelineContent, TimelineHeader, TimelineIndicator, TimelineItem, TimelineSeparator } from "@/components/reui/timeline";
+import { type FileRef, fileHref, useFiles } from "@/lib/api";
+import type { ResolvedStep, ResolvedWorkflow } from "../../../core/language-schema";
+import type { FilesResponse, PromptItem, WorkflowResolved } from "../../types";
+import { parse } from "../editor/ops";
 
-/** A card of the centre: at most 400px wide, on the background colour. */
-export function Card({ children }: { children: ReactNode }) {
-  return <div className="w-full max-w-[400px] rounded-md border bg-background px-3 py-2.5">{children}</div>;
+/** A card of the centre and the right column: the card colour, a border, rounded, a light shadow. */
+export function Card({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn("rounded-lg border bg-card px-4 py-3 shadow-xs", className)}>{children}</div>;
 }
 
-/** A file that cannot be drawn: its error line above its text. */
-export function Broken({ error, text }: { error: string; text: string }) {
+/** A panel of the right column: a card with a small heading. */
+export function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex w-full flex-col gap-3">
-      <p className="text-destructive">{error}</p>
-      <pre className="overflow-x-auto rounded-md border bg-background p-3 font-mono text-[13px]">{text}</pre>
-    </div>
-  );
-}
-
-function StepCard({ entry }: { entry: StepEntry }) {
-  const files = useFiles();
-  const item = files.data?.steps.find((f) => f.path === entry.file);
-  const { note, lines } = summary(entry);
-  return (
-    <Card>
-      <div className="flex items-baseline justify-between gap-3">
-        {item === undefined ? (
-          <span className="font-mono text-[13px]">{entry.id}</span>
-        ) : (
-          <Link href={fileHref(item)} className="font-mono text-[13px] hover:underline">
-            {entry.id}
-          </Link>
-        )}
-        {note !== null && <span className="text-[12px] text-muted-foreground">{note}</span>}
-      </div>
-      {lines.map((l, i) => (
-        <div key={i} className={`flex items-baseline justify-between gap-3 border-t border-divider-row py-1 ${i === 0 ? "mt-1.5" : ""}`}>
-          <span>{l.names}</span>
-          {l.note !== null && <span className="shrink-0 text-[12px] text-muted-foreground">{l.note}</span>}
-        </div>
-      ))}
+    <Card className="flex flex-col gap-1.5 px-3.5">
+      <span className="text-[12px] font-medium text-muted-foreground">{title}</span>
+      {children}
     </Card>
   );
 }
 
-/** The resolved workflow: one card per entry, joined by a line; or the line that stops it above its text. */
-export function WorkflowView({ detail }: { detail: FileDetail }) {
-  const { resolved } = detail;
-  if ("error" in resolved) return <Broken error={resolved.error} text={detail.text} />;
-  if (!("doc" in resolved)) return null;
+/** A model's badge: `info-light` for opus, `secondary` for the others. */
+export function ModelBadge({ model }: { model: string }) {
+  return <Badge variant={model === "opus" ? "info-light" : "secondary"}>{model}</Badge>;
+}
+
+/** A line as the page shows it: the `theway: ` after an optional `<label>: ` removed. */
+export function shownLine(line: string, labels: string[]): string {
+  if (line.startsWith("theway: ")) return line.slice("theway: ".length);
+  for (const label of labels) {
+    const prefixed = `${label}: theway: `;
+    if (line.startsWith(prefixed)) return `${label}: ${line.slice(prefixed.length)}`;
+  }
+  return line;
+}
+
+/** Error lines, one per line. */
+function Lines({ lines }: { lines: string[] }) {
   return (
-    <div className="flex w-full flex-col items-center">
-      {resolved.doc.steps.map((entry, i) => (
-        <Fragment key={`${i}:${entry.id}`}>
-          {i > 0 && <span className="block h-4 w-px bg-muted-foreground" />}
-          {"gate" in entry ? (
-            <Card>
-              <div className="flex items-baseline justify-between gap-3">
-                <span>Gate</span>
-                <span className="text-muted-foreground">{entry.gate}</span>
-              </div>
-            </Card>
-          ) : (
-            <StepCard entry={entry} />
-          )}
-        </Fragment>
+    <>
+      {lines.map((l) => (
+        <p key={l} className="text-destructive break-words">
+          {shownLine(l, [])}
+        </p>
       ))}
+    </>
+  );
+}
+
+/** A file that cannot be drawn: its error lines, what can still be drawn, then its text. */
+export function Broken({ lines, text, children }: { lines: string[]; text: string; children?: ReactNode }) {
+  return (
+    <div className="flex w-full flex-col gap-3">
+      <Lines lines={lines} />
+      {children}
+      <pre className="overflow-x-auto rounded-lg border bg-card p-3 font-mono text-[13px]">{text}</pre>
     </div>
+  );
+}
+
+/** The `<name>` of a `prompts/<name>.md` value; `null` for any other value. */
+export const promptName = (value: string): string | null => /^prompts\/([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/.exec(value)?.[1] ?? null;
+
+/** The prompt file a workflow reads by name: a project workflow's own project file first, then the global one. */
+export function promptFor(files: FilesResponse | undefined, file: FileRef, name: string): PromptItem | undefined {
+  const prompts = files?.prompts ?? [];
+  const own = file.scope === "project" ? prompts.find((p) => p.scope === "project" && p.key === file.key && p.name === name) : undefined;
+  return own ?? prompts.find((p) => p.scope === "global" && p.name === name);
+}
+
+/** A prompt's name in the mono font, a link to its page when the list has it. */
+function PromptLink({ item, name, className }: { item: PromptItem | undefined; name: string; className?: string }) {
+  if (item === undefined) return <span className={cn("font-mono", className)}>{name}</span>;
+  return (
+    <Link href={fileHref(item)} className={cn("font-mono hover:underline", className)}>
+      {name}
+    </Link>
+  );
+}
+
+/** One step's card: its prompt, its copies and model, its description, its matrix, its on fail, its other inputs. */
+function StepCard({ file, step }: { file: FileRef; step: ResolvedStep }) {
+  const files = useFiles();
+  const name = promptName(step.uses) ?? step.uses;
+  const byPath = (path: string) => files.data?.prompts.find((p) => p.path === path);
+  const onFailName = step.on_fail === null ? null : (promptName(step.on_fail.uses) ?? step.on_fail.uses);
+  const tries = step.tries ?? 1;
+  return (
+    <Card className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <PromptLink item={byPath(step.file)} name={name} className="text-[14px] font-medium" />
+        {step.matrix !== null && <Badge variant="primary-light">{step.matrix.values.length} copies at once</Badge>}
+        <span className="ml-auto">
+          {step.runs_on === "session" ? <Badge variant="outline">your session</Badge> : step.model !== null && <ModelBadge model={step.model} />}
+        </span>
+      </div>
+      {step.description !== "" && <p className="text-muted-foreground">{step.description}</p>}
+      {step.matrix !== null && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-mono text-[12px] text-muted-foreground">{step.matrix.key}</span>
+          {step.matrix.values.map((v) => {
+            const n = promptName(v);
+            const item = n === null ? undefined : promptFor(files.data, file, n);
+            return (
+              <Badge key={v} variant="secondary" render={item === undefined ? undefined : <Link href={fileHref(item)} />}>
+                {n ?? v}
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+      {step.on_fail !== null && onFailName !== null && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="warning-light">on fail</Badge>
+          <span>
+            run <PromptLink item={byPath(step.on_fail.file)} name={onFailName} />, then this step again · up to {tries} {tries > 1 ? "tries" : "try"}
+          </span>
+        </div>
+      )}
+      {Object.keys(step.with).length > 0 && (
+        <div className="flex flex-col font-mono text-[12px] text-muted-foreground">
+          {Object.entries(step.with).map(([k, v]) => (
+            <span key={k} className="break-all">
+              {k}: {v === null ? "" : String(v)}
+            </span>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** The timeline: one item per card, numbered from 1, joined by a line. */
+function Steps({ cards }: { cards: ReactNode[] }) {
+  return (
+    <Timeline value={cards.length} className="w-full max-w-[640px] pl-1">
+      {cards.map((card, i) => (
+        <TimelineItem key={i} step={i + 1}>
+          <TimelineHeader>
+            <TimelineSeparator className="group-data-[orientation=vertical]/timeline:h-[calc(100%-1.5rem-0.25rem)] group-data-[orientation=vertical]/timeline:translate-y-6.5" />
+            <TimelineIndicator className="flex size-6 items-center justify-center bg-card text-[11px] font-medium text-primary">{i + 1}</TimelineIndicator>
+          </TimelineHeader>
+          <TimelineContent className="text-foreground">{card}</TimelineContent>
+        </TimelineItem>
+      ))}
+    </Timeline>
+  );
+}
+
+/** The legend under the timeline: the answers a step gives. */
+function Legend() {
+  return (
+    <div className="flex w-full max-w-[640px] flex-wrap items-center gap-1.5 pl-1 text-muted-foreground">
+      <span>Every step answers</span>
+      <Badge variant="success-light">pass</Badge>
+      <Badge variant="destructive-light">fail</Badge>
+      <Badge variant="warning-light">blocked</Badge>
+      <span>a fail with no on fail, and any blocked, stops the run</span>
+    </div>
+  );
+}
+
+/** The step a resolver line names in the workflow `name`: its `steps[<i>]` index, `null` for none. */
+const stepOf = (line: string, name: string): number | null => {
+  const m = new RegExp(`^workflows/${name}\\.yaml: steps\\[(\\d+)\\]`).exec(line);
+  return m === null ? null : Number(m[1]);
+};
+
+/** The `uses` each step of a workflow's text writes, as written; `[]` when it has no list of steps. */
+function usesOf(text: string): string[] {
+  const doc = parse(text);
+  if (doc.errors.length > 0) return [];
+  const steps = (doc.toJS() as { steps?: unknown } | null)?.steps;
+  if (!Array.isArray(steps)) return [];
+  return steps.map((s) => {
+    const uses = s !== null && typeof s === "object" ? (s as { uses?: unknown }).uses : undefined;
+    return typeof uses === "string" ? (promptName(uses) ?? uses) : "";
+  });
+}
+
+/** A workflow that does not resolve: its lines, each `steps[<i>]` line under the card of that step, then its text. */
+function Unresolved({ name, errors, text }: { name: string; errors: string[]; text: string }) {
+  const uses = useMemo(() => usesOf(text), [text]);
+  const tied = (i: number) => errors.filter((l) => stepOf(l, name) === i);
+  const untied = errors.filter((l) => {
+    const i = stepOf(l, name);
+    return i === null || i >= uses.length;
+  });
+  return (
+    <Broken lines={untied} text={text}>
+      {uses.length > 0 && (
+        <Steps
+          cards={uses.map((u, i) => (
+            <Fragment key={i}>
+              <Card className="flex flex-col gap-1.5">
+                <span className="font-mono text-[14px] font-medium">{u === "" ? `steps[${i}]` : u}</span>
+                <Lines lines={tied(i)} />
+              </Card>
+            </Fragment>
+          ))}
+        />
+      )}
+    </Broken>
+  );
+}
+
+/** The centre of a workflow page: its steps as a timeline, then the legend; or its error lines. */
+export function WorkflowView({ file, resolved, text }: { file: FileRef; resolved: WorkflowResolved; text: string }) {
+  if ("errors" in resolved) return <Unresolved name={file.name} errors={resolved.errors} text={text} />;
+  return (
+    <div className="flex w-full flex-col items-center gap-4">
+      <Steps cards={resolved.doc.steps.map((s) => <StepCard key={s.index} file={file} step={s} />)} />
+      <Legend />
+    </div>
+  );
+}
+
+/** The Runs on and Inputs panels of a resolved workflow. */
+export function WorkflowPanels({ doc }: { doc: ResolvedWorkflow }) {
+  const inputs = Object.entries(doc.inputs);
+  return (
+    <>
+      <Panel title="Runs on">
+        <span className="font-mono text-[13px]">{doc.runs_on}</span>
+      </Panel>
+      {inputs.length > 0 && (
+        <Panel title="Inputs">
+          {inputs.map(([name, input]) => (
+            <div key={name} className="flex flex-col gap-0.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="font-mono text-[13px]">{name}</span>
+                {input.required ? (
+                  <Badge variant="outline">required</Badge>
+                ) : (
+                  input.default !== null && <span className="text-[12px] text-muted-foreground">default: {input.default}</span>
+                )}
+              </div>
+              <span className="text-[12px] text-muted-foreground">
+                {input.description}
+                {input.type === "change" && " · one run per ID"}
+              </span>
+            </div>
+          ))}
+        </Panel>
+      )}
+    </>
   );
 }
