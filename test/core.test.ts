@@ -2214,6 +2214,50 @@ test("v1beta: a required prompt input written empty or null is not set, never a 
   }
 });
 
+test("v1beta: an optional prompt input written empty or null is the empty string, not its default", () => {
+  for (const value of [' ""', ""]) {
+    const dir = fixtureHome();
+    const path = join(dir, "workflows", "develop.yaml");
+    const text = readFileSync(path, "utf-8");
+    expect(text).toContain('commit: "no"');
+    put(path, text.replace('commit: "no"', `commit:${value}`));
+    const doc = v1betaDoc(dir, "develop", "--input", "change=add-foo");
+    expect(doc.steps[0]?.runs[0]?.with).toEqual({ change: "add-foo", commit: "" });
+  }
+});
+
+test("v1beta: a required workflow input given empty is not given", () => {
+  const dir = fixtureHome();
+  const res = v1beta(dir, "engineering-light", "--input", "request=");
+  expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: --input request: required input is not given\n"]);
+  const change = v1beta(dir, "agents", "--input", "change=");
+  expect([change.status, change.stdout, change.stderr]).toEqual([1, "", "theway: --input change: required input is not given\n"]);
+});
+
+test("v1beta: the default of a change input must be a valid change ID", () => {
+  const dir = fixtureHome();
+  const head = T_HEAD.replace("{description: c, required: true, type: change}", "{description: c, default: Bad_ID, type: change}");
+  const res = tWorkflow(dir, `${head}steps:\n${OPEN_PR}`);
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toBe("theway: workflows/t.yaml: inputs.change: default must be lowercase letters and digits in words separated by single hyphens\n");
+});
+
+test("v1beta: a name or key with a newline stays on one error line", () => {
+  const dir = fixtureHome();
+  const input = v1beta(dir, "agents", "--input", "no\npe=x");
+  expect([input.status, input.stderr.split("\n")[0]]).toEqual([1, "theway: --input no\\npe: workflows/agents.yaml declares no such input"]);
+  const res = tWorkflow(dir, `${T_HEAD}"fo\\no": 1\nsteps:\n${OPEN_PR}      "ba\\nr": x\n    "ba\\nz": 1\n`);
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    [
+      "theway: workflows/t.yaml: fo\\no: unknown key",
+      "theway: workflows/t.yaml: steps[0].with: prompts/open-pr.md declares no input ba\\nr",
+      "theway: workflows/t.yaml: steps[0].ba\\nz: unknown key",
+      "",
+    ].join("\n"),
+  );
+});
+
 test("v1beta: a project copy of a prompt replaces the global one for that project only", () => {
   const dir = fixtureHome();
   const own = join(dir, "projects", "p", "prompts", "review.md");

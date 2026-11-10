@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
 import type { Warn } from "./config";
-import type { Overlay } from "./io";
+import { escaped, type Overlay } from "./io";
 import {
   MODELS,
   NAME,
@@ -105,7 +105,7 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
   const keys = workflow ? ["description", "required", "default", "type"] : ["description", "required", "default"];
   for (const [rawName, d] of v) {
     const name = String(rawName);
-    const where = `${at}.${name}`;
+    const where = `${at}.${escaped(name)}`;
     if (!PARAM.test(name)) {
       errors.push(`${where}: ${RULE.param}`);
       continue;
@@ -118,7 +118,7 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
     }
     for (const [rk, value] of d) {
       const k = String(rk);
-      if (!keys.includes(k)) errors.push(`${where}: unknown key ${k}`);
+      if (!keys.includes(k)) errors.push(`${where}: unknown key ${escaped(k)}`);
       else if (k === "description") {
         if (nonEmpty(value)) decl.description = value;
         else errors.push(`${where}: description ${RULE.nonEmpty}`);
@@ -136,6 +136,9 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
     }
     if (!d.has("description")) errors.push(`${where}: description ${RULE.nonEmpty}`);
     if (d.get("required") === true && d.has("default")) errors.push(`${where}: default is refused together with required: true`);
+    if (workflow && decl.type === "change" && decl.default !== null && changeIdReason(decl.default) !== "") {
+      errors.push(`${where}: default ${changeIdReason(decl.default)}`);
+    }
   }
   return out;
 }
@@ -169,7 +172,7 @@ export function parsePromptFile(text: string): { header: PromptHeader | null; he
         header.inputs[name] = { description: d.description, required: d.required, default: d.default };
       }
     } else {
-      headerErrors.push(`${k}: unknown key`);
+      headerErrors.push(`${escaped(k)}: unknown key`);
     }
   }
   const body = lines
@@ -237,8 +240,8 @@ function promptOf(ctx: Ctx, v: unknown, where: string, out: string[]): Prompt | 
 
 /**
  * A `with` map at `where`, checked against its prompt: every key declared, every value a string, a number or a boolean,
- * every reference naming something declared, every required input set. Returns each set input's text; `null` and `""`
- * count as not set.
+ * every reference naming something declared, every required input set. Returns each written input's text, `""` for
+ * `null`; a required input written `""` or `null` counts as not set, an optional one is the empty string.
  */
 function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matrixKey: string | null, onFail: boolean, out: string[]): Map<string, string> {
   const set = new Map<string, string>();
@@ -247,9 +250,9 @@ function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matr
   if (isMap(v)) {
     for (const [rk, value] of v) {
       const k = String(rk);
-      if (prompt !== null && !Object.hasOwn(prompt.header.inputs, k)) err(`${prompt.uses} declares no input ${k}`);
+      if (prompt !== null && !Object.hasOwn(prompt.header.inputs, k)) err(`${prompt.uses} declares no input ${escaped(k)}`);
       if (value !== null && !["string", "number", "boolean"].includes(typeof value)) {
-        err(`${k} must be a string, a number or a boolean`);
+        err(`${escaped(k)} must be a string, a number or a boolean`);
         continue;
       }
       const text = value === null ? "" : String(value);
@@ -262,12 +265,12 @@ function withOf(ctx: Ctx, v: unknown, where: string, prompt: Prompt | null, matr
           err(`\${{ matrix.${r.name} }} names no matrix key of this step`);
         }
       }
-      if (text !== "") set.set(k, text);
+      set.set(k, text);
     }
   }
   if (prompt !== null) {
     for (const [name, decl] of Object.entries(prompt.header.inputs)) {
-      if (decl.required && !set.has(name)) err(`required input ${name} is not set`);
+      if (decl.required && (set.get(name) ?? "") === "") err(`required input ${name} is not set`);
     }
   }
   return set;
@@ -304,7 +307,7 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     const v = raw.get("matrix");
     const [first] = isMap(v) ? [...v] : [];
     if (!isMap(v) || v.size !== 1) err("matrix", "must be a map with exactly one key");
-    else if (!PARAM.test(String(first?.[0]))) err("matrix", `key ${String(first?.[0])} ${RULE.param}`);
+    else if (!PARAM.test(String(first?.[0]))) err("matrix", `key ${escaped(String(first?.[0]))} ${RULE.param}`);
     else if (!Array.isArray(first?.[1]) || first[1].length === 0 || !first[1].every((x) => typeof x === "string")) {
       err("matrix", `${String(first?.[0])} must be a non-empty list of strings`);
     } else {
@@ -327,7 +330,7 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     const o = lines("on-fail");
     if (isMap(v)) {
       for (const k of v.keys()) {
-        if (!ON_FAIL_KEYS.includes(String(k))) o.push(`${ctx.rel}: ${at}.on-fail: unknown key ${String(k)}`);
+        if (!ON_FAIL_KEYS.includes(String(k))) o.push(`${ctx.rel}: ${at}.on-fail: unknown key ${escaped(String(k))}`);
       }
       const p = v.has("uses") ? promptOf(ctx, v.get("uses"), `${at}.on-fail.uses`, o) : null;
       if (!v.has("uses")) o.push(`${ctx.rel}: ${at}.on-fail: uses is required`);
@@ -370,7 +373,7 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     }
   }
   for (const k of raw.keys()) {
-    if (!STEP_KEYS.includes(String(k))) lines(String(k)).push(`${ctx.rel}: ${at}.${String(k)}: unknown key`);
+    if (!STEP_KEYS.includes(String(k))) lines(String(k)).push(`${ctx.rel}: ${at}.${escaped(String(k))}: unknown key`);
   }
 
   if (!has("uses")) tail.push(`${ctx.rel}: ${at}: uses is required`);
@@ -477,7 +480,7 @@ export function resolveWorkflowFile(
     else list.forEach((raw, i) => steps.push(checkStep(ctx, raw, i, runsOn, lines("steps"))));
   }
   for (const k of root.keys()) {
-    if (!WORKFLOW_KEYS.includes(String(k))) err(String(k), "unknown key");
+    if (!WORKFLOW_KEYS.includes(String(k))) lines(String(k)).push(`${rel}: ${escaped(String(k))}: unknown key`);
   }
   const errors: string[] = [];
   for (const k of root.keys()) errors.push(...(byKey.get(String(k)) ?? []));
@@ -486,14 +489,16 @@ export function resolveWorkflowFile(
   if (!root.has("steps")) errors.push(`${rel}: steps: must be a non-empty list`);
 
   const given = Object.entries(inputs);
+  // A required input given as `--input <name>=` counts as not given.
+  const missing = (n: string, decl: Decl) => decl.required && (inputs[n] ?? "") === "";
   for (const [n, v] of given) {
     const decl = ctx.inputs.get(n);
-    if (decl === undefined) errors.push(`--input ${n}: ${rel} declares no such input`);
-    else if (decl.type === "change" && changeIdReason(v) !== "") errors.push(`--input ${n}: ${changeIdReason(v)}`);
+    if (decl === undefined) errors.push(`--input ${escaped(n)}: ${rel} declares no such input`);
+    else if (decl.type === "change" && !missing(n, decl) && changeIdReason(v) !== "") errors.push(`--input ${n}: ${changeIdReason(v)}`);
   }
   if (given.length > 0) {
     for (const [n, decl] of ctx.inputs) {
-      if (decl.required && !Object.hasOwn(inputs, n)) errors.push(`--input ${n}: required input is not given`);
+      if (missing(n, decl)) errors.push(`--input ${n}: required input is not given`);
     }
   }
   if (errors.length > 0) return { errors };
