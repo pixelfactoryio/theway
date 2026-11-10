@@ -1,12 +1,11 @@
 import { readdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import type { Loaded, Warn } from "./config";
 import { isFileIn, NAME, type Overlay } from "./io";
 import { projectDir } from "./project";
 
-/** The kinds of named files the resolver reads: workflows and steps as `.yaml`, prompts as `.md`. */
-export type Kind = "workflows" | "steps" | "prompts";
-const EXT: Record<Kind, string> = { workflows: ".yaml", steps: ".yaml", prompts: ".md" };
+/** The kinds of named files the resolver reads: workflows as `.yaml`, prompts as `.md`. */
+export type Kind = "workflows" | "prompts";
+const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" };
 
 /** The project folder and the global folder of `kind`. */
 export const dirsOf = (home: string, key: string, kind: Kind): [string, string] => [join(projectDir(home, key), kind), join(home, kind)];
@@ -52,12 +51,6 @@ export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => vo
   return out.sort();
 }
 
-/** The step names that resolve for a project, sorted; `gate` is reserved and never one. */
-export function knownSteps(home: string, key: string, overlay?: Overlay): string[] {
-  const [own, global] = dirsOf(home, key, "steps");
-  return [...new Set([...namesIn(own, "steps", undefined, overlay), ...namesIn(global, "steps", undefined, overlay)])].filter((n) => n !== "gate").sort();
-}
-
 /** The Levenshtein distance of two strings. */
 function distance(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -87,24 +80,4 @@ export function suggest(wanted: string, known: string[], noun: string): string {
   }
   if (best !== null) return `; did you mean '${best}'?`;
   return ` (${noun}: ${known.join(", ")})`;
-}
-
-/**
- * Warns, once per config file and step, about a `workflow.defaults.<step>` naming no step that resolves for the
- * project; the resolver drops its values. Returns the step names it warned about.
- */
-export function warnUnknownDefaults(home: string, key: string, loaded: Loaded, warn: Warn, overlay?: Overlay): Set<string> {
-  const known = knownSteps(home, key, overlay);
-  const unknown = new Set<string>();
-  for (const layer of loaded.defaults) {
-    for (const step of layer.steps.keys()) {
-      if (known.includes(step)) continue;
-      unknown.add(step);
-      warn(
-        layer.file,
-        `workflow.defaults.${step}: no step '${step}' in ${searched(home, key, "steps")}${suggest(step, known, "steps")}`,
-      );
-    }
-  }
-  return unknown;
 }

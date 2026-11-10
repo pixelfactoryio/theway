@@ -1,9 +1,36 @@
-# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# A param an entry leaves out comes from workflow.defaults in config.yaml, else from the step file: theway steps
-# lists them.
-version: theway.workflow/v1
+version: theway.workflow/v1beta
 description: Implement, review and open the PR through agents
+inputs:
+  change:
+    description: The change to implement
+    required: true
+    type: change
+runs-on: agents
 steps:
-  - implement:
-  - review:
-  - pr:
+  - uses: prompts/branch.md
+    runs-on: session
+    with:
+      change: ${{ inputs.change }}
+  - uses: prompts/implement.md
+    with:
+      change: ${{ inputs.change }}
+  - uses: prompts/review.md
+    matrix:
+      lens: [prompts/conformance.md, prompts/correctness.md]
+    with:
+      change: ${{ inputs.change }}
+      lens: ${{ matrix.lens }}
+  - uses: prompts/triage.md
+    with:
+      change: ${{ inputs.change }}
+    on-fail:
+      uses: prompts/fix-review.md
+      with:
+        change: ${{ inputs.change }}
+    tries: 1
+  - uses: prompts/open-pr.md
+    with:
+      change: ${{ inputs.change }}
+  - uses: prompts/ci.md
+    on-fail: prompts/fix-ci.md
+    tries: 2

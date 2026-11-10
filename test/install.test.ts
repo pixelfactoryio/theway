@@ -31,9 +31,7 @@ const SHIPPED_FILES = (
     ["standards", ".md"],
     ["templates", ".md"],
     ["workflows", ".yaml"],
-    ["steps", ".yaml"],
     ["prompts", ".md"],
-    ["schemas", ".json"],
   ] as const
 ).flatMap(([d, ext]) =>
   readdirSync(join(SHIPPED, d))
@@ -134,18 +132,14 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
   for (const rel of [
     "workflows/develop.yaml",
     "workflows/agents.yaml",
-    "steps/implement.yaml",
-    "steps/review.yaml",
-    "steps/pr.yaml",
     "prompts/conformance.md",
-    "prompts/reviewer.md",
-    "schemas/workflow.v1.json",
-    "schemas/step.v1.json",
+    "prompts/review.md",
     "standards/commits.md",
     "standards/git-host.md",
   ]) {
     expect(existsSync(join(env.theway, rel))).toBe(true);
   }
+  for (const dir of ["steps", "schemas"]) expect(existsSync(join(env.theway, dir))).toBe(false);
   const old = join(env.claude, "skills", "theway", "commands", "develop-workflow.md");
   expect(existsSync(old)).toBe(false);
   put(old, "# an earlier version's command\n");
@@ -299,8 +293,9 @@ test("install keeps an existing config.yaml and writes config.default.yaml", () 
   expect(readFileSync(join(env.theway, "config.default.yaml"), "utf-8")).toBe(readFileSync(SHIPPED_CONFIG, "utf-8"));
 });
 
-const RETIRED_ENGINEERING = "Your config.yaml still has engineering: theway ignores it and reads workflow.defaults.spec-review; remove it";
-const RETIRED_AGENT = "Your config.yaml still has workflow.defaults.agent: the agent step is gone and theway ignores it; remove it";
+const RETIRED_ENGINEERING = "Your config.yaml still has engineering: theway ignores it; remove it";
+const RETIRED_WORKFLOW =
+  "Your config.yaml still has workflow: theway no longer reads workflow.defaults; set a value in the workflow file or in the prompt's header, and remove the key";
 
 test("install over a config.yaml with retired keys names each one and leaves the file unchanged", () => {
   const env = setup();
@@ -309,8 +304,23 @@ test("install over a config.yaml with retired keys names each one and leaves the
   const res = run(env, "install");
   expect(res.status).toBe(0);
   expect(res.stdout).toContain(`${RETIRED_ENGINEERING}\n`);
-  expect(res.stdout).toContain(`${RETIRED_AGENT}\n`);
+  expect(res.stdout).toContain(`${RETIRED_WORKFLOW}\n`);
+  expect(res.stdout.split("\n").filter((l) => l.includes("workflow"))).toEqual([RETIRED_WORKFLOW]);
   expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(text);
+});
+
+test("install over a kept config.yaml with workflow: defaults: {} prints the workflow line only, and with engineering: its line", () => {
+  const env = setup();
+  const text = "standards:\n  sre:\n    enabled: true\n\nworkflow:\n  defaults: {}\n";
+  put(join(env.theway, "config.yaml"), text);
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout.split("\n").filter((l) => l.startsWith("Your config.yaml still has"))).toEqual([RETIRED_WORKFLOW]);
+  expect(res.stdout.split("\n").filter((l) => l.includes("workflow"))).toEqual([RETIRED_WORKFLOW]);
+  expect(readFileSync(join(env.theway, "config.yaml"), "utf-8")).toBe(text);
+  put(join(env.theway, "config.yaml"), "engineering: {}\n");
+  const engineering = run(env, "install");
+  expect(engineering.stdout.split("\n").filter((l) => l.startsWith("Your config.yaml still has"))).toEqual([RETIRED_ENGINEERING]);
 });
 
 test("install over an unparsable config.yaml names no retired key and installs", () => {
@@ -662,17 +672,15 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(49);
+  expect(SHIPPED_FILES).toHaveLength(40);
   for (const rel of [
     "workflows/develop.yaml",
     "workflows/agents.yaml",
-    "steps/implement.yaml",
-    "steps/review.yaml",
-    "steps/pr.yaml",
+    "workflows/engineering.yaml",
+    "workflows/engineering-light.yaml",
     "prompts/conformance.md",
-    "prompts/reviewer.md",
-    "schemas/workflow.v1.json",
-    "schemas/step.v1.json",
+    "prompts/review.md",
+    "prompts/change.md",
     "standards/commits.md",
     "standards/git-host.md",
   ]) {
@@ -692,12 +700,12 @@ test("install into a fresh home writes every shipped file and a manifest of thei
   expect(walk(env.theway).filter((f) => /\/[^/]+\.default\.(md|yaml)$/.test(f) || f.endsWith(".bak"))).toEqual([]);
 });
 
-test("install writes commits.md and git-host.md, keeps an edited one with its .default.md, and theway workflow resolves them", () => {
+test("install writes commits.md and git-host.md, keeps an edited one with its .default.md, and theway workflow resolves", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
   const workflow = () => spawnSync("node", [CLI, "workflow", "--project", "theway", "agents"], { encoding: "utf-8", env: vars(env) });
-  const doc = JSON.parse(workflow().stdout);
-  expect([doc.commits, doc.git_host]).toEqual([join(env.theway, "standards", "commits.md"), join(env.theway, "standards", "git-host.md")]);
+  expect(workflow().status).toBe(0);
+  for (const f of ["commits.md", "git-host.md"]) expect(readFileSync(join(env.theway, "standards", f), "utf-8")).toBe(shipped(`standards/${f}`));
   put(join(env.theway, "standards", "git-host.md"), "# GitLab\n");
   const res = run(env, "install");
   expect(res.stdout).toContain("Kept your edited standards/git-host.md (shipped version: standards/git-host.default.md)\n");
@@ -861,13 +869,91 @@ test("install renames an edited moved standard or template to .bak, naming the p
   expect([ctx.status, ctx.stdout]).toEqual([0, ""]);
 });
 
-test("install ships schemas/ with the templates rules: an edited schema is kept with the shipped one next to it", () => {
-  const env = setup();
+/** A v1 step file, as the previous layout shipped one. */
+const STEP_V1 = (name: string) => `version: theway.step/v1\ndescription: ${name}\ndo:\n  - agent:\n      prompt: [${name}]\n      returns: work\n`;
+const V1_AGENTS = "version: theway.workflow/v1\ndescription: Implement, review and open the PR through agents\ninput: changes\nsteps:\n  - implement:\n  - review:\n  - pr:\n";
+const V1_FILES: Record<string, string> = {
+  "steps/implement.yaml": STEP_V1("implement"),
+  "steps/review.yaml": STEP_V1("review"),
+  "steps/pr.yaml": STEP_V1("pr"),
+  "schemas/workflow.v1.json": '{ "$id": "workflow.v1.json" }\n',
+  "schemas/step.v1.json": '{ "$id": "step.v1.json" }\n',
+  "workflows/agents.yaml": V1_AGENTS,
+  "prompts/verdicts.md": "# Verdicts\n",
+};
+
+/**
+ * A home installed from the previous layout: the current install, then the v1 step files, schemas, agents workflow and
+ * a retired prompt written in it, each with its hash in the manifest, as the last release left them.
+ */
+function previousLayout(env: Env): void {
   expect(run(env, "install").status).toBe(0);
-  put(join(env.theway, "schemas", "step.v1.json"), "{}\n");
+  for (const [rel, text] of Object.entries(V1_FILES)) put(join(env.theway, rel), text);
+  const hashes = Object.fromEntries(Object.entries(V1_FILES).map(([rel, text]) => [rel, sha256(text)]));
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), ...hashes }));
+}
+
+const STEPS_WHY = "theway no longer reads steps/; write its steps in a workflow file";
+
+test("install over the previous layout removes the unedited step files, schemas and retired prompts, and the empty folders", () => {
+  const env = setup();
+  previousLayout(env);
   const res = run(env, "install");
-  expect(res.stdout).toContain("Kept your edited schemas/step.v1.json (shipped version: schemas/step.v1.default.json)\n");
-  expect(readFileSync(join(env.theway, "schemas", "step.v1.default.json"), "utf-8")).toBe(shipped("schemas/step.v1.json"));
+  expect(res.status).toBe(0);
+  for (const rel of ["steps/implement.yaml", "steps/pr.yaml", "steps/review.yaml", "schemas/workflow.v1.json", "schemas/step.v1.json", "prompts/verdicts.md"]) {
+    expect(res.stdout).toContain(`Removed ${rel}: theway no longer ships it\n`);
+    expect(existsSync(join(env.theway, rel))).toBe(false);
+  }
+  for (const dir of ["steps", "schemas"]) expect(existsSync(join(env.theway, dir))).toBe(false);
+  // The unedited v1 agents workflow is replaced by the v1beta one.
+  expect(readFileSync(join(env.theway, "workflows", "agents.yaml"), "utf-8")).toBe(shipped("workflows/agents.yaml"));
+  expect(existsSync(join(env.theway, "workflows", "agents.default.yaml"))).toBe(false);
+  expect(Object.keys(manifest(env)).filter((k) => k.startsWith("steps/") || k.startsWith("schemas/") || k === "prompts/verdicts.md")).toEqual([]);
+  const workflow = spawnSync("node", [CLI, "workflow", "--project", "theway", "agents"], { encoding: "utf-8", env: vars(env) });
+  expect([workflow.status, workflow.stderr]).toEqual([0, ""]);
+});
+
+test("install over the previous layout keeps an edited or user step file and an edited schema, each with its message", () => {
+  const env = setup();
+  previousLayout(env);
+  put(join(env.theway, "steps", "review.yaml"), `${STEP_V1("review")}# mine\n`);
+  put(join(env.theway, "steps", "mine.yaml"), STEP_V1("mine"));
+  put(join(env.theway, "steps", "pr.default.yaml"), STEP_V1("pr"));
+  put(join(env.theway, "schemas", "step.v1.json"), "{}\n");
+  put(join(env.theway, "schemas", "step.v1.default.json"), "{}\n");
+  put(join(env.theway, "schemas", "notes.txt"), "mine\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain(`Kept your edited steps/review.yaml: ${STEPS_WHY}\n`);
+  expect(res.stdout).toContain(`Kept your edited steps/mine.yaml: ${STEPS_WHY}\n`);
+  expect(res.stdout).toContain("Removed steps/implement.yaml: theway no longer ships it\n");
+  expect(res.stdout).toContain("Kept your edited schemas/step.v1.json: theway no longer ships it\n");
+  expect(res.stdout).toContain("Removed schemas/workflow.v1.json: theway no longer ships it\n");
+  expect(res.stdout).not.toContain("notes.txt");
+  expect(readdirSync(join(env.theway, "steps")).sort()).toEqual(["mine.yaml", "review.yaml"]);
+  expect(readdirSync(join(env.theway, "schemas")).sort()).toEqual(["notes.txt", "step.v1.json"]);
+});
+
+test("install over the previous layout keeps an edited v1 agents workflow with the v1beta one next to it", () => {
+  const env = setup();
+  previousLayout(env);
+  const edited = `${V1_AGENTS}  - mine:\n`;
+  put(join(env.theway, "workflows", "agents.yaml"), edited);
+  const res = run(env, "install");
+  expect(res.stdout).toContain("Kept your edited workflows/agents.yaml (shipped version: workflows/agents.default.yaml)\n");
+  expect(readFileSync(join(env.theway, "workflows", "agents.yaml"), "utf-8")).toBe(edited);
+  expect(readFileSync(join(env.theway, "workflows", "agents.default.yaml"), "utf-8")).toBe(shipped("workflows/agents.yaml"));
+});
+
+test("install keeps each project's steps/ files with a line, removes nothing there, and removes an empty one", () => {
+  const env = setup();
+  previousLayout(env);
+  put(join(env.theway, "projects", "p", "steps", "mine.yaml"), STEP_V1("mine"));
+  mkdirSync(join(env.theway, "projects", "q", "steps"), { recursive: true });
+  const res = run(env, "install");
+  expect(res.stdout).toContain(`Kept projects/p/steps/mine.yaml: ${STEPS_WHY}\n`);
+  expect(readFileSync(join(env.theway, "projects", "p", "steps", "mine.yaml"), "utf-8")).toBe(STEP_V1("mine"));
+  expect(existsSync(join(env.theway, "projects", "q", "steps"))).toBe(false);
 });
 
 test("install removes an unedited standard no longer shipped, keeps an edited one, and keeps the user's config.yaml", () => {

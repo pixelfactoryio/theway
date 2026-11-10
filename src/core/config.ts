@@ -2,10 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import { readManifest } from "./init";
-import { warnUnknownDefaults } from "./step-files";
-import { isFile, isNameList, type Overlay, thewayHome } from "./io";
+import { isFile, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
-import type { ParamValue } from "./schema";
 
 /** A leaf's type: the rule its value must follow. */
 type Rule = "boolean";
@@ -22,23 +20,10 @@ export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "qu
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
 const CORE = ["interaction.md", "develop.md"];
 /**
- * The shipped convention standards `theway workflow` resolves by path, the project file over the global one: never
- * listed from either folder nor switchable.
+ * The shipped convention standards the prompts read by path, the project file over the global one: never listed from
+ * either folder nor switchable.
  */
 export const CONVENTIONS = ["commits.md", "git-host.md"];
-
-export type { ParamValue };
-
-/** The kind of a param value, `null` when it is none of the four. */
-export function kindOf(v: unknown): "string" | "integer" | "boolean" | "list" | null {
-  if (typeof v === "string") return "string";
-  if (typeof v === "boolean") return "boolean";
-  if (typeof v === "number" && Number.isInteger(v)) return "integer";
-  if (isNameList(v)) return "list";
-  return null;
-}
-
-export const PARAM_VALUE_TEXT = "a string, an integer, a boolean or a non-empty list of names without duplicates";
 
 /** The `standards.<key>` of a standard file: its stem with `-` turned into `_`. */
 const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_");
@@ -107,12 +92,7 @@ function standardsSchema(standards: Standard[]): Schema {
 /** Every key of the config, in output order, with its type and default; `standards` is filled per project. */
 const SCHEMA: Schema = {
   standards: {},
-  // workflow.defaults is free-form: a map of step names to maps of param values, checked by applyDefaults.
-  workflow: { defaults: {} },
 };
-
-/** The dotted key of the free-form `workflow.defaults` map. */
-const DEFAULTS_KEY = "workflow.defaults";
 
 const RULE_TEXT: Record<Rule, string> = {
   boolean: "true or false",
@@ -146,46 +126,8 @@ export const warnLoud: Warn = (file, text) => {
 /** Drops every warning. */
 export const warnQuiet: Warn = () => {};
 
-/** One config file's valid `workflow.defaults`: per step name, its param values, in document order. */
-export type DefaultsLayer = { file: string; steps: Map<string, Map<string, ParamValue>> };
-
-/**
- * Applies one file's `workflow.defaults` map onto `into` and records its valid values in `layer`: a step whose value
- * is not a map, and a param value of none of the four kinds, are warned about and dropped.
- */
-function applyDefaults(file: string, value: Map<unknown, unknown>, into: Config, layer: DefaultsLayer, warn: Warn): void {
-  for (const [rawStep, params] of value) {
-    const step = String(rawStep);
-    if (!(params instanceof Map)) {
-      warn(file, `${DEFAULTS_KEY}.${step} must be a map`);
-      continue;
-    }
-    const kept = layer.steps.get(step) ?? new Map<string, ParamValue>();
-    layer.steps.set(step, kept);
-    if (!Object.hasOwn(into, step)) into[step] = dict<Config>();
-    for (const [rawParam, v] of params) {
-      const param = String(rawParam);
-      if (kindOf(v) === null) {
-        warn(file, `${DEFAULTS_KEY}.${step}.${param} must be ${PARAM_VALUE_TEXT}`);
-        continue;
-      }
-      const copy = Array.isArray(v) ? [...(v as string[])] : (v as ParamValue);
-      kept.set(param, copy);
-      (into[step] as Config)[param] = Array.isArray(copy) ? [...copy] : copy;
-    }
-  }
-}
-
 /** Applies one layer's map onto `into`, warning about every unknown key, invalid value or wrong shape in document order. */
-function apply(
-  file: string,
-  schema: Schema,
-  layer: Map<unknown, unknown>,
-  into: Config,
-  prefix: string,
-  warn: Warn,
-  defaults: DefaultsLayer,
-): void {
+function apply(file: string, schema: Schema, layer: Map<unknown, unknown>, into: Config, prefix: string, warn: Warn): void {
   for (const [rawKey, value] of layer) {
     const key = String(rawKey);
     const dotted = prefix === "" ? key : `${prefix}.${key}`;
@@ -198,58 +140,31 @@ function apply(
       if (valid(node.rule, value)) into[key] = Array.isArray(value) ? [...(value as string[])] : (value as boolean | number | string);
       else warn(file, `${dotted} must be ${RULE_TEXT[node.rule]}`);
     } else if (value instanceof Map) {
-      if (dotted === DEFAULTS_KEY) applyDefaults(file, value, into[key] as Config, defaults, warn);
-      else apply(file, node, value, into[key] as Config, dotted, warn, defaults);
+      apply(file, node, value, into[key] as Config, dotted, warn);
     } else {
       warn(file, `${dotted} must be a map`);
     }
   }
 }
 
-/** The hint an invalid step file gets when the failing line holds a `${…}` reference. */
-const QUOTE_HINT = '; quote ${…} references, for example model: "${model}"';
-
 /** The parsed root of `<home>/<file>`, or an error line when it cannot be read or is not valid YAML. */
-export function load(home: string, file: string): { root: unknown } | { error: string } {
-  const parsed = parseFile(home, file);
-  return "reason" in parsed ? { error: `theway: ${file}: ${parsed.reason}` } : parsed;
-}
-
-/**
- * The parsed root of `<home>/<file>`, or why it cannot be read or is not valid YAML, the reason of `load`'s error line;
- * with `refs`, the reason of a failing line that holds `${` gets the quoting hint. A path the overlay holds is read
- * from it: its text, or `cannot be read` for `null`.
- */
-export function parseFile(home: string, file: string, refs = false, overlay?: Overlay): { root: unknown } | { reason: string } {
+function load(home: string, file: string): { root: unknown } | { error: string } {
   let text: string;
-  const path = join(home, file);
-  if (overlay?.has(path) === true) {
-    const candidate = overlay.get(path);
-    if (candidate === null || candidate === undefined) return { reason: "cannot be read" };
-    text = candidate;
-  } else {
-    try {
-      text = readFileSync(path, "utf-8");
-    } catch {
-      return { reason: "cannot be read" };
-    }
+  try {
+    text = readFileSync(join(home, file), "utf-8");
+  } catch {
+    return { error: `theway: ${file}: cannot be read` };
   }
   try {
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
   } catch (e) {
     const first = (e instanceof Error ? e.message : String(e)).split("\n")[0] ?? "";
-    const line = (e as { linePos?: { line: number }[] }).linePos?.[0]?.line;
-    const failing = line === undefined ? "" : (text.split("\n")[line - 1] ?? "");
-    const hint = refs && failing.includes("${") ? QUOTE_HINT : "";
-    return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` };
+    return { error: `theway: ${file}: invalid YAML: ${first.replace(/:$/, "")}` };
   }
 }
 
-/**
- * A project's effective config, its standards before any phase filter, and the valid `workflow.defaults` of each
- * config file, global first: the resolver checks each param against its step and falls back to the next file.
- */
-export type Loaded = { config: Config; standards: Standard[]; defaults: DefaultsLayer[] };
+/** A project's effective config and its standards before any phase filter. */
+export type Loaded = { config: Config; standards: Standard[] };
 
 /** A project's effective config and standards, or the error line that stops it. */
 export type Effective = Loaded | { error: string };
@@ -274,15 +189,12 @@ export function effectiveConfig(home: string, key: string, warn: Warn): Effectiv
   const standards = standardsOf(home, key);
   const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) });
   const config = defaults(schema);
-  const layers: DefaultsLayer[] = [];
   for (const [file, root] of roots) {
-    const layer: DefaultsLayer = { file, steps: new Map() };
-    layers.push(layer);
     if (root === null) continue;
-    if (root instanceof Map) apply(file, schema, root, config, "", warn, layer);
+    if (root instanceof Map) apply(file, schema, root, config, "", warn);
     else warn(file, "not a map");
   }
-  return { config, standards, defaults: layers };
+  return { config, standards };
 }
 
 /** Whether a standard is on in an effective config; a key with no switch is always on. */
@@ -322,9 +234,6 @@ export function cmdConfig(override: string | undefined): number {
   const home = thewayHome();
   const loaded = loadConfig(home, key);
   if (loaded === null) return 1;
-  // A defaults entry naming no step is ignored, so it is not printed as part of the effective config.
-  const defaults = (loaded.config.workflow as Config).defaults as Config;
-  for (const step of warnUnknownDefaults(home, key, loaded, warnLoud)) delete defaults[step];
   process.stdout.write(stringify(loaded.config));
   return 0;
 }

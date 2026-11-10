@@ -21,9 +21,7 @@ const SHIPPED_DIRS: { dir: string; ext: string; shared?: string }[] = [
   { dir: "standards", ext: ".md", shared: "standards" },
   { dir: "templates", ext: ".md" },
   { dir: "workflows", ext: ".yaml", shared: "workflows" },
-  { dir: "steps", ext: ".yaml", shared: "steps" },
   { dir: "prompts", ext: ".md", shared: "prompts" },
-  { dir: "schemas", ext: ".json" },
 ];
 /**
  * The standards and templates theway shipped before they became prompts, with the prompts that now hold them: retired
@@ -41,6 +39,10 @@ const MOVED: Record<string, string> = {
 };
 /** The folder theway shipped review lenses in before they became prompts: retired by `retireLenses`. */
 const LENSES = "lenses";
+/** The folder of v1 step files, which theway no longer ships nor reads: retired by `retireSteps`. */
+const STEPS = "steps";
+/** The folder theway shipped its v1 JSON schemas in, which it no longer ships: retired by `retireSchemas`. */
+const SCHEMAS = "schemas";
 const MANIFEST = ".shipped.json";
 
 type Manifest = Record<string, string>;
@@ -152,6 +154,81 @@ function retireLenses(home: string, previous: Manifest | undefined): void {
   removeIfEmpty(dir);
 }
 
+const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
+/**
+ * Retires `steps/`, which theway no longer ships nor reads: in the home, a step file the previous manifest lists is
+ * removed when unedited and kept with a message when edited, every `.default.yaml` copy is removed, every other `.yaml`
+ * file is kept with the same message; in each `projects/<key>/steps/`, nothing is removed and each `.yaml` file is
+ * reported. Each folder is removed when it is left empty.
+ */
+function retireSteps(home: string, previous: Manifest | undefined): void {
+  const why = "theway no longer reads steps/; write its steps in a workflow file";
+  const dir = `${home}/${STEPS}`;
+  if (existsSync(dir) && statSync(dir).isDirectory()) {
+    const listed = new Set<string>();
+    for (const [rel, hash] of Object.entries(previous ?? {})) {
+      if (!rel.startsWith(`${STEPS}/`)) continue;
+      listed.add(rel.slice(STEPS.length + 1));
+      const path = `${home}/${rel}`;
+      if (!existsSync(path)) continue;
+      if (sha256(readFileSync(path)) === hash) {
+        rmSync(path);
+        process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+      } else {
+        process.stdout.write(`Kept your edited ${rel}: ${why}\n`);
+      }
+    }
+    for (const entry of readdirSync(dir, { withFileTypes: true }).sort(byName)) {
+      const name = entry.name;
+      if (!entry.isFile() || !name.endsWith(".yaml") || listed.has(name)) continue;
+      if (name.endsWith(".default.yaml")) {
+        rmSync(`${dir}/${name}`, { force: true });
+        continue;
+      }
+      process.stdout.write(`Kept your edited ${STEPS}/${name}: ${why}\n`);
+    }
+    removeIfEmpty(dir);
+  }
+  const projects = `${home}/projects`;
+  if (!existsSync(projects) || !statSync(projects).isDirectory()) return;
+  for (const project of readdirSync(projects, { withFileTypes: true }).sort(byName)) {
+    const own = `${projects}/${project.name}/${STEPS}`;
+    if (!project.isDirectory() || !existsSync(own) || !statSync(own).isDirectory()) continue;
+    for (const entry of readdirSync(own, { withFileTypes: true }).sort(byName)) {
+      if (entry.isFile() && entry.name.endsWith(".yaml")) {
+        process.stdout.write(`Kept projects/${project.name}/${STEPS}/${entry.name}: ${why}\n`);
+      }
+    }
+    removeIfEmpty(own);
+  }
+}
+
+/**
+ * Retires `schemas/`, which theway no longer ships: a schema the previous manifest lists is removed when unedited and
+ * kept with a message when edited, every `.default.json` copy is removed, every other file is kept silently, and the
+ * folder is removed when it is left empty.
+ */
+function retireSchemas(home: string, previous: Manifest | undefined): void {
+  const dir = `${home}/${SCHEMAS}`;
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
+  for (const [rel, hash] of Object.entries(previous ?? {})) {
+    if (!rel.startsWith(`${SCHEMAS}/`)) continue;
+    const path = `${home}/${rel}`;
+    if (!existsSync(path)) continue;
+    if (sha256(readFileSync(path)) === hash) {
+      rmSync(path);
+      process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+    } else {
+      process.stdout.write(`Kept your edited ${rel}: theway no longer ships it\n`);
+    }
+  }
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith(".default.json")) rmSync(`${dir}/${entry.name}`, { force: true });
+  }
+  removeIfEmpty(dir);
+}
+
 /**
  * Retires the standards and templates that moved to `prompts/`, before `copyShipped` reads the manifest: an unedited
  * one is removed, an edited one (or one the manifest does not list) is renamed to its backup path, so that a kept file
@@ -183,14 +260,16 @@ function retireMoved(home: string): void {
 }
 
 /**
- * Writes the shipped standards, templates, workflows, steps, prompts and schemas into `home`: a file the user has not edited is updated,
+ * Writes the shipped standards, templates, workflows and prompts into `home`: a file the user has not edited is updated,
  * an edited one is kept and the shipped version goes next to it as `<stem>.default.<ext>`.
- * `standards/`, `workflows/`, `steps/` and `prompts/` are shared with the user's own files: a user file with a shipped name is
+ * `standards/`, `workflows/` and `prompts/` are shared with the user's own files: a user file with a shipped name is
  * kept, a file theway stops shipping is removed when unedited, and an orphan `.default.<ext>` copy is removed.
  */
 function copyShipped(src: string, home: string): void {
   const previous = readManifest(home);
   retireLenses(home, previous);
+  retireSteps(home, previous);
+  retireSchemas(home, previous);
   const manifest: Manifest = {};
   for (const { dir, ext, shared } of SHIPPED_DIRS) {
     const isShared = shared !== undefined;
@@ -284,16 +363,15 @@ function reportRetiredKeys(file: string): void {
   }
   const isMap = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
   if (!isMap(doc)) return;
-  if (Object.hasOwn(doc, "engineering")) {
-    process.stdout.write("Your config.yaml still has engineering: theway ignores it and reads workflow.defaults.spec-review; remove it\n");
-  }
-  const workflow = doc.workflow;
-  if (isMap(workflow) && isMap(workflow.defaults) && Object.hasOwn(workflow.defaults, "agent")) {
-    process.stdout.write("Your config.yaml still has workflow.defaults.agent: the agent step is gone and theway ignores it; remove it\n");
+  if (Object.hasOwn(doc, "engineering")) process.stdout.write("Your config.yaml still has engineering: theway ignores it; remove it\n");
+  if (Object.hasOwn(doc, "workflow")) {
+    process.stdout.write(
+      "Your config.yaml still has workflow: theway no longer reads workflow.defaults; set a value in the workflow file or in the prompt's header, and remove the key\n",
+    );
   }
 }
 
-/** Copies the shipped config, standards, templates, workflows, steps, prompts and schemas into `home`; a new `config.yaml` has the `enabled` standards on. */
+/** Copies the shipped config, standards, templates, workflows and prompts into `home`; a new `config.yaml` has the `enabled` standards on. */
 export function init(src: string, home: string, enabled: readonly string[] = []): number {
   try {
     mkdirSync(home, { recursive: true });

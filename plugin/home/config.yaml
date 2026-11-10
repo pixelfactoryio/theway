@@ -15,12 +15,3 @@ standards:
   # Testing, deployment, monitoring and security expectations
   quality:
     enabled: false
-
-# Workflow - defaults for /theway:workflow: workflow.defaults.<step>.<param> sets a param of a step for every
-# workflow entry of that step that leaves it out (a value in the entry wins); the step files hold the defaults, and
-# theway steps lists every step with its params
-workflow:
-  defaults: {}
-  # For example, two spec review rounds for /theway:engineering:
-  # defaults:
-  #   spec-review: {rounds: 2}

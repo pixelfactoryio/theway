@@ -11,7 +11,7 @@ import { cmdPath } from "./core/path";
 import { cmdProject } from "./core/project";
 import { cmdStandards } from "./core/standards";
 import { cmdValidateId } from "./core/validate-id";
-import { cmdSteps, cmdWorkflow } from "./core/workflow";
+import { cmdWorkflow } from "./core/workflow";
 import { install, uninstall } from "./install";
 
 const nonEmpty = (value: string): string => {
@@ -81,11 +81,6 @@ export function buildProgram(): Command {
     .option("--project <key>")
     .option("--input <name=value>", "", (value: string, previous: string[] | undefined) => [...(previous ?? []), value])
     .action((name: string | undefined, o: { project?: string; input?: string[] }) => exit(cmdWorkflow(name, o.project, o.input)));
-  program
-    .command("steps")
-    .argument("[name]")
-    .option("--project <key>")
-    .action((name: string | undefined, o: { project?: string }) => exit(cmdSteps(name, o.project)));
   program.command("authority").action(() => exit(cmdAuthority()));
   program
     .command("next-id")

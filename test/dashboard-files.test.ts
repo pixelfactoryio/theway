@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { historyDir, snapshot } from "../src/dashboard/history";
-import { CLI, cleanup, FIXTURE_HOME, put, send, shippedHome, start } from "./dashboard-helpers";
+import { CLI, cleanup, SHIPPED_HOME, put, send, shippedHome, start } from "./dashboard-helpers";
 
 afterEach(cleanup);
 
@@ -14,7 +14,7 @@ const write = (port: number, token: string, method: string, path: string, body?:
 const get = (port: number, path: string) => send(port, "GET", path, {});
 const sha = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const cli = (dir: string, ...args: string[]) => spawnSync("node", [CLI, ...args], { env: { ...process.env, THEWAY_HOME: dir }, encoding: "utf-8" });
-const fixture = (rel: string) => readFileSync(join(FIXTURE_HOME, rel), "utf-8");
+const fixture = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
 /** Every file under `dir`, relative, sorted. */
 const tree = (dir: string) => (readdirSync(dir, { recursive: true }) as string[]).sort();
 
@@ -84,7 +84,7 @@ test("GET /api/v1/files lists every project, the global workflows and prompts, t
   });
   expect(body.workflows[4]).toEqual({ scope: "project", key: "q", label: "q", kind: "workflows", name: "own", path: join(dir, "projects", "q", "workflows", "own.yaml"), description: "Own", default: false, error: null });
   const global = body.prompts.filter((p) => p.scope === "global");
-  expect(global.map((p) => p.name)).toEqual(readdirSync(join(FIXTURE_HOME, "prompts")).map((f) => f.slice(0, -".md".length)).sort());
+  expect(global.map((p) => p.name)).toEqual(readdirSync(join(SHIPPED_HOME, "prompts")).map((f) => f.slice(0, -".md".length)).sort());
   expect(global.filter((p) => p.step).map((p) => p.name)).toEqual(STEP_PROMPTS);
   for (const p of global) expect([p.name, p.description === null]).toEqual([p.name, !STEP_PROMPTS.includes(p.name)]);
   expect(body.prompts.find((p) => p.name === "triage")).toEqual({

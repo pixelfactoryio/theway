@@ -45,20 +45,19 @@ test("the undo stack keeps the newest 100 texts", () => {
   expect(d.undo[0]).toBe("50");
 });
 
-const FIXTURE_HOME = join(import.meta.dirname, "fixtures", "home");
-const fixture = (rel: string) => readFileSync(join(FIXTURE_HOME, rel), "utf-8");
+const fixture = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
 
-/** A home holding the fixture's workflows and prompts, and a project `p`. */
+/** A home holding the shipped workflows and prompts, and a project `p`. */
 const HOME = (() => {
   const dir = mkdtempSync(join(tmpdir(), "theway-files-"));
-  for (const folder of ["workflows", "prompts"]) cpSync(join(FIXTURE_HOME, folder), join(dir, folder), { recursive: true });
+  for (const folder of ["workflows", "prompts"]) cpSync(join(SHIPPED_HOME, folder), join(dir, folder), { recursive: true });
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
   return dir;
 })();
 afterAll(() => rmSync(HOME, { recursive: true, force: true }));
 
-/** The step prompts of the fixture home, with their declared inputs. */
-const STEP_PROMPTS: PromptChoice[] = readdirSync(join(FIXTURE_HOME, "prompts")).flatMap((f) => {
+/** The shipped step prompts, with their declared inputs. */
+const STEP_PROMPTS: PromptChoice[] = readdirSync(join(SHIPPED_HOME, "prompts")).flatMap((f) => {
   const { header, headerErrors } = parsePromptFile(fixture(`prompts/${f}`));
   if (header === null || headerErrors.length > 0) return [];
   return [{ name: f.slice(0, -".md".length), inputs: Object.entries(header.inputs).map(([name, i]) => ({ name, required: i.required })) }];

@@ -31,12 +31,12 @@ import {
 import { editHeader, setHeaderField } from "../src/dashboard/client/editor/prompt";
 import { headerSource } from "../src/dashboard/client/files/source";
 
-const FIXTURE_HOME = join(import.meta.dirname, "fixtures", "home");
+const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
 
-/** A home holding the fixture's workflows and prompts, and a project `p`. */
+/** A home holding the shipped workflows and prompts, and a project `p`. */
 const HOME = (() => {
   const dir = mkdtempSync(join(tmpdir(), "theway-ops-"));
-  for (const folder of ["workflows", "prompts"]) cpSync(join(FIXTURE_HOME, folder), join(dir, folder), { recursive: true });
+  for (const folder of ["workflows", "prompts"]) cpSync(join(SHIPPED_HOME, folder), join(dir, folder), { recursive: true });
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
   return dir;
 })();
@@ -57,10 +57,10 @@ function commented(text: string): string {
 }
 
 test("each fixture workflow, as is and commented, round-trips byte for byte and resolves through an overlay", () => {
-  const names = readdirSync(join(FIXTURE_HOME, "workflows")).map((f) => f.slice(0, -".yaml".length));
+  const names = readdirSync(join(SHIPPED_HOME, "workflows")).map((f) => f.slice(0, -".yaml".length));
   expect(names.length).toBe(4);
   for (const name of names) {
-    const text = readFileSync(join(FIXTURE_HOME, "workflows", `${name}.yaml`), "utf-8");
+    const text = readFileSync(join(SHIPPED_HOME, "workflows", `${name}.yaml`), "utf-8");
     const copy = commented(text);
     expect(copy).toContain("# before step 1\n");
     expect(copy).toMatch(/- uses: prompts\/[a-z-]+\.md # on step 1\n/);
@@ -73,15 +73,15 @@ test("each fixture workflow, as is and commented, round-trips byte for byte and 
   }
 });
 
-const AGENTS = readFileSync(join(FIXTURE_HOME, "workflows", "agents.yaml"), "utf-8");
+const AGENTS = readFileSync(join(SHIPPED_HOME, "workflows", "agents.yaml"), "utf-8");
 
 /** The commented `agents.yaml`, with every comment it holds. */
 const COMMENTED = commented(AGENTS);
 const COMMENTS = [1, 2, 3, 4, 5, 6].flatMap((n) => [`# before step ${n}`, `# on step ${n}`]);
 
-/** The step prompts of the fixture home, with their declared inputs. */
-const STEP_PROMPTS: PromptChoice[] = readdirSync(join(FIXTURE_HOME, "prompts")).flatMap((f) => {
-  const { header, headerErrors } = parsePromptFile(readFileSync(join(FIXTURE_HOME, "prompts", f), "utf-8"));
+/** The shipped step prompts, with their declared inputs. */
+const STEP_PROMPTS: PromptChoice[] = readdirSync(join(SHIPPED_HOME, "prompts")).flatMap((f) => {
+  const { header, headerErrors } = parsePromptFile(readFileSync(join(SHIPPED_HOME, "prompts", f), "utf-8"));
   if (header === null || headerErrors.length > 0) return [];
   return [{ name: f.slice(0, -".md".length), inputs: Object.entries(header.inputs).map(([name, i]) => ({ name, required: i.required })) }];
 });
@@ -205,7 +205,7 @@ test("each workflow field is set, and a workflow input added twice and removed, 
 });
 
 test("an input added to the review.md header writes input then input2, and agents still resolves", () => {
-  const review = readFileSync(join(FIXTURE_HOME, "prompts", "review.md"), "utf-8");
+  const review = readFileSync(join(SHIPPED_HOME, "prompts", "review.md"), "utf-8");
   const once = editHeader(review, (h) => addInput(h, HEADER_ORDER));
   expect(once).toContain("    required: true\n  input:\n    description: Describe this input.\n---\n");
   expect(errorsOf(AGENTS, { review: once })).toEqual([]);

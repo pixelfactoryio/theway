@@ -416,21 +416,6 @@ function run(prompt: Prompt, set: Map<string, string>, value: (kind: string, nam
   return { with: w, prompt: substitute(prompt.body, (kind, name) => (kind === "inputs" ? w[name] : undefined)) };
 }
 
-/** The version a workflow file's text sets, or `undefined` when it sets none or does not parse. */
-function versionOf(text: string): unknown {
-  const parsed = parseYaml(text);
-  if ("root" in parsed) return isMap(parsed.root) ? parsed.root.get("version") : undefined;
-  const m = /^version:[ \t]*["']?([^"'\s#]+)["']?[ \t]*(#.*)?$/m.exec(text);
-  return m?.[1];
-}
-
-/** Whether the workflow `name` of a project is a file whose `version` is `theway.workflow/v1beta`. */
-export function isV1betaWorkflow(home: string, key: string, name: string, overlay?: Overlay): boolean {
-  const path = fileOf(home, key, "workflows", name, overlay);
-  const text = path === null ? null : readText(path, overlay);
-  return text !== null && versionOf(text) === VERSION;
-}
-
 /**
  * The workflow `name` of a project, checked and resolved: found in the project folder, then the home (the overlay
  * first), every rule checked and every error collected in file order as `<rel>: <where>: <message>`. `inputs` holds the
