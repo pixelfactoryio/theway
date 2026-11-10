@@ -526,35 +526,18 @@ A change's page shows its tasks done, its PR link from the `**PR:**` line of its
 
 ### Workflows
 
-The Workflows page, at `#/workflows`, lists every workflow and step file where it lives: the global files of `<home>/workflows/` and `<home>/steps/`, then each project's own, marked `<project> only`. The default workflow is marked `default`, and a file that does not resolve is marked `error`.
+The Workflows page, at `#/workflows`, lists the files where they live: the global files of `<home>/workflows/` and `<home>/prompts/`, then each project's own, marked `<project> only`. The list has three groups, each with its number of files: Workflows, Prompts (the prompt files a step can run: a header that passes the header rules) and Reference files (every other prompt file). The default workflow is marked `default`, and a workflow that does not resolve is marked `error`.
 
-- A workflow is drawn resolved, as `theway workflow <name>` prints it: one card per step, with one line per agent, `parallel` group or `when`, and a card per gate with its question. A workflow that does not resolve shows the line that stops it above its text.
-- A step is drawn as written, so `${rounds}` shows as written: each `loop`, `foreach` and `when` is a group with one sentence, each agent a card with its prompts and result type, then the step's params with their defaults.
-- YAML shows the file's text. The right column gives the file's path, the projects it applies to (a global file applies to every project that has no file of its name), for a step the workflows that use it, and the warnings resolving it gave.
+- A workflow's page draws its steps in order, as `theway workflow <name>` resolves them with no input: one numbered card per step with the prompt it runs (a link to its page), its model, or "your session" for a step that runs in your session, its matrix (`N copies at once` and each value), its on fail (the prompt it runs, then the step again, up to its tries) and its other inputs as written. Under the steps, one line says what every step answers: `pass`, `fail` or `blocked`; a fail with no on fail, and any blocked, stops the run. A workflow that does not resolve shows its error lines, each one that names a step under that step. The right column gives where it runs, its inputs and the file's path.
+- A prompt's page shows "step prompt" for a step prompt and the model its header sets, its header errors when a step or an on fail uses it, its inputs (each required, or optional with its default), and its instructions, rendered. The right column gives the workflows that use it, with the step that does and how (`step N`, `on fail of step N`, `value in step N`), and the file's path.
+- YAML, or Markdown for a prompt, shows the file's text.
 
 ### Editing a file
 
-Edit, on a file's title row, opens it in edit mode at its page with `/edit`. The drawing shows the file as written, and the right column holds the settings of what you select.
-
-- In a workflow, a `+` before, between and after the entries opens a menu: filter it by typing, then choose Gate, a step the workflow can use (for a project workflow, the project's steps, then the global ones it does not have), or New step. Select an entry to set its `agents`, its params (from the step file, written with the type of their defaults), or a gate's question, and to move or remove it. With nothing selected, the column holds the workflow's description, input, `default` and `agents`.
-- In a step, a `+` between the constructs of each `do` list and after its last adds an agent, a loop (not inside a loop), a when or a for-each (not inside a for-each), and the `+` of the Params box adds a param. Select a construct or a param to change its fields or remove it; removing a construct that has children asks first.
-- Ctrl or Cmd and Z undoes an edit, with Shift it redoes it. YAML shows the edited text.
-- Your edits are kept while you move between pages, and the file list marks an edited file `edited`; they are lost on reload, which the browser asks you to confirm. A file with edits always opens in edit mode. New workflow and New step, under the list, copy an existing file under a new name, for all projects or for one project; the copy is marked `new` and nothing is written until you save it. A project file may take the name of a global one: it then replaces it for that project.
-
-The bar at the bottom names the file and who uses it, and shows the diff of your edits, or the error lines. Each edit is checked 400 ms after you stop: the resolver of `theway workflow` runs over the edited text without writing it, in every context that reads the file. A project file is checked in its project; a global file is checked on its own and in every project that has no file of its name, and a line from a project is prefixed with its label. A check breaks when the edited workflow or the default no longer resolves, or, for a step, when the step or a workflow that names it no longer does. Another workflow of a project that was already broken, or a default that already failed, is only a warning. Each error line that points at an entry or a construct outlines its card, and selecting the line selects the card. Only the open file's edits are checked: a workflow that needs an unsaved change to a step reports an error until that step is saved.
-
-Save is enabled when the check passes, and writes that one file where it lives: `<home>/<kind>/<name>.yaml` for a global file, `<home>/projects/<key>/<kind>/<name>.yaml` for a project's. It never makes a project copy; Discard drops your edits after a confirm. The server checks the text again before writing and refuses it with the error lines (`422`). A file already holding the text is not written, and a file is written to a temporary file next to it, then renamed over it.
-
-Each edit goes through the YAML document of the file, so the text of every comment is kept; a comment's place and the spacing inside `{…}` and `[…]` may change.
-
-The write requests need an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and an `X-Theway-Token` header holding a random token the server makes when it starts and puts in its page; any other request gets `403`. A web page on another site cannot read the token, and the custom header makes its browser ask the server first, which it never allows.
-
-When the file changed on disk since you opened it, Save gets `409` and writes nothing: the bar says "Changed on disk since you opened it.", and Reload drops your edits and loads the file as it is now.
+Editing a file from the dashboard is not available in this version.
 
 ### Versions
 
 Before a save from the dashboard replaces a file, the text it held is kept as a version: under `<home>/history/global/<kind>/<name>/` for a global file, `<home>/history/projects/<key>/<kind>/<name>/` for a project's. A file keeps its 20 newest versions; a new file has none until its first save replaces it. Only dashboard saves are recorded: a file you change by hand, through an agent or with `theway install` gets no version, though the next dashboard save keeps whatever was on disk. Nothing else reads `<home>/history/`, so deleting it is safe and only drops the versions.
 
-Versions, on a file's title row, lists them in the right column at its page with `/versions`: Current, then each version by its date and time, newest first, then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml`). Select a version to draw it as written, with the diff from it to the current file.
-
-Restore puts the version's text, byte for byte, in the editor as your edits, after a confirm when the file already has edits; it is disabled when the version holds the current text. Nothing is written until you save it, through the same check as any edit, and that save keeps the replaced text as a version in turn.
+Versions, on a file's title row, lists them in the right column at its page with `/versions`: Current, then each version by its date and time, newest first, then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml` or `<name>.default.md`). Select a version to draw it as the file's page draws it, with the diff from it to the current file.
