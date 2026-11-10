@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { PromptContext } from "./context";
 import type { StepSource } from "./source";
 import { promptName } from "./source";
-import { Card, indicator, LINE, ModelBadge } from "./WorkflowView";
+import { Card, indicator, LINE, StepBadge } from "./WorkflowView";
 
 /** The `+` button on the timeline's line and its menu: every step prompt, by name with its description. */
 function AddStep({ ctx, onPick, className }: { ctx: PromptContext; onPick: (name: string) => void; className?: string }) {
@@ -38,10 +38,9 @@ function AddStep({ ctx, onPick, className }: { ctx: PromptContext; onPick: (name
   );
 }
 
-/** A step's compact card: its prompt, its copies, its on fail, and its model or "your session"; then its matrix values. */
+/** A step's compact card: its prompt, its copies, its on fail, and `agent · <model>` or "your session"; then its matrix values. */
 function StepCard({ step, runsOn, ctx, selected, tied }: { step: StepSource; runsOn: string; ctx: PromptContext; selected: boolean; tied: boolean }) {
   const tries = Number(step.tries ?? 1);
-  const session = (step.runsOn ?? runsOn) === "session";
   const model = step.model ?? ctx.info(step.name)?.header?.model ?? null;
   return (
     <Card className={cn("flex flex-col gap-1.5 py-2.5 pl-2", selected ? "ring-2 ring-primary" : tied && "ring-2 ring-destructive")}>
@@ -60,7 +59,9 @@ function StepCard({ step, runsOn, ctx, selected, tied }: { step: StepSource; run
             on fail: {step.onFail.name ?? step.onFail.uses} · {Number.isFinite(tries) ? tries : step.tries} {tries > 1 ? "tries" : "try"}
           </Badge>
         )}
-        <span className="ml-auto">{session ? <Badge variant="outline">your session</Badge> : model !== null && <ModelBadge model={model} />}</span>
+        <span className="ml-auto">
+          <StepBadge runsOn={step.runsOn ?? runsOn} model={model} />
+        </span>
       </div>
       {step.matrix !== null && (
         <div className="flex flex-wrap items-center gap-1.5 pl-6">

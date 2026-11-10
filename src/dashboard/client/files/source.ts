@@ -8,6 +8,17 @@ import { headerDoc } from "../editor/prompt";
 /** The `<name>` of a `prompts/<name>.md` value; `null` for any other value. */
 export const promptName = (value: string): string | null => /^prompts\/([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/.exec(value)?.[1] ?? null;
 
+/**
+ * A step card's badge from its effective runs-on and model: "your session", `agent · <model>` (`agent` with no model),
+ * else its model alone; `info-light` for opus, `secondary` for the other models; `null` for nothing to show.
+ */
+export function stepBadge(runsOn: string, model: string | null): { text: string; variant: "outline" | "info-light" | "secondary" } | null {
+  if (runsOn === "session") return { text: "your session", variant: "outline" };
+  const variant = model === "opus" ? "info-light" : "secondary";
+  if (runsOn === "agents") return { text: model === null ? "agent" : `agent · ${model}`, variant };
+  return model === null ? null : { text: model, variant };
+}
+
 /** An input declaration as written. */
 export type InputSource = { name: string; description: string; required: boolean; default: string | null; type: string };
 

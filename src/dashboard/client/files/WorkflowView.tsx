@@ -8,7 +8,7 @@ import { type FileRef, fileHref, useFiles } from "@/lib/api";
 import type { ResolvedStep, ResolvedWorkflow } from "../../../core/language-schema";
 import type { FilesResponse, PromptItem, WorkflowResolved } from "../../types";
 import { parse } from "../editor/ops";
-import { promptName } from "./source";
+import { promptName, stepBadge } from "./source";
 
 /** A card of the centre and the right column: the card colour, a border, rounded, a light shadow. */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -37,6 +37,12 @@ export const runsOnText = (runsOn: string): string => (runsOn === "session" ? "Y
 /** A model's badge: `info-light` for opus, `secondary` for the others. */
 export function ModelBadge({ model }: { model: string }) {
   return <Badge variant={model === "opus" ? "info-light" : "secondary"}>{model}</Badge>;
+}
+
+/** A step card's badge: "your session", `agent · <model>`, or its model, as `stepBadge` gives it. */
+export function StepBadge({ runsOn, model }: { runsOn: string; model: string | null }) {
+  const badge = stepBadge(runsOn, model);
+  return badge === null ? null : <Badge variant={badge.variant}>{badge.text}</Badge>;
 }
 
 /** A line as the page shows it: the `theway: ` after an optional `<label>: ` removed. */
@@ -103,7 +109,7 @@ function StepCard({ file, step }: { file: FileRef; step: ResolvedStep }) {
         <PromptLink item={byPath(step.file)} name={name} className="text-[14px] font-medium" />
         {step.matrix !== null && <Badge variant="primary-light">{step.matrix.values.length} copies at once</Badge>}
         <span className="ml-auto">
-          {step.runs_on === "session" ? <Badge variant="outline">your session</Badge> : step.model !== null && <ModelBadge model={step.model} />}
+          <StepBadge runsOn={step.runs_on} model={step.model} />
         </span>
       </div>
       {step.description !== "" && <p className="text-muted-foreground">{step.description}</p>}
