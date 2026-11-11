@@ -298,7 +298,7 @@ function Editor({
     drop(file);
     if (draft.isNew) navigate("/prompts");
   };
-  const status = draft.isNew ? "New file" : dirty ? "Unsaved changes" : saving ? "Saving…" : "Saved";
+  const status = draft.isNew ? "New file" : dirty ? "Unsaved changes" : "Saved";
 
   const details = (
     <>
