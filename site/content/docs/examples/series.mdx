@@ -30,22 +30,7 @@ It assigned them in dependency order:
 | `add-user-auth-02` | `POST /login`, checking the password against the stored hash |
 | `add-user-auth-03` | README: how to create a user and log in |
 
-Each member's `spec.md` carries its `**Series:**` line directly under its title:
-
-```md
-# Spec Analysis: Store User Passwords
-**Series:** add-user-auth — 01 of 03
-```
-
-```md
-# Spec Analysis: Add the Login Endpoint
-**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01
-```
-
-```md
-# Spec Analysis: Document User Authentication
-**Series:** add-user-auth — 03 of 03, depends on add-user-auth-02
-```
+Each member is its own change folder, with its `spec.md` and its `change.yaml`. The series' total is its number of members: three.
 
 ## The review
 
@@ -88,7 +73,7 @@ On `yes`, it squash-merged PR #13, synced `main`, and created `add-user-auth-02`
 
 ## The list
 
-Each implementer ticked its tasks, so each member's `tasks.md` shows its three tasks done:
+Each implementer ticked its tasks with `theway task done`, so each member's `change.yaml` has its three tasks done:
 
 ```text
 $ theway list

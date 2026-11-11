@@ -6,7 +6,8 @@ import { dirname, join, sep } from "node:path";
 import { isDir, isFile, type Overlay, writeAtomic } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
 import { NAME } from "../core/language-schema";
-import { activeIds, archiveDirs, filesEndingWith, taskCounts } from "../core/list";
+import { changeFileCount, taskCounts } from "../core/change";
+import { activeIds, archiveDirs, filesEndingWith } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { projectDir, projectReason } from "../core/project";
 import { isVersionId, snapshot, versionsOf, versionText } from "./history";
@@ -51,9 +52,9 @@ const ARCHIVED = /^([0-9]{4}-[0-9]{2}-[0-9]{2})-(.*)$/;
 /** A series member: the series ID and a two-digit ordinal. */
 const MEMBER = /^(.+)-([0-9]{2})$/;
 /** The files shown first in a change, in this order, when present. */
-const FIRST = ["spec.md", "tasks.md", "design.md"];
+const FIRST = ["spec.md", "design.md", "notes.md"];
 
-/** The status of a change with `done` of `total` numbered tasks done. */
+/** The status of a change with `done` of `total` tasks done. */
 export function statusOf(done: number, total: number): Status {
   if (total === 0) return "No tasks";
   if (done === total) return "Ready to archive";
@@ -83,7 +84,7 @@ function changesOf(pdir: string): ChangesResponse {
     const member = MEMBER.exec(id);
     return {
       id,
-      files: filesEndingWith(dir, ".md").length,
+      files: changeFileCount(dir),
       tasks: { done, total },
       status: statusOf(done, total),
       series: member === null ? null : { id: member[1] as string, ordinal: Number(member[2]) },
@@ -141,52 +142,16 @@ export function allChanges(home: string): Reply<AllChangesResponse> {
   return ok({ total: list.length, projects });
 }
 
-/** A PR link token: `https://` and no whitespace, quote, angle bracket or closing bracket. */
-const PR_URL = /^https:\/\/[^\s<>"')\]]+/;
-/** A spec's series line: `**Series:** <id> — NN of TOTAL`. */
-const SERIES_LINE = /^\*\*Series:\*\*\s+(\S+)\s+—\s+([0-9]+)\s+of\s+([0-9]+)\b/;
-
-/** The PR link of a change folder: the first `https://` token of the first `**PR:**` line of its `tasks.md`; `null` otherwise. */
-function prOf(dir: string): string | null {
-  const path = join(dir, "tasks.md");
-  if (!isFile(path)) return null;
-  const line = readFileSync(path, "utf-8")
-    .split("\n")
-    .find((l) => l.startsWith("**PR:**"));
-  if (line === undefined) return null;
-  for (const token of line.slice("**PR:**".length).split(/\s+/)) {
-    const m = PR_URL.exec(token);
-    if (m === null) continue;
-    const url = m[0].replace(/[.,;:]+$/, "");
-    return url.length > "https://".length ? url : null;
-  }
-  return null;
-}
-
-/** The series total a spec states: from its `**Series:**` line among the first three non-empty lines after its H1. */
-function statedTotal(dir: string, series: string): number | null {
-  const path = join(dir, "spec.md");
-  if (!isFile(path)) return null;
-  const lines = readFileSync(path, "utf-8").split("\n");
-  const h1 = lines.findIndex((l) => l.startsWith("# "));
-  if (h1 === -1) return null;
-  for (const l of lines.slice(h1 + 1).filter((l) => l.trim() !== "").slice(0, 3)) {
-    const m = SERIES_LINE.exec(l);
-    if (m !== null && m[1] === series) return Number(m[3]);
-  }
-  return null;
-}
-
-/** The properties of the change `id` whose folder is `dir`, in the project folder `pdir`. */
-function propertiesOf(pdir: string, dir: string, id: string): ChangeProperties {
+/** The properties of the change `id`, in the project folder `pdir`. */
+function propertiesOf(pdir: string, id: string): ChangeProperties {
   const m = MEMBER.exec(id);
-  if (m === null) return { pr: prOf(dir), series: null };
+  if (m === null) return { series: null };
   const series = m[1] as string;
   const members = (seriesMembers(pdir).get(series) ?? []).map(({ ordinal, id, folder }) => ({ ordinal, id, folder }));
-  return { pr: prOf(dir), series: { id: series, ordinal: Number(m[2]), total: statedTotal(dir, series) ?? members.length, members } };
+  return { series: { id: series, ordinal: Number(m[2]), total: members.length, members } };
 }
 
-/** The detail of the change folder `dir`: its tasks and every `.md` file rendered, `spec.md`, `tasks.md` and `design.md` first. */
+/** The detail of the change folder `dir`: its tasks and every `.md` file rendered, `spec.md`, `design.md` and `notes.md` first. */
 function detail(pdir: string, dir: string, id: string, archived: boolean): ChangeDetail {
   const names = filesEndingWith(dir, ".md").sort(byText);
   const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n))];
@@ -196,7 +161,7 @@ function detail(pdir: string, dir: string, id: string, archived: boolean): Chang
     archived,
     tasks: { done, total },
     files: ordered.map((name) => ({ name, html: renderMarkdown(readFileSync(join(dir, name), "utf-8")) })),
-    properties: propertiesOf(pdir, dir, id),
+    properties: propertiesOf(pdir, id),
   };
 }
 

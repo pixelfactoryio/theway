@@ -4,7 +4,7 @@ How a change is implemented, whoever implements it: the session follows this for
 
 ## The spec is the contract
 
-`spec.md` says what the change must do and why; `tasks.md` breaks it into work; `design.md`, when present, fixes contracts and data. Implement what they describe. The spec was written to be implemented without guessing, so a gap between it and the code is information, not something to smooth over.
+`spec.md` says what the change must do and why; `change.yaml` breaks it into tasks; `design.md`, when present, fixes contracts and data. Implement what they describe. The spec was written to be implemented without guessing, so a gap between it and the code is information, not something to smooth over.
 
 ## Stay inside this change
 
@@ -14,10 +14,10 @@ Of the change folders, write only to `<change-dir>`: never to other change folde
 
 ## Implement
 
-- Work through the numbered tasks of `tasks.md`. Keep their order unless the spec shows a task does not depend on the ones before it: later tasks usually build on earlier ones.
+- Work through the tasks of `change.yaml`. Keep their order unless the spec shows a task does not depend on the ones before it: later tasks usually build on earlier ones.
 - Follow the codebase's existing patterns and `docs/architecture/coding-standards.md` when it exists.
 - Write the tests with the code they cover.
-- Tick each task (`- [x] N.`) once it is done, and record anything you learn that the next person needs in the Notes section of `tasks.md`, unless your prompt says the orchestrator does.
+- Run `theway task done <change-id> <n>` once a task is done, and record anything you learn that the next person needs in `<change-dir>/notes.md`, created when first needed.
 
 ## Standards
 
@@ -25,7 +25,7 @@ Follow the standards you are given, as you follow `docs/architecture/coding-stan
 
 ## When the spec does not fit
 
-If the code contradicts the spec, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop and bring it back: what you found, and the options you see. Carrying on with your own fix would leave a spec that no longer describes the code, and the decision would be made without the person who owns the change. Once it is decided, update `spec.md` (the decision and why) and `tasks.md`, then continue. A risk the spec did not foresee goes into its Hardpoints table. A light spec has no Hardpoints table: a risk at Medium or High that it did not foresee is brought back as a blocker.
+If the code contradicts the spec, a task cannot be done as written, or doing it well needs a decision the spec does not make, stop and bring it back: what you found, and the options you see. Carrying on with your own fix would leave a spec that no longer describes the code, and the decision would be made without the person who owns the change. Once it is decided, update `spec.md` (the decision and why) and the tasks of `change.yaml`, then run `theway change <change-id>`, then continue. A risk the spec did not foresee goes into its Hardpoints table. A light spec has no Hardpoints table: a risk at Medium or High that it did not foresee is brought back as a blocker.
 
 ## Verify
 
@@ -43,7 +43,7 @@ A `fix-` change also proves that its regression test catches the bug, and that t
 6. Run it on the change and record that it passes.
 7. Remove the worktree with `git worktree remove --force <dir>`. Do this whatever happened before, including when you stopped at an earlier step because the setup or the test could not run, or because the test did not fail for the Root Cause's reason.
 
-Its light form: when `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in the Discoveries of `tasks.md` Notes, then run it after the fix and record that it passes. Its failure must follow from the cause the spec's Problem states. Writing and running the test before the fix overrides "Write the tests with the code they cover" for that test.
+Its light form: when `spec.md` has `**Mode:** light` under its title, steps 1-7 do not apply: run the regression test before writing the fix, record its command and failing output in `<change-dir>/notes.md`, then run it after the fix and record that it passes. Its failure must follow from the cause the spec's Problem states. Writing and running the test before the fix overrides "Write the tests with the code they cover" for that test.
 
 **Re-running the regression check** on a new head means steps 1-7 again for a full spec, and only the run after the fix for a light spec, whose failing run before the fix is already recorded.
 

@@ -20,7 +20,7 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 
 ## Steps
 
-> Follow the conventions in `<home>/standards/interaction.md` (exploration, reporting and authority).
+> Follow `<home>/standards/interaction.md` (exploration and reporting) and `<home>/standards/authority.md`.
 
 ### 1. Require an Explicit Instruction (STOP gate)
 
@@ -28,17 +28,17 @@ Run `theway path` and use the folder it prints as `<home>`, never a path from el
 
 ### 2. Verify Completion
 
-Run `theway list` and show the task count before archiving. If the change is not at `N/N tasks done`, list its open numbered tasks and ask the user to fix them or accept them. Do not proceed on your own.
+Run `theway list` and show the task count before archiving. If the change is not at `N/N tasks done`, list its open tasks and ask the user to fix them or accept them: a task that is done is ticked with `theway task done <change-id> <n>`. Do not proceed on your own.
 
 ### 3. Move to Archive
 
 ```bash
 theway archive <change-id>
-# only if the user explicitly accepts remaining open numbered tasks:
+# only if the user explicitly accepts remaining open tasks:
 theway archive <change-id> --force
 ```
 
-When `theway archive` refuses because numbered tasks are open, list them and ask as in Step 2; use `--force` only on the user's explicit acceptance.
+When `theway archive` refuses because tasks are open, list them and ask as in Step 2; use `--force` only on the user's explicit acceptance.
 
 ### 4. Confirm Archive
 

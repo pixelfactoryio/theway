@@ -81,20 +81,30 @@ const json = async (port: number, path: string) => {
   return { status: res.status, body: JSON.parse(res.body), type: res.headers["content-type"] };
 };
 
-/** A home with two projects: series members, a standalone change, archived folders and a script in a tasks file. */
+/** A `change.yaml` with one task per entry of `done`, ticked when true. */
+function changeYaml(...done: boolean[]): string {
+  const tasks = done.map((d, i) => `  - text: task ${i + 1}\n${d ? "    done: true\n" : ""}`).join("");
+  return `version: theway.change/v1beta\ndescription: Do the thing\ntasks:\n${tasks}`;
+}
+
+/** A home with two projects: series members, a standalone change, archived folders and a script in a notes file. */
 function changesHome(): string {
   const dir = home();
   const a = join(dir, "projects", "-Users-me-alpha", "changes");
   put(join(a, "add-feed-01", "spec.md"), "# Spec\n");
-  put(join(a, "add-feed-01", "tasks.md"), "- [x] 1. a\n- [x] 2. b\n");
+  put(join(a, "add-feed-01", "change.yaml"), changeYaml(true, true));
   put(join(a, "add-feed-01", "notes.md"), "notes\n");
   put(join(a, "add-feed-01", "design.md"), "# Design\n");
-  put(join(a, "add-feed-02", "tasks.md"), "- [x] 1. a\n- [ ] 2. b <script>alert(1)</script>\n- [ ] Not a task\n");
+  put(join(a, "add-feed-01", "a-extra.md"), "# Extra\n");
+  put(join(a, "add-feed-02", "change.yaml"), changeYaml(true, false));
+  put(join(a, "add-feed-02", "notes.md"), "- b <script>alert(1)</script>\n");
   put(join(a, "add-feed-03", "spec.md"), "# Spec\n");
-  put(join(a, "fix-typo", "tasks.md"), "- [ ] 1. a\n");
+  put(join(a, "fix-typo", "change.yaml"), changeYaml(false));
+  put(join(a, "fix-bad", "change.yaml"), "version: theway.change/v1beta\ndescription: d\ntasks: []\n");
   put(join(a, "archive", "2026-01-10-add-old", "spec.md"), "# Old\n");
-  put(join(a, "archive", "2026-03-01-add-newer", "tasks.md"), "- [x] 1. a\n");
-  put(join(dir, "projects", "-Users-me-beta", "changes", "add-solo-01", "tasks.md"), "- [ ] 1. a\n");
+  put(join(a, "archive", "2026-03-01-add-newer", "change.yaml"), changeYaml(true));
+  put(join(a, "archive", "2026-03-01-add-newer", "notes.md"), "notes\n");
+  put(join(dir, "projects", "-Users-me-beta", "changes", "add-solo-01", "change.yaml"), changeYaml(false));
   return dir;
 }
 
@@ -235,9 +245,10 @@ test("GET /api/v1/changes gives each project's changes with series, statuses and
   const alpha = res.body.projects[0];
   expect({ active: alpha.active, archived: alpha.archived }).toEqual({
     active: [
-      { id: "add-feed-01", files: 4, tasks: { done: 2, total: 2 }, status: "Ready to archive", series: { id: "add-feed", ordinal: 1 } },
-      { id: "add-feed-02", files: 1, tasks: { done: 1, total: 2 }, status: "In progress", series: { id: "add-feed", ordinal: 2 } },
+      { id: "add-feed-01", files: 5, tasks: { done: 2, total: 2 }, status: "Ready to archive", series: { id: "add-feed", ordinal: 1 } },
+      { id: "add-feed-02", files: 2, tasks: { done: 1, total: 2 }, status: "In progress", series: { id: "add-feed", ordinal: 2 } },
       { id: "add-feed-03", files: 1, tasks: { done: 0, total: 0 }, status: "No tasks", series: { id: "add-feed", ordinal: 3 } },
+      { id: "fix-bad", files: 1, tasks: { done: 0, total: 0 }, status: "No tasks", series: null },
       { id: "fix-typo", files: 1, tasks: { done: 0, total: 1 }, status: "Not started", series: null },
     ],
     archived: [
@@ -246,8 +257,11 @@ test("GET /api/v1/changes gives each project's changes with series, statuses and
     ],
   });
   const list = spawnSync("node", [CLI, "list", "--project", "-Users-me-alpha"], { encoding: "utf-8", env: { ...process.env, THEWAY_HOME: dir } });
+  const lines = list.stdout.split("\n");
   for (const c of alpha.active as ActiveChange[]) {
-    expect(list.stdout).toContain(`  ${c.id.padEnd(20)} ${c.files} files   ${c.tasks.done}/${c.tasks.total} tasks done\n`);
+    const head = `  ${c.id.padEnd(20)} ${c.files} files   `;
+    if (c.status === "No tasks") expect(lines.some((l) => l.startsWith(`${head}invalid: `))).toBe(true);
+    else expect(lines).toContain(`${head}${c.tasks.done}/${c.tasks.total} tasks done`);
   }
 });
 
@@ -281,26 +295,26 @@ test("dashboard renders a change's files spec first with raw HTML escaped, and a
   expect(one.body.id).toBe("add-feed-01");
   expect(one.body.archived).toBe(false);
   expect(one.body.tasks).toEqual({ done: 2, total: 2 });
-  expect(one.body.files.map((f: { name: string }) => f.name)).toEqual(["spec.md", "tasks.md", "design.md", "notes.md"]);
+  expect(one.body.files.map((f: { name: string }) => f.name)).toEqual(["spec.md", "design.md", "notes.md", "a-extra.md"]);
   expect(one.body.files[0].html).toBe("<h1>Spec</h1>\n");
   const two = await json(port, "/api/v1/projects/-Users-me-alpha/changes/add-feed-02");
-  const tasks = two.body.files[0].html as string;
-  expect(tasks).toContain("&lt;script>alert(1)&lt;/script>");
-  expect(tasks).not.toContain("<script");
+  const notes = two.body.files[0].html as string;
+  expect(notes).toContain("&lt;script>alert(1)&lt;/script>");
+  expect(notes).not.toContain("<script");
   const old = await json(port, "/api/v1/projects/-Users-me-alpha/archive/2026-03-01-add-newer");
   expect(old.status).toBe(200);
   expect([old.body.id, old.body.archived, old.body.tasks]).toEqual(["add-newer", true, { done: 1, total: 1 }]);
-  expect(old.body.files.map((f: { name: string }) => f.name)).toEqual(["tasks.md"]);
+  expect(old.body.files.map((f: { name: string }) => f.name)).toEqual(["notes.md"]);
 });
 
 test("GET /api/v1/changes counts every project and gives the changes and series progress of each one that has a change", async () => {
   const dir = home();
   const x = join(dir, "projects", "-Users-me-xray", "changes");
-  put(join(x, "archive", "2026-02-01-add-x-01", "tasks.md"), "- [x] 1. a\n");
-  put(join(x, "add-x-02", "tasks.md"), "- [x] 1. a\n- [x] 2. b\n");
-  put(join(x, "add-x-03", "tasks.md"), "- [ ] 1. a\n");
-  put(join(x, "add-y-01", "tasks.md"), "- [x] 1. a\n");
-  put(join(x, "fix-z", "tasks.md"), "- [ ] 1. a\n");
+  put(join(x, "archive", "2026-02-01-add-x-01", "change.yaml"), changeYaml(true));
+  put(join(x, "add-x-02", "change.yaml"), changeYaml(true, true));
+  put(join(x, "add-x-03", "change.yaml"), changeYaml(false));
+  put(join(x, "add-y-01", "change.yaml"), changeYaml(true));
+  put(join(x, "fix-z", "change.yaml"), changeYaml(false));
   put(join(dir, "projects", "-Users-me-yankee", "changes", "archive", "2026-01-01-add-old", "spec.md"), "# Old\n");
   mkdirSync(join(dir, "projects", "-Users-me-zulu"), { recursive: true });
   const { port } = await start(dir);
@@ -318,22 +332,21 @@ test("GET /api/v1/changes counts every project and gives the changes and series 
   expect(yankee).toEqual({ key: "-Users-me-yankee", label: "yankee", active: [], archived: [{ folder: "2026-01-01-add-old", date: "2026-01-01", id: "add-old" }], series: [] });
 });
 
-test("a change's properties give its PR link from tasks.md and its series from its ID, its spec and the project's members", async () => {
+test("a change's properties give its series from its ID and the project's members, the total being the member count", async () => {
   const dir = home();
   const x = join(dir, "projects", "-Users-me-xray", "changes");
-  put(join(x, "archive", "2026-02-01-add-x-01", "tasks.md"), "- [x] 1. a\n\n**PR:** https://github.com/o/r/pull/1.\n");
-  put(join(x, "add-x-02", "spec.md"), "# Spec\n\n**Series:** add-x — 02 of 03, depends on add-x-01\n");
-  put(join(x, "add-x-02", "tasks.md"), "- [x] 1. a\n\n**PR:** https://github.com/o/r/pull/7, CI green\n**PR:** https://github.com/o/r/pull/8\n");
-  put(join(x, "add-x-03", "tasks.md"), "- [ ] 1. a\n\n**PR:** javascript:alert(1)\n");
-  put(join(x, "add-w-01", "spec.md"), "# Spec\n\nNo series line.\n");
-  put(join(x, "add-w-02", "spec.md"), "# Spec\n\n**Series:** add-w — 02 of 07\n");
-  put(join(x, "fix-z", "tasks.md"), "- [ ] 1. a\n");
+  put(join(x, "archive", "2026-02-01-add-x-01", "change.yaml"), changeYaml(true));
+  put(join(x, "add-x-02", "spec.md"), "# Spec\n\n**Series:** add-x — 02 of 07, depends on add-x-01\n");
+  put(join(x, "add-x-02", "change.yaml"), changeYaml(true));
+  put(join(x, "add-x-03", "change.yaml"), changeYaml(false));
+  put(join(x, "add-w-01", "spec.md"), "# Spec\n");
+  put(join(x, "add-w-02", "spec.md"), "# Spec\n");
+  put(join(x, "fix-z", "change.yaml"), changeYaml(false));
   const { port } = await start(dir);
   const at = (path: string) => json(port, `/api/v1/projects/-Users-me-xray/${path}`);
   const two = await at("changes/add-x-02");
   expect(two.status).toBe(200);
   expect(two.body.properties).toEqual({
-    pr: "https://github.com/o/r/pull/7",
     series: {
       id: "add-x",
       ordinal: 2,
@@ -345,14 +358,11 @@ test("a change's properties give its PR link from tasks.md and its series from i
       ],
     },
   });
-  expect((await at("changes/add-x-03")).body.properties.pr).toBeNull();
-  // No series line: the total is the number of members.
-  const w = await at("changes/add-w-01");
-  expect([w.body.properties.pr, w.body.properties.series.total]).toEqual([null, 2]);
-  expect((await at("changes/add-w-02")).body.properties.series.total).toBe(7);
-  expect((await at("changes/fix-z")).body.properties).toEqual({ pr: null, series: null });
+  expect((await at("changes/add-w-02")).body.properties.series.total).toBe(2);
+  expect((await at("changes/fix-z")).body.properties).toEqual({ series: null });
   const one = await at("archive/2026-02-01-add-x-01");
-  expect([one.body.properties.pr, one.body.properties.series.ordinal, one.body.properties.series.members.length]).toEqual(["https://github.com/o/r/pull/1", 1, 3]);
+  expect(Object.keys(one.body.properties)).toEqual(["series"]);
+  expect([one.body.properties.series.ordinal, one.body.properties.series.total, one.body.properties.series.members.length]).toEqual([1, 3, 3]);
 });
 
 test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a GET route included", async () => {

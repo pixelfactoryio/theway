@@ -33,9 +33,8 @@ export type AllChangesResponse = {
 /** A member of a series: `folder` is its archive folder name, `null` for an active member. */
 export type SeriesMember = { ordinal: number; id: string; folder: string | null };
 
-/** A change's PR link and, for an ID ending in `-NN`, its series with every member, sorted by ordinal. */
+/** For a change ID ending in `-NN`, its series with every member, sorted by ordinal; `total` is the member count. */
 export type ChangeProperties = {
-  pr: string | null;
   series: { id: string; ordinal: number; total: number; members: SeriesMember[] } | null;
 };
 

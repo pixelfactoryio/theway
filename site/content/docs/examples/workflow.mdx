@@ -19,7 +19,7 @@ The session ran `1.branch` itself: it synced `main` and created the branch `add-
 
 ## Implement
 
-`2.implement` read `prompts/change.md`, followed `develop.md`, committed locally with the `feat` type of an `add-` change, ticked the four tasks in `tasks.md`, ran `npm test` (10 tests, 10 pass) and answered `pass`.
+`2.implement` read `prompts/change.md`, followed `develop.md`, committed locally with the `feat` type of an `add-` change, ticked the four tasks of `change.yaml` with `theway task done`, ran `npm test` (10 tests, 10 pass) and answered `pass`.
 
 ## Review locally
 
@@ -29,7 +29,7 @@ Before anything was pushed, the two reviewers, `3.review[prompts/conformance.md]
 - `1` `confirmed`: per-IP counting is tested on the limiter only; no HTTP test sends from two addresses.
 - `2` `false_positive`: "`Retry-After` can be `0` in the window's last millisecond". Refuted: the header is `max(1, ceil((resetAt - now) / 1000))`.
 
-With two confirmed findings it answered `fail`, so its on-fail ran: `4.fix-review` added both tests, in a commit of type `test` since it changes only tests, wrote them in the Notes of `tasks.md`, re-ran `npm test` (12 tests, 12 pass) and answered `pass`. `4.triage` then ran again, as round 2: it read the fix commit, found findings 0 and 1 resolved, and answered `pass`.
+With two confirmed findings it answered `fail`, so its on-fail ran: `4.fix-review` added both tests, in a commit of type `test` since it changes only tests, wrote them in `notes.md`, re-ran `npm test` (12 tests, 12 pass) and answered `pass`. `4.triage` then ran again, as round 2: it read the fix commit, found findings 0 and 1 resolved, and answered `pass`.
 
 ## Open the PR and drive CI
 

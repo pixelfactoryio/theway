@@ -71,7 +71,7 @@ function readText(path: string, overlay?: Overlay): string | null {
 }
 
 /** The YAML root of `text`, maps as `Map`, or the first line of the parser's error. */
-function parseYaml(text: string): { root: unknown } | { reason: string } {
+export function parseYaml(text: string): { root: unknown } | { reason: string } {
   try {
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
   } catch (e) {

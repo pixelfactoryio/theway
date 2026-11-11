@@ -21,19 +21,13 @@ function ArchivedDetail({ projectKey, folder }: { projectKey: string; folder: st
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-/** The tab name of a change file: Spec, Tasks, or the file name. */
-const tabName = (file: string): string => (file === "spec.md" ? "Spec" : file === "tasks.md" ? "Tasks" : file);
+/** The tab name of a change file: Spec, or the file name. */
+const tabName = (file: string): string => (file === "spec.md" ? "Spec" : file);
 
-/** The files in tab order: `spec.md`, `tasks.md`, then the others by name. */
+/** The files in tab order: `spec.md`, `design.md`, `notes.md`, then the others by name. */
 function ordered(files: ChangeDetail["files"]): ChangeDetail["files"] {
-  const first = ["spec.md", "tasks.md"].flatMap((n) => files.filter((f) => f.name === n));
+  const first = ["spec.md", "design.md", "notes.md"].flatMap((n) => files.filter((f) => f.name === n));
   return [...first, ...files.filter((f) => !first.includes(f)).sort((a, b) => byText(a.name, b.name))];
-}
-
-/** The link text of a PR URL: `PR #<n>` when its last path segment is digits, else `PR`. */
-function prText(url: string): string {
-  const last = url.replace(/\/+$/, "").split("/").pop() ?? "";
-  return /^[0-9]+$/.test(last) ? `PR #${last}` : "PR";
 }
 
 /** `Series` and one two-digit ordinal per number up to the total: the current one marked, members linked. */
@@ -91,11 +85,6 @@ function Detail({ projectKey, id, archived, query }: { projectKey: string; id: s
               <span className="tabular-nums">
                 {data.tasks.done} of {data.tasks.total} tasks
               </span>
-            )}
-            {data.properties.pr !== null && (
-              <a href={data.properties.pr} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
-                {prText(data.properties.pr)}
-              </a>
             )}
             {data.properties.series !== null && <SeriesFacts projectKey={projectKey} series={data.properties.series} />}
           </div>

@@ -3,7 +3,7 @@ title: Introduction
 description: A spec-first workflow for Claude Code, and where it keeps its files.
 ---
 
-theway is a set of Claude Code slash commands for planning and implementing changes in a codebase. It turns a request into a spec and a numbered task list, then implements the tasks, either inline in your session or through agents that open a pull request, run review rounds and drive CI green.
+theway is a set of Claude Code slash commands for planning and implementing changes in a codebase. It turns a request into a spec and an ordered task list, then implements the tasks, either inline in your session or through agents that open a pull request, run review rounds and drive CI green.
 
 It is for Claude Code users who want the reasoning behind a change written down before its code.
 
@@ -19,7 +19,7 @@ Every full spec (`/theway:engineering`) includes a [TAMM](./concepts/tamm.mdx) h
 
 theway keeps its files in a data home, `~/.theway` by default, or the folder chosen at install (the install question or `--home`), or `THEWAY_HOME` (see [Installation](./installation.mdx#other-locations)). The config is `<home>/config.yaml`.
 
-Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is your repository's path with every non-alphanumeric character turned into `-` (`/home/you/code/my-api` gives `-home-you-code-my-api`). The folder holds `spec.md`, `tasks.md` and, when needed, `design.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
+Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is your repository's path with every non-alphanumeric character turned into `-` (`/home/you/code/my-api` gives `-home-you-code-my-api`). The folder holds `spec.md`, `change.yaml` (the tasks) and, when needed, `design.md` and `notes.md`. A finished change moves to `changes/archive/`, so the history of every change stays in the data home. See [Changes](./concepts/changes.mdx).
 
 ## Your own workflows
 

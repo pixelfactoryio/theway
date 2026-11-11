@@ -50,7 +50,7 @@ const steps: Step[] = [
     subline: (
       <>
         <code className="text-accent-text">/theway:engineering</code> investigates the request, then writes <code>spec.md</code> and{' '}
-        <code>tasks.md</code>, and critic agents review them. No code is written in this step: it is the shipped{' '}
+        <code>change.yaml</code>, and critic agents review them. No code is written in this step: it is the shipped{' '}
         <code>engineering</code> workflow, whose steps and prompts you can change.
       </>
     ),
@@ -63,7 +63,7 @@ const steps: Step[] = [
           { kind: 'tool', name: 'Bash', args: 'theway context engineering' },
           { kind: 'tool', name: 'Read', args: 'src/api/router.ts' },
           { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/spec.md' },
-          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/tasks.md' },
+          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/change.yaml' },
           {
             kind: 'message',
             text: 'Spec and tasks written. Review them before developing.',
@@ -88,7 +88,7 @@ const steps: Step[] = [
         title: 'Numbered tasks',
         body: (
           <>
-            <code>tasks.md</code> splits the work into numbered tasks, grouped by phase (a light change: 1 to 3 tasks).
+            <code>change.yaml</code> lists the work as ordered tasks (a light change: 1 to 3 tasks).
           </>
         ),
       },
@@ -106,9 +106,8 @@ const steps: Step[] = [
     mocks: [
       {
         type: 'file',
-        title: 'tasks.md',
+        title: 'change.yaml',
         lines: [
-          { text: '## Phase 1: Core', heading: true },
           { text: '1. Add the limiter middleware', check: 'done' },
           { text: '2. Read limits from config', check: 'done' },
           { text: '3. Return 429 with Retry-After', check: 'open' },
@@ -235,8 +234,7 @@ const steps: Step[] = [
         title: 'No open tasks',
         body: (
           <>
-            Archiving refuses while a numbered task in <code>tasks.md</code> is unticked, unless you accept the open
-            tasks.
+            Archiving refuses while a task in <code>change.yaml</code> is not done, unless you accept the open tasks.
           </>
         ),
       },

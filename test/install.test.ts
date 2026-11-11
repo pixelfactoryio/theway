@@ -170,7 +170,10 @@ test("install with a custom home writes the pointer, leaves no ~/.theway and nam
   expect(existsSync(join(env.home, ".theway"))).toBe(false);
   expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`]);
 
-  put(join(env.theway, "projects", "proj", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] 2. b\n");
+  put(
+    join(env.theway, "projects", "proj", "changes", "add-x", "change.yaml"),
+    "version: theway.change/v1beta\ndescription: d\ntasks:\n  - text: a\n    done: true\n  - text: b\n",
+  );
   const path = runInstalled(env, "path", "--verbose");
   expect(path.stdout).toBe(`${env.theway}\n`);
   expect(path.stderr).toBe(`theway: home ${env.theway} (from pointer)\n`);
@@ -672,8 +675,10 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  expect(SHIPPED_FILES).toHaveLength(40);
+  expect(SHIPPED_FILES).toHaveLength(41);
   for (const rel of [
+    "standards/authority.md",
+    "prompts/change-template.md",
     "workflows/develop.yaml",
     "workflows/agents.yaml",
     "workflows/engineering.yaml",
@@ -691,7 +696,7 @@ test("install into a fresh home writes every shipped file and a manifest of thei
   expect(manifest(env)["prompts/fix-spec-template.md"]).toBe(sha256(shipped("prompts/fix-spec-template.md")));
   expect(manifest(env)["prompts/light-spec-template.md"]).toBe(sha256(shipped("prompts/light-spec-template.md")));
   // The standards and templates that moved to prompts/ are no longer shipped there.
-  for (const rel of ["standards/tamm-framework.md", "standards/spec-review.md", "templates/spec-template.md", "templates/tasks-template.md"]) {
+  for (const rel of ["standards/tamm-framework.md", "standards/spec-review.md", "templates/spec-template.md", "templates/tasks-template.md", "prompts/tasks-template.md"]) {
     expect(SHIPPED_FILES).not.toContain(rel);
   }
   for (const rel of ["templates/coding-standards-template.md", "templates/source-tree-template.md", "templates/tech-stack-template.md"]) {
@@ -712,6 +717,34 @@ test("install writes commits.md and git-host.md, keeps an edited one with its .d
   expect(readFileSync(join(env.theway, "standards", "git-host.md"), "utf-8")).toBe("# GitLab\n");
   expect(readFileSync(join(env.theway, "standards", "git-host.default.md"), "utf-8")).toBe(shipped("standards/git-host.md"));
   expect(workflow().status).toBe(0);
+});
+
+test("install removes an unedited prompts/tasks-template.md and keeps an edited one", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const rel = "prompts/tasks-template.md";
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), [rel]: sha256("# old\n") }));
+  put(join(env.theway, rel), "# old\n");
+  const removed = run(env, "install");
+  expect(removed.stdout).toContain(`Removed ${rel}: theway no longer ships it\n`);
+  expect(existsSync(join(env.theway, rel))).toBe(false);
+  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), [rel]: sha256("# old\n") }));
+  put(join(env.theway, rel), "# mine\n");
+  const kept = run(env, "install");
+  expect(kept.stdout).toContain(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your prompts\n`);
+});
+
+test("install keeps an edited interaction.md and hints when it still has an Authority section", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  expect(readFileSync(join(env.theway, "standards", "authority.md"), "utf-8")).toBe(shipped("standards/authority.md"));
+  const hint = "standards/interaction.md still has an Authority section: theway now reads standards/authority.md; move your edits there\n";
+  const file = join(env.theway, "standards", "interaction.md");
+  put(file, "# Mine\n\n## Authority\n\n- mine\n");
+  const res = run(env, "install");
+  expect(res.stdout).toContain(`Kept your edited standards/interaction.md (shipped version: standards/interaction.default.md)\n${hint}`);
+  put(file, "# Mine\n\n### Authority\n");
+  expect(run(env, "install").stdout).not.toContain(hint);
 });
 
 const WF = "workflows/develop.yaml";
@@ -841,7 +874,16 @@ test("install removes the unedited standards and templates that moved to prompts
 test("install renames an edited moved standard or template to .bak, naming the prompts that now hold it", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  put(join(env.theway, ".shipped.json"), JSON.stringify({ ...manifest(env), "standards/spec-review.md": sha256("# old\n"), "templates/spec-template.md": sha256("# old\n") }));
+  put(
+    join(env.theway, ".shipped.json"),
+    JSON.stringify({
+      ...manifest(env),
+      "standards/spec-review.md": sha256("# old\n"),
+      "templates/spec-template.md": sha256("# old\n"),
+      "templates/tasks-template.md": sha256("# old\n"),
+    }),
+  );
+  put(join(env.theway, "templates", "tasks-template.md"), "# my tasks\n");
   put(join(env.theway, "standards", "spec-review.md"), "# my review\n");
   put(join(env.theway, "standards", "spec-review.default.md"), "# old\n");
   put(join(env.theway, "templates", "spec-template.md"), "# my template\n");
@@ -854,6 +896,7 @@ test("install renames an edited moved standard or template to .bak, naming the p
     "Moved your edited standards/spec-review.md to standards/spec-review.md.bak: theway now reads prompts/spec-reviewer.md, grounding.md, implementability.md, verdicts.md, spec-triage.md and spec-fix.md\n",
     "Moved your edited templates/spec-template.md to templates/spec-template.md.bak.1: theway now reads prompts/spec-template.md\n",
     "Moved your edited standards/tamm-framework.md to standards/tamm-framework.md.bak: theway now reads prompts/tamm-framework.md\n",
+    "Moved your edited templates/tasks-template.md to templates/tasks-template.md.bak: theway now reads prompts/change-template.md\n",
   ]) {
     expect(res.stdout).toContain(line);
   }

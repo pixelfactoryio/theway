@@ -18,7 +18,7 @@ const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
 /** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
-const CORE = ["interaction.md", "develop.md"];
+const CORE = ["interaction.md", "develop.md", "authority.md"];
 /**
  * The shipped convention standards the prompts read by path, the project file over the global one: never listed from
  * either folder nor switchable.

@@ -37,7 +37,7 @@ const MOVED: Record<string, string> = {
   "templates/spec-template.md": "prompts/spec-template.md",
   "templates/fix-spec-template.md": "prompts/fix-spec-template.md",
   "templates/light-spec-template.md": "prompts/light-spec-template.md",
-  "templates/tasks-template.md": "prompts/tasks-template.md",
+  "templates/tasks-template.md": "prompts/change-template.md",
 };
 /** The folder theway shipped review lenses in before they became prompts: retired by `retireLenses`. */
 const LENSES = "lenses";
@@ -273,9 +273,13 @@ function versionOf(text: string): unknown {
 
 /**
  * The line that follows "Kept your edited <dir>/<name>" when the kept file will no longer work: a workflow that is not
- * `theway.workflow/v1beta`, or a prompt with no header whose shipped version has one; else null.
+ * `theway.workflow/v1beta`, a prompt with no header whose shipped version has one, or an `interaction.md` that still has
+ * the Authority section `standards/authority.md` now holds; else null.
  */
 function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer): string | null {
+  if (dir === "standards" && name === "interaction.md" && current.toString("utf-8").split("\n").some((l) => l.replace(/\r$/, "") === "## Authority")) {
+    return "standards/interaction.md still has an Authority section: theway now reads standards/authority.md; move your edits there";
+  }
   if (dir === "workflows" && versionOf(current.toString("utf-8")) !== VERSION) {
     const stem = name.slice(0, -".yaml".length);
     return `workflows/${name} is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/${stem}.default.yaml`;

@@ -7,7 +7,8 @@ The rules every step of a change follows. The step that sent you here names the 
 Run `theway context develop <change-id>`. It prints the change folder (`change_dir`) and the standards of the project. Then read these exact paths, without searching for them:
 
 - `<change-dir>/spec.md`: why, what, the risks and the Success Criteria;
-- `<change-dir>/tasks.md`: the work, as numbered tasks;
+- `<change-dir>/change.yaml`: the work, as an ordered list of tasks; a task's number is its position;
+- `<change-dir>/notes.md`, when present: what was learned while implementing;
 - `<change-dir>/design.md`, when present: the contracts and data;
 - every file its `standards` lists;
 - `<home>/standards/develop.md`: how a change is implemented and verified;

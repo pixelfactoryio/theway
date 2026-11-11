@@ -2,6 +2,7 @@
 import { Command, InvalidArgumentError } from "commander";
 import { cmdArchive } from "./core/archive";
 import { cmdAuthority } from "./core/authority";
+import { cmdChange, cmdTaskDone } from "./core/change";
 import { cmdConfig } from "./core/config";
 import { cmdContext } from "./core/context";
 import { cmdDashboard } from "./core/dashboard";
@@ -48,6 +49,18 @@ export function buildProgram(): Command {
     .option("--project <key>")
     .option("--force")
     .action((change: string, o: { project?: string; force?: boolean }) => exit(cmdArchive(change, o.project, o.force === true)));
+  program
+    .command("change")
+    .argument("<change-id>", "", nonEmpty)
+    .option("--project <key>")
+    .action((change: string, o: { project?: string }) => exit(cmdChange(change, o.project)));
+  program
+    .command("task")
+    .command("done")
+    .argument("<change-id>", "", nonEmpty)
+    .argument("<n...>")
+    .option("--project <key>")
+    .action((change: string, numbers: string[], o: { project?: string }) => exit(cmdTaskDone(change, numbers, o.project)));
   program
     .command("path")
     .argument("[change-id]")

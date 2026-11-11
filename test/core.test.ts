@@ -33,22 +33,159 @@ afterEach(() => {
   for (const d of homes.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-test("list and archive agree on a last task line without a newline", () => {
+/** A `change.yaml` with one task per entry of `done`, ticked when true. */
+function changeYaml(done: boolean[]): string {
+  const tasks = done.map((d, i) => `  - text: task ${i + 1}\n${d ? "    done: true\n" : ""}`).join("");
+  return `version: theway.change/v1beta\ndescription: Do the thing\ntasks:\n${tasks}`;
+}
+
+const EXAMPLE = `version: theway.change/v1beta
+description: Limit requests per API key with a token bucket
+tasks:
+  - text: Add a token bucket per API key, kept in memory
+    done: true
+  - text: Answer 429 with a \`Retry-After\` header when the bucket is empty
+  - text: Read the limit and the burst from the settings
+`;
+
+test("change prints the change of a valid change.yaml as JSON, tasks numbered from 1", () => {
   const dir = home();
-  put(join(dir, "projects", "p", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] Ready to archive\n- [ ] 2. b");
-  expect(run(dir, "list", "--project", "p").stdout).toContain("1/2 tasks done");
+  const folder = join(dir, "projects", "p", "changes", "add-x");
+  put(join(folder, "change.yaml"), EXAMPLE);
+  const res = run(dir, "change", "--project", "p", "add-x");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(JSON.parse(res.stdout)).toEqual({
+    id: "add-x",
+    dir: folder,
+    description: "Limit requests per API key with a token bucket",
+    tasks: [
+      { n: 1, text: "Add a token bucket per API key, kept in memory", done: true },
+      { n: 2, text: "Answer 429 with a `Retry-After` header when the bucket is empty", done: false },
+      { n: 3, text: "Read the limit and the burst from the settings", done: false },
+    ],
+  });
+});
+
+test("change prints one error line per broken rule and exits 1 with nothing on stdout", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  const v = "version: theway.change/v1beta\n";
+  const d = "description: Do it\n";
+  const t = "tasks:\n  - text: a\n";
+  const cases: [string | null, string[]][] = [
+    [null, ["not found"]],
+    ["a: [\n", ["invalid YAML: "]],
+    ["- a\n", ["must be a map"]],
+    ["", ["must be a map"]],
+    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta"]],
+    [`${v}description: ""\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}description: "a\\nb"\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}${d}tasks: []\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks: a\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks:\n  - text: a\n  - b\n`, ["tasks[1]: must be a map"]],
+    [`${v}${d}tasks:\n  - text: ""\n`, ["tasks[0].text: must be a non-empty string"]],
+    [`${v}${d}tasks:\n  - done: true\n`, ["tasks[0].text: is required"]],
+    [`${v}${d}tasks:\n  - text: a\n    done: "yes"\n`, ["tasks[0].done: must be true or false"]],
+    [`${v}${d}tasks:\n  - text: a\n    owner: me\n`, ["tasks[0].owner: unknown key"]],
+    [`${v}${d}${t}phase: 1\n`, ["phase: unknown key"]],
+    [`${d}${t}`, ["version: is required"]],
+    [`${v}${t}`, ["description: is required"]],
+    [`${v}${d}`, ["tasks: is required"]],
+    [`phase: 1\nversion: x\n${t}`, ["phase: unknown key", "version: must be theway.change/v1beta", "description: is required"]],
+  ];
+  for (const [text, issues] of cases) {
+    rmSync(file, { force: true });
+    if (text !== null) put(file, text);
+    const res = run(dir, "change", "--project", "p", "add-x");
+    expect([res.status, res.stdout]).toEqual([1, ""]);
+    const lines = res.stderr.trimEnd().split("\n");
+    expect(lines.length).toBe(issues.length);
+    issues.forEach((issue, i) => expect(lines[i]).toStartWith(`theway: changes/add-x/change.yaml: ${issue}`));
+    if (!issues[0]?.startsWith("invalid YAML")) expect(res.stderr).toBe(issues.map((i) => `theway: changes/add-x/change.yaml: ${i}\n`).join(""));
+  }
+});
+
+test("task done ticks the named tasks, keeps the rest of the file's text and refuses an unknown number without writing", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  const long = "Read the limit and the burst from the settings, then document both of them in the README of the service";
+  const text = `version: theway.change/v1beta
+# The work, in order.
+description: Limit requests per API key
+tasks:
+  - text: '${long}'
+  - text: Answer 429 with a \`Retry-After\` header
+  - text: "Keep the bucket in memory"
+`;
+  put(file, text);
+  const bad = run(dir, "task", "done", "--project", "p", "add-x", "9");
+  expect([bad.status, bad.stdout, bad.stderr]).toEqual([1, "", "theway: changes/add-x/change.yaml: task 9: no such task (1 to 3)\n"]);
+  const partial = run(dir, "task", "done", "--project", "p", "add-x", "1", "9");
+  expect(partial.status).toBe(1);
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "0").stderr).toBe("theway: changes/add-x/change.yaml: task 0: no such task (1 to 3)\n");
+  expect(readFileSync(file, "utf-8")).toBe(text);
+
+  const res = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "2/3 tasks done\n", ""]);
+  expect(readFileSync(file, "utf-8")).toBe(
+    text
+      .replace("header\n", "header\n    done: true\n")
+      .replace('"Keep the bucket in memory"\n', '"Keep the bucket in memory"\n    done: true\n'),
+  );
+  const again = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
+  expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"]);
+
+  put(file, "version: x\n");
+  const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1");
+  expect([invalid.status, invalid.stderr]).toEqual([
+    1,
+    "theway: changes/add-x/change.yaml: version: must be theway.change/v1beta\ntheway: changes/add-x/change.yaml: description: is required\ntheway: changes/add-x/change.yaml: tasks: is required\n",
+  ]);
+  expect(readFileSync(file, "utf-8")).toBe("version: x\n");
+});
+
+test("change and task done validate the project and the change id", () => {
+  const dir = home();
+  for (const args of [["change"], ["task", "done"]]) {
+    const extra = args[0] === "task" ? ["1"] : [];
+    expect(run(dir, ...args, "--project", "a/b", "add-x", ...extra).stderr).toBe(`theway: invalid project 'a/b': ${PROJECT_REASON}\n`);
+    expect(run(dir, ...args, "--project", "p", "..", ...extra).stderr).toBe(`theway: invalid change id '..': ${CHANGE_ID_REASON}\n`);
+  }
+  const help = run(dir, "task");
+  expect(help.stderr).toContain("Usage: theway task");
+});
+
+test("archive refuses open tasks and an invalid change.yaml, and archives either with --force", () => {
+  const dir = home();
+  const changes = join(dir, "projects", "p", "changes");
+  put(join(changes, "add-x", "change.yaml"), changeYaml([true, false]).replace("task 2", ">-\n      task 2\n      second line"));
   const res = run(dir, "archive", "--project", "p", "add-x");
-  expect(res.status).toBe(1);
-  expect(res.stderr).toContain("3:- [ ] 2. b");
-  expect(res.stderr).not.toContain("Ready to archive");
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toBe("Error: add-x has open tasks — not archiving.\n2. task 2 second line\nTick them with theway task done, or re-run with --force.\n");
+  const forced = run(dir, "archive", "--project", "p", "add-x", "--force");
+  expect(forced.status).toBe(0);
+  expect(forced.stderr).toBe("WARNING: archiving with open tasks (--force):\n2. task 2 second line\n");
+
+  put(join(changes, "add-y", "spec.md"), "# y\n");
+  const invalid = run(dir, "archive", "--project", "p", "add-y");
+  expect([invalid.status, invalid.stdout]).toEqual([1, ""]);
+  expect(invalid.stderr).toBe("Error: add-y has an invalid change.yaml — not archiving.\nchanges/add-y/change.yaml: not found\nFix it, or re-run with --force.\n");
+  const forcedInvalid = run(dir, "archive", "--project", "p", "add-y", "--force");
+  expect([forcedInvalid.status, forcedInvalid.stderr]).toEqual([0, "WARNING: archiving with an invalid change.yaml (--force)\n"]);
+  expect(existsSync(join(changes, "add-y"))).toBe(false);
+
+  put(join(changes, "add-z", "change.yaml"), changeYaml([true]));
+  const done = run(dir, "archive", "--project", "p", "add-z");
+  expect([done.status, done.stderr]).toEqual([0, ""]);
+  expect(done.stdout).toStartWith(`Archived: ${join(changes, "archive")}/`);
 });
 
 test("archive refuses an id already archived today", () => {
   const dir = home();
-  const spec = join(dir, "projects", "p", "changes", "add-y", "spec.md");
-  put(spec, "# y\n");
+  const spec = join(dir, "projects", "p", "changes", "add-y", "change.yaml");
+  put(spec, changeYaml([true]));
   expect(run(dir, "archive", "--project", "p", "add-y").status).toBe(0);
-  put(spec, "# y\n");
+  put(spec, changeYaml([true]));
   const res = run(dir, "archive", "--project", "p", "add-y");
   expect(res.status).toBe(1);
   expect(res.stderr).toContain("already exists — not archiving.");
@@ -66,13 +203,17 @@ test("list prints the active and archived changes of a project", () => {
   const spec = "# Spec Analysis: Alpha\n\n**Problem:** Alpha problem.\n";
   const changes = join(dir, "projects", "p", "changes");
   put(join(changes, "add-alpha", "spec.md"), spec);
-  put(join(changes, "add-alpha", "tasks.md"), "- [x] 1. a\n- [x] 2. b\n- [ ] 3. c\n");
+  put(join(changes, "add-alpha", "change.yaml"), changeYaml([true, false, false]));
+  put(join(changes, "add-alpha", "notes.txt"), "n\n");
+  put(join(changes, "add-alpha", ".hidden"), "h\n");
+  mkdirSync(join(changes, "add-alpha", "sub"));
   put(join(changes, "update-beta", "spec.md"), spec);
+  put(join(changes, "update-gone", "change.yaml"), "version: x\ndescription: d\ntasks: [{text: a}]\n");
   put(join(changes, "archive", "2026-01-10-add-gamma", "spec.md"), spec);
   const res = run(dir, "list", "--project", "p");
   expect(res.status).toBe(0);
   expect(res.stdout).toBe(
-    "theway changes — p\n\nActive changes\n\n  add-alpha            2 files   2/3 tasks done\n  update-beta          1 files   0/0 tasks done\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 2 active change(s), 1 archived.\n",
+    "theway changes — p\n\nActive changes\n\n  add-alpha            3 files   1/3 tasks done\n  update-beta          1 files   invalid: not found\n  update-gone          1 files   invalid: version: must be theway.change/v1beta\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 3 active change(s), 1 archived.\n",
   );
 });
 
@@ -220,7 +361,7 @@ test("changeIdReason and projectReason reject a NUL byte and accept allowlisted 
 test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
   const root = home();
   const data = join(root, "data");
-  put(join(data, "projects", "p", "changes", "add-x", "tasks.md"), "- [x] 1. a\n");
+  put(join(data, "projects", "p", "changes", "add-x", "change.yaml"), changeYaml([true]));
   put(join(root, "config", "theway", "home"), `${data}\n`);
   const res = spawnSync("node", [CLI, "list", "--project", "p"], {
     encoding: "utf-8",
@@ -832,14 +973,28 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
-test("standards does not list the global interaction.md and develop.md, which .shipped.json does not list", () => {
+test("standards does not list the global interaction.md, develop.md and authority.md, which .shipped.json does not list", () => {
   const dir = home();
   const g = join(dir, "standards");
   put(join(dir, ".shipped.json"), "{}\n");
-  for (const name of ["interaction.md", "develop.md", "own.md"]) put(join(g, name), "x\n");
+  for (const name of ["interaction.md", "develop.md", "authority.md", "own.md"]) put(join(g, name), "x\n");
   put(join(dir, "config.yaml"), "");
   const res = run(dir, "standards", "--project", "p", "engineering");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+});
+
+test("context engineering lists no authority.md, with and without it in .shipped.json", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "authority.md"), "# Authority\n");
+  put(join(dir, "config.yaml"), "");
+  for (const manifest of ["{}\n", `${JSON.stringify({ "standards/authority.md": "x" })}\n`]) {
+    put(join(dir, ".shipped.json"), manifest);
+    const res = run(dir, "context", "--project", "p", "engineering");
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("standards: []\n");
+    expect(res.stdout).not.toContain("authority.md");
+  }
 });
 
 test("standards named like Object.prototype keys are listed and switched like any other", () => {
@@ -942,27 +1097,23 @@ test("context writes config's warnings once and exits 1 on the missing config, a
   }
 });
 
-test("authority prints the Authority section of interaction.md, else of interaction.default.md, else exits 1", () => {
+test("authority prints authority.md whole, else authority.default.md, else exits 1", () => {
   const dir = home();
-  const kept = join(dir, "standards", "interaction.md");
-  const shipped = join(dir, "standards", "interaction.default.md");
-  const noSection = `theway: no ## Authority section in ${kept} or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
+  const kept = join(dir, "standards", "authority.md");
+  const shipped = join(dir, "standards", "authority.default.md");
+  const missing = `theway: no ${kept}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
   const none = run(dir, "authority");
-  expect(none.status).toBe(1);
-  expect(none.stderr).toBe(noSection);
-  put(shipped, "# I\n\n## Authority\n\n- shipped\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
-  put(kept, "# I\n\n## Reporting\n\n- r\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
-  put(kept, "# I\n\n## Authority\n\n- kept\n- two\n\n\n## Next\n\nz\n");
+  expect([none.status, none.stdout, none.stderr]).toEqual([1, "", missing]);
+  put(shipped, "# Authority\n\n- shipped\n");
+  expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
+  put(kept, "# Authority\n\n- kept\n\n## More\n\n- two\n\n\n");
   const res = run(dir, "authority");
-  expect(res.status).toBe(0);
-  expect(res.stdout).toBe("## Authority\n\n- kept\n- two\n");
-  put(kept, "# I\n\n## Authority\n- last\n\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n- last\n");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "# Authority\n\n- kept\n\n## More\n\n- two\n", ""]);
+  put(kept, "- last");
+  expect(run(dir, "authority").stdout).toBe("- last\n");
+  rmSync(kept);
   rmSync(shipped);
-  put(kept, "# I\n");
-  expect(run(dir, "authority").stderr).toBe(noSection);
+  expect(run(dir, "authority").stderr).toBe(missing);
 });
 
 test("next-id continues after the highest active or archived ordinal of the exact series", () => {
@@ -1109,7 +1260,7 @@ test("list, path and archive without --project use the derived key's folder unde
   const cwd = realpathSync(home());
   git(cwd, "init", "-q");
   const key = keyFor(cwd);
-  put(join(dir, "projects", key, "changes", "add-x", "spec.md"), "# x\n");
+  put(join(dir, "projects", key, "changes", "add-x", "change.yaml"), changeYaml([true]));
   expect(runIn(cwd, dir, "list").stdout).toStartWith(`theway changes — ${key}\n\nActive changes\n\n  add-x `);
   expect(runIn(cwd, dir, "path", "add-x").stdout).toBe(`${join(dir, "projects", key, "changes", "add-x")}\n`);
   const res = runIn(cwd, dir, "archive", "add-x");

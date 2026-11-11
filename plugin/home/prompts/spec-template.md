@@ -10,7 +10,7 @@ quality_standards:
   - "TAMM table includes only Medium/High risk hardpoints (skip low-risk items)"
   - "Technical decisions have clear rationale explaining trade-offs"
   - "Scope clearly defines in-scope and out-of-scope boundaries"
-  - "Implementation phases align with tasks.md structure"
+  - "The tasks of `change.yaml` cover every implementation phase"
   - "Countermeasures are specific and actionable (not generic)"
   - "Success criteria are measurable with checkboxes"
 workflow_steps:

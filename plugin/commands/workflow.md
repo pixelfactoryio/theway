@@ -39,7 +39,7 @@ The other arguments give the workflow's inputs. Run `theway workflow`, or `thewa
 
 ## Workflow Steps
 
-> Follow the conventions in `<home>/standards/interaction.md` (exploration, reporting and authority).
+> Follow `<home>/standards/interaction.md` (exploration and reporting) and `<home>/standards/authority.md`.
 
 Run Steps 1-3 once per run: once per change ID for a workflow with a `type: change` input, else once.
 
@@ -47,7 +47,7 @@ Run Steps 1-3 once per run: once per change ID for a workflow with a `type: chan
 
 - Run `theway workflow [<name>] --input <name>=<value> --compact`, one `--input` per input given. It prints the resolved workflow as JSON, without the prompt text: its `name`, `file`, `inputs` (each with its `value`), `resolved` and its `steps`, each with its `index`, `uses`, `file` (the prompt file's absolute path), `runs_on`, `model`, `matrix`, its `runs` (each a `label` and its `with`, every input of the prompt with its final value), its `on_fail` (`uses`, `file`, `model`, `label` and `with`, or `null`) and its `tries`. On exit 1, quote its error line and stop. A document with `"resolved": false` is never run: stop and ask for the required inputs.
 - Parse that output as JSON and keep the parsed object: it is the `workflow` of every Workflow call, passed as an object, never as a string, never retyped or abridged.
-- Run `theway authority`: its output is the `## Authority` section of `<home>/standards/interaction.md`, which every agent of the run gets verbatim.
+- Run `theway authority`: it prints `<home>/standards/authority.md`, which every agent of the run gets verbatim.
 - Run `theway project`: its `dir` is the project folder.
 
 ### Step 2: Run
