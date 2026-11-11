@@ -155,6 +155,18 @@ export function promptLine(line: string, name: string, labels: readonly string[]
   return label === null ? text : `${label}: ${text}`;
 }
 
+/**
+ * The check lines of the open prompt `name` with the `error` of its list item: that error, as the line
+ * `prompts/<name>.md: <error>`, is added when it is not `null` and no line (after an optional `<label>: ` and
+ * `theway: `) is `prompts/<name>.md: ` followed by the same text. The check reports a header error only through the
+ * workflows that use the prompt, so an unused prompt's comes from its item.
+ */
+export function withItemError(lines: readonly string[], error: string | null, name: string, labels: readonly string[] = []): string[] {
+  const own = `prompts/${name}.md: `;
+  if (error === null || lines.some((l) => unprefixed(l, labels).rest === `${own}${error}`)) return [...lines];
+  return [...lines, `${own}${error}`];
+}
+
 /** Whether two fields are the same: the same place, key, input and, for a step's, step. */
 export function sameField(a: Field | null, b: Field): boolean {
   if (a === null || a.at !== b.at || a.key !== b.key || a.input !== b.input) return false;

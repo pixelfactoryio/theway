@@ -10,7 +10,7 @@ import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBo
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
 import { MAX_PART, pathParts, shownPath } from "../src/dashboard/client/lib/path";
 import { matches, visibleItems } from "../src/dashboard/client/files/list";
-import { fieldId, headerProblem, problemOf, promptLine } from "../src/dashboard/client/files/problems";
+import { fieldId, headerProblem, problemOf, promptLine, withItemError } from "../src/dashboard/client/files/problems";
 import { matrixTitle, overridesText, stepBadge } from "../src/dashboard/client/files/source";
 import { deltaText, lineDelta, whenOf } from "../src/dashboard/client/files/version-info";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
@@ -184,6 +184,15 @@ test("a prompt check line that names a header key gives the key, the input and t
   expect(promptLine("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBe("workflows/agents.yaml: steps[3].with: required input change is not set");
   expect(fieldId({ at: "step", step: 3, key: "on-fail.with", input: "change" })).toBe("field-step-on-fail-with-change");
   expect(fieldId({ at: "workflow", key: "description", input: null })).toBe("field-workflow-description");
+});
+
+test("a prompt's item error joins its check lines unless a line already holds it after the file prefix", () => {
+  const error = "model: must be one of opus, sonnet, haiku";
+  const body = "prompts/triage.md: body: must not be empty";
+  expect(withItemError([body], error, "triage")).toEqual([body, `prompts/triage.md: ${error}`]);
+  expect(withItemError([`my-app: theway: prompts/triage.md: ${error}`], error, "triage", ["my-app"])).toEqual([`my-app: theway: prompts/triage.md: ${error}`]);
+  expect(withItemError([`prompts/other.md: ${error}`], error, "triage")).toEqual([`prompts/other.md: ${error}`, `prompts/triage.md: ${error}`]);
+  expect(withItemError([body], null, "triage")).toEqual([body]);
 });
 
 test("a file list group shows 8 items, as many as reach the open file, all when expanded, and every match of a filter", () => {

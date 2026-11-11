@@ -17,7 +17,7 @@ import { type Draft, isDirty, startDraft } from "@/files/draft";
 import { takeOpenOnWrite, useDrafts, useUndoKeys } from "@/files/drafts";
 import { useFileSave, useValidation } from "@/files/editing";
 import { Check, Choice, Confirm, type FieldProblem, Problems, Row, TextField } from "@/files/fields";
-import { type HeaderProblem, headerProblem, promptLine } from "@/files/problems";
+import { type HeaderProblem, headerProblem, promptLine, withItemError } from "@/files/problems";
 import { type HeaderSource, headerSource } from "@/files/source";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, useVersions, versionsHref } from "@/lib/api";
 import { plural } from "@/lib/changes";
@@ -268,6 +268,9 @@ function Editor({
   const dirty = isDirty(draft);
   const labels = files.data?.projects.map((p) => p.label) ?? [];
   const label = file.key === null ? null : (files.data?.projects.find((p) => p.key === file.key)?.label ?? null);
+  // The list item's error is about the saved text: it shows only while the page holds that text.
+  const itemError =
+    draft.isNew || dirty ? null : (files.data?.prompts.find((p) => p.scope === file.scope && p.key === file.key && p.name === file.name)?.error ?? null);
 
   /** One edit of the draft: `fn` of its text; the first edit starts the draft from the saved text. */
   const change = (fn: (text: string) => string) => {
@@ -278,7 +281,7 @@ function Editor({
 
   // The lines to show: a refused save's for this text, else the last check's.
   const mine = refused !== null && refused.text === text;
-  const errors = mine ? refused.errors : (validation.result?.errors ?? []);
+  const errors = withItemError(mine ? refused.errors : (validation.result?.errors ?? []), itemError, file.name, labels);
   const warnings = mine ? refused.warnings : (validation.result?.warnings ?? []);
   const fields = header !== null && !("error" in header) ? header : null;
   /** The header problem of a line when the Write tab has a field for it. */
