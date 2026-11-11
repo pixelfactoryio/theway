@@ -149,8 +149,8 @@ const steps: Step[] = [
     title: 'Compose your own workflow',
     subline: (
       <>
-        Write a workflow as a YAML file of steps and gates. Each step is a small tree of agents reading your Markdown
-        prompts, and runs in your session or through agents.{' '}
+        Write a workflow as a YAML file of steps. Each step uses one of your Markdown prompts, and runs in your session or
+        through agents.{' '}
         <code className="text-accent-text">/theway:workflow --workflow &lt;name&gt;</code> runs it.
       </>
     ),
@@ -159,13 +159,27 @@ const steps: Step[] = [
         type: 'file',
         title: 'workflows/develop-secure.yaml',
         lines: [
-          { text: 'version: theway.workflow/v1' },
+          { text: 'version: theway.workflow/v1beta' },
+          { text: 'description: Implement, review with a security lens, audit and open the PR' },
+          { text: 'inputs:' },
+          { text: '  change: {description: The change to implement, required: true, type: change}' },
+          { text: 'runs-on: agents' },
           { text: 'steps:' },
-          { text: '  - implement: {agents: false}' },
-          { text: '  - review: {rounds: 2, lenses: [conformance, correctness, security]}' },
-          { text: '  - security-audit:' },
-          { text: '  - gate: "Diff OK? Open the PR?"' },
-          { text: '  - pr:' },
+          { text: '  - uses: prompts/implement.md' },
+          { text: '    runs-on: session' },
+          { text: '    with:' },
+          { text: '      change: ${{ inputs.change }}' },
+          { text: '  - uses: prompts/review.md' },
+          { text: '    matrix: {lens: [prompts/correctness.md, prompts/security.md]}' },
+          { text: '    with:' },
+          { text: '      change: ${{ inputs.change }}' },
+          { text: '      lens: ${{ matrix.lens }}' },
+          { text: '  - uses: prompts/security-audit.md' },
+          { text: '    with:' },
+          { text: '      change: ${{ inputs.change }}' },
+          { text: '  - uses: prompts/open-pr.md' },
+          { text: '    with:' },
+          { text: '      change: ${{ inputs.change }}' },
         ],
       },
     ],
@@ -173,12 +187,12 @@ const steps: Step[] = [
       {
         icon: Hand,
         title: 'Inline or through agents',
-        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it, stop at a gate, and open the PR.',
+        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it, and open the PR.',
       },
       {
         icon: Search,
         title: 'Steps and prompts you write',
-        body: 'A step file chains agents with foreach, loop and when; each agent reads your prompts and returns a typed result. Add a security-audit step, or a security.md lens to the review, and every change that workflow runs gets it.',
+        body: 'A workflow is a flat list of steps, each using a Markdown prompt that answers pass, fail or blocked, with on-fail to fix and retry and matrix to run copies at once. Add a security-audit step, or a security.md lens to the review, and every change that workflow runs gets it.',
       },
       {
         icon: BookOpen,

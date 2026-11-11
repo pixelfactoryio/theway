@@ -11,39 +11,49 @@ This is an illustrative run on the sample project `my-api`. It takes the `add-ra
 /theway:workflow --workflow agents add-rate-limiting
 ```
 
-`--workflow agents` picks the shipped `agents` workflow, with the shipped step defaults and no [`workflow.defaults`](../configuration.mdx#workflow): one review round through the `conformance` and `correctness` lens prompts, then a PR with two CI attempts. `theway workflow agents` printed its three steps with their trees expanded, every agent with its prompts, result type, access and model, and `pushes: true`.
+`--workflow agents` picks the shipped `agents` workflow. `theway workflow agents` showed its one input, `change`, of `type: change`, so the argument is the change ID; `theway workflow agents --input change=add-rate-limiting --compact` then printed its six steps resolved, each run with its prompt file and the change ID as its input value: `branch` in the session, then `implement`, `review` through the `conformance` and `correctness` lenses, `triage` with `fix-review` on fail (`tries: 1`), `open-pr`, and `ci` with `fix-ci` on fail (`tries: 2`), through agents.
+
+## The branch
+
+The session ran `1.branch` itself: it synced `main` and created the branch `add-rate-limiting`, and answered `pass` with the branch and its base. The other five steps are one segment: one call of the `theway:run-pipeline` workflow, with that report.
 
 ## Implement
 
-The command synced `main`, created the branch `add-rate-limiting` and called the `theway:run-pipeline` workflow. Its implementer followed `develop.md`, committed locally with the `feat` type of an `add-` change, and ran `npm test` (10 tests, 10 pass). The command, not the agent, ticked the tasks in `tasks.md`.
+`2.implement` read `prompts/change.md`, followed `develop.md`, committed locally with the `feat` type of an `add-` change, ticked the four tasks in `tasks.md`, ran `npm test` (10 tests, 10 pass) and answered `pass`.
 
 ## Review locally
 
-Before anything was pushed, the two reviewers, one per lens, tried to refute the branch diff. They reported three findings, triaged as:
+Before anything was pushed, the two reviewers, `3.review[prompts/conformance.md]` and `3.review[prompts/correctness.md]`, ran at the same time and tried to refute the branch diff. Both answered `pass`, with three findings between them. `4.triage` read their reports and gave each finding a verdict:
 
 - `0` `confirmed`: the close test only checks that `close` completes, not that the sweep timer is cleared.
 - `1` `confirmed`: per-IP counting is tested on the limiter only; no HTTP test sends from two addresses.
 - `2` `false_positive`: "`Retry-After` can be `0` in the window's last millisecond". Refuted: the header is `max(1, ceil((resetAt - now) / 1000))`.
 
-One fix agent added both tests, in a commit of type `test` since it changes only tests, and re-ran `npm test` (12 tests, 12 pass). The fix check then read the fix commit and answered `resolved` for findings 0 and 1.
+With two confirmed findings it answered `fail`, so its on-fail ran: `4.fix-review` added both tests, in a commit of type `test` since it changes only tests, wrote them in the Notes of `tasks.md`, re-ran `npm test` (12 tests, 12 pass) and answered `pass`. `4.triage` then ran again, as round 2: it read the fix commit, found findings 0 and 1 resolved, and answered `pass`.
 
 ## Open the PR and drive CI
 
-The `pr` step pushed the branch once and opened PR #12, titled `feat: add per-ip rate limiting`. CI went green on attempt 1. With a single change, there is no merge question: the run stops with the PR ready for your validation.
+`5.open-pr` pushed the branch once and opened PR #12, titled `feat: add per-ip rate limiting`, and answered `pass` with its number and URL. `6.ci` read that report, waited for the checks of PR #12, and answered `pass`: CI was green on the first round, so `6.fix-ci` never ran. With a single change, there is no merge question: the run stops with the PR ready for your validation.
 
 ## The report
 
 ```text
-add-rate-limiting
-- Workflow: agents (/home/you/.theway/workflows/agents.yaml)
-- Branch: add-rate-limiting
-- PR: https://github.com/example/my-api/pull/12
-- implement: tasks 1-4 done; npm test 10 pass.
-- review: 1 iteration used.
-  Findings: 0 confirmed, 1 confirmed, 2 false_positive "Retry-After can be 0 in the window's last millisecond".
-  Fix check: finding 0 resolved, finding 1 resolved.
-- pr: PR #12 opened; CI green, 1 of 2 iterations used.
-- Merge: not merged, awaits your validation.
-- Standards given to the agents: none.
-- Blockers: none.
+Workflow: agents (/home/you/.theway/workflows/agents.yaml)
+- 1.branch: pass (inline)
+- 2.implement: pass
+- 3.review[prompts/conformance.md]: pass
+- 3.review[prompts/correctness.md]: pass
+- 4.triage: fail
+- 4.fix-review: pass
+- 4.triage (round 2): pass
+- 5.open-pr: pass
+- 6.ci: pass
+
+4.triage: fail
+0 confirmed: the close test does not check that the sweep timer is cleared (test/limiter.test.js:41).
+1 confirmed: no HTTP test sends from two addresses (test/app.test.js).
+2 false_positive: Retry-After is max(1, ceil((resetAt - now) / 1000)), never 0 (src/limiter.js:27).
+
+6.ci: pass
+PR #12 https://github.com/example/my-api/pull/12: every check passed on 3f2c1a9.
 ```

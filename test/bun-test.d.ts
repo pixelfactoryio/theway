@@ -4,6 +4,7 @@ declare module "bun:test" {
     function skipIf(condition: boolean): (name: string, fn: () => void | Promise<void>, timeout?: number) => void;
   }
   export function afterEach(fn: () => void): void;
+  export function afterAll(fn: () => void): void;
   export function expect(actual: unknown): any;
 }
 

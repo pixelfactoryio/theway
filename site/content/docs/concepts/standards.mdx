@@ -27,7 +27,7 @@ Both folders are optional. Install never touches your files in them.
 `<home>/standards/` also holds the standards theway ships. Their names decide what they are, whatever `.shipped.json` says:
 
 - `interaction.md` and `develop.md` are always read by the commands that need them, never listed and never switchable.
-- The engineering procedures are not standards: the TAMM framework, the investigation rules, the critics' rules and lenses, the verdicts and the spec templates are [prompts](./workflows.mdx#files-and-layering) of the `engineering` workflows (`prompts/tamm-framework.md`, `prompts/spec-investigation.md`, `prompts/spec-reviewer.md`, …). Install retires the old `standards/` copies: an unedited one is removed, an edited one is renamed to `.bak`, so that it never becomes a standard every agent gets.
+- The engineering procedures are not standards: the TAMM framework, the investigation rules, the critics' rules and lenses, the verdicts and the spec templates are [prompts](./workflows.mdx#files-and-layering) of the `engineering` workflows (`prompts/tamm-framework.md`, `prompts/spec-investigation.md`, `prompts/spec-review.md`, …). Install retires the old `standards/` copies: an unedited one is removed, an edited one is renamed to `.bak`, so that it never becomes a standard every agent gets.
 - `commits.md` and `git-host.md` are the [convention standards](#convention-standards): `/theway:workflow` reads them by path, they are never listed, from either folder, and never switchable.
 - `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards: off by default and, when switched on, read by every command that reads standards, like yours. A file of yours kept at one of these names counts as that opt-in standard.
 - Any other name `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy, is theway's, never a user standard.
@@ -106,16 +106,16 @@ Run in `my-api`, `theway config` then prints `tdd` with `enabled: false`, and `t
 
 ## Convention standards
 
-Two shipped standards hold the team conventions and the git host commands that [`/theway:workflow`](../commands/workflow.mdx) and its agents follow, so that neither the command nor its pipeline fixes them:
+Two shipped standards hold the team conventions and the git host commands that the shipped prompts of [`/theway:workflow`](../commands/workflow.mdx) follow, so that neither the command nor its pipeline fixes them:
 
 - `commits.md`: the feature branch name (`<change-id>`), the commit type from the change ID's verb (`add-` → `feat`, `fix-` → `fix`, `refactor-` → `refactor`), Conventional Commit messages, and the PR title and body.
-- `git-host.md`: one `## ` heading per git host operation (`Default branch`, `Sync the default branch`, `Push the feature branch`, `Open the PR`, `Wait for the checks`, `Read a failed check's log`, `Re-run failed jobs`, `Diffstat`, `Merge`), each with its command; the shipped file uses GitHub through the `gh` CLI. The command and its agents name an operation by its heading, never a command.
+- `git-host.md`: one `## ` heading per git host operation (`Default branch`, `Sync the default branch`, `Push the feature branch`, `Open the PR`, `Wait for the checks`, `Read a failed check's log`, `Re-run failed jobs`, `Diffstat`, `Merge`), each with its command; the shipped file uses GitHub through the `gh` CLI. The command and the prompts name an operation by its heading, never a command.
 
 They differ from the other standards:
 
-- **Always read:** [`theway workflow`](../cli.mdx#workflow) prints their paths as `commits` and `git_host`, and every step of `/theway:workflow` gets them. They are never in `theway context`'s `standards`.
+- **Read by path:** the prompts read `standards/commits.md` and `standards/git-host.md` by path (`prompts/change.md`), your project's copy first, as every agent's file path rule says. They are never in `theway context`'s `standards`.
 - **Editable:** edit `<home>/standards/commits.md` or `git-host.md`; install keeps your edited file and writes the shipped one next to it as `commits.default.md` or `git-host.default.md`.
-- **Project override:** `<home>/projects/<key>/standards/commits.md` or `git-host.md` replaces the global file for that project. A project file with one of these names that was one of your standards becomes that override. The global file must still exist: without it, `theway workflow` exits 1 and tells you to run the install.
+- **Project override:** `<home>/projects/<key>/standards/commits.md` or `git-host.md` replaces the global file for that project. A project file with one of these names that was one of your standards becomes that override.
 - **Not switchable:** `standards.commits` and `standards.git_host` give a `cannot be switched` warning.
 
 For example, a project on GitLab replaces `git-host.md` with `<home>/projects/<key>/standards/git-host.md`, which keeps the nine headings and gives the [`glab`](https://gitlab.com/gitlab-org/cli) command under each, such as:

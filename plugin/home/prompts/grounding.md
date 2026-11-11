@@ -4,4 +4,4 @@ Check every claim of the spec about the code, tools, providers and libraries. Re
 
 For a `fix-` change, also re-run the recorded reproduction as a single-question probe and report it when its output differs from the one the spec records.
 
-When Input `params.lenses` has only this lens, also report a spec or task that contradicts a standard.
+Also report a spec or task that contradicts a standard.

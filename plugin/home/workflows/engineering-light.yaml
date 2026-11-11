@@ -1,8 +1,21 @@
-# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# The light path of /theway:engineering --light.
-version: theway.workflow/v1
+version: theway.workflow/v1beta
 description: A short spec and 1 to 3 tasks, reviewed by one grounding critic
-input: request
+inputs:
+  request:
+    description: What the change should do
+    required: true
+runs-on: agents
 steps:
-  - scaffold-light: {agents: false}
-  - spec-review: {lenses: [grounding], on_decision: "escalated: run /theway:engineering <change-id>: <request> without --light"}
+  - uses: prompts/scaffold-light.md
+    runs-on: session
+    with:
+      request: ${{ inputs.request }}
+  - uses: prompts/spec-review.md
+    with:
+      lens: prompts/grounding.md
+  - uses: prompts/spec-triage.md
+    on-fail:
+      uses: prompts/fix-spec.md
+      with:
+        on_decision: "escalated: run /theway:engineering without --light for this request"
+    tries: 1

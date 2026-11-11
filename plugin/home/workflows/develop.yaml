@@ -1,7 +1,14 @@
-# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/workflow.v1.json
-# The workflow /theway:workflow runs when no file sets default: true.
-version: theway.workflow/v1
+version: theway.workflow/v1beta
 description: The tasks done inline in your session, on the working tree, nothing committed
-agents: false
+default: true
+inputs:
+  change:
+    description: The change to implement
+    required: true
+    type: change
+runs-on: session
 steps:
-  - implement:
+  - uses: prompts/implement.md
+    with:
+      change: ${{ inputs.change }}
+      commit: "no"

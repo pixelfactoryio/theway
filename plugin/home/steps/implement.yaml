@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://pixelfactoryio.github.io/theway/schemas/step.v1.json
-version: theway.step/v1
-description: Implement the change's tasks as its spec says
-params:
-  model: {default: opus, description: The implementer}
-do:
-  - agent: {returns: work}

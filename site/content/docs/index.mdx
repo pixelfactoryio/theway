@@ -23,7 +23,7 @@ Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is
 
 ## Your own workflows
 
-`/theway:workflow` runs a workflow: a YAML file listing the steps of a change, and gates that ask you before going on, each step run inline in your session or through agents. A step is a step file of agents that read Markdown prompts; theway ships three, `implement`, `review` and `pr`, written the same way as yours, and two workflows, `develop` (inline) and `agents` (implement, review and pull request through agents). You add your own workflows, steps and prompts in `<home>/`, or per project. See [Workflows](./concepts/workflows.mdx).
+`/theway:workflow` runs a workflow: a YAML file listing the steps of a change, each run in your session or through agents. Each step uses a Markdown prompt and answers pass, fail or blocked; a fail can run a fix and the step again. theway ships its workflows and prompts written the same way as yours: `develop` (in your session) and `agents` (implement, review and pull request through agents), and the two `engineering` workflows. You add your own workflows and prompts in `<home>/`, or per project. See [Workflows](./concepts/workflows.mdx).
 
 ## Next steps
 
