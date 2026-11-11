@@ -19,6 +19,13 @@ export function stepBadge(runsOn: string, model: string | null): { text: string;
   return model === null ? null : { text: model, variant };
 }
 
+/** How many steps run elsewhere than the workflow's `runs-on`, in words: `<N> step(s) override(s) it.`; `null` for none. */
+export function overridesText(runsOn: string, steps: { runs_on: string }[]): string | null {
+  const n = steps.filter((s) => s.runs_on !== runsOn).length;
+  if (n === 0) return null;
+  return n === 1 ? "1 step overrides it." : `${n} steps override it.`;
+}
+
 /** An input declaration as written. */
 export type InputSource = { name: string; description: string; required: boolean; default: string | null; type: string };
 

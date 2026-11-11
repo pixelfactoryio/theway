@@ -434,7 +434,7 @@ export function WorkflowSettings({
         <Check checked={source.default} onChange={(on) => apply((d) => setWorkflowField(d, "default", on ? true : undefined))}>
           Default workflow
         </Check>
-        <Row label="Runs on">
+        <Row label="Steps run on">
           <Choice
             value={source.runsOn}
             options={RUNS_ON}

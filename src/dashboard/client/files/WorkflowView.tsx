@@ -8,7 +8,7 @@ import { type FileRef, fileHref, useFiles } from "@/lib/api";
 import type { ResolvedStep, ResolvedWorkflow } from "../../../core/language-schema";
 import type { FilesResponse, PromptItem, WorkflowResolved } from "../../types";
 import { parse } from "../editor/ops";
-import { promptName, stepBadge } from "./source";
+import { overridesText, promptName, stepBadge } from "./source";
 
 /** A card of the centre and the right column: the card colour, a border, rounded, a light shadow. */
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -242,13 +242,19 @@ export function WorkflowView({ file, resolved, text }: { file: FileRef; resolved
   );
 }
 
-/** The Runs on and Inputs panels of a resolved workflow. */
+/** The Step defaults and Inputs panels of a resolved workflow. */
 export function WorkflowPanels({ doc }: { doc: ResolvedWorkflow }) {
   const inputs = Object.entries(doc.inputs);
+  const overrides = overridesText(doc.runs_on, doc.steps);
   return (
     <>
-      <Panel title="Runs on">
-        <span>{runsOnText(doc.runs_on)}</span>
+      <Panel title="Step defaults">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="font-medium">Runs on</span>
+          <span>{runsOnText(doc.runs_on)}</span>
+        </div>
+        <span className="text-[12px] text-muted-foreground">A step can set its own.</span>
+        {overrides !== null && <span className="text-[12px] text-muted-foreground">{overrides}</span>}
       </Panel>
       {inputs.length > 0 && (
         <Panel title="Inputs">

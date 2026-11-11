@@ -130,7 +130,7 @@ function FilePanel({ detail }: { detail: FileDetail }) {
   );
 }
 
-/** The right column of a file: a workflow's Runs on, Inputs and File panels; a prompt's Used by and File panels. */
+/** The right column of a file: a workflow's Step defaults, Inputs and File panels; a prompt's Used by and File panels. */
 function Facts({ detail }: { detail: FileDetail }) {
   return (
     <div className="flex flex-col gap-3">

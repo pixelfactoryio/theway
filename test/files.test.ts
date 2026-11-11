@@ -9,7 +9,7 @@ import { addInput, HEADER_ORDER, type PromptChoice, parse, removeInput, setStepP
 import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
 import { MAX_PART, pathParts, shownPath } from "../src/dashboard/client/lib/path";
-import { stepBadge } from "../src/dashboard/client/files/source";
+import { overridesText, stepBadge } from "../src/dashboard/client/files/source";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
 
 const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
@@ -127,6 +127,12 @@ test("a step card says an agent runs the step, with its model when known, or tha
   expect(stepBadge("agents", "sonnet")).toEqual({ text: "agent · sonnet", variant: "secondary" });
   expect(stepBadge("agents", null)).toEqual({ text: "agent", variant: "secondary" });
   expect(stepBadge("session", "opus")).toEqual({ text: "your session", variant: "outline" });
+});
+
+test("the Step defaults panel counts the steps that run elsewhere than the workflow's runs-on", () => {
+  expect(overridesText("agents", [{ runs_on: "agents" }, { runs_on: "agents" }])).toBeNull();
+  expect(overridesText("agents", [{ runs_on: "session" }, { runs_on: "agents" }])).toBe("1 step overrides it.");
+  expect(overridesText("session", [{ runs_on: "agents" }, { runs_on: "agents" }])).toBe("2 steps override it.");
 });
 
 test("a new workflow and a new prompt start as written;the workflow names implement's required input until its prompt changes", () => {
