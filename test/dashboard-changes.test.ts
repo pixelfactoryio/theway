@@ -30,6 +30,7 @@ const PROJECTS: Project[] = [
       change("fix-b", "In progress"),
       change("add-a", "In progress"),
       change("add-s-02", "In progress", { id: "add-s", ordinal: 2 }),
+      change("add-y-01", "In progress", { id: "add-y", ordinal: 1 }),
       change("add-r", "Ready to archive"),
       change("add-n", "Not started"),
       change("add-i", "Invalid"),
@@ -49,13 +50,13 @@ const PROJECTS: Project[] = [
 
 const ids = (rows: { label: string; change: ActiveChange }[]) => rows.map((r) => `${r.label}/${r.change.id}`);
 
-test("Home rows are the chosen project's In progress changes, ordered by project label then ID, with a member's place in its series", () => {
-  expect(ids(homeRows(PROJECTS, ALL_PROJECTS))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/fix-b"]);
-  expect(ids(homeRows(PROJECTS, "k-a"))).toEqual(["zulu/add-a", "zulu/add-s-02", "zulu/fix-b"]);
+test("Home rows are the chosen project's In progress changes, ordered by project label then ID, with a member's place in its series, 1 of 1 alone", () => {
+  expect(ids(homeRows(PROJECTS, ALL_PROJECTS))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
+  expect(ids(homeRows(PROJECTS, "k-a"))).toEqual(["zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
   expect(ids(homeRows(PROJECTS, "k-b"))).toEqual(["alpha/add-c"]);
   expect(homeRows(PROJECTS, "k-none")).toEqual([]);
   const rows = homeRows(PROJECTS, "k-a");
-  expect(rows.map((r) => r.series)).toEqual([null, { ordinal: 2, total: 3 }, null]);
+  expect(rows.map((r) => r.series)).toEqual([null, { ordinal: 2, total: 3 }, { ordinal: 1, total: 1 }, null]);
 });
 
 test("the Changes rows are the chosen project's changes of a status, every status for none", () => {
@@ -67,9 +68,10 @@ test("the Changes rows are the chosen project's changes of a status, every statu
     "zulu/add-n",
     "zulu/add-r",
     "zulu/add-s-02",
+    "zulu/add-y-01",
     "zulu/fix-b",
   ]);
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "In progress"))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/fix-b"]);
+  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "In progress"))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
   expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Ready to archive"))).toEqual(["zulu/add-r"]);
   expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Not started"))).toEqual(["zulu/add-n"]);
   expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Invalid"))).toEqual(["alpha/add-j", "zulu/add-i"]);

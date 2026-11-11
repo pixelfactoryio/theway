@@ -19,7 +19,10 @@ export const plural = (n: number, one: string, many: string): string => `${n} ${
 export const chosenProjects = (projects: readonly Project[], chosen: string): Project[] =>
   projects.filter((p) => chosen === ALL_PROJECTS || p.key === chosen);
 
-/** An active change with its project; `series` is its place in a series listed in the project's progress. */
+/**
+ * An active change with its project; `series` is its place in its series, whose total comes from the project's progress,
+ * which lists only series of two or more members: a member missing from it is alone in its series.
+ */
 export type ChangeRow = { key: string; label: string; change: ActiveChange; series: { ordinal: number; total: number } | null };
 
 /** The active changes of the chosen projects, ordered by project label then ID. */
@@ -27,13 +30,9 @@ function activeRows(projects: readonly Project[], chosen: string): ChangeRow[] {
   return chosenProjects(projects, chosen)
     .flatMap((p) =>
       p.active.map((change): ChangeRow => {
-        const progress = change.series === null ? undefined : p.series.find((s) => s.id === change.series?.id);
-        return {
-          key: p.key,
-          label: p.label,
-          change,
-          series: change.series === null || progress === undefined ? null : { ordinal: change.series.ordinal, total: progress.total },
-        };
+        const member = change.series;
+        const total = member === null ? 0 : (p.series.find((s) => s.id === member.id)?.total ?? 1);
+        return { key: p.key, label: p.label, change, series: member === null ? null : { ordinal: member.ordinal, total } };
       }),
     )
     .sort((a, b) => byText(a.label, b.label) || byText(a.change.id, b.change.id));
