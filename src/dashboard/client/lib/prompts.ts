@@ -5,12 +5,13 @@ import { ALL_PROJECTS } from "./changes";
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /**
- * The rows of a tab of the Prompts table: the step prompts (`step`) or the reference files, global ones and the chosen
- * project's (every file for `ALL_PROJECTS`), ordered by name, then global before project, then by project label.
+ * The rows of a tab of the Prompts table: the step prompts (`step`: a file whose item has `step` or an `error`, a broken
+ * step prompt) or the reference files, global ones and the chosen project's (every file for `ALL_PROJECTS`), ordered by
+ * name, then global before project, then by project label.
  */
 export const promptRows = (prompts: readonly PromptItem[], chosen: string, step: boolean): PromptItem[] =>
   prompts
-    .filter((p) => p.step === step && (chosen === ALL_PROJECTS || p.scope === "global" || p.key === chosen))
+    .filter((p) => (p.step || p.error !== null) === step && (chosen === ALL_PROJECTS || p.scope === "global" || p.key === chosen))
     .sort((a, b) => byText(a.name, b.name) || byText(a.scope, b.scope) || byText(a.label ?? "", b.label ?? ""));
 
 /** A use of a prompt in words: `<workflow> · step N`, `<workflow> · on-fail of step N` or `<workflow> · value in step N`. */

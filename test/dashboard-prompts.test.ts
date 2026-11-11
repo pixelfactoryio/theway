@@ -42,6 +42,12 @@ test("the rows of one project are the global files and that project's own", () =
   expect(rows(promptRows(PROMPTS, "b", false))).toEqual(["global/change", "b/change"]);
 });
 
+test("a file with a header error is a step prompt, not a reference file", () => {
+  const broken: PromptItem = { ...item("broken", false), error: "model: must be one of opus, sonnet, haiku" };
+  expect(rows(promptRows([...PROMPTS, broken], ALL_PROJECTS, true))).toEqual(["global/broken", "a/mine", "global/review", "b/review", "global/triage"]);
+  expect(rows(promptRows([...PROMPTS, broken], ALL_PROJECTS, false))).toEqual(["global/change", "b/change", "a/notes"]);
+});
+
 test("a use reads as its workflow and its step, on-fail or value", () => {
   expect(usageText({ name: "agents", use: "step", step: 4 })).toBe("agents · step 4");
   expect(usageText({ name: "agents", use: "on-fail", step: 4 })).toBe("agents · on-fail of step 4");
