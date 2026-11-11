@@ -215,13 +215,3 @@ export function Confirm({
     </AlertDialog>
   );
 }
-
-/** A list typed comma-separated: its trimmed, non-empty items. */
-export const commaList = (text: string): string[] =>
-  text
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s !== "");
-
-/** Names as written: one as a scalar, several as a list; `undefined` for none. */
-export const oneOrList = (names: string[]): string | string[] | undefined => (names.length === 0 ? undefined : names.length === 1 ? names[0] : names);

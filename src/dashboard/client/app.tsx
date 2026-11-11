@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DraftsProvider } from "@/files/drafts";
-import { FileListStateProvider } from "@/files/FileList";
-import { SavedProvider } from "@/files/saved";
 import { type FileRef, useFiles } from "@/lib/api";
 import { ALL_PROJECTS } from "@/lib/changes";
 import { ChangePage } from "@/pages/change";
@@ -199,20 +197,16 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <DraftsProvider>
           <Router hook={useHashLocation}>
-            <SavedProvider>
-              <FileListStateProvider>
-                <div className="flex min-h-screen">
-                  <SkipLink />
-                  <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[220px] flex-none overflow-auto border-r border-divider px-3 py-5 lg:block">
-                    <SidebarContent project={project} onProject={setProject} />
-                  </aside>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <MobileBar project={project} onProject={setProject} />
-                    <Routes project={project} />
-                  </div>
-                </div>
-              </FileListStateProvider>
-            </SavedProvider>
+            <div className="flex min-h-screen">
+              <SkipLink />
+              <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[220px] flex-none overflow-auto border-r border-divider px-3 py-5 lg:block">
+                <SidebarContent project={project} onProject={setProject} />
+              </aside>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <MobileBar project={project} onProject={setProject} />
+                <Routes project={project} />
+              </div>
+            </div>
           </Router>
         </DraftsProvider>
       </QueryClientProvider>

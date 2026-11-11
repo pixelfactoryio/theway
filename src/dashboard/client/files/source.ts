@@ -9,43 +9,8 @@ import { headerDoc } from "../editor/prompt";
 /** The `<name>` of a `prompts/<name>.md` value; `null` for any other value. */
 export const promptName = (value: string): string | null => /^prompts\/([a-z0-9]+(?:-[a-z0-9]+)*)\.md$/.exec(value)?.[1] ?? null;
 
-/**
- * A step card's badge from its effective runs-on and model: "your session", `agent · <model>` (`agent` with no model),
- * else its model alone; `info-light` for opus, `secondary` for the other models; `null` for nothing to show. `title`
- * says it in full.
- */
-export function stepBadge(
-  runsOn: string,
-  model: string | null,
-): { text: string; variant: "outline" | "info-light" | "secondary"; title: string } | null {
-  if (runsOn === "session") return { text: "your session", variant: "outline", title: "Done by your own Claude session" };
-  const variant = model === "opus" ? "info-light" : "secondary";
-  if (runsOn === "agents") {
-    return model === null
-      ? { text: "agent", variant, title: "Run by an agent" }
-      : { text: `agent · ${model}`, variant, title: `Run by an agent on the ${model} model` };
-  }
-  return model === null ? null : { text: model, variant, title: `Runs on the ${model} model` };
-}
-
-/** The long form of a matrix badge: what `N copies at once` means for the matrix key `key`. */
-export const matrixTitle = (key: string): string => `Runs one copy per value of ${key}, in parallel`;
-
-/** The long form of an on-fail badge. */
-export const ON_FAIL_TITLE = "If this step fails, the fix prompt runs and this step runs again";
-
-/** The long form of the `step prompt` badge. */
-export const STEP_PROMPT_TITLE = "A workflow can use this file as a step";
-
-/** How many steps run elsewhere than the workflow's `runs-on`, in words: `<N> step(s) override(s) it.`; `null` for none. */
-export function overridesText(runsOn: string, steps: { runs_on: string }[]): string | null {
-  const n = steps.filter((s) => s.runs_on !== runsOn).length;
-  if (n === 0) return null;
-  return n === 1 ? "1 step overrides it." : `${n} steps override it.`;
-}
-
 /** An input declaration as written. */
-export type InputSource = { name: string; description: string; required: boolean; default: string | null; type: string };
+type InputSource = { name: string; description: string; required: boolean; default: string | null; type: string };
 
 /** An on-fail as written: its `uses`, its prompt's name (`null` for a value that names none), its `with` and its model. */
 export type OnFailSource = { uses: string; name: string | null; with: Record<string, string>; model: string | null };
@@ -111,7 +76,7 @@ function stepOf(v: unknown): StepSource {
 }
 
 /** The error of a `theway.workflow/v1` file, as the resolver words it after the file's path. */
-export const V1_ERROR = `theway.workflow/v1 is no longer read: rewrite it as ${VERSION}`;
+const V1_ERROR = `theway.workflow/v1 is no longer read: rewrite it as ${VERSION}`;
 
 /** A workflow's text as written; `error` when it does not parse, is a v1 file, or has no list of steps. */
 export function workflowSource(src: string): WorkflowSource | { error: string } {
