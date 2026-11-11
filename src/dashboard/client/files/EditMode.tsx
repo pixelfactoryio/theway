@@ -1,60 +1,33 @@
 /**
- * Edit mode of the Workflows page: the open file's draft in its editor, or its diff, the settings column with each
+ * Edit mode of the Workflows page: the open workflow's draft in its editor, or its diff, the settings column with each
  * check line under the field it names, and the save bar with the check, what the save affects, Discard changes, Diff
  * and Save.
  */
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "yaml";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/reui/badge";
 import { Button } from "@/components/ui/button";
-import { type FileRef, fileHref, saveFile, useFiles, validateFile } from "@/lib/api";
-import type { FileDetail, FilesResponse, FileValidateResponse } from "../../types";
+import { type FileRef, fileHref, useFiles } from "@/lib/api";
+import type { FileDetail, FilesResponse } from "../../types";
 import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
-import { addHeader, editHeader, setEditableBody } from "../editor/prompt";
 import { usePromptContext } from "./context";
 import { Diff } from "./Diff";
 import { type Draft, isDirty } from "./draft";
 import { useDrafts, useUndoKeys } from "./drafts";
+import { useFileSave, useValidation } from "./editing";
 import { Confirm } from "./fields";
-import { PromptEdit } from "./PromptEdit";
 import { fieldId, problemOf, stepWords } from "./problems";
 import { useSaved } from "./saved";
-import { PromptSettings, WorkflowSettings } from "./Settings";
-import { headerSource, workflowSource } from "./source";
+import { WorkflowSettings } from "./Settings";
+import { workflowSource } from "./source";
 import { TitleRow } from "./TitleRow";
 import { Broken } from "./WorkflowView";
 import { cardId, WorkflowEdit } from "./WorkflowEdit";
 
-/** The check of the open file's text, 400 ms after its last change; `pending` until the current text is checked. */
-function useValidation(file: FileRef, text: string): { pending: boolean; result: FileValidateResponse | null } {
-  const [state, setState] = useState<{ text: string | null; result: FileValidateResponse | null }>({ text: null, result: null });
-  // `key` stands for `file`, a new object on every render.
-  const key = fileHref(file);
-  useEffect(() => {
-    let live = true;
-    const timer = setTimeout(() => {
-      validateFile(file, text).then(
-        (result) => live && setState({ text, result }),
-        (e: unknown) => live && setState({ text, result: { ok: false, errors: [e instanceof Error ? e.message : String(e)], warnings: [] } }),
-      );
-    }, 400);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-    };
-  }, [key, text]);
-  return { pending: state.text !== text, result: state.result };
-}
-
-/** What a save of the file affects: a prompt's workflows, each named once; a project workflow's project; a global workflow's projects. */
+/** What a save of the workflow affects: a project workflow's project; a global workflow's projects. */
 export function affects(file: FileRef, detail: FileDetail | undefined, files: FilesResponse): string {
-  if (file.kind === "prompts") {
-    const names = [...new Set((detail?.usedBy ?? []).map((u) => (u.scope === "project" ? `${u.name} (${u.label ?? u.key})` : u.name)))];
-    return names.length === 0 ? "affects no workflow" : `affects ${names.join(", ")}`;
-  }
   if (file.scope === "project") return `affects ${files.projects.find((p) => p.key === file.key)?.label ?? file.key} only`;
   const except =
     detail?.overriddenBy.map((p) => p.label) ??
@@ -116,21 +89,20 @@ export function EditMode({
 }) {
   const { update, drop } = useDrafts();
   const files = useFiles();
-  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const saved = useSaved();
   useUndoKeys(file);
   const [selected, select] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const [refused, setRefused] = useState<{ text: string; errors: string[]; warnings: string[] } | null>(null);
   const [discarding, setDiscarding] = useState(false);
   const [diff, setDiff] = useState(false);
   const validation = useValidation(file, draft.text);
+  const { save, saving, conflict, refused, reload, canSave } = useFileSave(file, draft, () => {
+    navigate(fileHref(file));
+    saved(file, files.data === undefined ? "" : affects(file, detail, files.data));
+  });
 
-  const workflow = useMemo(() => (file.kind === "workflows" ? workflowSource(draft.text) : null), [file.kind, draft.text]);
-  const header = useMemo(() => (file.kind === "prompts" ? headerSource(draft.text) : null), [file.kind, draft.text]);
-  const named = workflow !== null && !("error" in workflow) ? workflow.steps.flatMap((s) => [s.name, s.onFail?.name ?? null]) : [];
+  const workflow = useMemo(() => workflowSource(draft.text), [draft.text]);
+  const named = !("error" in workflow) ? workflow.steps.flatMap((s) => [s.name, s.onFail?.name ?? null]) : [];
   const ctx = usePromptContext(file, named);
   const dirty = isDirty(draft);
   const labels = files.data?.projects.map((p) => p.label) ?? [];
@@ -142,13 +114,11 @@ export function EditMode({
       op(d);
       return textOf(d);
     });
-  /** Applies `op` to the prompt header's Document, as one edit of the draft. */
-  const applyHeader = (op: (d: Document) => void) => update(file, (text) => editHeader(text, op));
 
   // The lines to show: a refused save's for this text, else the last check's.
   const errors = refused !== null && refused.text === draft.text ? refused.errors : (validation.result?.errors ?? []);
   const warnings = refused !== null && refused.text === draft.text ? refused.warnings : (validation.result?.warnings ?? []);
-  const problems = errors.map((line) => problemOf(line, file, labels));
+  const problems = errors.map((line) => problemOf(line, { kind: "workflows", name: file.name }, labels));
   const fielded = problems.filter((p) => p.field !== null);
   const loose = problems.filter((p) => p.field === null);
   const marked = new Map<number, number>();
@@ -171,31 +141,6 @@ export function EditMode({
   };
 
   const leave = () => navigate(draft.isNew ? "/workflows" : fileHref(file));
-  const save = async () => {
-    setSaving(true);
-    try {
-      const what = files.data === undefined ? "" : affects(file, detail, files.data);
-      const r = await saveFile(file, draft.text, draft.base);
-      if (r.status === 200) {
-        await queryClient.invalidateQueries({ queryKey: ["files"] });
-        await queryClient.invalidateQueries({ queryKey: ["file"] });
-        navigate(fileHref(file));
-        drop(file);
-        saved(file, what);
-      } else if (r.status === 409) setConflict(true);
-      else setRefused({ text: draft.text, errors: r.body.errors, warnings: r.body.warnings });
-    } catch (e) {
-      setRefused({ text: draft.text, errors: [e instanceof Error ? e.message : String(e)], warnings: [] });
-    } finally {
-      setSaving(false);
-    }
-  };
-  const reload = () => {
-    drop(file);
-    void queryClient.invalidateQueries({ queryKey: ["file", file.scope, file.key, file.kind, file.name] });
-    void queryClient.invalidateQueries({ queryKey: ["files"] });
-  };
-  const canSave = dirty && !validation.pending && validation.result?.ok === true && errors.length === 0 && !saving;
 
   const centre = (
     <>
@@ -237,11 +182,10 @@ export function EditMode({
             if (e.currentTarget.contains(e.target as Node)) select(null);
           }}
         >
-          {workflow !== null ? (
-            "error" in workflow ? (
-              <Broken lines={[workflow.error]} text={draft.text} />
-            ) : (
-              <WorkflowEdit
+          {"error" in workflow ? (
+            <Broken lines={[workflow.error]} text={draft.text} />
+          ) : (
+            <WorkflowEdit
                 steps={workflow.steps}
                 runsOn={workflow.runsOn}
                 ctx={ctx}
@@ -258,9 +202,6 @@ export function EditMode({
                   if (selected !== null) select(movedIndex(selected, from, to));
                 }}
               />
-            )
-          ) : (
-            <PromptEdit text={draft.text} setBody={(body) => update(file, (text) => setEditableBody(text, body))} />
           )}
         </div>
       )}
@@ -268,20 +209,16 @@ export function EditMode({
   );
 
   const facts =
-    workflow !== null ? (
-      "error" in workflow ? null : (
-        <WorkflowSettings
-          source={workflow}
-          selected={selected}
-          select={select}
-          apply={apply}
-          ctx={ctx}
-          problems={fielded}
-          back={() => selected !== null && scrollToId(cardId(selected))}
-        />
-      )
-    ) : (
-      <PromptSettings header={header} apply={applyHeader} useAsStep={() => update(file, addHeader)} problems={fielded} />
+    "error" in workflow ? null : (
+      <WorkflowSettings
+        source={workflow}
+        selected={selected}
+        select={select}
+        apply={apply}
+        ctx={ctx}
+        problems={fielded}
+        back={() => selected !== null && scrollToId(cardId(selected))}
+      />
     );
 
   const count = errors.length;
@@ -311,7 +248,7 @@ export function EditMode({
         <ul className="flex max-h-[120px] flex-col gap-0.5 overflow-auto">
           {loose.map((p, i) => (
             <li key={`${i}:${p.line}`} className="font-mono text-[12px] break-words text-red-300">
-              {p.step !== null && p.step < (workflow !== null && !("error" in workflow) ? workflow.steps.length : 0) ? (
+              {p.step !== null && p.step < (!("error" in workflow) ? workflow.steps.length : 0) ? (
                 <button type="button" className="cursor-pointer text-left hover:underline" onClick={() => pick(p.step)}>
                   {stepWords(p.step)}: {p.message}
                 </button>

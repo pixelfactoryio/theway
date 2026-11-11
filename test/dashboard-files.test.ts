@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { MODELS } from "../src/core/language-schema";
 import { tildePath } from "../src/dashboard/api";
 import { homeRelative } from "../src/dashboard/validate";
 import { historyDir, snapshot } from "../src/dashboard/history";
@@ -40,7 +41,7 @@ const prompt = async (port: number, path: string) => (await get(port, path)).jso
 
 type Item = { scope: string; key: string | null; label: string | null; kind: string; name: string; path: string; description: string | null };
 type WorkflowItem = Item & { default: boolean; error: string | null };
-type PromptItem = Item & { step: boolean };
+type PromptItem = Item & { step: boolean; model: string | null; usedBy: { scope: string; key: string | null; label: string | null; name: string }[]; error: string | null };
 
 /** A shipped home with projects `p` and `q`, `q` holding its own workflow `own`. */
 function twoProjects(): string {
@@ -116,14 +117,46 @@ test("GET /api/v1/files lists every project, the global workflows and prompts, t
     path: join(dir, "prompts", "triage.md"),
     description: "Judge the reviewers' findings, or check the fix of the confirmed ones",
     step: true,
+    model: "opus",
+    usedBy: [{ scope: "global", key: null, label: null, name: "agents" }],
+    error: null,
   });
   expect(body.prompts.filter((p) => p.scope === "project")).toEqual([
-    { scope: "project", key: "q", label: "q", kind: "prompts", name: "mine", path: join(dir, "projects", "q", "prompts", "mine.md"), description: null, step: false },
+    {
+      scope: "project",
+      key: "q",
+      label: "q",
+      kind: "prompts",
+      name: "mine",
+      path: join(dir, "projects", "q", "prompts", "mine.md"),
+      description: null,
+      step: false,
+      model: null,
+      usedBy: [],
+      error: null,
+    },
   ]);
   for (const item of [...body.workflows, ...body.prompts]) {
     expect(item.path.startsWith("/")).toBe(true);
     expect(item.path.includes(".default.")).toBe(false);
   }
+});
+
+test("a listed prompt gives its header's model, the workflows that use it once each, and its first header error", async () => {
+  const dir = twoProjects();
+  put(join(dir, "projects", "p", "prompts", "odd.md"), "---\ndescription: Odd\nmodel: gpt\n---\n\nOdd.\n");
+  const { port } = await start(dir);
+  const prompts = (await get(port, "/api/v1/files")).json().prompts as PromptItem[];
+  const of = (name: string, key: string | null = null) => prompts.find((p) => p.name === name && p.key === key) as PromptItem;
+  const names = (p: PromptItem) => p.usedBy.map((u) => `${u.key ?? "global"}/${u.name}`);
+  expect([of("triage").model, of("change").model]).toEqual(["opus", null]);
+  expect(names(of("implement"))).toEqual(["global/agents", "global/develop", "q/own"]);
+  expect(names(of("conformance"))).toEqual(["global/agents"]);
+  expect(names(of("grounding"))).toContain("global/engineering-light");
+  expect(names(of("grounding"))).toEqual(["global/engineering", "global/engineering-light"]);
+  expect(of("spec-template").usedBy).toEqual([]);
+  for (const p of prompts.filter((p) => p.scope === "global")) expect([p.name, p.error]).toEqual([p.name, null]);
+  expect([of("odd", "p").error, of("odd", "p").model, of("odd", "p").step]).toEqual([`model: must be one of ${MODELS.join(", ")}`, null, false]);
 });
 
 test("a v1 workflow file is listed with the error that it is no longer read", async () => {

@@ -1,7 +1,7 @@
 import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cn } from "cn";
-import { House, List, Menu, Workflow } from "lucide-react";
+import { FileText, House, List, Menu, Workflow } from "lucide-react";
 import { type ComponentType, useState } from "react";
 import { Link, Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
@@ -14,26 +14,30 @@ import { SavedProvider } from "@/files/saved";
 import { type FileRef, useFiles } from "@/lib/api";
 import { ALL_PROJECTS } from "@/lib/changes";
 import { ChangePage } from "@/pages/change";
+import { History } from "@/files/History";
 import { ChangesPage } from "@/pages/changes";
 import { HomePage } from "@/pages/home";
+import { PromptPage } from "@/pages/prompt";
+import { PromptsPage } from "@/pages/prompts";
 import { type Mode, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
-import { EXT, type SourceKind } from "../types";
 
 const queryClient = new QueryClient();
 
-type Area = "Home" | "Changes" | "Workflows";
+type Area = "Home" | "Changes" | "Workflows" | "Prompts";
 
 /** The sidebar's entries: each area, its route and its icon. */
 const AREAS: { name: Area; href: string; icon: ComponentType<{ className?: string }> }[] = [
   { name: "Home", href: "/", icon: House },
   { name: "Changes", href: "/changes", icon: List },
   { name: "Workflows", href: "/workflows", icon: Workflow },
+  { name: "Prompts", href: "/prompts", icon: FileText },
 ];
 
-/** The area of a route: Changes for a change or an archived one, Workflows for the Workflows pages, else Home. */
+/** The area of a route: Changes for a change or an archived one, Workflows and Prompts for their pages, else Home. */
 function areaOf(location: string): Area {
   if (location.startsWith("/changes") || location.startsWith("/archive")) return "Changes";
   if (location.startsWith("/workflows")) return "Workflows";
+  if (location.startsWith("/prompts")) return "Prompts";
   return "Home";
 }
 
@@ -138,14 +142,14 @@ function SkipLink() {
   );
 }
 
-const isKind = (k: string): k is SourceKind => Object.hasOwn(EXT, k);
-
-/** The Workflows page of a file, in view, edit or versions mode; `/workflows` for a kind that is not one. */
-function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
-  if (!isKind(file.kind)) return <Redirect to="/workflows" replace />;
-  const ref: FileRef = { ...file, kind: file.kind };
-  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} mode={mode} />;
+/** The Workflows page of a workflow, in view, edit or history mode. */
+function page(file: Omit<FileRef, "kind">, mode: Mode, project: string) {
+  const ref: FileRef = { ...file, kind: "workflows" };
+  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} mode={mode} project={project} />;
 }
+
+/** A prompt's file reference. */
+const prompt = (scope: "global" | "project", key: string | null, name: string): FileRef => ({ scope, key, kind: "prompts", name });
 
 const VIEW: Mode = { view: true };
 const EDIT: Mode = { edit: true };
@@ -162,22 +166,29 @@ function Routes({ project }: { project: string }) {
       <Route path="/changes/:key/:id">{(p) => <ChangePage key={`c/${p.key}/${p.id}`} projectKey={p.key} id={p.id} archived={false} />}</Route>
       <Route path="/archive/:key/:folder">{(p) => <ChangePage key={`a/${p.key}/${p.folder}`} projectKey={p.key} id={p.folder} archived={true} />}</Route>
       <Route path="/workflows">
-        <WorkflowsIndex />
+        <WorkflowsIndex project={project} />
       </Route>
-      <Route path="/workflows/global/:kind/:name">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, VIEW)}</Route>
-      <Route path="/workflows/global/:kind/:name/edit">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, EDIT)}</Route>
-      <Route path="/workflows/global/:kind/:name/versions">{(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: null })}</Route>
-      <Route path="/workflows/global/:kind/:name/versions/:id">
-        {(p) => page({ scope: "global", key: null, kind: p.kind, name: p.name }, { version: p.id })}
+      <Route path="/workflows/global/workflows/:name">{(p) => page({ scope: "global", key: null, name: p.name }, VIEW, project)}</Route>
+      <Route path="/workflows/global/workflows/:name/edit">{(p) => page({ scope: "global", key: null, name: p.name }, EDIT, project)}</Route>
+      <Route path="/workflows/global/workflows/:name/versions">{(p) => page({ scope: "global", key: null, name: p.name }, { version: null }, project)}</Route>
+      <Route path="/workflows/global/workflows/:name/versions/:id">{(p) => page({ scope: "global", key: null, name: p.name }, { version: p.id }, project)}</Route>
+      <Route path="/workflows/projects/:key/workflows/:name">{(p) => page({ scope: "project", key: p.key, name: p.name }, VIEW, project)}</Route>
+      <Route path="/workflows/projects/:key/workflows/:name/edit">{(p) => page({ scope: "project", key: p.key, name: p.name }, EDIT, project)}</Route>
+      <Route path="/workflows/projects/:key/workflows/:name/versions">
+        {(p) => page({ scope: "project", key: p.key, name: p.name }, { version: null }, project)}
       </Route>
-      <Route path="/workflows/projects/:key/:kind/:name">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, VIEW)}</Route>
-      <Route path="/workflows/projects/:key/:kind/:name/edit">{(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, EDIT)}</Route>
-      <Route path="/workflows/projects/:key/:kind/:name/versions">
-        {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: null })}
+      <Route path="/workflows/projects/:key/workflows/:name/versions/:id">
+        {(p) => page({ scope: "project", key: p.key, name: p.name }, { version: p.id }, project)}
       </Route>
-      <Route path="/workflows/projects/:key/:kind/:name/versions/:id">
-        {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: p.id })}
+      <Route path="/prompts">
+        <PromptsPage project={project} />
       </Route>
+      <Route path="/prompts/global/:name">{(p) => <PromptPage key={`g/${p.name}`} file={prompt("global", null, p.name)} />}</Route>
+      <Route path="/prompts/global/:name/history">{(p) => <History file={prompt("global", null, p.name)} id={null} />}</Route>
+      <Route path="/prompts/global/:name/history/:id">{(p) => <History file={prompt("global", null, p.name)} id={p.id} />}</Route>
+      <Route path="/prompts/projects/:key/:name">{(p) => <PromptPage key={`p/${p.key}/${p.name}`} file={prompt("project", p.key, p.name)} />}</Route>
+      <Route path="/prompts/projects/:key/:name/history">{(p) => <History file={prompt("project", p.key, p.name)} id={null} />}</Route>
+      <Route path="/prompts/projects/:key/:name/history/:id">{(p) => <History file={prompt("project", p.key, p.name)} id={p.id} />}</Route>
       <Route>
         <Redirect to="/" replace />
       </Route>

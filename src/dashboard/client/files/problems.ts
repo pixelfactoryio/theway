@@ -1,19 +1,19 @@
 /**
- * The check's error lines tied to the editor's fields: each line that names a place of the open file gives the field it
- * concerns and its reason in plain words, without the file's path and the locator. Pure: no DOM, no React.
+ * The check's error lines tied to the editor's fields. A workflow's line that names a place of the open file gives the
+ * field it concerns and its reason in plain words, without the file's path and the locator; a prompt's line that names
+ * a header key gives that key and the validator's reason unchanged. Pure: no DOM, no React.
  */
 
 /** The fields of a step's settings a line can name. */
 export type StepKey = "uses" | "with" | "matrix" | "on-fail" | "on-fail.with" | "on-fail.model" | "tries" | "runs-on" | "model";
 
 /**
- * A field of the editor: one of step `step`'s, of the workflow panel or of a prompt's header form; `input` names the
- * input of a `with` or an `inputs` field when the line names one.
+ * A field of the workflow editor: one of step `step`'s, or of the workflow panel; `input` names the input of a `with`
+ * or an `inputs` field when the line names one.
  */
 export type Field =
   | { at: "step"; step: number; key: StepKey; input: string | null }
-  | { at: "workflow"; key: "description" | "default" | "runs-on" | "inputs"; input: string | null }
-  | { at: "header"; key: "description" | "model" | "inputs"; input: string | null };
+  | { at: "workflow"; key: "description" | "default" | "runs-on" | "inputs"; input: string | null };
 
 /** A check line: the field it concerns and its message, or `field: null` and the line as it is; `step` is the step it names, if any. */
 export type Problem = { line: string; field: Field | null; step: number | null; message: string };
@@ -31,8 +31,8 @@ const STEP_LABEL: Record<StepKey, string> = {
   model: "Model",
 };
 
-/** The words of a workflow or header field in a message. */
-const TOP_LABEL: Record<string, string> = { description: "Description", default: "Default workflow", "runs-on": "Steps run on", model: "Model", inputs: "Inputs" };
+/** The words of a workflow field in a message. */
+const TOP_LABEL: Record<string, string> = { description: "Description", default: "Default workflow", "runs-on": "Steps run on", inputs: "Inputs" };
 
 /** A word with its first letter in capitals. */
 const cap = (w: string): string => `${w.slice(0, 1).toUpperCase()}${w.slice(1)}`;
@@ -66,51 +66,52 @@ function stepKey(key: string | undefined, reason: string): StepKey | null {
   return Object.hasOwn(STEP_LABEL, key) ? (key as StepKey) : null;
 }
 
-/** The file part of a line the open file writes: `workflows/<name>.yaml` or `prompts/<name>.md`. */
-const relOf = (file: { kind: "workflows" | "prompts"; name: string }): string => (file.kind === "workflows" ? `workflows/${file.name}.yaml` : `prompts/${file.name}.md`);
+/** A line without its `<label>: ` (one of `labels`) and its `theway: `: the label, `null` for none, and the rest. */
+function unprefixed(line: string, labels: readonly string[]): { label: string | null; rest: string } {
+  let rest = line;
+  const label = labels.find((l) => rest.startsWith(`${l}: `)) ?? null;
+  if (label !== null) rest = rest.slice(label.length + 2);
+  if (rest.startsWith("theway: ")) rest = rest.slice("theway: ".length);
+  return { label, rest };
+}
 
 /** A step's number as the page shows it, from 1. */
 export const stepWords = (index: number): string => `Step ${index + 1}`;
 
 /**
- * The problem of a check line for the open `file`: the line, after an optional `<label>: ` (one of `labels`) and
- * `theway: `, starts with the file's own path and a locator the editor has a field for. Its message is the field's
+ * The problem of a check line for the open workflow `file`: the line, after an optional `<label>: ` (one of `labels`)
+ * and `theway: `, starts with the file's own path and a locator the editor has a field for. Its message is the field's
  * name and the reason in plain words (`Tries: use a number from 1 to 10`, `change: required, not set`), with
  * ` (in <label>)` for a line from a project's context. Any other line keeps its text, with `theway: ` removed.
  */
-export function problemOf(line: string, file: { kind: "workflows" | "prompts"; name: string }, labels: readonly string[]): Problem {
-  let rest = line;
-  const label = labels.find((l) => rest.startsWith(`${l}: `)) ?? null;
-  if (label !== null) rest = rest.slice(label.length + 2);
-  if (rest.startsWith("theway: ")) rest = rest.slice("theway: ".length);
+export function problemOf(line: string, file: { kind: "workflows"; name: string }, labels: readonly string[]): Problem {
+  const { label, rest: whole } = unprefixed(line, labels);
+  let rest = whole;
   const shown = label === null ? rest : `${label}: ${rest}`;
   const none = (step: number | null = null): Problem => ({ line, field: null, step, message: shown });
-  const own = `${relOf(file)}: `;
+  const own = `workflows/${file.name}.yaml: `;
   if (!rest.startsWith(own)) return none();
   rest = rest.slice(own.length);
   const where = label === null ? "" : ` (in ${label})`;
 
-  if (file.kind === "workflows") {
-    const s = /^steps\[(\d+)\](?:\.([a-z-]+(?:\.[a-z-]+)?))?: (.*)$/.exec(rest);
-    if (s !== null) {
-      const step = Number(s[1]);
-      const reason = s[3] as string;
-      const key = stepKey(s[2], reason);
-      if (key === null) return none(step);
-      const { text, input } = plain(reason);
-      const named = input !== null && (key === "with" || key === "on-fail.with");
-      return {
-        line,
-        field: { at: "step", step, key, input: named ? input : null },
-        step,
-        message: `${named ? input : STEP_LABEL[key]}: ${text}${where}`,
-      };
-    }
+  const s = /^steps\[(\d+)\](?:\.([a-z-]+(?:\.[a-z-]+)?))?: (.*)$/.exec(rest);
+  if (s !== null) {
+    const step = Number(s[1]);
+    const reason = s[3] as string;
+    const key = stepKey(s[2], reason);
+    if (key === null) return none(step);
+    const { text, input } = plain(reason);
+    const named = input !== null && (key === "with" || key === "on-fail.with");
+    return {
+      line,
+      field: { at: "step", step, key, input: named ? input : null },
+      step,
+      message: `${named ? input : STEP_LABEL[key]}: ${text}${where}`,
+    };
   }
-  const top = /^(description|default|runs-on|model|inputs)(?:\.("[^"]*"|[^:\s]+))?: (.*)$/.exec(rest);
+  const top = /^(description|default|runs-on|inputs)(?:\.("[^"]*"|[^:\s]+))?: (.*)$/.exec(rest);
   if (top === null) return none();
-  const key = top[1] as string;
-  if (file.kind === "workflows" ? key === "model" : key === "default" || key === "runs-on") return none();
+  const key = top[1] as "description" | "default" | "runs-on" | "inputs";
   const input = top[2] === undefined ? null : unquote(top[2]);
   if (key !== "inputs" && input !== null) return none();
   const reason = top[3] as string;
@@ -120,11 +121,38 @@ export function problemOf(line: string, file: { kind: "workflows" | "prompts"; n
     sub !== null
       ? `${input}: ${cap(sub[1] as string)}: ${plain(sub[2] as string).text}`
       : `${input ?? TOP_LABEL[key]}: ${plain(reason).text}`;
-  const field =
-    file.kind === "workflows"
-      ? { at: "workflow" as const, key: key as "description" | "default" | "runs-on" | "inputs", input }
-      : { at: "header" as const, key: key as "description" | "model" | "inputs", input };
-  return { line, field, step: null, message: `${message}${where}` };
+  return { line, field: { at: "workflow", key, input }, step: null, message: `${message}${where}` };
+}
+
+/** A prompt check line that names a key of the open prompt's header: the key, the input it names, and the validator's reason. */
+export type HeaderProblem = { key: "description" | "model" | "inputs"; input: string | null; message: string };
+
+/**
+ * The header problem of a check line for the open prompt `name`: the line, after an optional `<label>: ` (one of
+ * `labels`) and `theway: `, is `prompts/<name>.md: <key>[.<input>]: <message>` for the key `description`, `model` or
+ * `inputs`; the message is kept as the validator wrote it. `null` for any other line.
+ */
+export function headerProblem(line: string, name: string, labels: readonly string[] = []): HeaderProblem | null {
+  const { rest } = unprefixed(line, labels);
+  const own = `prompts/${name}.md: `;
+  if (!rest.startsWith(own)) return null;
+  const m = /^(description|model|inputs)(?:\.("[^"]*"|[^:\s]+))?: (.*)$/.exec(rest.slice(own.length));
+  if (m === null) return null;
+  const key = m[1] as HeaderProblem["key"];
+  const input = m[2] === undefined ? null : unquote(m[2]);
+  if (key !== "inputs" && input !== null) return null;
+  return { key, input, message: m[3] as string };
+}
+
+/**
+ * A prompt check line as the prompt page lists it: without `theway: ` and without the open prompt's own
+ * `prompts/<name>.md: ` prefix (`inputs.change: …`, `body: …`), its `<label>: ` kept; not reworded.
+ */
+export function promptLine(line: string, name: string, labels: readonly string[] = []): string {
+  const { label, rest } = unprefixed(line, labels);
+  const own = `prompts/${name}.md: `;
+  const text = rest.startsWith(own) ? rest.slice(own.length) : rest;
+  return label === null ? text : `${label}: ${text}`;
 }
 
 /** Whether two fields are the same: the same place, key, input and, for a step's, step. */

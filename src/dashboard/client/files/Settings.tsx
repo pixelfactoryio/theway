@@ -1,6 +1,6 @@
 /**
- * Edit mode's right column: a workflow's Workflow and Inputs panels, or the panels of its selected step; a prompt's
- * Header and Inputs panels, or "Use as a step". Every field is applied on change, as one operation on the draft.
+ * Edit mode's right column: a workflow's Workflow and Inputs panels, or the panels of its selected step. Every field is
+ * applied on change, as one operation on the draft.
  */
 import { ArrowDown, ArrowUp, Braces, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -11,7 +11,6 @@ import { MODELS, PARAM, RUNS_ON, WORKFLOW_INPUT_TYPES } from "../../../core/lang
 import {
   addInput,
   defaultOnFail,
-  HEADER_ORDER,
   moveStep,
   type OnFail,
   removeInput,
@@ -28,14 +27,13 @@ import {
   prefillOnFail,
   WORKFLOW_ORDER,
 } from "../editor/ops";
-import { setHeaderField } from "../editor/prompt";
 import type { PromptContext } from "./context";
 import { Check, Choice, type FieldProblem, Input, invalidProps, Problems, Row, TextField } from "./fields";
 import { type Field, fieldId, type Problem, type StepKey, sameField, stepWords } from "./problems";
-import type { HeaderSource, InputSource, OnFailSource, StepSource, WorkflowSource } from "./source";
+import type { InputSource, OnFailSource, StepSource, WorkflowSource } from "./source";
 import { Panel } from "./WorkflowView";
 
-/** Applies an operation to the draft's Document: the workflow's, or the prompt header's. */
+/** Applies an operation to the draft's workflow Document. */
 export type Apply = (op: (doc: Document) => void) => void;
 
 /** A field's problem: its control's ID and the messages of the problems at it. */
@@ -156,18 +154,15 @@ function TriesField({ value, onChange, problem }: { value: string; onChange: (n:
   );
 }
 
-/**
- * The Inputs panel: Add at its top right, then for each input its name, description, type (a workflow's), required and
- * default, and Remove; under a prompt's input, how its text writes it.
- */
-function InputsPanel({ inputs, workflow, apply, problems }: { inputs: InputSource[]; workflow: boolean; apply: Apply; problems: readonly Problem[] }) {
+/** The Inputs panel: Add at its top right, then for each input its name, description, type, required and default, and Remove. */
+function InputsPanel({ inputs, apply, problems }: { inputs: InputSource[]; apply: Apply; problems: readonly Problem[] }) {
   const names = inputs.map((i) => i.name);
-  const at = workflow ? ("workflow" as const) : ("header" as const);
+  const at = "workflow" as const;
   return (
     <Panel
       title="Inputs"
       action={
-        <Button variant="outline" size="xs" onClick={() => apply((d) => void addInput(d, workflow ? WORKFLOW_ORDER : HEADER_ORDER))}>
+        <Button variant="outline" size="xs" onClick={() => apply((d) => void addInput(d, WORKFLOW_ORDER))}>
           <Plus /> Add
         </Button>
       }
@@ -191,15 +186,13 @@ function InputsPanel({ inputs, workflow, apply, problems }: { inputs: InputSourc
           <Row label="Description">
             <TextField value={input.description} onChange={(v) => apply((d) => setInputField(d, input.name, "description", v))} />
           </Row>
-          {workflow && (
-            <Row label="Type">
-              <Choice
-                value={input.type}
-                options={WORKFLOW_INPUT_TYPES}
-                onChange={(v) => apply((d) => setInputField(d, input.name, "type", v === "text" ? undefined : v))}
-              />
-            </Row>
-          )}
+          <Row label="Type">
+            <Choice
+              value={input.type}
+              options={WORKFLOW_INPUT_TYPES}
+              onChange={(v) => apply((d) => setInputField(d, input.name, "type", v === "text" ? undefined : v))}
+            />
+          </Row>
           <Check
             checked={input.required}
             onChange={(on) =>
@@ -220,11 +213,6 @@ function InputsPanel({ inputs, workflow, apply, problems }: { inputs: InputSourc
             <Trash2 /> Remove
           </Button>
           <Problems problem={problemAt(problems, { at, key: "inputs", input: input.name })} />
-          {!workflow && (
-            <span className="text-[12px] text-muted-foreground">
-              Written in the text as <span className="font-mono">{`\${{ inputs.${input.name} }}`}</span>
-            </span>
-          )}
         </div>
       ))}
     </Panel>
@@ -491,62 +479,7 @@ export function WorkflowSettings({
           />
         </Row>
       </Panel>
-      <InputsPanel inputs={source.inputs} workflow apply={apply} problems={problems} />
-    </Column>
-  );
-}
-
-/** A prompt's right column: its Header and Inputs panels, or "Use as a step" for a file with no header. */
-export function PromptSettings({
-  header,
-  apply,
-  useAsStep,
-  problems,
-}: {
-  header: HeaderSource | { error: string } | null;
-  apply: Apply;
-  useAsStep: () => void;
-  problems: readonly Problem[];
-}) {
-  const problem = (key: "description" | "model") => problemAt(problems, { at: "header", key, input: null });
-  if (header !== null && "error" in header) {
-    return (
-      <Column>
-        <Panel title="Header">
-          <p className="text-[12px] break-words text-destructive">{header.error}</p>
-        </Panel>
-      </Column>
-    );
-  }
-  if (header === null) {
-    return (
-      <Column>
-        <Panel title="Header">
-          <span className="text-muted-foreground">This file has no header: a workflow cannot run it as a step.</span>
-          <Button variant="outline" className="self-start" onClick={useAsStep}>
-            Use as a step
-          </Button>
-        </Panel>
-      </Column>
-    );
-  }
-  return (
-    <Column>
-      <Panel title="Header">
-        <Row label="Description" problem={problem("description")}>
-          <TextField value={header.description} multiline problem={problem("description")} onChange={(v) => apply((d) => setHeaderField(d, "description", v))} />
-        </Row>
-        <Row label="Model" problem={problem("model")}>
-          <Choice
-            value={header.model ?? UNSET}
-            options={[UNSET, ...MODELS]}
-            labels={{ [UNSET]: "None" }}
-            problem={problem("model")}
-            onChange={(v) => apply((d) => setHeaderField(d, "model", v === UNSET ? undefined : v))}
-          />
-        </Row>
-      </Panel>
-      <InputsPanel inputs={header.inputs} workflow={false} apply={apply} problems={problems} />
+      <InputsPanel inputs={source.inputs} apply={apply} problems={problems} />
     </Column>
   );
 }

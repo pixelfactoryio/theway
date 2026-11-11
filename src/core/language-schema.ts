@@ -92,5 +92,5 @@ export type WorkflowFileItem = {
   error?: string;
 };
 
-/** One prompt file of a project, as `listPromptFiles` lists it. */
-export type PromptFileItem = { name: string; scope: "project" | "global"; description: string | null; step: boolean };
+/** One prompt file of a project, as `listPromptFiles` lists it; `error` is its first header rule error, `null` for none. */
+export type PromptFileItem = { name: string; scope: "project" | "global"; description: string | null; step: boolean; error: string | null };

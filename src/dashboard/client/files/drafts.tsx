@@ -94,3 +94,12 @@ export function useUndoKeys(file: FileRef): void {
     return () => removeEventListener("keydown", onKey);
   }, [key, undo, redo]);
 }
+
+/** The prompts whose page opens on its Write tab the next time it opens, by file key. */
+const writeTab = new Set<string>();
+
+/** Opens `file`'s prompt page on its Write tab the next time it opens: after Create or Restore. */
+export const openOnWrite = (file: FileRef): void => void writeTab.add(fileKey(file));
+
+/** Whether `file`'s prompt page opens on its Write tab; it is asked once. */
+export const takeOpenOnWrite = (file: FileRef): boolean => writeTab.delete(fileKey(file));

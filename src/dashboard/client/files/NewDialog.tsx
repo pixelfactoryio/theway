@@ -1,18 +1,20 @@
-/** The New dialog: a workflow or a prompt, empty or copied from another, for all projects or one; nothing is written until Save. */
+/**
+ * The Create dialog: a workflow or a prompt, as the caller says, empty or copied from another of its kind, for all
+ * projects or one; nothing is written until Save.
+ */
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { editHref, type FileRef, fileKey, useFile, useFiles } from "@/lib/api";
+import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
 import { NAME } from "../../../core/language-schema";
 import { EXT, type FileItem, type FilesResponse, type SourceKind } from "../../types";
 import { usePromptContext } from "./context";
-import { useDrafts } from "./drafts";
+import { openOnWrite, useDrafts } from "./drafts";
 import { Choice, Input, invalidProps, Row } from "./fields";
 import { copyText, newPromptText, newWorkflowText } from "./new-file";
 
-/** The "Where" value of the global scope, and the "Start from" value of an empty file. */
+/** The "Applies to" value of the global scope, and the "Start from" value of an empty file. */
 const ALL = "\u0000all";
 const EMPTY = "\u0000empty";
 
@@ -27,15 +29,14 @@ function refusal(target: FileRef, files: FilesResponse, drafts: ReadonlyMap<stri
 /** The ID of the Name field, which has the focus when the dialog opens. */
 const NAME_ID = "new-file-name";
 
-/** The dialog's form, mounted while it is open. */
-function NewForm({ initial, files, onClose }: { initial: SourceKind; files: FilesResponse; onClose: () => void }) {
+/** The dialog's form, mounted while it is open; "Applies to" starts on `project` when it is one of the projects. */
+function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project: string; files: FilesResponse; onClose: () => void }) {
   const { drafts, start } = useDrafts();
   const [, navigate] = useLocation();
-  const [kind, setKind] = useState<SourceKind>(initial);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [from, setFrom] = useState(EMPTY);
-  const [scope, setScope] = useState(ALL);
+  const [scope, setScope] = useState(files.projects.some((p) => p.key === project) ? project : ALL);
   const [tried, setTried] = useState(false);
   const items: FileItem[] = kind === "workflows" ? files.workflows : files.prompts;
   const source = items.find((f) => fileKey(f) === from);
@@ -56,7 +57,10 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
           : newPromptText(description);
     start(target, text, null, true);
     onClose();
-    navigate(editHref(target));
+    if (kind === "prompts") {
+      openOnWrite(target);
+      navigate(fileHref(target));
+    } else navigate(editHref(target));
   };
   const label = (f: FileItem) => `A copy of ${f.scope === "global" ? f.name : `${f.name} (${f.label ?? f.key ?? ""})`}`;
   return (
@@ -69,27 +73,9 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
       }}
     >
       <DialogHeader>
-        <DialogTitle>New</DialogTitle>
-        <DialogDescription>Opens in the editor as a draft. Nothing is written until you save.</DialogDescription>
+        <DialogTitle>{kind === "prompts" ? "Create prompt" : "Create workflow"}</DialogTitle>
+        <DialogDescription>Opens as a draft. Nothing is written until you save.</DialogDescription>
       </DialogHeader>
-      <Row label="What" group>
-        <Tabs
-          value={kind}
-          onValueChange={(v) => {
-            setKind(v as SourceKind);
-            setFrom(EMPTY);
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="workflows" className="px-3">
-              Workflow
-            </TabsTrigger>
-            <TabsTrigger value="prompts" className="px-3">
-              Prompt
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </Row>
       <Row
         label="Name"
         note={
@@ -113,31 +99,29 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
           onChange={(e) => setName(e.target.value)}
         />
       </Row>
-      <Row label="Description" problem={{ id: "new-file-description", messages: tried && missing !== "" ? [missing] : [] }}>
+      <Row label={<span className="font-mono">description</span>} problem={{ id: "new-file-description", messages: tried && missing !== "" ? [missing] : [] }}>
         <Input value={description} {...invalidProps({ id: "new-file-description", messages: tried && missing !== "" ? [missing] : [] })} onChange={(e) => setDescription(e.target.value)} />
       </Row>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Row label="Start from">
-          <Choice
-            value={from}
-            options={[EMPTY, ...items.map(fileKey)]}
-            labels={{ [EMPTY]: "Empty", ...Object.fromEntries(items.map((f) => [fileKey(f), label(f)])) }}
-            onChange={(v) => {
-              setFrom(v);
-              const d = items.find((f) => fileKey(f) === v)?.description;
-              if (d !== undefined && d !== null && description === "") setDescription(d);
-            }}
-          />
-        </Row>
-        <Row label="Where">
-          <Choice
-            value={scope}
-            options={[ALL, ...files.projects.map((p) => p.key)]}
-            labels={{ [ALL]: "All projects", ...Object.fromEntries(files.projects.map((p) => [p.key, p.label])) }}
-            onChange={setScope}
-          />
-        </Row>
-      </div>
+      <Row label="Start from">
+        <Choice
+          value={from}
+          options={[EMPTY, ...items.map(fileKey)]}
+          labels={{ [EMPTY]: "Empty", ...Object.fromEntries(items.map((f) => [fileKey(f), label(f)])) }}
+          onChange={(v) => {
+            setFrom(v);
+            const d = items.find((f) => fileKey(f) === v)?.description;
+            if (d !== undefined && d !== null && description === "") setDescription(d);
+          }}
+        />
+      </Row>
+      <Row label="Applies to">
+        <Choice
+          value={scope}
+          options={[ALL, ...files.projects.map((p) => p.key)]}
+          labels={{ [ALL]: "All projects", ...Object.fromEntries(files.projects.map((p) => [p.key, p.label])) }}
+          onChange={setScope}
+        />
+      </Row>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
@@ -148,13 +132,13 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
   );
 }
 
-/** The New dialog, open while `kind` is set, on that kind. */
-export function NewDialog({ kind, onClose }: { kind: SourceKind | null; onClose: () => void }) {
+/** The Create dialog, open while `kind` is set, on that kind; `project` is the sidebar's project. */
+export function NewDialog({ kind, project, onClose }: { kind: SourceKind | null; project: string; onClose: () => void }) {
   const files = useFiles();
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[460px]" initialFocus={() => document.getElementById(NAME_ID)}>
-        {kind !== null && files.data !== undefined && <NewForm initial={kind} files={files.data} onClose={onClose} />}
+        {kind !== null && files.data !== undefined && <NewForm kind={kind} project={project} files={files.data} onClose={onClose} />}
       </DialogContent>
     </Dialog>
   );

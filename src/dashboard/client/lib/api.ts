@@ -60,11 +60,16 @@ export const versionQuery = (f: FileRef, id: string) => ({
 
 export const useVersion = (f: FileRef, id: string) => useQuery(versionQuery(f, id));
 
-/** The page of a file in the dashboard: `/workflows/global/<kind>/<name>` or `/workflows/projects/<key>/<kind>/<name>`. */
-export const fileHref = (f: FileRef): string =>
-  f.scope === "global" ? `/workflows/global/${f.kind}/${f.name}` : `/workflows/projects/${f.key ?? ""}/${f.kind}/${f.name}`;
+/**
+ * The page of a file in the dashboard: a workflow's `/workflows/global/workflows/<name>` or
+ * `/workflows/projects/<key>/workflows/<name>`; a prompt's `/prompts/global/<name>` or `/prompts/projects/<key>/<name>`.
+ */
+export const fileHref = (f: FileRef): string => {
+  if (f.kind === "prompts") return f.scope === "global" ? `/prompts/global/${f.name}` : `/prompts/projects/${f.key ?? ""}/${f.name}`;
+  return f.scope === "global" ? `/workflows/global/${f.kind}/${f.name}` : `/workflows/projects/${f.key ?? ""}/${f.kind}/${f.name}`;
+};
 
-/** The edit mode of a file: its page with `/edit`. */
+/** The edit mode of a workflow: its page with `/edit`. */
 export const editHref = (f: FileRef): string => `${fileHref(f)}/edit`;
 
 /** The key of a file in the client's maps: `<scope>/<key>/<kind>/<name>`. */
@@ -108,5 +113,6 @@ export type SaveResult = { status: 200; body: FileSaveResponse } | { status: 409
 export const saveFile = async (f: FileRef, text: string, base: string | null): Promise<SaveResult> =>
   expectStatus(await write<unknown>("PUT", filePath(f), { text, base }), [200, 409, 422]) as SaveResult;
 
-/** The versions page of a file: its page with `/versions`, and `/<id>` for one version. */
-export const versionsHref = (f: FileRef, id: string | null = null): string => `${fileHref(f)}/versions${id === null ? "" : `/${id}`}`;
+/** The history of a file: a workflow's page with `/versions`, a prompt's with `/history`, and `/<id>` for one version. */
+export const versionsHref = (f: FileRef, id: string | null = null): string =>
+  `${fileHref(f)}/${f.kind === "prompts" ? "history" : "versions"}${id === null ? "" : `/${id}`}`;

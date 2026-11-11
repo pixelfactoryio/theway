@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parse } from "regexparam";
 import { folderOf, labels } from "../src/dashboard/api";
 import { repoName, shortLabels } from "../src/dashboard/client/lib/labels";
 import { keyOf } from "../src/core/project";
@@ -535,11 +536,19 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
   expect(existsSync(join(ROOT, "src", "components"))).toBe(false);
 });
 
-test("the app routes Home, the changes and the workflows, and sends any other path to Home", () => {
+test("the app routes Home, the changes, the workflows and the prompts, and sends any other path to Home", () => {
   const app = readFileSync(join(ROOT, "src", "dashboard", "client", "app.tsx"), "utf-8");
-  const paths = [...app.matchAll(/<Route path="([^"]+)"/g)].map((m) => m[1]);
-  expect(paths.filter((p) => !p?.startsWith("/workflows/"))).toEqual(["/", "/changes", "/changes/:key/:id", "/archive/:key/:folder", "/workflows"]);
-  expect(app).toContain('<Route path="/workflows">\n        <WorkflowsIndex />\n      </Route>');
+  const paths = [...app.matchAll(/<Route path="([^"]+)"/g)].map((m) => m[1] as string);
+  expect(paths.filter((p) => !p.startsWith("/workflows/") && !p.startsWith("/prompts/"))).toEqual(["/", "/changes", "/changes/:key/:id", "/archive/:key/:folder", "/workflows", "/prompts"]);
+  expect(app).toContain('<Route path="/workflows">\n        <WorkflowsIndex project={project} />\n      </Route>');
+  // The first route a path matches, as the Switch picks it; `null` for the catch-all redirect to Home.
+  const route = (path: string) => paths.find((p) => parse(p).pattern.test(path)) ?? null;
+  expect(route("/prompts/global/triage/history")).toBe("/prompts/global/:name/history");
+  expect(route("/prompts/global/triage/history/shipped")).toBe("/prompts/global/:name/history/:id");
+  expect(route("/prompts/projects/k/triage")).toBe("/prompts/projects/:key/:name");
+  expect(route("/workflows/global/workflows/agents/versions/shipped")).toBe("/workflows/global/workflows/:name/versions/:id");
+  expect(route("/workflows/global/prompts/triage")).toBeNull();
+  expect(route("/workflows/projects/k/prompts/triage/edit")).toBeNull();
   expect(app).toContain('<Route>\n        <Redirect to="/" replace />\n      </Route>\n    </Switch>');
   expect(app).not.toContain("function TopBar");
 });

@@ -586,14 +586,14 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
 
 /**
  * Every `.md` file of the project's and the home's `prompts/` folders, `.default.md` copies left out, a project file
- * hiding the global one, sorted by name: its header's description (else `null`), and `step`: whether it has a header
- * that passes the header rules.
+ * hiding the global one, sorted by name: its header's description (else `null`), `step`: whether it has a header
+ * that passes the header rules, and `error`: the first header rule error (`<where>: <message>`), `null` for none.
  */
 export function listPromptFiles(home: string, key: string, overlay?: Overlay): PromptFileItem[] {
   return scopedNames(home, key, "prompts", overlay).map(({ name, scope, path }): PromptFileItem => {
     const text = readText(path, overlay);
     const { header, headerErrors } = text === null ? { header: null, headerErrors: [] } : parsePromptFile(text);
     const description = header !== null && header.description !== "" ? header.description : null;
-    return { name, scope, description, step: header !== null && headerErrors.length === 0 };
+    return { name, scope, description, step: header !== null && headerErrors.length === 0, error: headerErrors[0] ?? null };
   });
 }

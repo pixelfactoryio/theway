@@ -10,7 +10,7 @@ import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBo
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
 import { MAX_PART, pathParts, shownPath } from "../src/dashboard/client/lib/path";
 import { matches, visibleItems } from "../src/dashboard/client/files/list";
-import { fieldId, problemOf } from "../src/dashboard/client/files/problems";
+import { fieldId, headerProblem, problemOf, promptLine } from "../src/dashboard/client/files/problems";
 import { matrixTitle, overridesText, stepBadge } from "../src/dashboard/client/files/source";
 import { deltaText, lineDelta, whenOf } from "../src/dashboard/client/files/version-info";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
@@ -164,16 +164,26 @@ test("a check line that names a field of the open workflow gives the field and i
   expect(problemOf("workflows/other.yaml: steps[0].tries: must be an integer from 1 to 10", wf, []).field).toBeNull();
 });
 
-test("a check line that names a field of the open prompt's header gives that field", () => {
-  const p = { kind: "prompts" as const, name: "triage" };
-  const d = problemOf("prompts/triage.md: description: must be a non-empty string", p, []);
-  expect([d.field, d.message]).toEqual([{ at: "header", key: "description", input: null }, "Description: required, not set"]);
-  expect(problemOf("prompts/triage.md: model: must be one of opus, sonnet, haiku", p, []).field).toEqual({ at: "header", key: "model", input: null });
-  expect(problemOf("prompts/triage.md: inputs.change: required must be true or false", p, []).message).toBe("change: Required: must be true or false");
-  expect(problemOf("prompts/triage.md: body: must not be empty", p, []).field).toBeNull();
-  expect(problemOf("workflows/agents.yaml: steps[3].with: required input change is not set", p, []).field).toBeNull();
+test("a prompt check line that names a header key gives the key, the input and the validator's message unchanged", () => {
+  const message = "description must be a non-empty string";
+  expect(headerProblem(`prompts/x.md: inputs.change: ${message}`, "x")).toEqual({ key: "inputs", input: "change", message });
+  expect(headerProblem("prompts/triage.md: description: must be a non-empty string", "triage")).toEqual({ key: "description", input: null, message: "must be a non-empty string" });
+  expect(headerProblem("my-app: theway: prompts/triage.md: model: must be one of opus, sonnet, haiku", "triage", ["my-app"])).toEqual({
+    key: "model",
+    input: null,
+    message: "must be one of opus, sonnet, haiku",
+  });
+  expect(headerProblem('prompts/x.md: inputs."a b": unknown key', "x")).toEqual({ key: "inputs", input: "a b", message: "unknown key" });
+  expect(headerProblem("prompts/triage.md: body: must not be empty", "triage")).toBeNull();
+  expect(headerProblem("prompts/triage.md: model.x: must be one of opus, sonnet, haiku", "triage")).toBeNull();
+  expect(headerProblem("prompts/other.md: description: must be a non-empty string", "triage")).toBeNull();
+  expect(headerProblem("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBeNull();
+  // The page lists a line without the open prompt's own prefix, its label kept, not reworded.
+  expect(promptLine("prompts/triage.md: body: must not be empty", "triage")).toBe("body: must not be empty");
+  expect(promptLine("my-app: theway: prompts/triage.md: inputs.change: unknown key", "triage", ["my-app"])).toBe("my-app: inputs.change: unknown key");
+  expect(promptLine("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBe("workflows/agents.yaml: steps[3].with: required input change is not set");
   expect(fieldId({ at: "step", step: 3, key: "on-fail.with", input: "change" })).toBe("field-step-on-fail-with-change");
-  expect(fieldId({ at: "header", key: "description", input: null })).toBe("field-header-description");
+  expect(fieldId({ at: "workflow", key: "description", input: null })).toBe("field-workflow-description");
 });
 
 test("a file list group shows 8 items, as many as reach the open file, all when expanded, and every match of a filter", () => {

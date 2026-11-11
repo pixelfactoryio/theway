@@ -97,6 +97,9 @@
   --warning-foreground: var(--color-yellow-900);
   --invert: var(--color-zinc-900);
   --invert-foreground: var(--color-zinc-50);
+  /* The backgrounds of a diff's added and removed lines. */
+  --diff-added: #E6F6EC;
+  --diff-removed: #FDECEF;
 }
 
 @media (width >= 64rem) {

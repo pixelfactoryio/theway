@@ -91,8 +91,14 @@ type FileBase = {
 /** A workflow file: whether it is the default, and the first error line when it does not resolve. */
 export type WorkflowItem = FileBase & { kind: "workflows"; default: boolean; error: string | null };
 
-/** A prompt file: `step` when it has a header that passes the header rules. */
-export type PromptItem = FileBase & { kind: "prompts"; step: boolean };
+/** A workflow that uses a prompt, as the files list names it. */
+export type PromptUser = { scope: "global" | "project"; key: string | null; label: string | null; name: string };
+
+/**
+ * A prompt file: `step` when it has a header that passes the header rules; its header's `model` (`null` for none); the
+ * workflows that use it, each once, in files-list order; and its first header rule error (`null` for none).
+ */
+export type PromptItem = FileBase & { kind: "prompts"; step: boolean; model: string | null; usedBy: PromptUser[]; error: string | null };
 
 export type FileItem = WorkflowItem | PromptItem;
 
@@ -129,7 +135,7 @@ export type Resolved = WorkflowResolved | PromptResolved;
  * the sha256 of its bytes, its resolved form in its own context, the projects whose own file of that name overrides a
  * global one, whether a project file overrides a global one, and the workflow files that name a prompt.
  */
-export type FileDetail = ((WorkflowItem & { resolved: WorkflowResolved }) | (PromptItem & { resolved: PromptResolved })) & {
+export type FileDetail = ((WorkflowItem & { resolved: WorkflowResolved }) | (Omit<PromptItem, "usedBy"> & { resolved: PromptResolved })) & {
   text: string;
   sha256: string;
   overriddenBy: { key: string; label: string }[];

@@ -11,7 +11,7 @@ export function Diff({ from, to, className }: { from: string; to: string; classN
         <div key={`${h.oldStart}:${h.newStart}`}>
           <div className="px-2 text-muted-foreground">{`@@ -${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@`}</div>
           {h.lines.map((l, i) => (
-            <div key={i} className={cn("px-2 whitespace-pre", l.startsWith("+") && "bg-[#E9F7EC]", l.startsWith("-") && "bg-[#FDECEC]")}>
+            <div key={i} className={cn("px-2 whitespace-pre", l.startsWith("+") && "bg-(--diff-added)", l.startsWith("-") && "bg-(--diff-removed)")}>
               {l}
             </div>
           ))}

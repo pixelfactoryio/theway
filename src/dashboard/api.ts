@@ -32,6 +32,7 @@ import {
   type FileVersionsResponse,
   type PromptItem,
   type PromptResolved,
+  type PromptUser,
   type SaveInvalid,
   type SeriesMember,
   type SeriesProgress,
@@ -281,11 +282,55 @@ function workflowItems(home: string, p: Place): WorkflowItem[] {
     }));
 }
 
-/** The prompt items of one place: the files of its own folder. */
-function promptItems(home: string, p: Place): PromptItem[] {
+/** The workflow listings and workflow texts one request reads, each read once. */
+type Reads = { listed: (context: string) => ReturnType<typeof listWorkflowFiles>; text: (path: string) => string };
+
+function reads(home: string): Reads {
+  const listed = new Map<string, ReturnType<typeof listWorkflowFiles>>();
+  const texts = new Map<string, string>();
+  return {
+    listed: (context) => {
+      if (!listed.has(context)) listed.set(context, listWorkflowFiles(home, context, () => {}));
+      return listed.get(context) as ReturnType<typeof listWorkflowFiles>;
+    },
+    text: (path) => {
+      if (!texts.has(path)) texts.set(path, readText(path));
+      return texts.get(path) as string;
+    },
+  };
+}
+
+/** The workflows of `uses`, each once, in their order. */
+function usersOf(uses: FileUse[]): PromptUser[] {
+  const seen = new Set<string>();
+  return uses.flatMap(({ scope, key, label, name }) => {
+    const id = `${scope}/${key ?? ""}/${name}`;
+    if (seen.has(id)) return [];
+    seen.add(id);
+    return [{ scope, key, label, name }];
+  });
+}
+
+/** The prompt items of one place: the files of its own folder, each with its header's model, its users and its first header error. */
+function promptItems(home: string, p: Place, all: { key: string; label: string }[], r: Reads): PromptItem[] {
   return listPromptFiles(home, contextOf(p))
     .filter((f) => f.scope === p.scope)
-    .map((f) => ({ ...p, kind: "prompts", name: f.name, path: pathOf(home, p, "prompts", f.name), description: f.description, step: f.step }));
+    .map((f) => {
+      const path = pathOf(home, p, "prompts", f.name);
+      const { header } = parsePromptFile(readText(path));
+      const target: FileTarget = { scope: p.scope, key: p.key, kind: "prompts", name: f.name };
+      return {
+        ...p,
+        kind: "prompts",
+        name: f.name,
+        path,
+        description: f.description,
+        step: f.step,
+        model: header?.model ?? null,
+        usedBy: usersOf(usedBy(home, target, all, r)),
+        error: f.error,
+      };
+    });
 }
 
 /** The global place, then each project's, in `projectKeys` order. */
@@ -305,14 +350,20 @@ export function tildePath(path: string, user = homedir()): string {
 export function files(home: string): Reply<FilesResponse> {
   const all = projectLabels(home);
   const places = placesOf(all);
-  return ok({ home: tildePath(home), projects: all, workflows: places.flatMap((p) => workflowItems(home, p)), prompts: places.flatMap((p) => promptItems(home, p)) });
+  const r = reads(home);
+  return ok({
+    home: tildePath(home),
+    projects: all,
+    workflows: places.flatMap((p) => workflowItems(home, p)),
+    prompts: places.flatMap((p) => promptItems(home, p, all, r)),
+  });
 }
 
 /** The uses of the prompt `name` by the workflows `items` of a context, one item per workflow, step and kind of use. */
-function usesIn(home: string, context: string, items: { name: string; scope: "global" | "project" }[], name: string, label: string | null): FileUse[] {
+function usesIn(home: string, r: Reads, context: string, items: { name: string; scope: "global" | "project" }[], name: string, label: string | null): FileUse[] {
   return items.flatMap((w) => {
     const place: Place = w.scope === "global" ? { scope: "global", key: null, label: null } : { scope: "project", key: context, label };
-    return promptUses(readText(pathOf(home, place, "workflows", w.name)), name).map((u): FileUse => ({ ...place, name: w.name, ...u }));
+    return promptUses(r.text(pathOf(home, place, "workflows", w.name)), name).map((u): FileUse => ({ ...place, name: w.name, ...u }));
   });
 }
 
@@ -321,17 +372,18 @@ function usesIn(home: string, context: string, items: { name: string; scope: "gl
  * and those of each project that has no prompt file of that name; for a project prompt, the global workflow files the
  * project does not have as its own, then the project's.
  */
-function usedBy(home: string, target: FileTarget, all: { key: string; label: string }[]): FileUse[] {
+function usedBy(home: string, target: FileTarget, all: { key: string; label: string }[], r: Reads = reads(home)): FileUse[] {
   if (target.scope === "global") {
     return [
-      ...usesIn(home, GLOBAL_CONTEXT, listWorkflowFiles(home, GLOBAL_CONTEXT, () => {}), target.name, null),
+      ...usesIn(home, r, GLOBAL_CONTEXT, r.listed(GLOBAL_CONTEXT), target.name, null),
       ...all
         .filter(({ key }) => !isFile(projectPath(home, key, "prompts", target.name)))
         .flatMap(({ key, label }) =>
           usesIn(
             home,
+            r,
             key,
-            listWorkflowFiles(home, key, () => {}).filter((w) => w.scope === "project"),
+            r.listed(key).filter((w) => w.scope === "project"),
             target.name,
             label,
           ),
@@ -339,9 +391,9 @@ function usedBy(home: string, target: FileTarget, all: { key: string; label: str
     ];
   }
   const key = target.key as string;
-  const listed = listWorkflowFiles(home, key, () => {});
+  const listed = r.listed(key);
   const label = all.find((p) => p.key === key)?.label ?? null;
-  return usesIn(home, key, [...listed.filter((w) => w.scope === "global"), ...listed.filter((w) => w.scope === "project")], target.name, label);
+  return usesIn(home, r, key, [...listed.filter((w) => w.scope === "global"), ...listed.filter((w) => w.scope === "project")], target.name, label);
 }
 
 /** A prompt's text resolved: its header, its header rule errors and its body rendered. */
@@ -377,8 +429,9 @@ export function file(home: string, scope: "global" | "project", key: string | nu
     const item = workflowItems(home, place).find((w) => w.name === name) as WorkflowItem;
     return ok({ ...item, ...common, resolved: workflowResolved(home, context, name), usedBy: [] });
   }
-  const item = promptItems(home, place).find((p) => p.name === name) as PromptItem;
-  return ok({ ...item, ...common, resolved: promptResolved(text), usedBy: usedBy(home, target, all) });
+  const r = reads(home);
+  const item = promptItems(home, place, all, r).find((p) => p.name === name) as PromptItem;
+  return ok({ ...item, ...common, resolved: promptResolved(text), usedBy: usedBy(home, target, all, r) });
 }
 
 /** The text of a file validate or save body, checked; with `withBase`, its `base` too. */

@@ -1,6 +1,6 @@
 /**
- * The file list of the Workflows pages: New, a filter, then the workflows, the step prompts and the other prompt files.
- * From the `lg` breakpoint it is the left column; below it, the Files button of the title row opens it in a sheet.
+ * The file list of the Workflows pages: New workflow, a filter, then the workflows. From the `lg` breakpoint it is the
+ * left column; below it, the Files button of the title row opens it in a sheet.
  */
 import { cn } from "cn";
 import { Files } from "lucide-react";
@@ -11,7 +11,7 @@ import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { type FileRef, fileHref, fileKey, useFiles } from "@/lib/api";
-import type { FileItem, SourceKind } from "../../types";
+import type { WorkflowItem } from "../../types";
 import { isDirty } from "./draft";
 import { useDrafts } from "./drafts";
 import { Input } from "./fields";
@@ -44,8 +44,8 @@ function useListState(): ListState {
 }
 
 /** An item of the list: its name, then the `edited` badge of a dirty draft, the `default` badge, its error mark, or the project it belongs to. */
-function Item({ item, selected, edited, onPick }: { item: FileItem; selected: boolean; edited: boolean; onPick?: () => void }) {
-  const error = item.kind === "workflows" ? item.error : null;
+function Item({ item, selected, edited, onPick }: { item: WorkflowItem; selected: boolean; edited: boolean; onPick?: () => void }) {
+  const error = item.error;
   return (
     <Link
       href={fileHref(item)}
@@ -66,7 +66,7 @@ function Item({ item, selected, edited, onPick }: { item: FileItem; selected: bo
             error
           </span>
         ) : (
-          item.kind === "workflows" && item.default && <Badge variant="outline">default</Badge>
+          item.default && <Badge variant="outline">default</Badge>
         )}
       </span>
     </Link>
@@ -87,14 +87,14 @@ function Group({
 }: {
   heading: string;
   subtitle?: string;
-  items: FileItem[];
+  items: WorkflowItem[];
   selected: FileRef | null;
   first: boolean;
   onPick?: () => void;
 }) {
   const { drafts } = useDrafts();
   const { filter, expanded, toggle } = useListState();
-  const edited = (item: FileItem) => {
+  const edited = (item: WorkflowItem) => {
     const d = drafts.get(fileKey(item))?.draft;
     return d !== undefined && isDirty(d);
   };
@@ -122,9 +122,8 @@ function Group({
 }
 
 /**
- * The file list: New, the filter, the workflows, the step prompts, then the other prompt files, in the response's
- * order; a new file's draft is listed with its kind, workflows first and prompts with the step prompts. `onPick` runs
- * when a file is chosen.
+ * The file list: New workflow, the filter, then the workflows in the response's order, a new workflow's draft last.
+ * `onPick` runs when a file is chosen.
  */
 export function FileList({
   selected,
@@ -133,7 +132,7 @@ export function FileList({
   filterRef,
 }: {
   selected: FileRef | null;
-  onNew: (kind: SourceKind) => void;
+  onNew: () => void;
   onPick?: () => void;
   filterRef?: Ref<HTMLInputElement>;
 }) {
@@ -141,29 +140,26 @@ export function FileList({
   const { drafts } = useDrafts();
   const { filter, setFilter } = useListState();
   if (files.data === undefined) return <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>;
-  const { workflows, prompts, projects } = files.data;
+  const { workflows, projects } = files.data;
   const labels = new Map(projects.map((p) => [p.key, p.label]));
-  const fresh = (kind: SourceKind): FileItem[] =>
-    [...drafts.values()]
-      .filter((e) => e.draft.isNew && e.file.kind === kind)
-      .map((e) => {
-        const base = { ...e.file, label: e.file.key === null ? null : (labels.get(e.file.key) ?? null), path: "", description: null };
-        return e.file.kind === "workflows" ? { ...base, kind: "workflows", default: false, error: null } : { ...base, kind: "prompts", step: false };
-      });
-  const groups = [
-    { heading: "Workflows", items: [...workflows, ...fresh("workflows")] },
-    { heading: "Prompts", items: [...prompts.filter((p) => p.step), ...fresh("prompts")] },
-    { heading: "Reference files", subtitle: "read by prompts, not steps", items: prompts.filter((p) => !p.step) },
-  ];
+  const fresh: WorkflowItem[] = [...drafts.values()]
+    .filter((e) => e.draft.isNew && e.file.kind === "workflows")
+    .map((e) => ({
+      ...e.file,
+      kind: "workflows",
+      label: e.file.key === null ? null : (labels.get(e.file.key) ?? null),
+      path: "",
+      description: null,
+      default: false,
+      error: null,
+    }));
+  const groups = [{ heading: "Workflows", items: [...workflows, ...fresh] }];
   const none = filter.trim() !== "" && groups.every((g) => !g.items.some((i) => matches(i.name, filter)));
   return (
     <nav aria-label="Files" className="flex flex-col gap-px">
       <div className="flex gap-1.5 pb-3">
-        <Button variant="outline" size="sm" onClick={() => onNew("workflows")}>
+        <Button variant="outline" size="sm" onClick={onNew}>
           New workflow
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => onNew("prompts")}>
-          New prompt
         </Button>
       </div>
       <Input
@@ -192,7 +188,7 @@ export function FileList({
 }
 
 /** The left column from `lg`: sticky under the top bar, as tall as the window below it, scrolled on its own; the open file kept in view. */
-export function FilesColumn({ selected, onNew }: { selected: FileRef | null; onNew: (kind: SourceKind) => void }) {
+export function FilesColumn({ selected, onNew }: { selected: FileRef | null; onNew: () => void }) {
   const ref = useRef<HTMLElement>(null);
   const key = selected === null ? "" : fileKey(selected);
   // `key` stands for `selected`, a new object on every render; `ref` is set once mounted.
@@ -224,7 +220,7 @@ export function FilesSheet({
   children,
 }: {
   selected: FileRef | null;
-  onNew: (kind: SourceKind) => void;
+  onNew: () => void;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -241,9 +237,9 @@ export function FilesSheet({
           <DialogTitle className="mb-3 py-2">Files</DialogTitle>
           <FileList
             selected={selected}
-            onNew={(kind) => {
+            onNew={() => {
               setOpen(false);
-              onNew(kind);
+              onNew();
             }}
             onPick={() => setOpen(false)}
             filterRef={filter}
