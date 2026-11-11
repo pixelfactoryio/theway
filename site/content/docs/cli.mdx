@@ -601,7 +601,7 @@ add-user-auth-05
 theway dashboard [--port <n>]
 ```
 
-Starts a local web view of the data home with two pages, Changes and Workflows. It prints one line with the address and runs until you stop it:
+Starts a local web view of the data home. A sidebar holds a project switcher, then Home, Changes and Workflows; on a narrow window, the menu button of the top bar opens it. The switcher's choice, All projects when the page loads, sets the changes Home and Changes show; a reload returns to All projects. It prints one line with the address and runs until you stop it:
 
 ```text
 theway dashboard: http://127.0.0.1:4870/
@@ -618,11 +618,19 @@ theway dashboard: http://127.0.0.1:4870/
 
   Any other error starting the server exits 1 with a `theway: <message>` line. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
 
+### Home
+
+Home, at `#/`, says what needs attention in the chosen project, then what is in progress:
+
+- A workflow that does not resolve: `<name> cannot run.` with a link to its page, or `N workflows cannot run.` with a link to Workflows. A global workflow counts for every project.
+- Changes whose `change.yaml` is missing or invalid: `N changes have an invalid change.yaml.` with a link to Changes.
+- In progress: the changes with some of their tasks done, by project then ID, each with its description, its project and its tasks done; a series member adds its place, `N of M in its series`. Under it, a link to all the changes.
+
 ### Changes
 
-The Changes page, at `#/changes`, lists the active changes of every project on one page, one section per project, headed by the project's repository name (its full label shows when you point at it). A series is one row with its progress, `<done> of <total> done`, counting its archived members and its active members whose tasks are all done; select it to show its active members. Every other change is a row with its tasks done. Archived adds each project's archived changes, and the project menu shows one project.
+The Changes page, at `#/changes`, lists the active changes of the chosen project in one table, by project then ID: each with its description, its project, its tasks done and its status, Not started, In progress, Ready to archive (all its tasks done) or Invalid (its `change.yaml` is missing or invalid; point at the badge for the error). The Status menu keeps the changes of one status. Archived adds a table of the archived changes, newest first, with the date each was archived.
 
-A change's page shows its tasks done, from its `change.yaml`, and, for a series member, every member of the series by ordinal, each linked to its page; the series' total is its number of members, active and archived. Its Markdown files are rendered, one tab each: `spec.md`, `design.md`, `notes.md`, then the others by name.
+A change's page shows its ID, its status and its description, or, when its `change.yaml` is invalid, the error. Its tabs are Spec, Tasks with its tasks done (each task numbered and marked done or open, read-only), Design and Notes when the change has them, then its other Markdown files by name. Details, beside the tabs on a wide window and under them on a narrow one, gives its project, its tasks done and, for a series member, its place in the series and every member by ordinal, each linked to its page; the series' total is its number of members, active and archived. For an active change, Run it with names the workflow `theway workflow` uses with no name for its project, marked `default`, and the command that runs the change, `/theway:workflow <change-id>`, with Copy.
 
 ### Workflows
 
