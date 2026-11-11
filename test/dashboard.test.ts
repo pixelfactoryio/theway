@@ -533,7 +533,7 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
     ["alert-dialog", "button", "checkbox", "dialog", "dropdown-menu", "select", "tabs", "textarea"].map((n) => join("components", "ui", `${n}.tsx`)),
   );
   const reui = files.filter((f) => f.startsWith(join("components", "reui"))).sort();
-  expect(reui).toEqual(["badge", "sortable", "timeline"].map((n) => join("components", "reui", `${n}.tsx`)));
+  expect(reui).toEqual(["badge", "sortable"].map((n) => join("components", "reui", `${n}.tsx`)));
   expect(existsSync(join(client, "components", "reui", "sortable.tsx"))).toBe(true);
   expect(existsSync(join(ROOT, "src", "components"))).toBe(false);
 });
@@ -542,7 +542,7 @@ test("the app routes Home, the changes, the workflows and the prompts, and sends
   const app = readFileSync(join(ROOT, "src", "dashboard", "client", "app.tsx"), "utf-8");
   const paths = [...app.matchAll(/<Route path="([^"]+)"/g)].map((m) => m[1] as string);
   expect(paths.filter((p) => !p.startsWith("/workflows/") && !p.startsWith("/prompts/"))).toEqual(["/", "/changes", "/changes/:key/:id", "/archive/:key/:folder", "/workflows", "/prompts"]);
-  expect(app).toContain('<Route path="/workflows">\n        <WorkflowsIndex project={project} />\n      </Route>');
+  expect(app).toContain('<Route path="/workflows">\n        <WorkflowsPage project={project} />\n      </Route>');
   // The first route a path matches, as the Switch picks it; `null` for the catch-all redirect to Home.
   // wouter's default parser, the one the app's Switch uses.
   let parser: Parser | undefined;
@@ -557,9 +557,18 @@ test("the app routes Home, the changes, the workflows and the prompts, and sends
   expect(route("/prompts/global/triage/history")).toBe("/prompts/global/:name/history");
   expect(route("/prompts/global/triage/history/shipped")).toBe("/prompts/global/:name/history/:id");
   expect(route("/prompts/projects/k/triage")).toBe("/prompts/projects/:key/:name");
-  expect(route("/workflows/global/workflows/agents/versions/shipped")).toBe("/workflows/global/workflows/:name/versions/:id");
-  expect(route("/workflows/global/prompts/triage")).toBeNull();
-  expect(route("/workflows/projects/k/prompts/triage/edit")).toBeNull();
+  expect(route("/workflows/global/agents")).toBe("/workflows/global/:name");
+  expect(route("/workflows/global/agents/yaml")).toBe("/workflows/global/:name/yaml");
+  expect(route("/workflows/global/agents/history")).toBe("/workflows/global/:name/history");
+  expect(route("/workflows/global/agents/history/shipped")).toBe("/workflows/global/:name/history/:id");
+  expect(route("/workflows/projects/k/mine")).toBe("/workflows/projects/:key/:name");
+  expect(route("/workflows/projects/k/mine/yaml")).toBe("/workflows/projects/:key/:name/yaml");
+  expect(route("/workflows/projects/k/mine/history/shipped")).toBe("/workflows/projects/:key/:name/history/:id");
+  // The routes with a kind segment are gone: they fall to the redirect to Home.
+  expect(route("/workflows/global/workflows/agents")).toBeNull();
+  expect(route("/workflows/global/workflows/agents/edit")).toBeNull();
+  expect(route("/workflows/global/workflows/agents/versions/shipped")).toBeNull();
+  expect(route("/workflows/projects/k/workflows/mine/edit")).toBeNull();
   expect(app).toContain('<Route>\n        <Redirect to="/" replace />\n      </Route>\n    </Switch>');
   expect(app).not.toContain("function TopBar");
 });

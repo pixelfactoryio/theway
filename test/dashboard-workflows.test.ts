@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Overlay } from "../src/core/io";
 import { resolveWorkflowFile } from "../src/core/language";
 import { lineOf, lineOfMessage } from "../src/dashboard/client/editor/lines";
+import { fileHref, versionsHref } from "../src/dashboard/client/lib/api";
 import { ALL_PROJECTS } from "../src/dashboard/client/lib/changes";
 import {
   cardLabel,
@@ -171,4 +172,12 @@ test("lineOf finds the line of a where on the shipped agents.yaml, from real err
   expect(lineOf("steps: [\n", "steps")).toBeNull();
   expect(lineOfMessage("invalid YAML: Unexpected flow-seq-end at line 7, column 3")).toBe(7);
   expect(lineOfMessage("must be a non-empty string")).toBeNull();
+});
+
+test("a workflow's page and history have no kind segment", () => {
+  const agents = { scope: "global", key: null, kind: "workflows", name: "agents" } as const;
+  const mine = { scope: "project", key: "k-a", kind: "workflows", name: "mine" } as const;
+  expect([fileHref(agents), fileHref(mine)]).toEqual(["/workflows/global/agents", "/workflows/projects/k-a/mine"]);
+  expect([versionsHref(agents), versionsHref(mine, "v1")]).toEqual(["/workflows/global/agents/history", "/workflows/projects/k-a/mine/history/v1"]);
+  expect(versionsHref({ ...agents, kind: "prompts", name: "triage" }, "shipped")).toBe("/prompts/global/triage/history/shipped");
 });

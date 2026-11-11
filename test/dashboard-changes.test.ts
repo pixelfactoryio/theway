@@ -105,13 +105,13 @@ test("Home's notices name one workflow that cannot run, count several, and count
 
   const one = [project("k-a", "a", [change("add-a", "Invalid")])];
   expect(notices(one, [workflow("broken", null, "workflows/broken.yaml: bad"), workflow("ok", null, null)], ALL_PROJECTS)).toEqual([
-    { text: "broken cannot run.", link: "Open it", href: "/workflows/global/workflows/broken" },
+    { text: "broken cannot run.", link: "Open it", href: "/workflows/global/broken" },
     { text: "1 change has an invalid change.yaml.", link: "See changes", href: "/changes" },
   ]);
   expect(notices(one, [workflow("mine", "k-a", "bad")], "k-a")[0]).toEqual({
     text: "mine cannot run.",
     link: "Open it",
-    href: "/workflows/projects/k-a/workflows/mine",
+    href: "/workflows/projects/k-a/mine",
   });
 
   const two = [project("k-a", "a", [change("add-a", "Invalid"), change("add-b", "Invalid")]), project("k-b", "b", [change("add-c", "Invalid")])];

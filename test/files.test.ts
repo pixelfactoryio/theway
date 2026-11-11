@@ -8,10 +8,8 @@ import { parsePromptFile, resolveWorkflowFile } from "../src/core/language";
 import { addInput, HEADER_ORDER, type PromptChoice, parse, removeInput, setStepPrompt, textOf } from "../src/dashboard/client/editor/ops";
 import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
-import { MAX_PART, pathParts, shownPath } from "../src/dashboard/client/lib/path";
-import { matches, visibleItems } from "../src/dashboard/client/files/list";
-import { fieldId, headerProblem, problemOf, promptLine, withItemError } from "../src/dashboard/client/files/problems";
-import { matrixTitle, overridesText, stepBadge } from "../src/dashboard/client/files/source";
+import { headerProblem, promptLine, withItemError } from "../src/dashboard/client/files/problems";
+import { workflowSource } from "../src/dashboard/client/files/source";
 import { deltaText, lineDelta, whenOf } from "../src/dashboard/client/files/version-info";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
 
@@ -125,45 +123,6 @@ test("Use as a step on conformance.md adds a header and keeps its text byte for 
   expect(headerErrors).toEqual(["description: must be a non-empty string"]);
 });
 
-test("a step card says an agent runs the step, with its model when known, or that the session runs it", () => {
-  expect(stepBadge("agents", "opus")).toEqual({ text: "agent · opus", variant: "info-light", title: "Run by an agent on the opus model" });
-  expect(stepBadge("agents", "sonnet")).toEqual({ text: "agent · sonnet", variant: "secondary", title: "Run by an agent on the sonnet model" });
-  expect(stepBadge("agents", null)).toEqual({ text: "agent", variant: "secondary", title: "Run by an agent" });
-  expect(stepBadge("session", "opus")).toEqual({ text: "your session", variant: "outline", title: "Done by your own Claude session" });
-  expect(matrixTitle("lens")).toBe("Runs one copy per value of lens, in parallel");
-});
-
-test("a check line that names a field of the open workflow gives the field and its reason in plain words", () => {
-  const wf = { kind: "workflows" as const, name: "agents" };
-  expect(problemOf("workflows/agents.yaml: steps[3].tries: must be an integer from 1 to 10", wf, [])).toEqual({
-    line: "workflows/agents.yaml: steps[3].tries: must be an integer from 1 to 10",
-    field: { at: "step", step: 3, key: "tries", input: null },
-    step: 3,
-    message: "Tries: use a number from 1 to 10",
-  });
-  const req = problemOf("workflows/agents.yaml: steps[2].with: required input change is not set", wf, []);
-  expect([req.field, req.message]).toEqual([{ at: "step", step: 2, key: "with", input: "change" }, "change: required, not set"]);
-  const of = problemOf("workflows/agents.yaml: steps[0].on-fail.with: required input change is not set", wf, []);
-  expect([of.field, of.message]).toEqual([{ at: "step", step: 0, key: "on-fail.with", input: "change" }, "change: required, not set"]);
-  expect(problemOf("workflows/agents.yaml: steps[1].on-fail.uses: prompts/x.md not found in /root/.theway/prompts", wf, []).message).toBe("On fail: prompts/x.md not found");
-  const model = problemOf("workflows/agents.yaml: steps[0].model: the step runs on agents and has no model; set model on the step or in prompts/branch.md", wf, []);
-  expect([model.field, model.message]).toEqual([
-    { at: "step", step: 0, key: "model", input: null },
-    "Model: an agent runs this step: choose a model here or in prompts/branch.md",
-  ]);
-  expect(problemOf("workflows/agents.yaml: steps[4]: uses is required", wf, []).message).toBe("Prompt: required, not set");
-  expect(problemOf("theway: workflows/agents.yaml: description: must be a non-empty string", wf, []).message).toBe("Description: required, not set");
-  const input = problemOf("workflows/agents.yaml: inputs.change: description must be a non-empty string", wf, []);
-  expect([input.field, input.message]).toEqual([{ at: "workflow", key: "inputs", input: "change" }, "change: Description: required, not set"]);
-  // A line from a project's context names it.
-  expect(problemOf("my-app: workflows/agents.yaml: steps[3].tries: must be an integer from 1 to 10", wf, ["my-app"]).message).toBe("Tries: use a number from 1 to 10 (in my-app)");
-  // Lines with no field: kept as they are, a step's unknown key still naming its step.
-  const unknown = problemOf("workflows/agents.yaml: steps[2].foo: unknown key", wf, []);
-  expect([unknown.field, unknown.step, unknown.message]).toEqual([null, 2, "workflows/agents.yaml: steps[2].foo: unknown key"]);
-  expect(problemOf("theway: prompts/branch.md: body: must not be empty", wf, [])).toMatchObject({ field: null, step: null, message: "prompts/branch.md: body: must not be empty" });
-  expect(problemOf("workflows/other.yaml: steps[0].tries: must be an integer from 1 to 10", wf, []).field).toBeNull();
-});
-
 test("a prompt check line that names a header key gives the key, the input and the validator's message unchanged", () => {
   const message = "description must be a non-empty string";
   expect(headerProblem(`prompts/x.md: inputs.change: ${message}`, "x")).toEqual({ key: "inputs", input: "change", message });
@@ -182,8 +141,6 @@ test("a prompt check line that names a header key gives the key, the input and t
   expect(promptLine("prompts/triage.md: body: must not be empty", "triage")).toBe("body: must not be empty");
   expect(promptLine("my-app: theway: prompts/triage.md: inputs.change: unknown key", "triage", ["my-app"])).toBe("my-app: inputs.change: unknown key");
   expect(promptLine("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBe("workflows/agents.yaml: steps[3].with: required input change is not set");
-  expect(fieldId({ at: "step", step: 3, key: "on-fail.with", input: "change" })).toBe("field-step-on-fail-with-change");
-  expect(fieldId({ at: "workflow", key: "description", input: null })).toBe("field-workflow-description");
 });
 
 test("a prompt's item error joins its check lines unless a line already holds it after the file prefix", () => {
@@ -195,17 +152,6 @@ test("a prompt's item error joins its check lines unless a line already holds it
   expect(withItemError([body], null, "triage")).toEqual([body]);
 });
 
-test("a file list group shows 8 items, as many as reach the open file, all when expanded, and every match of a filter", () => {
-  const items = Array.from({ length: 12 }, (_, i) => `item-${i}`);
-  const opts = { filter: "", expanded: false, selected: -1, name: (s: string) => s };
-  expect(visibleItems(items, opts)).toEqual({ shown: items.slice(0, 8), hidden: 4 });
-  expect(visibleItems(items, { ...opts, selected: 10 })).toEqual({ shown: items.slice(0, 11), hidden: 1 });
-  expect(visibleItems(items, { ...opts, expanded: true })).toEqual({ shown: items, hidden: 0 });
-  expect(visibleItems(items, { ...opts, filter: " ITEM-1" })).toEqual({ shown: ["item-1", "item-10", "item-11"], hidden: 0 });
-  expect(visibleItems(items, { ...opts, filter: "zzz" })).toEqual({ shown: [], hidden: 0 });
-  expect(matches("Fix-Review", "review")).toBe(true);
-});
-
 test("a version is labelled to the second and counts the lines it adds and removes against the one before it", () => {
   const now = new Date(2026, 10, 11, 12, 0, 0);
   expect(whenOf(new Date(2026, 10, 11, 9, 5, 7).toISOString(), now)).toBe("Today, 09:05:07");
@@ -214,12 +160,6 @@ test("a version is labelled to the second and counts the lines it adds and remov
   expect(deltaText({ added: 2, removed: 1 })).toBe("+2 \u22121 lines");
   expect(deltaText({ added: 1, removed: 0 })).toBe("+1 \u22120 line");
   expect(deltaText(lineDelta("x", "x"))).toBe("no change");
-});
-
-test("the Step defaults panel counts the steps that run elsewhere than the workflow's runs-on", () => {
-  expect(overridesText("agents", [{ runs_on: "agents" }, { runs_on: "agents" }])).toBeNull();
-  expect(overridesText("agents", [{ runs_on: "session" }, { runs_on: "agents" }])).toBe("1 step overrides it.");
-  expect(overridesText("session", [{ runs_on: "agents" }, { runs_on: "agents" }])).toBe("2 steps override it.");
 });
 
 test("a new workflow and a new prompt start as written;the workflow names implement's required input until its prompt changes", () => {
@@ -249,13 +189,9 @@ test("a copy keeps its source's text and sets the description", () => {
   expect(copyText("prompts", conformance, "A lens")).toBe(`---\ndescription: A lens\n---\n\n${conformance}`);
 });
 
-test("the File panel's path starts at the home as shown and breaks only after a /", () => {
-  expect(shownPath("~/.theway", "workflows/agents.yaml")).toBe("~/.theway/workflows/agents.yaml");
-  expect(shownPath("/srv/theway/", "prompts/triage.md")).toBe("/srv/theway/prompts/triage.md");
-  expect(pathParts("~/.theway/workflows/engineering-light.yaml")).toEqual(["~/", ".theway/", "workflows/", "engineering-light.yaml"]);
-  expect(pathParts("/srv/theway/prompts/triage.md")).toEqual(["/", "srv/", "theway/", "prompts/", "triage.md"]);
-  expect(pathParts("~/.theway/workflows/agents.yaml").join("")).toBe("~/.theway/workflows/agents.yaml");
-  // A project key longer than the panel is the one part that may break anywhere.
-  expect("-Users-me-Dev-github-com-acme-widgets/".length).toBeGreaterThan(MAX_PART);
-  expect("engineering-light.yaml".length).toBeLessThanOrEqual(MAX_PART);
+test("a v1 workflow cannot be drawn, with the resolver's line after its file path", () => {
+  expect(workflowSource("version: theway.workflow/v1\nsteps:\n  - implement:\n")).toEqual({
+    error: "theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
+  });
+  expect("steps" in (workflowSource(shipped("workflows/agents.yaml")) as object)).toBe(true);
 });
