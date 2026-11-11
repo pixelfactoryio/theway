@@ -1,48 +1,123 @@
 import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cn } from "cn";
-import { Redirect, Route, Router, Switch, useLocation } from "wouter";
+import { House, List, Menu, Workflow } from "lucide-react";
+import { type ComponentType, useState } from "react";
+import { Link, Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DraftsProvider } from "@/files/drafts";
 import { FileListStateProvider } from "@/files/FileList";
 import { SavedProvider } from "@/files/saved";
-import type { FileRef } from "@/lib/api";
+import { type FileRef, useFiles } from "@/lib/api";
+import { ALL_PROJECTS } from "@/lib/changes";
 import { ChangePage } from "@/pages/change";
 import { ChangesPage } from "@/pages/changes";
-import { type Mode, WIDE, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
+import { HomePage } from "@/pages/home";
+import { type Mode, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
 import { EXT, type SourceKind } from "../types";
 
 const queryClient = new QueryClient();
 
-/** The top bar, sticky: the logo mark and the word theway, then Changes and Workflows as a segmented control. */
-function TopBar() {
-  const [location, navigate] = useLocation();
-  const changes = location.startsWith("/changes") || location.startsWith("/archive");
-  const tab = "h-8 flex-none px-3 text-muted-foreground pointer-coarse:h-11";
+type Area = "Home" | "Changes" | "Workflows";
+
+/** The sidebar's entries: each area, its route and its icon. */
+const AREAS: { name: Area; href: string; icon: ComponentType<{ className?: string }> }[] = [
+  { name: "Home", href: "/", icon: House },
+  { name: "Changes", href: "/changes", icon: List },
+  { name: "Workflows", href: "/workflows", icon: Workflow },
+];
+
+/** The area of a route: Changes for a change or an archived one, Workflows for the Workflows pages, else Home. */
+function areaOf(location: string): Area {
+  if (location.startsWith("/changes") || location.startsWith("/archive")) return "Changes";
+  if (location.startsWith("/workflows")) return "Workflows";
+  return "Home";
+}
+
+/** The logo mark: three lines on a rounded primary square. */
+function Logo() {
   return (
-    <header className="sticky top-0 z-40 h-(--topbar-h) border-b border-divider bg-card">
-      <nav aria-label="Main" className={cn("mx-auto flex h-full items-center gap-6 px-6", changes ? "max-w-[1120px]" : WIDE)}>
-        <span className="flex items-center gap-2 font-semibold">
-          {/* The logo mark: three lines on a rounded primary square. */}
-          <span className="inline-flex size-[22px] items-center justify-center rounded-[7px] bg-primary">
-            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M2 3h8M2 6h5M2 9h8" />
-            </svg>
-          </span>
-          theway
-        </span>
-        <Tabs value={changes ? "changes" : "workflows"}>
-          <TabsList className="group-data-horizontal/tabs:h-auto">
-            <TabsTrigger value="changes" className={tab} onClick={() => navigate("/changes")}>
-              Changes
-            </TabsTrigger>
-            <TabsTrigger value="workflows" className={tab} onClick={() => navigate("/workflows")}>
-              Workflows
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <span className="inline-flex size-[26px] flex-none items-center justify-center rounded-[7px] bg-primary">
+      <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
+        <path d="M2 3h8M2 6h5M2 9h8" />
+      </svg>
+    </span>
+  );
+}
+
+/** The project switcher: All projects, then each project by its full label. */
+function ProjectSwitcher({ project, onProject }: { project: string; onProject: (key: string) => void }) {
+  const files = useFiles();
+  const items = [{ value: ALL_PROJECTS, label: "All projects" }, ...(files.data?.projects ?? []).map((p) => ({ value: p.key, label: p.label }))];
+  return (
+    <Select items={items} value={project} onValueChange={(v) => onProject(typeof v === "string" ? v : ALL_PROJECTS)}>
+      <SelectTrigger aria-label="Project" size="sm" className="h-auto max-w-full gap-1 border-0 p-0 text-[12px] text-muted-foreground hover:text-foreground">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent alignItemWithTrigger={false} align="start">
+        {items.map((i) => (
+          <SelectItem key={i.value} value={i.value}>
+            {i.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** The sidebar's content: the logo, the word theway and the project switcher, then one link per area, the current one in the primary colour. */
+function SidebarContent({ project, onProject, onPick }: { project: string; onProject: (key: string) => void; onPick?: () => void }) {
+  const [location] = useLocation();
+  const current = areaOf(location);
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-start gap-2.5 px-2">
+        <Logo />
+        <div className="flex min-w-0 flex-col">
+          <span className="leading-tight font-semibold">theway</span>
+          <ProjectSwitcher project={project} onProject={onProject} />
+        </div>
+      </div>
+      <nav aria-label="Main" className="flex flex-col gap-0.5">
+        {AREAS.map(({ name, href, icon: Icon }) => (
+          <Link
+            key={name}
+            href={href}
+            onClick={onPick}
+            aria-current={name === current ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-2 py-1.5 font-medium hover:bg-accent pointer-coarse:py-2.5",
+              name === current ? "text-primary" : "text-foreground/80",
+            )}
+          >
+            <Icon className="size-4" />
+            {name}
+          </Link>
+        ))}
       </nav>
+    </div>
+  );
+}
+
+/** Below `lg`: the top bar with the menu button and the current area's name; the button opens the sidebar's content in a sheet. */
+function MobileBar({ project, onProject }: { project: string; onProject: (key: string) => void }) {
+  const [location] = useLocation();
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-40 flex h-(--topbar-h) items-center gap-2 border-b border-divider bg-card px-2 lg:hidden">
+      <Button variant="ghost" size="icon-lg" aria-label="Menu" onClick={() => setOpen(true)}>
+        <Menu />
+      </Button>
+      <span className="font-semibold">{areaOf(location)}</span>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="top-0 left-0 block h-dvh max-w-[min(280px,calc(100%-3rem))] translate-x-0 translate-y-0 overflow-auto rounded-none p-4 pt-5 sm:max-w-[280px]">
+          <DialogTitle className="sr-only">Menu</DialogTitle>
+          <SidebarContent project={project} onProject={onProject} onPick={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
@@ -75,11 +150,14 @@ function page(file: Omit<FileRef, "kind"> & { kind: string }, mode: Mode) {
 const VIEW: Mode = { view: true };
 const EDIT: Mode = { edit: true };
 
-function Routes() {
+function Routes({ project }: { project: string }) {
   return (
     <Switch>
+      <Route path="/">
+        <HomePage project={project} />
+      </Route>
       <Route path="/changes">
-        <ChangesPage />
+        <ChangesPage project={project} />
       </Route>
       <Route path="/changes/:key/:id">{(p) => <ChangePage key={`c/${p.key}/${p.id}`} projectKey={p.key} id={p.id} archived={false} />}</Route>
       <Route path="/archive/:key/:folder">{(p) => <ChangePage key={`a/${p.key}/${p.folder}`} projectKey={p.key} id={p.folder} archived={true} />}</Route>
@@ -101,13 +179,15 @@ function Routes() {
         {(p) => page({ scope: "project", key: p.key, kind: p.kind, name: p.name }, { version: p.id })}
       </Route>
       <Route>
-        <Redirect to="/changes" replace />
+        <Redirect to="/" replace />
       </Route>
     </Switch>
   );
 }
 
 export function App() {
+  // The project switcher's choice, in memory: a reload returns to All projects.
+  const [project, setProject] = useState(ALL_PROJECTS);
   return (
     <CSPProvider disableStyleElements>
       <QueryClientProvider client={queryClient}>
@@ -115,10 +195,15 @@ export function App() {
           <Router hook={useHashLocation}>
             <SavedProvider>
               <FileListStateProvider>
-                <div className="flex min-h-screen flex-col">
+                <div className="flex min-h-screen">
                   <SkipLink />
-                  <TopBar />
-                  <Routes />
+                  <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[220px] flex-none overflow-auto border-r border-divider px-3 py-5 lg:block">
+                    <SidebarContent project={project} onProject={setProject} />
+                  </aside>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <MobileBar project={project} onProject={setProject} />
+                    <Routes project={project} />
+                  </div>
                 </div>
               </FileListStateProvider>
             </SavedProvider>

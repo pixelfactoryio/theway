@@ -46,6 +46,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-invert: var(--invert);
   --color-invert-foreground: var(--invert-foreground);
+  --color-canvas: var(--canvas);
   --color-border: var(--border);
   --color-divider: var(--divider);
   --color-divider-row: var(--divider-row);
@@ -63,28 +64,29 @@
 }
 
 :root {
-  /* The top bar's height: the file list sticks under it and the page scrolls a target clear of it. */
-  --topbar-h: 57px;
+  /* The top bar's height below `lg`, 0 from `lg` where the sidebar replaces it: the file list sticks under it and the page scrolls a target clear of it. */
+  --topbar-h: 56px;
   --radius: 0.625rem;
-  --background: #F5F6F8;
-  --foreground: #0F172A;
+  --background: #FFFFFF;
+  --foreground: #1A1F36;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #1A1F36;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #1A1F36;
   --primary: #4F46E5;
   --primary-foreground: #FFFFFF;
-  --secondary: #ECEEF2;
-  --secondary-foreground: #0F172A;
-  --muted: #ECEEF2;
-  --muted-foreground: #556070;
-  --accent: #ECEEF2;
-  --accent-foreground: #0F172A;
+  --secondary: #EBEEF1;
+  --secondary-foreground: #1A1F36;
+  --muted: #EBEEF1;
+  --muted-foreground: #687385;
+  --accent: #EBEEF1;
+  --accent-foreground: #1A1F36;
   --destructive: #B42318;
-  --border: #E2E5EA;
-  --divider: #E2E5EA;
-  --divider-row: #ECEEF2;
-  --input: #D5D9E0;
+  --border: #E3E8EE;
+  --divider: #E3E8EE;
+  --divider-row: #EBEEF1;
+  --input: #D5DBE1;
+  --canvas: #F6F8FA;
   --ring: #4F46E5;
   --destructive-foreground: var(--color-red-800);
   --success: var(--color-emerald-500);
@@ -97,9 +99,9 @@
   --invert-foreground: var(--color-zinc-50);
 }
 
-@media (pointer: coarse) {
+@media (width >= 64rem) {
   :root {
-    --topbar-h: 69px;
+    --topbar-h: 0px;
   }
 }
 

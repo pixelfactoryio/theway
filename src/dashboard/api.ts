@@ -6,12 +6,13 @@ import { dirname, join, sep } from "node:path";
 import { isDir, isFile, type Overlay, writeAtomic } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
 import { NAME } from "../core/language-schema";
-import { changeFileCount, taskCounts } from "../core/change";
+import { type Change, changeFileCount, checkChange } from "../core/change";
 import { activeIds, archiveDirs, filesEndingWith } from "../core/list";
 import { changeIdReason } from "../core/path";
 import { projectDir, projectReason } from "../core/project";
+import { seriesReason } from "../core/validate-id";
 import { isVersionId, snapshot, versionsOf, versionText } from "./history";
-import { renderMarkdown } from "./markdown";
+import { renderInline, renderMarkdown } from "./markdown";
 import { byText, projectLabels } from "./projects";
 import {
   type ActiveChange,
@@ -19,6 +20,7 @@ import {
   type ChangeDetail,
   type ChangeProperties,
   type ChangesResponse,
+  type DefaultWorkflow,
   EXT,
   type ErrorResponse,
   type FileDetail,
@@ -49,17 +51,27 @@ const missing = (error: string): Reply<never> => ({ status: 404, body: { error }
 
 /** An archived change folder: `YYYY-MM-DD-` and a change ID. */
 const ARCHIVED = /^([0-9]{4}-[0-9]{2}-[0-9]{2})-(.*)$/;
-/** A series member: the series ID and a two-digit ordinal. */
-const MEMBER = /^(.+)-([0-9]{2})$/;
 /** The files shown first in a change, in this order, when present. */
 const FIRST = ["spec.md", "design.md", "notes.md"];
 
-/** The status of a change with `done` of `total` tasks done. */
-export function statusOf(done: number, total: number): Status {
-  if (total === 0) return "No tasks";
-  if (done === total) return "Ready to archive";
-  if (done === 0) return "Not started";
-  return "In progress";
+/** The series ID and ordinal of a series member ID (`seriesReason` accepts it), else `null`. */
+function memberOf(id: string): { id: string; ordinal: number } | null {
+  if (seriesReason(id) !== "") return null;
+  const at = id.lastIndexOf("-");
+  return { id: id.slice(0, at), ordinal: Number(id.slice(at + 1)) };
+}
+
+/**
+ * The change of the folder `dir` as the dashboard shows it: its tasks, its status, its description and its first error
+ * line without the `changes/<id>/change.yaml: ` prefix; `change` is `null` when its `change.yaml` is invalid.
+ */
+function stateOf(dir: string): { change: Change | null; tasks: { done: number; total: number }; status: Status; description: string | null; error: string | null } {
+  const c = checkChange(dir);
+  if ("issues" in c) return { change: null, tasks: { done: 0, total: 0 }, status: "Invalid", description: null, error: c.issues[0] as string };
+  const done = c.change.tasks.filter((t) => t.done).length;
+  const total = c.change.tasks.length;
+  const status: Status = done === total ? "Ready to archive" : done === 0 ? "Not started" : "In progress";
+  return { change: c.change, tasks: { done, total }, status, description: c.change.description, error: null };
 }
 
 /**
@@ -80,15 +92,8 @@ function project(home: string, key: string, check: () => Reply<never> | null = (
 function changesOf(pdir: string): ChangesResponse {
   const active = activeIds(pdir).map((id): ActiveChange => {
     const dir = join(pdir, "changes", id);
-    const [done, total] = taskCounts(dir);
-    const member = MEMBER.exec(id);
-    return {
-      id,
-      files: changeFileCount(dir),
-      tasks: { done, total },
-      status: statusOf(done, total),
-      series: member === null ? null : { id: member[1] as string, ordinal: Number(member[2]) },
-    };
+    const { tasks, status, description, error } = stateOf(dir);
+    return { id, files: changeFileCount(dir), tasks, status, description, error, series: memberOf(id) };
   });
   const archived = archiveDirs(pdir)
     .reverse()
@@ -99,21 +104,17 @@ function changesOf(pdir: string): ChangesResponse {
   return { active, archived };
 }
 
-/** Every member of every series of a project: its active `<series>-NN` changes and its archived `YYYY-MM-DD-<series>-NN` folders. */
+/** Every member of every series of a project: its active member changes and its archived `YYYY-MM-DD-<member>` folders. */
 function seriesMembers(pdir: string): Map<string, (SeriesMember & { done: boolean })[]> {
   const out = new Map<string, (SeriesMember & { done: boolean })[]>();
   const add = (id: string, folder: string | null, done: boolean) => {
-    const m = MEMBER.exec(id);
+    const m = memberOf(id);
     if (m === null) return;
-    const series = m[1] as string;
-    const members = out.get(series) ?? [];
-    members.push({ ordinal: Number(m[2]), id, folder, done });
-    out.set(series, members);
+    const members = out.get(m.id) ?? [];
+    members.push({ ordinal: m.ordinal, id, folder, done });
+    out.set(m.id, members);
   };
-  for (const id of activeIds(pdir)) {
-    const [done, total] = taskCounts(join(pdir, "changes", id));
-    add(id, null, statusOf(done, total) === "Ready to archive");
-  }
+  for (const id of activeIds(pdir)) add(id, null, stateOf(join(pdir, "changes", id)).status === "Ready to archive");
   for (const folder of archiveDirs(pdir)) {
     const m = ARCHIVED.exec(folder);
     if (m !== null && changeIdReason(m[2] as string) === "") add(m[2] as string, folder, true);
@@ -144,22 +145,41 @@ export function allChanges(home: string): Reply<AllChangesResponse> {
 
 /** The properties of the change `id`, in the project folder `pdir`. */
 function propertiesOf(pdir: string, id: string): ChangeProperties {
-  const m = MEMBER.exec(id);
+  const m = memberOf(id);
   if (m === null) return { series: null };
-  const series = m[1] as string;
-  const members = (seriesMembers(pdir).get(series) ?? []).map(({ ordinal, id, folder }) => ({ ordinal, id, folder }));
-  return { series: { id: series, ordinal: Number(m[2]), total: members.length, members } };
+  const members = (seriesMembers(pdir).get(m.id) ?? []).map(({ ordinal, id, folder }) => ({ ordinal, id, folder }));
+  return { series: { id: m.id, ordinal: m.ordinal, total: members.length, members } };
 }
 
-/** The detail of the change folder `dir`: its tasks and every `.md` file rendered, `spec.md`, `design.md` and `notes.md` first. */
-function detail(pdir: string, dir: string, id: string, archived: boolean): ChangeDetail {
+/**
+ * The workflow `theway workflow` with no name uses for the project `key`, as `defaultName` of `core/workflow` chooses
+ * it: the one file among the project's and the global ones it does not hide that sets `default: true`; `null` when
+ * none or several do.
+ */
+function defaultWorkflowOf(home: string, key: string): DefaultWorkflow | null {
+  const marked = listWorkflowFiles(home, key, () => {}).filter((w) => w.default);
+  if (marked.length !== 1) return null;
+  const w = marked[0] as { name: string; scope: "global" | "project" };
+  return { scope: w.scope, key: w.scope === "project" ? key : null, name: w.name };
+}
+
+/**
+ * The detail of the change folder `dir`: its state, its tasks rendered inline, the default workflow of an active
+ * change, and every `.md` file rendered, `spec.md`, `design.md` and `notes.md` first.
+ */
+function detail(home: string, key: string, pdir: string, dir: string, id: string, archived: boolean): ChangeDetail {
   const names = filesEndingWith(dir, ".md").sort(byText);
   const ordered = [...FIRST.filter((n) => names.includes(n)), ...names.filter((n) => !FIRST.includes(n))];
-  const [done, total] = taskCounts(dir);
+  const { change, tasks, status, description, error } = stateOf(dir);
   return {
     id,
     archived,
-    tasks: { done, total },
+    status,
+    description,
+    error,
+    tasks,
+    taskItems: change === null ? [] : change.tasks.map((t) => ({ html: renderInline(t.text), done: t.done })),
+    defaultWorkflow: archived ? null : defaultWorkflowOf(home, key),
     files: ordered.map((name) => ({ name, html: renderMarkdown(readFileSync(join(dir, name), "utf-8")) })),
     properties: propertiesOf(pdir, id),
   };
@@ -173,7 +193,7 @@ export function change(home: string, key: string, id: string): Reply<ChangeDetai
   });
   if ("status" in p) return p;
   if (!activeIds(p.dir).includes(id)) return missing("unknown change");
-  return ok(detail(p.dir, join(p.dir, "changes", id), id, false));
+  return ok(detail(home, key, p.dir, join(p.dir, "changes", id), id, false));
 }
 
 /** `GET /api/v1/projects/{key}/archive/{folder}`: an archived change. */
@@ -186,7 +206,7 @@ export function archivedChange(home: string, key: string, folder: string): Reply
   });
   if ("status" in p) return p;
   if (!archiveDirs(p.dir).includes(folder)) return missing("unknown archived change");
-  return ok(detail(p.dir, join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
+  return ok(detail(home, key, p.dir, join(p.dir, "changes", "archive", folder), (m as RegExpExecArray)[2] as string, true));
 }
 
 // ---- Workflow and prompt files, addressed by where they live ----

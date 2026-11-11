@@ -82,13 +82,6 @@ export function checkChange(dir: string): { change: Change } | { issues: string[
 /** The error lines of `issues` for the change `id`: `changes/<id>/change.yaml: <issue>`. */
 export const issueLines = (id: string, issues: string[]): string[] => issues.map((issue) => `${changeRel(id)}: ${issue}`);
 
-/** The tasks of a change folder: `[done, total]`, `[0, 0]` when its `change.yaml` is missing or invalid. */
-export function taskCounts(dir: string): [number, number] {
-  const c = checkChange(dir);
-  if ("issues" in c) return [0, 0];
-  return [c.change.tasks.filter((t) => t.done).length, c.change.tasks.length];
-}
-
 /** The number of regular, non-hidden files directly in a change folder: `<files>` of `theway list` and the dashboard. */
 export function changeFileCount(dir: string): number {
   let names: string[];

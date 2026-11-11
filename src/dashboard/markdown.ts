@@ -21,3 +21,8 @@ const marked = new Marked({
 export function renderMarkdown(text: string): string {
   return marked.parse(text, { async: false });
 }
+
+/** The HTML of a Markdown text rendered inline: no paragraph around it, raw HTML escaped. */
+export function renderInline(text: string): string {
+  return marked.parseInline(text, { async: false });
+}

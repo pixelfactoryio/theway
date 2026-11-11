@@ -1,138 +1,159 @@
+import { cn } from "cn";
 import { useState } from "react";
 import { Link } from "wouter";
+import { Badge } from "@/components/reui/badge";
 import { Bar, Empty } from "@/components/state";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAllChanges } from "@/lib/api";
+import { type ArchivedRow, archivedRows, badgeVariant, type ChangeRow, changesRows, plural, STATUSES } from "@/lib/changes";
 import { shortLabels } from "@/lib/labels";
-import { type Row, rowsOf } from "@/lib/series";
-import type { ActiveChange, AllChangesResponse, ArchivedChange } from "../../types";
+import type { ActiveChange, Status } from "../../types";
 
-type Project = AllChangesResponse["projects"][number];
+/** A table's header cells and rows: the grid of its columns, the Project column and the bar dropped below `lg`. */
+export const HEAD = "grid items-end gap-x-6 border-b border-divider px-2 pb-2 text-[12px] font-semibold";
+export const ROW = "grid items-center gap-x-6 border-b border-divider-row px-2 py-3 hover:bg-accent";
 
-/** The value of the Select's first item. */
-const ALL = "";
+/** The short name of each project label: its repository name, or the whole label when two give the same. */
+export function projectNames(labels: readonly string[]): Map<string, string> {
+  const unique = [...new Set(labels)];
+  const short = shortLabels(unique);
+  return new Map(unique.map((l, i) => [l, short[i] ?? l]));
+}
 
-/**
- * The three columns of a row: the name, the bar and the count; below the `sm` breakpoint, the name and the count, with
- * the bar on a line of its own under them.
- */
-const ROW =
-  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-t border-divider-row py-[11px] sm:grid-cols-[minmax(0,1fr)_160px_170px] sm:gap-6";
-/** The bar's cell: last and the row's width below `sm`, the middle column from `sm`. */
-const BAR = "order-last col-span-2 sm:order-none sm:col-span-1";
+/** A page's title row: the title over a divider. */
+export function Title({ children }: { children: string }) {
+  return <h1 className="border-b border-divider pb-4 text-[28px] font-semibold">{children}</h1>;
+}
 
-/** The count text: `<done> of <total> tasks`, or `no tasks`. */
-const taskCount = (c: ActiveChange): string => (c.tasks.total === 0 ? "no tasks" : `${c.tasks.done} of ${c.tasks.total} tasks`);
-
-function ChangeRow({ projectKey, change, indent = false }: { projectKey: string; change: ActiveChange; indent?: boolean }) {
+/** The Tasks cell: the bar (from `lg`) and `d of t`; `–` for an invalid change. */
+export function TasksCell({ change }: { change: ActiveChange }) {
+  if (change.status === "Invalid") return <span className="text-muted-foreground">–</span>;
   return (
-    <Link href={`/changes/${projectKey}/${change.id}`} className={`${ROW} ${indent ? "pl-6" : ""} hover:bg-accent`}>
-      <span className="truncate font-mono text-[13px]">{change.id}</span>
-      <span className={BAR}>
+    <span className="flex items-center gap-2.5 tabular-nums">
+      <span className="hidden w-[90px] lg:block">
         <Bar done={change.tasks.done} total={change.tasks.total} />
       </span>
-      <span className="text-right text-muted-foreground tabular-nums">{taskCount(change)}</span>
+      {change.tasks.done} of {change.tasks.total}
+    </span>
+  );
+}
+
+/** A change's status badge; an invalid change's error is its title. */
+export function StatusBadge({ change }: { change: Pick<ActiveChange, "status" | "error"> }) {
+  return (
+    <Badge variant={badgeVariant(change.status)} title={change.error ?? undefined}>
+      {change.status}
+    </Badge>
+  );
+}
+
+const COLUMNS = "grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,200px)_160px_140px]";
+
+function ActiveRow({ row, project }: { row: ChangeRow; project: string }) {
+  return (
+    <Link href={`/changes/${row.key}/${row.change.id}`} className={cn(ROW, COLUMNS)}>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-semibold">{row.change.id}</span>
+        {row.change.description !== null && <span className="truncate text-muted-foreground">{row.change.description}</span>}
+      </span>
+      <span className="hidden truncate text-muted-foreground lg:block" title={row.label}>
+        {project}
+      </span>
+      <TasksCell change={row.change} />
+      <span>
+        <StatusBadge change={row.change} />
+      </span>
     </Link>
   );
 }
 
-/** A series row: a button that shows or hides its active members beneath it. */
-function SeriesRow({ projectKey, row }: { projectKey: string; row: Extract<Row, { kind: "series" }> }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${ROW} w-full text-left hover:bg-accent`}>
-        <span className="truncate">
-          <span className="font-mono text-[13px]">{row.id}</span> <span className="hidden text-muted-foreground sm:inline">· {row.total} changes</span>
-        </span>
-        <span className={BAR}>
-          <Bar done={row.done} total={row.total} />
-        </span>
-        <span className="text-right text-muted-foreground tabular-nums">
-          {row.done} of {row.total} done
-        </span>
-      </button>
-      {open && row.members.map((m) => <ChangeRow key={m.id} projectKey={projectKey} change={m} indent />)}
-    </>
-  );
-}
+const ARCHIVED_COLUMNS = "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,200px)_140px]";
 
-function ArchivedRow({ projectKey, archived }: { projectKey: string; archived: ArchivedChange }) {
+function ArchivedTable({ rows, names }: { rows: ArchivedRow[]; names: Map<string, string> }) {
   return (
-    <Link href={`/archive/${projectKey}/${archived.folder}`} className={`${ROW} hover:bg-accent`}>
-      <span className="truncate font-mono text-[13px]">{archived.id ?? archived.folder}</span>
-      <span className="hidden sm:block" />
-      <span className="text-right text-muted-foreground tabular-nums">{archived.date ?? ""}</span>
-    </Link>
-  );
-}
-
-function Section({ project, heading, showArchived }: { project: Project; heading: string; showArchived: boolean }) {
-  const rows = rowsOf(project.active, project.series);
-  return (
-    <section className="flex flex-col">
-      <h2 className="mb-1.5 truncate text-[14px] font-semibold" title={project.label}>
-        {heading}
-      </h2>
-      <div className="flex flex-col border-b border-divider-row">
-        {rows.map((row) =>
-          row.kind === "series" ? (
-            <SeriesRow key={`s:${row.id}`} projectKey={project.key} row={row} />
-          ) : (
-            <ChangeRow key={`c:${row.id}`} projectKey={project.key} change={row.change} />
-          ),
-        )}
-        {showArchived && project.archived.map((a) => <ArchivedRow key={`a:${a.folder}`} projectKey={project.key} archived={a} />)}
-      </div>
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[16px] font-semibold">Archived</h2>
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground">No archived changes.</p>
+      ) : (
+        <div className="flex flex-col">
+          <div className={cn(HEAD, ARCHIVED_COLUMNS)}>
+            <span>Change</span>
+            <span className="hidden lg:block">Project</span>
+            <span>Archived on</span>
+          </div>
+          {rows.map((r) => (
+            <Link key={`${r.key}/${r.archived.folder}`} href={`/archive/${r.key}/${r.archived.folder}`} className={cn(ROW, ARCHIVED_COLUMNS)}>
+              <span className="truncate font-semibold">{r.archived.id ?? r.archived.folder}</span>
+              <span className="hidden truncate text-muted-foreground lg:block" title={r.label}>
+                {names.get(r.label) ?? r.label}
+              </span>
+              <span className="text-muted-foreground tabular-nums">{r.archived.date ?? ""}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-/** The Changes page: every project's active changes, one section per project, and the archived ones on demand. */
-export function ChangesPage() {
+/** The value of the Status select's first item. */
+const ALL_STATUSES = "";
+
+/** The Changes page: the chosen project's active changes in one table, filtered by status, and the archived ones on demand. */
+export function ChangesPage({ project }: { project: string }) {
   const query = useAllChanges();
   const [archived, setArchived] = useState(false);
-  const [selected, setSelected] = useState<string>(ALL);
+  const [status, setStatus] = useState<Status | "">(ALL_STATUSES);
   const data = query.data;
   const projects = data?.projects ?? [];
-  const shown = projects.filter((p) => (selected === ALL || p.key === selected) && (p.active.length > 0 || (archived && p.archived.length > 0)));
-  const others = data === undefined ? 0 : data.total - projects.filter((p) => p.active.length > 0).length;
-  const items = [{ value: ALL, label: "All projects" }, ...projects.map((p) => ({ value: p.key, label: p.label }))];
-  const short = shortLabels(projects.map((p) => p.label));
-  const headings = new Map(projects.map((p, i) => [p.key, short[i] ?? p.label]));
+  const rows = changesRows(projects, project, status);
+  const names = projectNames(projects.map((p) => p.label));
+  const items = [{ value: ALL_STATUSES, label: "All statuses" }, ...STATUSES.map((s) => ({ value: s, label: s }))];
   return (
-    <main id="content" tabIndex={-1} className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-6 py-6 outline-none">
+    <main id="content" tabIndex={-1} className="flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 outline-none lg:px-8 lg:py-8">
+      <Title>Changes</Title>
       <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-[20px] font-semibold">Changes</h1>
-        <span className="ml-auto flex items-center gap-4">
-          <label className="flex items-center gap-1.5 text-muted-foreground">
-            <Checkbox checked={archived} onCheckedChange={(v) => setArchived(v === true)} />
-            Archived
-          </label>
-          <Select items={items} value={selected} onValueChange={(v) => setSelected(typeof v === "string" ? v : ALL)}>
-            <SelectTrigger aria-label="Project" className="h-8 min-w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((i) => (
-                <SelectItem key={i.value} value={i.value}>
-                  {i.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </span>
+        <Select items={items} value={status} onValueChange={(v) => setStatus(typeof v === "string" ? (v as Status | "") : ALL_STATUSES)}>
+          <SelectTrigger aria-label="Status" className="h-8 min-w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((i) => (
+              <SelectItem key={i.value} value={i.value}>
+                {i.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          <Checkbox checked={archived} onCheckedChange={(v) => setArchived(v === true)} />
+          Archived
+        </label>
       </div>
       {data === undefined ? (
         <Empty error={query.isError}>{query.isError ? query.error.message : "Loading…"}</Empty>
-      ) : shown.length === 0 ? (
-        <Empty>No active changes</Empty>
       ) : (
-        shown.map((p) => <Section key={p.key} project={p} heading={headings.get(p.key) ?? p.label} showArchived={archived} />)
-      )}
-      {data !== undefined && others > 0 && !archived && selected === ALL && (
-        <p className="text-[12px] text-muted-foreground">{others} other projects have no active changes.</p>
+        <>
+          {rows.length === 0 ? (
+            <p className="text-muted-foreground">No changes.</p>
+          ) : (
+            <div className="flex flex-col">
+              <div className={cn(HEAD, COLUMNS)}>
+                <span>Change</span>
+                <span className="hidden lg:block">Project</span>
+                <span>Tasks</span>
+                <span>Status</span>
+              </div>
+              {rows.map((r) => (
+                <ActiveRow key={`${r.key}/${r.change.id}`} row={r} project={names.get(r.label) ?? r.label} />
+              ))}
+              <p className="px-2 pt-3 text-[12px] text-muted-foreground">{plural(rows.length, "change", "changes")}</p>
+            </div>
+          )}
+          {archived && <ArchivedTable rows={archivedRows(projects, project)} names={names} />}
+        </>
       )}
     </main>
   );

@@ -1,17 +1,22 @@
 /** The dashboard API's response shapes, shared by the server and the browser client. */
 import type { PromptHeader, ResolvedWorkflow } from "../core/language-schema";
 
-/** A change's progress over its numbered tasks. */
-export type Status = "No tasks" | "Not started" | "In progress" | "Ready to archive";
+/** A change's progress over its tasks, or `Invalid` when its `change.yaml` is missing or invalid. */
+export type Status = "Not started" | "In progress" | "Ready to archive" | "Invalid";
 
 export type Tasks = { done: number; total: number };
 
-/** An active change: its `.md` file count, its tasks, its status and, for an ID ending in `-NN`, its series. */
+/**
+ * An active change: its file count, its tasks, its status, its description (`null` when invalid), its `change.yaml`'s
+ * first error (`null` when valid) and, for a series member ID, its series.
+ */
 export type ActiveChange = {
   id: string;
   files: number;
   tasks: Tasks;
   status: Status;
+  description: string | null;
+  error: string | null;
   series: { id: string; ordinal: number } | null;
 };
 
@@ -33,13 +38,33 @@ export type AllChangesResponse = {
 /** A member of a series: `folder` is its archive folder name, `null` for an active member. */
 export type SeriesMember = { ordinal: number; id: string; folder: string | null };
 
-/** For a change ID ending in `-NN`, its series with every member, sorted by ordinal; `total` is the member count. */
+/** For a series member ID, its series with every member, sorted by ordinal; `total` is the member count. */
 export type ChangeProperties = {
   series: { id: string; ordinal: number; total: number; members: SeriesMember[] } | null;
 };
 
-/** `GET /api/v1/projects/{key}/changes/{id}` and `GET /api/v1/projects/{key}/archive/{folder}`. */
-export type ChangeDetail = { id: string; archived: boolean; tasks: Tasks; files: { name: string; html: string }[]; properties: ChangeProperties };
+/** A task of a change: its text rendered as inline Markdown, and whether it is done. */
+export type TaskItem = { html: string; done: boolean };
+
+/** The workflow a run of `theway workflow` with no name uses for a project; `key` is `null` for a global file. */
+export type DefaultWorkflow = { scope: "global" | "project"; key: string | null; name: string };
+
+/**
+ * `GET /api/v1/projects/{key}/changes/{id}` and `GET /api/v1/projects/{key}/archive/{folder}`: `taskItems` is `[]`
+ * for an invalid change, `defaultWorkflow` `null` for an archived one or when no single workflow sets `default: true`.
+ */
+export type ChangeDetail = {
+  id: string;
+  archived: boolean;
+  status: Status;
+  description: string | null;
+  error: string | null;
+  tasks: Tasks;
+  taskItems: TaskItem[];
+  defaultWorkflow: DefaultWorkflow | null;
+  files: { name: string; html: string }[];
+  properties: ChangeProperties;
+};
 
 /** Every error response. */
 export type ErrorResponse = { error: string };
