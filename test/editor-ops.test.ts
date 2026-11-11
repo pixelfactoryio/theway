@@ -7,6 +7,7 @@ import type { Document } from "yaml";
 import { parsePromptFile, resolveWorkflowFile } from "../src/core/language";
 import {
   addInput,
+  declaredInputs,
   defaultOnFail,
   HEADER_ORDER,
   insertStep,
@@ -14,6 +15,8 @@ import {
   moveStep,
   type PromptChoice,
   parse,
+  prefill,
+  prefillOnFail,
   removeInput,
   removeStep,
   renameInput,
@@ -115,8 +118,28 @@ test("a ci step inserted at each position keeps every comment and resolves; impl
     const out = run(`ci at ${i}`, COMMENTED, [(d) => insertStep(d, i, "ci", [])]);
     expect(usesList(out)[i]).toBe("prompts/ci.md");
   }
-  const out = run("implement", COMMENTED, [(d) => insertStep(d, 2, "implement", ["change"])], [["workflows/agents.yaml: steps[2].with: required input change is not set"]]);
-  expect(out).toContain('  - uses: prompts/implement.md\n    with:\n      change: ""\n');
+  // The workflow declares an input `change`: the new step's required `change` names it, and the check passes.
+  const out = run("implement", COMMENTED, [(d) => insertStep(d, 2, "implement", ["change"])]);
+  expect(out).toContain('  - uses: prompts/implement.md\n    with:\n      change: "${{ inputs.change }}"\n');
+  // A required input the workflow does not declare is written `""`, which the check reports.
+  const bare = parse("version: theway.workflow/v1beta\ndescription: x\nruns-on: agents\nsteps:\n  - uses: prompts/ci.md\n");
+  insertStep(bare, 1, "implement", ["change"]);
+  expect(textOf(bare)).toContain('  - uses: prompts/implement.md\n    with:\n      change: ""\n');
+});
+
+test("a step's prompt changed, and an on-fail turned on or changed, name the workflow's input of the same name for each required input", () => {
+  const doc = parse(AGENTS);
+  setStepPrompt(doc, 1, "implement", ["change"], ["change"]);
+  const step = (text: string, i: number) => (parse(text).toJS() as { steps: Record<string, unknown>[] }).steps[i];
+  expect(step(textOf(doc), 1)?.with).toMatchObject({ change: "${{ inputs.change }}" });
+  // An input already set is kept as written.
+  setStepWith(doc, 1, "change", "x");
+  setStepPrompt(doc, 1, "branch", ["change"], ["change"]);
+  expect(step(textOf(doc), 1)?.with).toEqual({ change: "x" });
+  const onFail = prefillOnFail(doc, { name: "branch", with: [["change", ""], ["other", ""], ["kept", "y"]], model: null });
+  expect(onFail.with).toEqual([["change", "${{ inputs.change }}"], ["other", ""], ["kept", "y"]]);
+  expect(declaredInputs(doc)).toEqual(["change"]);
+  expect(prefill(doc, "nope")).toBe("");
 });
 
 test("moving a step up, down, and step 5 to position 3 in one operation keeps every comment; removing a step keeps them too", () => {

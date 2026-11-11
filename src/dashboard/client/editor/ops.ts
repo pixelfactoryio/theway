@@ -183,11 +183,23 @@ function stepAt(doc: Document, index: number): YAMLMap | null {
   return isMap(step) ? step : null;
 }
 
-/** Inserts at `index` the step `uses: prompts/<name>.md`, with a `with` entry written `""` for each of `required`. */
+/** The names of the inputs a workflow declares, in their order. */
+export const declaredInputs = (doc: Document): string[] => withKeys(mapAt(doc, ["inputs"]));
+
+/** The value a new required input `name` is written with: `${{ inputs.<name> }}` when the workflow declares an input of that name, else `""`. */
+export const prefill = (doc: Document, name: string): string => (declaredInputs(doc).includes(name) ? `\${{ inputs.${name} }}` : "");
+
+/** An on-fail with each `""` input the workflow declares an input of the same name for written `${{ inputs.<name> }}`. */
+export const prefillOnFail = (doc: Document, o: OnFail): OnFail => ({ ...o, with: o.with.map(([k, v]) => [k, v === "" ? prefill(doc, k) : v]) });
+
+/**
+ * Inserts at `index` the step `uses: prompts/<name>.md`, with a `with` entry for each of `required`: `prefill`'s value,
+ * a reference to the workflow's input of the same name, or `""`.
+ */
 export function insertStep(doc: Document, index: number, name: string, required: readonly string[]): void {
   const map = doc.createNode({}) as YAMLMap;
   map.items.push(doc.createPair("uses", usesOf(name)));
-  if (required.length > 0) map.items.push(doc.createPair("with", withNode(doc, required.map((r) => [r, ""]))));
+  if (required.length > 0) map.items.push(doc.createPair("with", withNode(doc, required.map((r) => [r, prefill(doc, r)]))));
   const seq = stepsOf(doc);
   if (seq.items.length === 0) seq.flow = false;
   seq.items.splice(index, 0, map);
@@ -226,12 +238,22 @@ function keepDeclared(doc: Document, map: YAMLMap, declared: readonly string[]):
   if (w.items.length === 0) setKey(doc, map, "with", undefined);
 }
 
-/** Sets the prompt of step `index` to `name`, keeping the `with` entries it declares (`declared`) and dropping the others. */
-export function setStepPrompt(doc: Document, index: number, name: string, declared: readonly string[]): void {
+/**
+ * Sets the prompt of step `index` to `name`, keeping the `with` entries it declares (`declared`) and dropping the
+ * others; each of `required` not set yet that the workflow declares an input of the same name for is written
+ * `${{ inputs.<name> }}`.
+ */
+export function setStepPrompt(doc: Document, index: number, name: string, declared: readonly string[], required: readonly string[] = []): void {
   const step = stepAt(doc, index);
   if (step === null) return;
   setOrdered(doc, step, "uses", usesOf(name), STEP_ORDER);
   keepDeclared(doc, step, declared);
+  const w = step.get("with", true);
+  const set = isMap(w) ? withKeys(w) : [];
+  for (const r of required) {
+    const v = prefill(doc, r);
+    if (v !== "" && !set.includes(r)) setWithIn(doc, step, r, v, STEP_ORDER);
+  }
 }
 
 /** Sets an entry of the `with` map of `map`; `""` writes `""`, `undefined` removes it, and an emptied map is removed. */
