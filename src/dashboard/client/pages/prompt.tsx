@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { type Draft, isDirty, startDraft } from "@/files/draft";
 import { takeOpenOnWrite, useDrafts, useUndoKeys } from "@/files/drafts";
 import { useFileSave, useValidation } from "@/files/editing";
-import { Check, Choice, type FieldProblem, Problems, Row, TextField } from "@/files/fields";
+import { Check, Choice, Confirm, type FieldProblem, Problems, Row, TextField } from "@/files/fields";
 import { type HeaderProblem, headerProblem, promptLine } from "@/files/problems";
 import { type HeaderSource, headerSource } from "@/files/source";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, useVersions, versionsHref } from "@/lib/api";
@@ -258,6 +258,7 @@ function Editor({
   const { start, update, drop } = useDrafts();
   const files = useFiles();
   const [, navigate] = useLocation();
+  const [discarding, setDiscarding] = useState(false);
   useUndoKeys(file);
   const validation = useValidation(file, draft.text);
   const { save, saving, conflict, refused, reload, canSave } = useFileSave(file, draft);
@@ -320,7 +321,7 @@ function Editor({
           {status}
         </span>
         {dirty && (
-          <Button variant="outline" disabled={saving} onClick={discard}>
+          <Button variant="outline" disabled={saving} onClick={() => setDiscarding(true)}>
             Discard
           </Button>
         )}
@@ -328,6 +329,13 @@ function Editor({
           Save
         </Button>
       </div>
+      <Confirm
+        open={discarding}
+        title={`Discard your unsaved changes to ${file.name}?`}
+        action="Discard"
+        onConfirm={discard}
+        onClose={() => setDiscarding(false)}
+      />
       {fields !== null && fields.description !== "" && <p className="text-muted-foreground">{fields.description}</p>}
       {conflict && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5">
