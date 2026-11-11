@@ -33,20 +33,6 @@ import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
 /** The view of a workflow's page. */
 export type View = "diagram" | "yaml";
 
-/** The selection of each workflow's page, by file key: it outlives the page, so the Diagram / YAML switch keeps it. */
-const selections = new Map<string, Selection | null>();
-
-/** The page's selection of `file`, kept across the Diagram / YAML switch. */
-function useSelection(file: FileRef): [Selection | null, (s: Selection | null) => void] {
-  const key = fileKey(file);
-  const [selection, setSelection] = useState<Selection | null>(() => selections.get(key) ?? null);
-  const set = (s: Selection | null) => {
-    selections.set(key, s);
-    setSelection(s);
-  };
-  return [selection, set];
-}
-
 /** Whether the window is at least as wide as the `lg` breakpoint. */
 function useWide(): boolean {
   const query = "(min-width: 64rem)";
@@ -92,7 +78,8 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   const [discarding, setDiscarding] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
   const [writing, setWriting] = useState(false);
-  const [selection, select] = useSelection(file);
+  // Page state: both routes of a workflow render this page under the same key, so the Diagram / YAML switch keeps it.
+  const [selection, select] = useState<Selection | null>(null);
   useUndoKeys(file);
   const validation = useValidation(file, draft.text);
   const { save, saving, conflict, refused, reload, canSave } = useFileSave(file, draft);
