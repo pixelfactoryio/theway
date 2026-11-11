@@ -135,6 +135,35 @@ tasks:
   const again = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
   expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"]);
 
+  const styles = `version: theway.change/v1beta
+description: Limit requests per API key
+tasks:
+  - text: >-
+      A long task that wraps over several lines because it is long, with \`backticks\`
+      and a second line here
+  - text: Read the limit and
+      the burst from the settings
+  - text: "double quoted
+      folded"
+  - text: b   # trailing
+  - text: c
+    done: false   # not yet
+  - {text: d}
+  - text: >-
+      last task in block style
+      at the end of the file`;
+  put(file, styles);
+  const ticked = run(dir, "task", "done", "--project", "p", "add-x", "1", "4", "5", "6", "7");
+  expect([ticked.status, ticked.stdout, ticked.stderr]).toEqual([0, "5/7 tasks done\n", ""]);
+  expect(readFileSync(file, "utf-8")).toBe(
+    styles
+      .replace("second line here\n", "second line here\n    done: true\n")
+      .replace("b   # trailing\n", "b   # trailing\n    done: true\n")
+      .replace("done: false   # not yet", "done: true   # not yet")
+      .replace("{text: d}", "{text: d, done: true}")
+      .replace("at the end of the file", "at the end of the file\n    done: true"),
+  );
+
   put(file, "version: x\n");
   const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1");
   expect([invalid.status, invalid.stderr]).toEqual([

@@ -1,7 +1,7 @@
 /** A change's `change.yaml`: its description and ordered tasks, validated on every read; `theway change` and `theway task done`. */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseDocument } from "yaml";
+import { isMap as isYamlMap, isScalar, isSeq, parseDocument } from "yaml";
 import { escaped, isFile, thewayHome, writeAtomic } from "./io";
 import { parseYaml } from "./language";
 import { invalidChangeId } from "./path";
@@ -9,12 +9,6 @@ import { projectDir, resolveKey } from "./project";
 
 export const CHANGE_VERSION = "theway.change/v1beta";
 export const CHANGE_FILE = "change.yaml";
-
-/**
- * How `theway task done` writes the file: with the default options `yaml` refolds plain and `>-` scalars longer than
- * 80 columns, which would rewrite other tasks' text.
- */
-const TEXT_OPTIONS = { flowCollectionPadding: false, lineWidth: 0, nullStr: "" } as const;
 
 const ROOT_KEYS = ["version", "description", "tasks"];
 const TASK_KEYS = ["text", "done"];
@@ -107,6 +101,47 @@ export function changeFileCount(dir: string): number {
 }
 
 /**
+ * The text of a valid `change.yaml` with `done: true` set on the tasks at the 0-based `indexes`, spliced into the source
+ * at the `yaml` Document's node ranges so every other byte is kept (`toString` would refold multi-line scalars and
+ * comment spacing): an existing `done` value is replaced, otherwise `done: true` goes after the task's last value, on
+ * its own line at the task's key indent (`, done: true` in a flow map).
+ */
+function tickedText(text: string, indexes: number[]): string {
+  const seq = parseDocument(text).get("tasks", true);
+  if (!isSeq(seq)) throw new Error("tasks: not a sequence");
+  const edits: { at: number; end: number; insert: string }[] = [];
+  for (const i of indexes) {
+    const task = seq.items[i];
+    if (!isYamlMap(task)) throw new Error(`tasks[${i}]: not a map`);
+    const done = task.items.find((p) => isScalar(p.key) && p.key.value === "done");
+    if (done && isScalar(done.value) && done.value.range) {
+      edits.push({ at: done.value.range[0], end: done.value.range[1], insert: "true" });
+      continue;
+    }
+    const last = task.items[task.items.length - 1];
+    const first = task.items[0];
+    const end = (last?.value as { range?: [number, number, number] } | null)?.range?.[1];
+    const keyStart = (first?.key as { range?: [number, number, number] } | null)?.range?.[0];
+    if (end === undefined || keyStart === undefined) throw new Error(`tasks[${i}]: no source range`);
+    if (task.flow) {
+      edits.push({ at: end, end, insert: ", done: true" });
+      continue;
+    }
+    const indent = " ".repeat(keyStart - (text.lastIndexOf("\n", keyStart - 1) + 1));
+    if (text[end - 1] === "\n") {
+      edits.push({ at: end, end, insert: `${indent}done: true\n` });
+    } else {
+      const nl = text.indexOf("\n", end);
+      if (nl === -1) edits.push({ at: text.length, end: text.length, insert: `\n${indent}done: true` });
+      else edits.push({ at: nl + 1, end: nl + 1, insert: `${indent}done: true\n` });
+    }
+  }
+  let out = text;
+  for (const e of edits.sort((a, b) => b.at - a.at)) out = out.slice(0, e.at) + e.insert + out.slice(e.end);
+  return out;
+}
+
+/**
  * Sets `done: true` on the tasks numbered `numbers` (from 1) of the change `id` in `dir`, keeping the rest of the file's
  * text; writes nothing when the file is invalid or a number names no task. Returns the error lines, or the counts after.
  */
@@ -122,9 +157,7 @@ export function tickTasks(dir: string, id: string, numbers: string[]): { errors:
   const todo = [...new Set(numbers.map(Number))].filter((n) => !(c.change.tasks[n - 1] as ChangeTask).done);
   if (todo.length > 0) {
     const path = join(dir, CHANGE_FILE);
-    const doc = parseDocument(readFileSync(path, "utf-8"));
-    for (const n of todo) doc.setIn(["tasks", n - 1, "done"], true);
-    writeAtomic(path, doc.toString(TEXT_OPTIONS));
+    writeAtomic(path, tickedText(readFileSync(path, "utf-8"), todo.map((n) => n - 1)));
   }
   const done = c.change.tasks.filter((t, i) => t.done || todo.includes(i + 1)).length;
   return { done, total };
