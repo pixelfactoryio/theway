@@ -88,8 +88,18 @@ type FileBase = {
   description: string | null;
 };
 
-/** A workflow file: whether it is the default, and the first error line when it does not resolve. */
-export type WorkflowItem = FileBase & { kind: "workflows"; default: boolean; error: string | null };
+/**
+ * A workflow file: whether it is the default, the first error line when it does not resolve, and the number of its
+ * error lines; its step count and how many steps run on each of `session` and `agents` (`null` when it does not resolve).
+ */
+export type WorkflowItem = FileBase & {
+  kind: "workflows";
+  default: boolean;
+  error: string | null;
+  errors: number;
+  steps: number | null;
+  runsOn: { session: number; agents: number } | null;
+};
 
 /** A workflow that uses a prompt, as the files list names it. */
 export type PromptUser = { scope: "global" | "project"; key: string | null; label: string | null; name: string };

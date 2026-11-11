@@ -83,13 +83,18 @@ export type ResolvedWorkflow = {
   steps: ResolvedStep[];
 };
 
-/** One workflow file of a project, as `listWorkflowFiles` lists it. */
+/**
+ * One workflow file of a project, as `listWorkflowFiles` lists it: `errors` holds every error line of its resolve
+ * (`[]` when it resolves), `error` the first one, and `doc` the resolved document (`null` when it does not resolve).
+ */
 export type WorkflowFileItem = {
   name: string;
   scope: "project" | "global";
   description: string | null;
   default: boolean;
   error?: string;
+  errors: string[];
+  doc: ResolvedWorkflow | null;
 };
 
 /** One prompt file of a project, as `listPromptFiles` lists it; `error` is its first header rule error, `null` for none. */

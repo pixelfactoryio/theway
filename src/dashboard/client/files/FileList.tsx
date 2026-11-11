@@ -152,6 +152,9 @@ export function FileList({
       description: null,
       default: false,
       error: null,
+      errors: 0,
+      steps: null,
+      runsOn: null,
     }));
   const groups = [{ heading: "Workflows", items: [...workflows, ...fresh] }];
   const none = filter.trim() !== "" && groups.every((g) => !g.items.some((i) => matches(i.name, filter)));

@@ -40,7 +40,7 @@ type PromptDetail = {
 const prompt = async (port: number, path: string) => (await get(port, path)).json() as unknown as PromptDetail;
 
 type Item = { scope: string; key: string | null; label: string | null; kind: string; name: string; path: string; description: string | null };
-type WorkflowItem = Item & { default: boolean; error: string | null };
+type WorkflowItem = Item & { default: boolean; error: string | null; errors: number; steps: number | null; runsOn: { session: number; agents: number } | null };
 type PromptItem = Item & { step: boolean; model: string | null; usedBy: { scope: string; key: string | null; label: string | null; name: string }[]; error: string | null };
 
 /** A shipped home with projects `p` and `q`, `q` holding its own workflow `own`. */
@@ -102,8 +102,24 @@ test("GET /api/v1/files lists every project, the global workflows and prompts, t
     description: "The tasks done inline in your session, on the working tree, nothing committed",
     default: true,
     error: null,
+    errors: 0,
+    steps: 1,
+    runsOn: { session: 1, agents: 0 },
   });
-  expect(body.workflows[4]).toEqual({ scope: "project", key: "q", label: "q", kind: "workflows", name: "own", path: join(dir, "projects", "q", "workflows", "own.yaml"), description: "Own", default: false, error: null });
+  expect(body.workflows[4]).toEqual({
+    scope: "project",
+    key: "q",
+    label: "q",
+    kind: "workflows",
+    name: "own",
+    path: join(dir, "projects", "q", "workflows", "own.yaml"),
+    description: "Own",
+    default: false,
+    error: null,
+    errors: 0,
+    steps: 1,
+    runsOn: { session: 1, agents: 0 },
+  });
   const global = body.prompts.filter((p) => p.scope === "global");
   expect(global.map((p) => p.name)).toEqual(readdirSync(join(SHIPPED_HOME, "prompts")).map((f) => f.slice(0, -".md".length)).sort());
   expect(global.filter((p) => p.step).map((p) => p.name)).toEqual(STEP_PROMPTS);
@@ -167,6 +183,17 @@ test("a v1 workflow file is listed with the error that it is no longer read", as
   expect(old?.error).toBe("workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta");
   const detail = (await get(port, "/api/v1/files/global/workflows/old")).json();
   expect(detail.resolved).toEqual({ errors: [old?.error] });
+});
+
+test("a workflow item counts its steps, the steps on each runs-on and its error lines, on the list and the detail", async () => {
+  const dir = shippedHome();
+  put(join(dir, "workflows", "broken.yaml"), "version: [\n");
+  const { port } = await start(dir);
+  const workflows = (await get(port, "/api/v1/files")).json().workflows as WorkflowItem[];
+  const counts = (w: WorkflowItem | undefined) => [w?.steps, w?.runsOn, w?.errors];
+  expect(counts(workflows.find((w) => w.name === "agents"))).toEqual([6, { session: 1, agents: 5 }, 0]);
+  expect(counts(workflows.find((w) => w.name === "broken"))).toEqual([null, null, 1]);
+  expect(counts((await get(port, "/api/v1/files/global/workflows/agents")).json() as WorkflowItem)).toEqual([6, { session: 1, agents: 5 }, 0]);
 });
 
 test("a workflow's detail gives its text, sha256, resolved document, the projects overriding it, and no use", async () => {

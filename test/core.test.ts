@@ -1716,12 +1716,13 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
   const dir = fixtureHome();
   const warned: string[] = [];
   const before = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
-  expect(before).toEqual([
-    { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false },
-    { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true },
-    { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false },
-    { name: "engineering-light", scope: "global", description: "A short spec and 1 to 3 tasks, reviewed by one grounding critic", default: false },
+  expect(before.map(({ doc: _, ...item }) => item)).toEqual([
+    { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false, errors: [] },
+    { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true, errors: [] },
+    { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false, errors: [] },
+    { name: "engineering-light", scope: "global", description: "A short spec and 1 to 3 tasks, reviewed by one grounding critic", default: false, errors: [] },
   ]);
+  expect(before.map((w) => w.doc?.steps.length)).toEqual([6, 1, 3, 3]);
   put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1\ndescription: Old\nsteps:\n  - implement:\n");
   const after = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
   expect(after.filter((w) => w.name !== "old")).toEqual(before);
@@ -1731,6 +1732,8 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
     description: "Old",
     default: false,
     error: "workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
+    errors: ["workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta"],
+    doc: null,
   });
   expect(warned).toEqual([]);
 });

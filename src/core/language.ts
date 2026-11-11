@@ -565,8 +565,8 @@ function scopedNames(
 
 /**
  * Every workflow file of a project and of the home, a project file hiding the global one of the same name, sorted by
- * name: its description (`null` when unreadable), its `default` (false for a file of another version), and the first error line of `resolveWorkflowFile`
- * when it does not resolve. A `.yaml` file whose stem is not a valid name is warned about and left out.
+ * name: its description (`null` when unreadable), its `default` (false for a file of another version), every error line of `resolveWorkflowFile`
+ * (the first also as `error`) and its resolved document (`null` when it does not resolve). A `.yaml` file whose stem is not a valid name is warned about and left out.
  */
 export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay?: Overlay): WorkflowFileItem[] {
   const found = scopedNames(home, key, "workflows", overlay, (path) => warn(relative(home, path), "not a valid workflow name"));
@@ -577,9 +577,10 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
     const description = isMap(root) && nonEmpty(root.get("description")) ? (root.get("description") as string) : null;
     // Only a theway.workflow/v1beta file can be the default: a v1 file's `default:` is not read.
     const isDefault = isMap(root) && root.get("version") === VERSION && root.get("default") === true;
-    const item: WorkflowFileItem = { name, scope, description, default: isDefault };
     const result = resolveWorkflowFile(home, key, name, {}, overlay);
-    if ("errors" in result) item.error = result.errors[0] as string;
+    const errors = "errors" in result ? result.errors : [];
+    const item: WorkflowFileItem = { name, scope, description, default: isDefault, errors, doc: "doc" in result ? result.doc : null };
+    if (errors.length > 0) item.error = errors[0] as string;
     return item;
   });
 }

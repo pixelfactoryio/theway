@@ -94,6 +94,9 @@ const workflow = (name: string, key: string | null, error: string | null): Workf
   description: null,
   default: false,
   error,
+  errors: error === null ? 0 : 1,
+  steps: null,
+  runsOn: null,
 });
 
 test("Home's notices name one workflow that cannot run, count several, and count the invalid changes", () => {

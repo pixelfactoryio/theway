@@ -279,6 +279,15 @@ function workflowItems(home: string, p: Place): WorkflowItem[] {
       description: w.description,
       default: w.default,
       error: w.error === undefined ? null : homeRelative(home, w.error),
+      errors: w.errors.length,
+      steps: w.doc === null ? null : w.doc.steps.length,
+      runsOn:
+        w.doc === null
+          ? null
+          : {
+              session: w.doc.steps.filter((s) => s.runs_on === "session").length,
+              agents: w.doc.steps.filter((s) => s.runs_on === "agents").length,
+            },
     }));
 }
 
