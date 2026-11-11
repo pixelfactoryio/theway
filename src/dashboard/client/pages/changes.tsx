@@ -4,6 +4,7 @@ import { Bar, Empty } from "@/components/state";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAllChanges } from "@/lib/api";
+import { shortLabels } from "@/lib/labels";
 import { type Row, rowsOf } from "@/lib/series";
 import type { ActiveChange, AllChangesResponse, ArchivedChange } from "../../types";
 
@@ -43,7 +44,7 @@ function SeriesRow({ projectKey, row }: { projectKey: string; row: Extract<Row, 
     <>
       <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={`${ROW} w-full text-left hover:bg-accent`}>
         <span className="truncate">
-          <span className="font-mono text-[13px]">{row.id}</span> <span className="text-muted-foreground">· {row.total} changes</span>
+          <span className="font-mono text-[13px]">{row.id}</span> <span className="hidden text-muted-foreground sm:inline">· {row.total} changes</span>
         </span>
         <span className={BAR}>
           <Bar done={row.done} total={row.total} />
@@ -67,11 +68,13 @@ function ArchivedRow({ projectKey, archived }: { projectKey: string; archived: A
   );
 }
 
-function Section({ project, showArchived }: { project: Project; showArchived: boolean }) {
+function Section({ project, heading, showArchived }: { project: Project; heading: string; showArchived: boolean }) {
   const rows = rowsOf(project.active, project.series);
   return (
     <section className="flex flex-col">
-      <h2 className="mb-1.5 text-[12px] font-medium text-muted-foreground">{project.label}</h2>
+      <h2 className="mb-1.5 truncate text-[14px] font-semibold" title={project.label}>
+        {heading}
+      </h2>
       <div className="flex flex-col border-b border-divider-row">
         {rows.map((row) =>
           row.kind === "series" ? (
@@ -96,8 +99,10 @@ export function ChangesPage() {
   const shown = projects.filter((p) => (selected === ALL || p.key === selected) && (p.active.length > 0 || (archived && p.archived.length > 0)));
   const others = data === undefined ? 0 : data.total - projects.filter((p) => p.active.length > 0).length;
   const items = [{ value: ALL, label: "All projects" }, ...projects.map((p) => ({ value: p.key, label: p.label }))];
+  const short = shortLabels(projects.map((p) => p.label));
+  const headings = new Map(projects.map((p, i) => [p.key, short[i] ?? p.label]));
   return (
-    <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-6 py-6">
+    <main id="content" tabIndex={-1} className="mx-auto flex w-full max-w-[1120px] flex-col gap-5 px-6 py-6 outline-none">
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-[20px] font-semibold">Changes</h1>
         <span className="ml-auto flex items-center gap-4">
@@ -124,7 +129,7 @@ export function ChangesPage() {
       ) : shown.length === 0 ? (
         <Empty>No active changes</Empty>
       ) : (
-        shown.map((p) => <Section key={p.key} project={p} showArchived={archived} />)
+        shown.map((p) => <Section key={p.key} project={p} heading={headings.get(p.key) ?? p.label} showArchived={archived} />)
       )}
       {data !== undefined && others > 0 && !archived && selected === ALL && (
         <p className="text-[12px] text-muted-foreground">{others} other projects have no active changes.</p>

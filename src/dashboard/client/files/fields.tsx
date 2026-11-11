@@ -28,11 +28,45 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
   );
 }
 
+/** A field's problems: the ID of its control and the messages shown under it. */
+export type FieldProblem = { id: string; messages: string[] };
+
+/** The props that tie a control to its problems: its ID, and `aria-invalid` and `aria-describedby` while it has any. */
+export function invalidProps(p: FieldProblem | undefined): { id?: string; "aria-invalid"?: true; "aria-describedby"?: string } {
+  if (p === undefined) return {};
+  return p.messages.length === 0 ? { id: p.id } : { id: p.id, "aria-invalid": true, "aria-describedby": `${p.id}-error` };
+}
+
+/** A field's problem messages, in the destructive colour; `id` is the one `invalidProps` describes the control by. */
+export function Problems({ problem }: { problem: FieldProblem | undefined }) {
+  if (problem === undefined || problem.messages.length === 0) return null;
+  return (
+    <span id={`${problem.id}-error`} className="flex flex-col text-[12px] break-words text-destructive">
+      {problem.messages.map((m) => (
+        <span key={m}>{m}</span>
+      ))}
+    </span>
+  );
+}
+
 /**
- * A labelled field: the label, the control, then an optional 12px muted note. A `group` holds several controls, each
- * labelled on its own, so it is a `role="group"` named by its label rather than a `<label>` of its first control.
+ * A labelled field: the label, the control, then an optional 12px muted note and the field's problems. A `group` holds
+ * several controls, each labelled on its own, so it is a `role="group"` named by its label rather than a `<label>` of
+ * its first control.
  */
-export function Row({ label, note, group = false, children }: { label: ReactNode; note?: ReactNode; group?: boolean; children: ReactNode }) {
+export function Row({
+  label,
+  note,
+  group = false,
+  problem,
+  children,
+}: {
+  label: ReactNode;
+  note?: ReactNode;
+  group?: boolean;
+  problem?: FieldProblem;
+  children: ReactNode;
+}) {
   const id = useId();
   const content = (
     <>
@@ -43,12 +77,17 @@ export function Row({ label, note, group = false, children }: { label: ReactNode
       {note !== undefined && note !== null && <span className="text-[12px] text-muted-foreground">{note}</span>}
     </>
   );
-  return group ? (
-    <div role="group" aria-labelledby={id} className="flex flex-col gap-1.5">
-      {content}
+  return (
+    <div className="flex flex-col gap-1.5">
+      {group ? (
+        <div role="group" aria-labelledby={id} className="flex flex-col gap-1.5">
+          {content}
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1.5">{content}</label>
+      )}
+      <Problems problem={problem} />
     </div>
-  ) : (
-    <label className="flex flex-col gap-1.5">{content}</label>
   );
 }
 
@@ -58,15 +97,17 @@ export function Choice({
   options,
   onChange,
   labels = {},
+  problem,
 }: {
   value: string;
   options: readonly string[];
   onChange: (v: string) => void;
   labels?: Record<string, string>;
+  problem?: FieldProblem;
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(String(v ?? ""))}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger className="w-full" {...invalidProps(problem)}>
         <SelectValue>{(v: unknown) => labels[String(v)] ?? String(v ?? "")}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -91,7 +132,7 @@ export function TextField({
   multiline = false,
   mono = false,
   same = (typed, v) => typed === v,
-  invalid = false,
+  problem,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -99,7 +140,7 @@ export function TextField({
   multiline?: boolean;
   mono?: boolean;
   same?: (typed: string, value: string) => boolean;
-  invalid?: boolean;
+  problem?: FieldProblem;
 }) {
   const [typed, setTyped] = useState(value);
   const [seen, setSeen] = useState(value);
@@ -112,15 +153,27 @@ export function TextField({
     onChange(v);
   };
   const cls = mono ? "font-mono text-[13px]" : undefined;
-  if (multiline) return <Textarea className={cls} value={typed} placeholder={placeholder} aria-invalid={invalid || undefined} onChange={(e) => change(e.target.value)} />;
-  return <Input className={cls} value={typed} placeholder={placeholder} aria-invalid={invalid || undefined} onChange={(e) => change(e.target.value)} />;
+  if (multiline) return <Textarea className={cls} value={typed} placeholder={placeholder} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
+  return <Input className={cls} value={typed} placeholder={placeholder} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
 }
 
 /** A checkbox with its label. */
-export function Check({ checked, onChange, disabled, children }: { checked: boolean; onChange: (on: boolean) => void; disabled?: boolean; children: ReactNode }) {
+export function Check({
+  checked,
+  onChange,
+  disabled,
+  problem,
+  children,
+}: {
+  checked: boolean;
+  onChange: (on: boolean) => void;
+  disabled?: boolean;
+  problem?: FieldProblem;
+  children: ReactNode;
+}) {
   return (
     <label className={disabled === true ? "flex items-center gap-2 text-muted-foreground" : "flex items-center gap-2"}>
-      <Checkbox checked={checked} disabled={disabled} onCheckedChange={(on) => onChange(on === true)} />
+      <Checkbox checked={checked} disabled={disabled} {...invalidProps(problem)} onCheckedChange={(on) => onChange(on === true)} />
       {children}
     </label>
   );

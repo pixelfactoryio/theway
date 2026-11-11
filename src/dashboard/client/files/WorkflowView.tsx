@@ -8,11 +8,15 @@ import { type FileRef, fileHref, useFiles } from "@/lib/api";
 import type { ResolvedStep, ResolvedWorkflow } from "../../../core/language-schema";
 import type { FilesResponse, PromptItem, WorkflowResolved } from "../../types";
 import { parse } from "../editor/ops";
-import { overridesText, promptName, stepBadge } from "./source";
+import { matrixTitle, ON_FAIL_TITLE, overridesText, promptName, stepBadge } from "./source";
 
 /** A card of the centre and the right column: the card colour, a border, rounded, a light shadow. */
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-lg border bg-card px-4 py-3 shadow-xs", className)}>{children}</div>;
+export function Card({ id, className, children }: { id?: string; className?: string; children: ReactNode }) {
+  return (
+    <div id={id} className={cn("rounded-lg border bg-card px-4 py-3 shadow-xs", className)}>
+      {children}
+    </div>
+  );
 }
 
 /** The small-capitals heading of the file list's groups and the right column's panels. */
@@ -23,7 +27,7 @@ export function Panel({ title, action, children }: { title: string; action?: Rea
   return (
     <Card className="flex flex-col gap-1.5 px-3.5">
       <div className="flex min-h-5 items-center gap-2">
-        <span className={SMALL_CAPS}>{title}</span>
+        <h2 className={SMALL_CAPS}>{title}</h2>
         {action !== undefined && <span className="ml-auto">{action}</span>}
       </div>
       {children}
@@ -42,7 +46,11 @@ export function ModelBadge({ model }: { model: string }) {
 /** A step card's badge: "your session", `agent · <model>`, or its model, as `stepBadge` gives it. */
 export function StepBadge({ runsOn, model }: { runsOn: string; model: string | null }) {
   const badge = stepBadge(runsOn, model);
-  return badge === null ? null : <Badge variant={badge.variant}>{badge.text}</Badge>;
+  return badge === null ? null : (
+    <Badge variant={badge.variant} title={badge.title}>
+      {badge.text}
+    </Badge>
+  );
 }
 
 /** A line as the page shows it: the `theway: ` after an optional `<label>: ` removed. */
@@ -68,10 +76,14 @@ function Lines({ lines }: { lines: string[] }) {
   );
 }
 
-/** A file that cannot be drawn: its error lines, what can still be drawn, then its text. */
+/** Whether a line says the file is in the old `theway.workflow/v1` format. */
+const isV1 = (line: string): boolean => line.includes("theway.workflow/v1 is no longer read");
+
+/** A file that cannot be drawn: its error lines, what can still be drawn, then its text; a v1 file says so in plain words first. */
 export function Broken({ lines, text, children }: { lines: string[]; text: string; children?: ReactNode }) {
   return (
     <div className="flex w-full flex-col gap-3">
+      {lines.some(isV1) && <p className="font-medium">This file is in the old format (theway.workflow/v1). Rewrite it in the new format to use it.</p>}
       <Lines lines={lines} />
       {children}
       <pre className="overflow-x-auto rounded-lg border bg-card p-3 font-mono text-[13px]">{text}</pre>
@@ -107,7 +119,11 @@ function StepCard({ file, step }: { file: FileRef; step: ResolvedStep }) {
     <Card className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-2">
         <PromptLink item={byPath(step.file)} name={name} className="text-[14px] font-medium" />
-        {step.matrix !== null && <Badge variant="primary-light">{step.matrix.values.length} copies at once</Badge>}
+        {step.matrix !== null && (
+          <Badge variant="primary-light" title={matrixTitle(step.matrix.key)}>
+            {step.matrix.values.length} copies at once
+          </Badge>
+        )}
         <span className="ml-auto">
           <StepBadge runsOn={step.runs_on} model={step.model} />
         </span>
@@ -129,7 +145,9 @@ function StepCard({ file, step }: { file: FileRef; step: ResolvedStep }) {
       )}
       {step.on_fail !== null && onFailName !== null && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="warning-light">on fail</Badge>
+          <Badge variant="warning-light" title={ON_FAIL_TITLE}>
+            on fail
+          </Badge>
           <span>
             run <PromptLink item={byPath(step.on_fail.file)} name={onFailName} />, then this step again · up to {tries} {tries > 1 ? "tries" : "try"}
           </span>
@@ -159,9 +177,9 @@ export const indicator = (selected: boolean): string =>
 /** The timeline: one item per card, numbered from 1, joined by a line; no step is selected. */
 function Steps({ cards }: { cards: ReactNode[] }) {
   return (
-    <Timeline value={0} className="w-full max-w-[640px] pl-1">
+    <Timeline value={0} className="w-full max-w-[760px] pl-1" render={<ol aria-label="Steps" />}>
       {cards.map((card, i) => (
-        <TimelineItem key={i} step={i + 1}>
+        <TimelineItem key={i} step={i + 1} render={<li />}>
           <TimelineHeader>
             <TimelineSeparator className={LINE} />
             <TimelineIndicator className={indicator(false)}>{i + 1}</TimelineIndicator>
@@ -176,7 +194,7 @@ function Steps({ cards }: { cards: ReactNode[] }) {
 /** The legend under the timeline: the answers a step gives. */
 function Legend() {
   return (
-    <div className="flex w-full max-w-[640px] flex-wrap items-center gap-1.5 pl-1 text-muted-foreground">
+    <div className="flex w-full max-w-[760px] flex-wrap items-center gap-1.5 pl-1 text-muted-foreground">
       <span>Every step answers</span>
       <Badge variant="success-light">pass</Badge>
       <Badge variant="destructive-light">fail</Badge>

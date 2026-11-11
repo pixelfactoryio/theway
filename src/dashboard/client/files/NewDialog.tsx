@@ -9,19 +9,23 @@ import { NAME } from "../../../core/language-schema";
 import { EXT, type FileItem, type FilesResponse, type SourceKind } from "../../types";
 import { usePromptContext } from "./context";
 import { useDrafts } from "./drafts";
-import { Choice, Input, Row } from "./fields";
+import { Choice, Input, invalidProps, Row } from "./fields";
 import { copyText, newPromptText, newWorkflowText } from "./new-file";
 
 /** The "Where" value of the global scope, and the "Start from" value of an empty file. */
 const ALL = "\u0000all";
 const EMPTY = "\u0000empty";
 
-/** Why `target` cannot be a new file; `""` when it can. */
+/** Why `target` cannot be a new file, in a sentence; `""` when it can. */
 function refusal(target: FileRef, files: FilesResponse, drafts: ReadonlyMap<string, unknown>): string {
-  if (!NAME.test(target.name)) return "lowercase letters and digits, in words separated by single hyphens";
+  if (target.name === "") return "Add a name.";
+  if (!NAME.test(target.name)) return "Use lowercase words separated by hyphens, such as fix-review.";
   const exists = [...files.workflows, ...files.prompts].some((f) => fileKey(f) === fileKey(target)) || drafts.has(fileKey(target));
-  return exists ? "a file of that name exists there" : "";
+  return exists ? "A file of that name exists there already." : "";
 }
+
+/** The ID of the Name field, which has the focus when the dialog opens. */
+const NAME_ID = "new-file-name";
 
 /** The dialog's form, mounted while it is open. */
 function NewForm({ initial, files, onClose }: { initial: SourceKind; files: FilesResponse; onClose: () => void }) {
@@ -40,10 +44,10 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
   const copied = useFile(source ?? { scope: "global", key: null, kind, name: "" }, source !== undefined);
   const ctx = usePromptContext(target);
   const loading = source !== undefined ? copied.data === undefined : kind === "workflows" && ctx.steps.some((p) => p.header === null);
-  const ready = description.trim() !== "" && !loading;
+  const missing = description.trim() === "" ? "Add a description." : "";
   const create = () => {
     setTried(true);
-    if (reason !== "" || !ready) return;
+    if (reason !== "" || missing !== "" || loading) return;
     const text =
       source !== undefined && copied.data !== undefined
         ? copyText(kind, copied.data.text, description)
@@ -56,7 +60,14 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
   };
   const label = (f: FileItem) => `A copy of ${f.scope === "global" ? f.name : `${f.name} (${f.label ?? f.key ?? ""})`}`;
   return (
-    <>
+    <form
+      className="contents"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        create();
+      }}
+    >
       <DialogHeader>
         <DialogTitle>New</DialogTitle>
         <DialogDescription>Opens in the editor as a draft. Nothing is written until you save.</DialogDescription>
@@ -83,7 +94,9 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
         label="Name"
         note={
           tried && reason !== "" ? (
-            <span className="text-destructive">{reason}</span>
+            <span id={`${NAME_ID}-error`} className="text-destructive">
+              {reason}
+            </span>
           ) : (
             <>
               Saved as <span className="font-mono break-all">{`${kind}/${name === "" ? "<name>" : name}${EXT[kind]}`}</span>
@@ -91,10 +104,17 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
           )
         }
       >
-        <Input className="font-mono text-[13px]" value={name} aria-invalid={(tried && reason !== "") || undefined} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id={NAME_ID}
+          className="font-mono text-[13px]"
+          value={name}
+          aria-invalid={(tried && reason !== "") || undefined}
+          aria-describedby={tried && reason !== "" ? `${NAME_ID}-error` : undefined}
+          onChange={(e) => setName(e.target.value)}
+        />
       </Row>
-      <Row label="Description">
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      <Row label="Description" problem={{ id: "new-file-description", messages: tried && missing !== "" ? [missing] : [] }}>
+        <Input value={description} {...invalidProps({ id: "new-file-description", messages: tried && missing !== "" ? [missing] : [] })} onChange={(e) => setDescription(e.target.value)} />
       </Row>
       <div className="grid gap-3 sm:grid-cols-2">
         <Row label="Start from">
@@ -119,14 +139,12 @@ function NewForm({ initial, files, onClose }: { initial: SourceKind; files: File
         </Row>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={create} disabled={!ready}>
-          Create
-        </Button>
+        <Button type="submit">Create</Button>
       </DialogFooter>
-    </>
+    </form>
   );
 }
 
@@ -135,7 +153,7 @@ export function NewDialog({ kind, onClose }: { kind: SourceKind | null; onClose:
   const files = useFiles();
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[460px]">
+      <DialogContent className="sm:max-w-[460px]" initialFocus={() => document.getElementById(NAME_ID)}>
         {kind !== null && files.data !== undefined && <NewForm initial={kind} files={files.data} onClose={onClose} />}
       </DialogContent>
     </Dialog>

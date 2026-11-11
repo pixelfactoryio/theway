@@ -53,11 +53,12 @@ export const useVersions = (f: FileRef) =>
   useQuery({ queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions"], queryFn: () => get<FileVersionsResponse>(`${filePath(f)}/versions`) });
 
 /** One version's text and what it resolves to: `id` is a version ID or `shipped`. */
-export const useVersion = (f: FileRef, id: string) =>
-  useQuery({
-    queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions", id],
-    queryFn: () => get<FileVersionResponse>(`${filePath(f)}/versions/${encodeURIComponent(id)}`),
-  });
+export const versionQuery = (f: FileRef, id: string) => ({
+  queryKey: ["file", f.scope, f.key, f.kind, f.name, "versions", id],
+  queryFn: () => get<FileVersionResponse>(`${filePath(f)}/versions/${encodeURIComponent(id)}`),
+});
+
+export const useVersion = (f: FileRef, id: string) => useQuery(versionQuery(f, id));
 
 /** The page of a file in the dashboard: `/workflows/global/<kind>/<name>` or `/workflows/projects/<key>/<kind>/<name>`. */
 export const fileHref = (f: FileRef): string =>

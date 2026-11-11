@@ -5,6 +5,7 @@ import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { folderOf, labels } from "../src/dashboard/api";
+import { repoName, shortLabels } from "../src/dashboard/client/lib/labels";
 import { rowsOf } from "../src/dashboard/client/lib/series";
 import { keyOf } from "../src/core/project";
 import type { ActiveChange, SeriesProgress } from "../src/dashboard/types";
@@ -96,6 +97,14 @@ function changesHome(): string {
   put(join(dir, "projects", "-Users-me-beta", "changes", "add-solo-01", "tasks.md"), "- [ ] 1. a\n");
   return dir;
 }
+
+test("a project heading shows the repository name, the whole label when two give the same", () => {
+  expect(repoName("github-com-hecaton-tower")).toBe("tower");
+  expect(repoName("-Users-amine-Dev-github-com-pixelfactoryio-theway")).toBe("theway");
+  expect(repoName("work/api")).toBe("api");
+  expect(repoName("demo-my-api")).toBe("demo-my-api");
+  expect(shortLabels(["a/api", "b/api", "github-com-x-tower"])).toEqual(["a/api", "b/api", "tower"]);
+});
 
 test("dashboard prints its startup line and serves the page, the bundle and the stylesheet with the security headers", async () => {
   const { port, line } = await start(home());

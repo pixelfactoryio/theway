@@ -63,6 +63,8 @@
 }
 
 :root {
+  /* The top bar's height: the file list sticks under it and the page scrolls a target clear of it. */
+  --topbar-h: 57px;
   --radius: 0.625rem;
   --background: #F5F6F8;
   --foreground: #0F172A;
@@ -95,12 +97,22 @@
   --invert-foreground: var(--color-zinc-50);
 }
 
+@media (pointer: coarse) {
+  :root {
+    --topbar-h: 69px;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background font-sans text-foreground text-[14px];
+  }
+  html {
+    scroll-padding-top: calc(var(--topbar-h) + 8px);
+    scroll-padding-bottom: var(--savebar-h, 0px);
   }
 }
 

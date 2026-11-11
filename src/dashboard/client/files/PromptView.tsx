@@ -3,13 +3,18 @@ import { Link } from "wouter";
 import { Badge } from "@/components/reui/badge";
 import { fileHref } from "@/lib/api";
 import type { FileUse, PromptResolved } from "../../types";
+import { STEP_PROMPT_TITLE } from "./source";
 import { Card, ModelBadge, Panel, shownLine } from "./WorkflowView";
 
 /** The title badges of a prompt: "step prompt" for a step prompt, then its header's model. */
 export function PromptBadges({ step, resolved }: { step: boolean; resolved: PromptResolved }) {
   return (
     <>
-      {step && <Badge variant="primary-light">step prompt</Badge>}
+      {step && (
+        <Badge variant="primary-light" title={STEP_PROMPT_TITLE}>
+          step prompt
+        </Badge>
+      )}
       {resolved.header?.model != null && <ModelBadge model={resolved.header.model} />}
     </>
   );

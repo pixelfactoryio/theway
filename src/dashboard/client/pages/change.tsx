@@ -73,7 +73,7 @@ function Detail({ projectKey, id, archived, query }: { projectKey: string; id: s
   const [tab, setTab] = useState<string | null>(null);
   const current = files.find((f) => f.name === tab) ?? files[0];
   return (
-    <main className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 py-6">
+    <main id="content" tabIndex={-1} className="mx-auto flex w-full max-w-[1120px] flex-col gap-4 px-6 py-6 outline-none">
       <div className="text-muted-foreground">
         <Link href="/changes" className="hover:underline">
           Changes
@@ -115,7 +115,7 @@ function Detail({ projectKey, id, archived, query }: { projectKey: string; id: s
               {files.map((f) => (
                 <TabsContent key={f.name} value={f.name}>
                   {/* Rendered on the server with raw HTML escaped; the CSP is the second layer. */}
-                  <div className="markdown max-w-[720px]" dangerouslySetInnerHTML={{ __html: f.html }} />
+                  <div className="markdown max-w-[72ch]" dangerouslySetInnerHTML={{ __html: f.html }} />
                 </TabsContent>
               ))}
             </Tabs>
