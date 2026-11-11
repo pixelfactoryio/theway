@@ -10,7 +10,7 @@ import { Link, useLocation } from "wouter";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { editHref, type FileRef, fileHref, fileKey, useFile, useVersions, versionQuery, versionsHref } from "@/lib/api";
+import { type FileRef, fileHref, fileKey, useFile, useVersions, versionQuery, versionsHref } from "@/lib/api";
 import { Diff } from "./Diff";
 import { isDirty } from "./draft";
 import { openOnWrite, useDrafts } from "./drafts";
@@ -66,7 +66,7 @@ function VersionList({ file, id, current }: { file: FileRef; id: string | null; 
 /**
  * The History page of `file` with the version `id` selected (`null` for Current, `shipped` for As shipped). Restore
  * this version makes the version's text the draft, byte for byte, as one undoable edit, then opens the file's page (a
- * prompt's on its Write tab, a workflow's edit mode); it asks first when the file has unsaved changes, and is disabled
+ * prompt's on its Write tab); it asks first when the file has unsaved changes, and is disabled
  * when the version holds the current text.
  */
 export function History({ file, id }: { file: FileRef; id: string | null }) {
@@ -84,10 +84,8 @@ export function History({ file, id }: { file: FileRef; id: string | null }) {
     if (detail === undefined || text === undefined) return;
     start(file, detail.text, detail.sha256, false);
     edit(file, text);
-    if (file.kind === "prompts") {
-      openOnWrite(file);
-      navigate(fileHref(file));
-    } else navigate(editHref(file));
+    if (file.kind === "prompts") openOnWrite(file);
+    navigate(fileHref(file));
   };
   const failed = current.isError ? current.error : version.isError ? version.error : null;
   return (

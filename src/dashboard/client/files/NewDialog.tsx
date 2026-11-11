@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { editHref, type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
+import { type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
 import { NAME } from "../../../core/language-schema";
 import { EXT, type FileItem, type FilesResponse, type SourceKind } from "../../types";
 import { usePromptContext } from "./context";
@@ -57,10 +57,8 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
           : newPromptText(description);
     start(target, text, null, true);
     onClose();
-    if (kind === "prompts") {
-      openOnWrite(target);
-      navigate(fileHref(target));
-    } else navigate(editHref(target));
+    if (kind === "prompts") openOnWrite(target);
+    navigate(fileHref(target));
   };
   const label = (f: FileItem) => `A copy of ${f.scope === "global" ? f.name : `${f.name} (${f.label ?? f.key ?? ""})`}`;
   return (

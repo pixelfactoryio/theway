@@ -187,7 +187,7 @@ export function EditMode({
           ) : (
             <WorkflowEdit
                 steps={workflow.steps}
-                runsOn={workflow.runsOn}
+                runsOn={workflow.runsOn ?? ""}
                 ctx={ctx}
                 selected={selected}
                 marked={marked}

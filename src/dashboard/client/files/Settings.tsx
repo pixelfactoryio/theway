@@ -471,7 +471,7 @@ export function WorkflowSettings({
         <Problems problem={problem("default")} />
         <Row label="Steps run on" problem={problem("runs-on")}>
           <Choice
-            value={source.runsOn}
+            value={source.runsOn ?? ""}
             options={RUNS_ON}
             labels={{ agents: "Agents", session: "Your session" }}
             problem={problem("runs-on")}

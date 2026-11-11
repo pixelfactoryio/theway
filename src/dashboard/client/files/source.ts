@@ -2,6 +2,7 @@
  * A workflow file or a prompt header read as written, for the editor's forms: values as text, nothing resolved.
  * Pure: no DOM, no React.
  */
+import { VERSION } from "../../../core/language-schema";
 import { parse } from "../editor/ops";
 import { headerDoc } from "../editor/prompt";
 
@@ -61,8 +62,8 @@ export type StepSource = {
   model: string | null;
 };
 
-/** A workflow file as written. */
-export type WorkflowSource = { description: string; default: boolean; runsOn: string; inputs: InputSource[]; steps: StepSource[] };
+/** A workflow file as written; `runsOn` is `null` when it writes none. */
+export type WorkflowSource = { description: string; default: boolean; runsOn: string | null; inputs: InputSource[]; steps: StepSource[] };
 
 /** A prompt header as written. */
 export type HeaderSource = { description: string; model: string | null; inputs: InputSource[] };
@@ -109,17 +110,21 @@ function stepOf(v: unknown): StepSource {
   };
 }
 
-/** A workflow's text as written; `error` when it does not parse or has no list of steps. */
+/** The error of a `theway.workflow/v1` file, as the resolver words it after the file's path. */
+export const V1_ERROR = `theway.workflow/v1 is no longer read: rewrite it as ${VERSION}`;
+
+/** A workflow's text as written; `error` when it does not parse, is a v1 file, or has no list of steps. */
 export function workflowSource(src: string): WorkflowSource | { error: string } {
   const doc = parse(src);
   if (doc.errors.length > 0) return { error: `invalid YAML: ${doc.errors[0]?.message.split("\n")[0] ?? ""}` };
   const root = doc.toJS() as unknown;
   if (!isObj(root)) return { error: "the file is not a map" };
+  if (root.version === "theway.workflow/v1") return { error: V1_ERROR };
   if (root.steps !== undefined && !Array.isArray(root.steps)) return { error: "steps: must be a non-empty list" };
   return {
     description: text(root.description),
     default: root.default === true,
-    runsOn: text(root["runs-on"]),
+    runsOn: textOrNull(root["runs-on"]),
     inputs: inputsOf(root.inputs),
     steps: (Array.isArray(root.steps) ? root.steps : []).map(stepOf),
   };
