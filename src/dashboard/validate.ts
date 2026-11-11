@@ -32,6 +32,17 @@ export function readText(path: string): string {
 /** The resolver's key for a global file: no project can have it, so only the global files are read. */
 export const GLOBAL_CONTEXT = ".global";
 
+/**
+ * A resolver line with the home's paths as the page shows them, relative to the home: the folder of the global
+ * context's project, which no project has, dropped from a `<dir> or <dir>` list, then every `<home>/` removed.
+ */
+export function homeRelative(home: string, line: string): string {
+  const h = home.replace(/\/+$/, "");
+  let out = line;
+  for (const kind of Object.keys(EXT)) out = out.split(`${join(h, "projects", GLOBAL_CONTEXT, kind)} or `).join("");
+  return out.split(`${h}/`).join("");
+}
+
 /** A workflow or prompt file addressed by where it lives: the global folder, or one project's folder (`key`). */
 export type FileTarget = { scope: "global" | "project"; key: string | null; kind: EditKind; name: string };
 
@@ -129,5 +140,6 @@ export function validateFile(home: string, target: FileTarget, text: string): Va
       }
     }
   }
-  return { ok: errors.length === 0, errors, warnings };
+  const rel = (line: string) => homeRelative(home, line);
+  return { ok: errors.length === 0, errors: errors.map(rel), warnings: warnings.map(rel) };
 }

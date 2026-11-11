@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tildePath } from "../src/dashboard/api";
+import { homeRelative } from "../src/dashboard/validate";
 import { historyDir, snapshot } from "../src/dashboard/history";
 import { CLI, cleanup, SHIPPED_HOME, put, send, shippedHome, start } from "./dashboard-helpers";
 
@@ -50,6 +51,15 @@ function twoProjects(): string {
 
 /** The step prompts of the fixture home, as `listPromptFiles` gives them. */
 const STEP_PROMPTS = ["branch", "ci", "fix-ci", "fix-review", "fix-spec", "implement", "open-pr", "review", "scaffold", "scaffold-light", "spec-review", "spec-triage", "triage"];
+
+test("an error line shows the home's paths relative to it, never the global context's project folder", () => {
+  expect(homeRelative("/root/.theway/", "workflows/broken.yaml: steps[1].uses: prompts/missing.md not found in /root/.theway/projects/.global/prompts or /root/.theway/prompts")).toBe(
+    "workflows/broken.yaml: steps[1].uses: prompts/missing.md not found in prompts",
+  );
+  expect(homeRelative("/h", "workflows/x.yaml: steps[0].uses: prompts/y.md not found in /h/projects/p/prompts or /h/prompts")).toBe(
+    "workflows/x.yaml: steps[0].uses: prompts/y.md not found in projects/p/prompts or prompts",
+  );
+});
 
 test("tildePath shows a path under the user's home with ~, and any other path as given", () => {
   expect(tildePath("/home/me/.theway", "/home/me")).toBe("~/.theway");

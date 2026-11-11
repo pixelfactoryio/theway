@@ -36,7 +36,7 @@ import {
   type WorkflowItem,
   type WorkflowResolved,
 } from "./types";
-import { type EditKind, type FileTarget, GLOBAL_CONTEXT, projectPath, promptUses, readText, targetPath, validateFile } from "./validate";
+import { type EditKind, type FileTarget, GLOBAL_CONTEXT, homeRelative, projectPath, promptUses, readText, targetPath, validateFile } from "./validate";
 
 export { folderOf, labels } from "./projects";
 
@@ -292,7 +292,7 @@ function workflowItems(home: string, p: Place): WorkflowItem[] {
       path: pathOf(home, p, "workflows", w.name),
       description: w.description,
       default: w.default,
-      error: w.error ?? null,
+      error: w.error === undefined ? null : homeRelative(home, w.error),
     }));
 }
 
@@ -366,8 +366,10 @@ function promptResolved(text: string): PromptResolved {
 }
 
 /** A workflow resolved in `context` with no input; `overlay` holds a version's text. */
-const workflowResolved = (home: string, context: string, name: string, overlay?: Overlay): WorkflowResolved =>
-  resolveWorkflowFile(home, context, name, {}, overlay);
+function workflowResolved(home: string, context: string, name: string, overlay?: Overlay): WorkflowResolved {
+  const r = resolveWorkflowFile(home, context, name, {}, overlay);
+  return "errors" in r ? { errors: r.errors.map((l) => homeRelative(home, l)) } : r;
+}
 
 /** `GET /api/v1/files/global/{kind}/{name}` and `GET /api/v1/files/projects/{key}/{kind}/{name}`: one file with its resolved form and reach. */
 export function file(home: string, scope: "global" | "project", key: string | null, kind: string, name: string): Reply<FileDetail> {
