@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   type AllChangesResponse,
   type ChangeDetail,
-  EXT,
   type FileDetail,
   type FileSaveResponse,
   type FilesResponse,
@@ -67,15 +66,8 @@ export const useVersion = (f: FileRef, id: string) => useQuery(versionQuery(f, i
 export const fileHref = (f: FileRef): string =>
   f.scope === "global" ? `/${f.kind}/global/${f.name}` : `/${f.kind}/projects/${f.key ?? ""}/${f.name}`;
 
-/** The edit mode of a workflow: its page with `/edit`. */
-export const editHref = (f: FileRef): string => `${fileHref(f)}/edit`;
-
 /** The key of a file in the client's maps: `<scope>/<key>/<kind>/<name>`. */
 export const fileKey = (f: FileRef): string => `${f.scope}/${f.key ?? ""}/${f.kind}/${f.name}`;
-
-/** A file's path relative to the home: `<kind>/<name><ext>` or `projects/<key>/<kind>/<name><ext>`. */
-export const relOf = (f: FileRef): string =>
-  f.scope === "global" ? `${f.kind}/${f.name}${EXT[f.kind]}` : `projects/${f.key ?? ""}/${f.kind}/${f.name}${EXT[f.kind]}`;
 
 /** The process token the server put in the page, sent on every write. */
 const token = (): string => document.querySelector('meta[name="theway-token"]')?.getAttribute("content") ?? "";

@@ -19,7 +19,8 @@ import { ChangesPage } from "@/pages/changes";
 import { HomePage } from "@/pages/home";
 import { PromptPage } from "@/pages/prompt";
 import { PromptsPage } from "@/pages/prompts";
-import { type Mode, WorkflowsIndex, WorkflowsPage } from "@/pages/workflows";
+import { WorkflowPage } from "@/pages/workflow";
+import { WorkflowsPage } from "@/pages/workflows";
 
 const queryClient = new QueryClient();
 
@@ -142,17 +143,11 @@ function SkipLink() {
   );
 }
 
-/** The Workflows page of a workflow, in view, edit or history mode. */
-function page(file: Omit<FileRef, "kind">, mode: Mode, project: string) {
-  const ref: FileRef = { ...file, kind: "workflows" };
-  return <WorkflowsPage key={`${ref.scope}/${ref.key ?? ""}/${ref.kind}/${ref.name}`} file={ref} mode={mode} project={project} />;
-}
+/** A workflow's file reference. */
+const workflow = (scope: "global" | "project", key: string | null, name: string): FileRef => ({ scope, key, kind: "workflows", name });
 
 /** A prompt's file reference. */
 const prompt = (scope: "global" | "project", key: string | null, name: string): FileRef => ({ scope, key, kind: "prompts", name });
-
-const VIEW: Mode = { view: true };
-const EDIT: Mode = { edit: true };
 
 function Routes({ project }: { project: string }) {
   return (
@@ -166,20 +161,20 @@ function Routes({ project }: { project: string }) {
       <Route path="/changes/:key/:id">{(p) => <ChangePage key={`c/${p.key}/${p.id}`} projectKey={p.key} id={p.id} archived={false} />}</Route>
       <Route path="/archive/:key/:folder">{(p) => <ChangePage key={`a/${p.key}/${p.folder}`} projectKey={p.key} id={p.folder} archived={true} />}</Route>
       <Route path="/workflows">
-        <WorkflowsIndex project={project} />
+        <WorkflowsPage project={project} />
       </Route>
-      <Route path="/workflows/global/workflows/:name">{(p) => page({ scope: "global", key: null, name: p.name }, VIEW, project)}</Route>
-      <Route path="/workflows/global/workflows/:name/edit">{(p) => page({ scope: "global", key: null, name: p.name }, EDIT, project)}</Route>
-      <Route path="/workflows/global/workflows/:name/versions">{(p) => page({ scope: "global", key: null, name: p.name }, { version: null }, project)}</Route>
-      <Route path="/workflows/global/workflows/:name/versions/:id">{(p) => page({ scope: "global", key: null, name: p.name }, { version: p.id }, project)}</Route>
-      <Route path="/workflows/projects/:key/workflows/:name">{(p) => page({ scope: "project", key: p.key, name: p.name }, VIEW, project)}</Route>
-      <Route path="/workflows/projects/:key/workflows/:name/edit">{(p) => page({ scope: "project", key: p.key, name: p.name }, EDIT, project)}</Route>
-      <Route path="/workflows/projects/:key/workflows/:name/versions">
-        {(p) => page({ scope: "project", key: p.key, name: p.name }, { version: null }, project)}
+      <Route path="/workflows/global/:name">{(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="diagram" />}</Route>
+      <Route path="/workflows/global/:name/yaml">{(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="yaml" />}</Route>
+      <Route path="/workflows/global/:name/history">{(p) => <History file={workflow("global", null, p.name)} id={null} />}</Route>
+      <Route path="/workflows/global/:name/history/:id">{(p) => <History file={workflow("global", null, p.name)} id={p.id} />}</Route>
+      <Route path="/workflows/projects/:key/:name">
+        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="diagram" />}
       </Route>
-      <Route path="/workflows/projects/:key/workflows/:name/versions/:id">
-        {(p) => page({ scope: "project", key: p.key, name: p.name }, { version: p.id }, project)}
+      <Route path="/workflows/projects/:key/:name/yaml">
+        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="yaml" />}
       </Route>
+      <Route path="/workflows/projects/:key/:name/history">{(p) => <History file={workflow("project", p.key, p.name)} id={null} />}</Route>
+      <Route path="/workflows/projects/:key/:name/history/:id">{(p) => <History file={workflow("project", p.key, p.name)} id={p.id} />}</Route>
       <Route path="/prompts">
         <PromptsPage project={project} />
       </Route>

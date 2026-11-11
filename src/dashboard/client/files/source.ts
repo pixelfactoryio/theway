@@ -116,7 +116,7 @@ export const V1_ERROR = `theway.workflow/v1 is no longer read: rewrite it as ${V
 /** A workflow's text as written; `error` when it does not parse, is a v1 file, or has no list of steps. */
 export function workflowSource(src: string): WorkflowSource | { error: string } {
   const doc = parse(src);
-  if (doc.errors.length > 0) return { error: `invalid YAML: ${doc.errors[0]?.message.split("\n")[0] ?? ""}` };
+  if (doc.errors.length > 0) return { error: `invalid YAML: ${(doc.errors[0]?.message.split("\n")[0] ?? "").replace(/:$/, "")}` };
   const root = doc.toJS() as unknown;
   if (!isObj(root)) return { error: "the file is not a map" };
   if (root.version === "theway.workflow/v1") return { error: V1_ERROR };

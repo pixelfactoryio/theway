@@ -148,3 +148,10 @@
 .markdown blockquote { @apply my-2 border-l-2 pl-3 text-muted-foreground; }
 .markdown a { @apply underline underline-offset-2; }
 .markdown hr { @apply my-4; }
+
+/* The workflow diagram's background: the canvas colour with a dot pattern. */
+.wf-canvas {
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--input) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
