@@ -67,7 +67,7 @@ const declaredOf = (ctx: PromptContext, name: string | null): string[] | null =>
 function RefField({ value, refs, onChange, problem, label }: { value: string; refs: string[]; onChange: (v: string) => void; problem?: FieldProblem; label: string }) {
   return (
     <div className="flex gap-1">
-      <TextField value={value} mono onChange={onChange} problem={problem} />
+      <TextField value={value} mono onChange={onChange} problem={problem} label={label} />
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -163,6 +163,7 @@ function TriesField({ value, onChange, problem }: { value: string; onChange: (n:
       min={1}
       max={10}
       inputMode="numeric"
+      aria-label="tries"
       className="w-24 font-mono [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       {...invalidProps(problem)}
       value={typed}
@@ -180,6 +181,7 @@ function MatrixKey({ value, onChange }: { value: string; onChange: (key: string)
     <TextField
       value={value}
       mono
+      label="key"
       same={(typed, v) => typed === v || !PARAM.test(typed)}
       onChange={(key) => {
         if (PARAM.test(key)) onChange(key);
@@ -241,6 +243,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
       {top.length > 0 && <Problems problem={{ id: "step-top", messages: top.map((e) => (e.key === null ? e.message : `${e.key}: ${e.message}`)) }} />}
       <Row label={<Key>uses</Key>} note={ctx.info(step.name)?.item.description ?? undefined} problem={at("uses")}>
         <Choice
+          label="uses"
           value={step.uses}
           options={usesChoice}
           problem={at("uses")}
@@ -253,6 +256,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
       </Row>
       <Row label={<Key>runs-on</Key>} problem={at("runs-on")}>
         <Choice
+          label="runs-on"
           value={step.runsOn ?? UNSET}
           options={runsOnChoice.options}
           labels={runsOnChoice.labels}
@@ -263,6 +267,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
       {showModel && (
         <Row label={<Key>model</Key>} problem={at("model")}>
           <Choice
+            label="model"
             value={step.model ?? UNSET}
             options={model.options}
             labels={model.labels}
@@ -283,6 +288,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
       </Row>
       <Row label={<Key>matrix</Key>} group problem={at("matrix")}>
         <Choice
+          label="matrix"
           value={matrix === null ? "none" : "values"}
           options={["none", "values"]}
           labels={{ values: "one copy per value" }}
@@ -300,6 +306,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
                 <TextField
                   value={v}
                   mono
+                  label={`value ${i + 1}`}
                   onChange={(next) => apply((d) => setStepMatrix(d, index, { key: matrix.key, values: matrix.values.map((x, j) => (j === i ? next : x)) }))}
                 />
                 <Button
@@ -328,6 +335,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
       </Row>
       <Row label={<Key>on-fail</Key>} group problem={at("on-fail", "on-fail.uses")}>
         <Choice
+          label="on-fail"
           value={onFailValue}
           options={onFailOptions}
           labels={{ [NONE]: "none", [UNSET]: "not set" }}
@@ -368,6 +376,7 @@ function Settings({ source, index, ctx, apply, errors }: { source: WorkflowSourc
             {showOnFailModel && onFailModel !== null && (
               <Row label={<Key>model</Key>} problem={at("on-fail.model")}>
                 <Choice
+                  label="model"
                   value={onFail.model ?? UNSET}
                   options={onFailModel.options}
                   labels={onFailModel.labels}

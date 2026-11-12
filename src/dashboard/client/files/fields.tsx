@@ -91,7 +91,7 @@ export function Row({
   );
 }
 
-/** A select of string options, each shown as itself unless `labels` names it. */
+/** A select of string options, each shown as itself unless `labels` names it; `label` is its accessible name. */
 export function Choice({
   value,
   options,
@@ -99,6 +99,7 @@ export function Choice({
   labels = {},
   titles = {},
   problem,
+  label,
 }: {
   value: string;
   options: readonly string[];
@@ -107,10 +108,11 @@ export function Choice({
   /** Each option's `title`, by value. */
   titles?: Record<string, string>;
   problem?: FieldProblem;
+  label?: string;
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(String(v ?? ""))}>
-      <SelectTrigger className="w-full" {...invalidProps(problem)}>
+      <SelectTrigger className="w-full" aria-label={label} {...invalidProps(problem)}>
         <SelectValue>{(v: unknown) => labels[String(v)] ?? String(v ?? "")}</SelectValue>
       </SelectTrigger>
       <SelectContent>
@@ -126,7 +128,7 @@ export function Choice({
 
 /**
  * A text field applied on every change. It keeps what is typed while the file's value is the one the typed text
- * gives (`same`), and shows the file's value when it changes otherwise, as on undo.
+ * gives (`same`), and shows the file's value when it changes otherwise, as on undo. `label` is its accessible name.
  */
 export function TextField({
   value,
@@ -136,6 +138,7 @@ export function TextField({
   mono = false,
   same = (typed, v) => typed === v,
   problem,
+  label,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -144,6 +147,7 @@ export function TextField({
   mono?: boolean;
   same?: (typed: string, value: string) => boolean;
   problem?: FieldProblem;
+  label?: string;
 }) {
   const [typed, setTyped] = useState(value);
   const [seen, setSeen] = useState(value);
@@ -156,8 +160,10 @@ export function TextField({
     onChange(v);
   };
   const cls = mono ? "font-mono text-[13px]" : undefined;
-  if (multiline) return <Textarea className={cls} value={typed} placeholder={placeholder} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
-  return <Input className={cls} value={typed} placeholder={placeholder} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
+  if (multiline) {
+    return <Textarea className={cls} value={typed} placeholder={placeholder} aria-label={label} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
+  }
+  return <Input className={cls} value={typed} placeholder={placeholder} aria-label={label} {...invalidProps(problem)} onChange={(e) => change(e.target.value)} />;
 }
 
 /** A checkbox with its label. */
