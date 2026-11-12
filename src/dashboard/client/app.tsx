@@ -127,7 +127,7 @@ function MobileBar({ project, onProject }: { project: string; onProject: (key: s
       </Button>
       <span className="font-semibold">{areaOf(location)}</span>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="top-0 left-0 block h-dvh max-w-[min(280px,calc(100%-3rem))] translate-x-0 translate-y-0 overflow-auto rounded-none p-4 pt-5 sm:max-w-[280px]">
+        <DialogContent className="top-0 left-0 block h-dvh max-w-[min(280px,calc(100%-3rem))] translate-x-0 translate-y-0 overflow-auto rounded-none p-4 pt-5 sm:max-w-[280px] pointer-coarse:pt-14">
           <DialogTitle className="sr-only">Menu</DialogTitle>
           <SidebarContent project={project} onProject={onProject} onPick={() => setOpen(false)} />
         </DialogContent>

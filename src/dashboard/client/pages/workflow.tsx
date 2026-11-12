@@ -409,7 +409,9 @@ function Editor({
       href={href}
       onClick={() => setDiffing(false)}
       aria-current={view === to ? "page" : undefined}
-      className={cn("rounded-md px-3 py-1 font-medium", view === to ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground")}
+      className={cn(
+        "inline-flex items-center justify-center rounded-md px-3 py-1 font-medium pointer-coarse:min-h-10 pointer-coarse:min-w-10",
+        view === to ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground")}
     >
       {label}
     </Link>

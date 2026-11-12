@@ -120,7 +120,7 @@ export function ChangesPage({ project }: { project: string }) {
             ))}
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-1.5 text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-muted-foreground pointer-coarse:min-h-10 pointer-coarse:min-w-10">
           <Checkbox checked={archived} onCheckedChange={(v) => setArchived(v === true)} />
           Archived
         </label>

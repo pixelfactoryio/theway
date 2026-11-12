@@ -119,7 +119,7 @@ function AddButton({ last, onAdd, label }: { last: boolean; onAdd: () => void; l
       <button
         type="button"
         aria-label={last ? undefined : label}
-        className="group/add panzoom-exclude flex cursor-pointer items-center gap-2 rounded-full font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group/add panzoom-exclude flex cursor-pointer items-center justify-center gap-2 rounded-full font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:-my-2.5 pointer-coarse:min-h-10 pointer-coarse:min-w-10"
         onClick={onAdd}
       >
         <span className="flex size-5 items-center justify-center rounded-full border border-primary bg-card group-hover/add:bg-primary/10">

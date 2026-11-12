@@ -40,9 +40,9 @@ function Row({
   const overriddenBy = overridersOf(item, all);
   const overrides = item.scope === "project" && all.some((o) => o.scope === "global" && o.name === item.name);
   return (
-    <div className={cn(ROW, "relative", COLUMNS)}>
+    <Link href={fileHref(item)} className={cn(ROW, COLUMNS)}>
       <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <Link href={fileHref(item)} className="truncate font-semibold after:absolute after:inset-0">
+        <span className="truncate font-semibold">
           {item.name}
           {tag !== null && (
             <>
@@ -52,7 +52,7 @@ function Row({
               </span>
             </>
           )}
-        </Link>
+        </span>
         {item.default && <Badge variant="secondary">default</Badge>}
         {item.errors > 0 && (
           <Badge variant="destructive" title={item.error ?? undefined}>
@@ -67,7 +67,7 @@ function Row({
       <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
         {appliesText(item, overriddenBy, overrides, names)}
       </span>
-    </div>
+    </Link>
   );
 }
 
