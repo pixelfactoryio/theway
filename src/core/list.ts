@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { changeFileCount, checkChange } from "./change";
-import { isDir, isFile, thewayHome } from "./io";
+import { isDir, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
 
 function visibleNames(dir: string): string[] {
@@ -16,11 +16,6 @@ function subdirs(dir: string): string[] {
   return visibleNames(dir)
     .filter((n) => isDir(`${dir}/${n}`))
     .sort();
-}
-
-/** The names matched by the glob `<dir>/*<suffix>` that are regular files. */
-export function filesEndingWith(dir: string, suffix: string): string[] {
-  return visibleNames(dir).filter((n) => n.endsWith(suffix) && isFile(`${dir}/${n}`));
 }
 
 /** The active change ids of a project, in `theway list` order (archive excluded). */

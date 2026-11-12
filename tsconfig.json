@@ -6,9 +6,7 @@
     "target": "ES2023",
     "types": ["node"],
     "noEmit": true,
-    "skipLibCheck": true,
-    "paths": { "@/*": ["./src/dashboard/client/*"] }
+    "skipLibCheck": true
   },
-  "include": ["src", "test"],
-  "exclude": ["src/dashboard/client"]
+  "include": ["src", "test"]
 }

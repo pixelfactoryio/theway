@@ -23,4 +23,3 @@ node_modules/
 
 # Build
 dist/
-src/dashboard/generated/

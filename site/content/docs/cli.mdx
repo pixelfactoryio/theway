@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its sixteen subcommands.
+description: The theway command line and its fifteen subcommands.
 ---
 
-The `theway` program has sixteen subcommands: `install`, `uninstall`, `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id`, `next-id` and `dashboard`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has fifteen subcommands: `install`, `uninstall`, `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
@@ -21,7 +21,6 @@ theway workflow [<name>] [--input <name>=<value>]... [--compact] [--project <key
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
-theway dashboard [--port <n>]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
@@ -623,103 +622,3 @@ add-user-auth-05
   ```
 
 `/theway:engineering` runs it to name the members of a new series.
-
-## dashboard
-
-```text
-theway dashboard [--port <n>]
-```
-
-Starts a local web view of the data home. A sidebar holds a project switcher, then Changes, Workflows and Prompts; on a narrow window, the menu button of the top bar opens it. A red dot on Workflows marks a workflow of the chosen project that cannot run (a global one counts for every project). `#/`, like any address the dashboard does not know, opens Changes. The switcher's choice, All projects when the page loads, sets the changes Changes shows and the prompts Prompts shows; a reload returns to All projects. The switcher shows each project by its short name, its repository's folder name (the full label when two projects share that name), and gives the full label when you point at it; the workflows and prompts tables' "where it applies", every Applies to, the Create dialog and a change's Details use the same names. Changes, Workflows and Prompts each open with their title (Changes and Workflows with their count beside it) and one line saying what the page holds; on a narrow window the top bar's name stands in for the title and that line. It prints one line with the address and runs until you stop it:
-
-```text
-theway dashboard: http://127.0.0.1:4870/
-```
-
-- It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
-- It reads the files on every request: coming back to the browser tab shows the files as they are now.
-- It answers `403` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`, so a web page cannot reach it through another host name. Its pages load no external script, style or font, and each response's policy allows only the styles that carry that response's nonce, which the code editor's styles do.
-- A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1:
-
-  ```text
-  theway: port 4870 is in use; pass --port <n>
-  ```
-
-  Any other error starting the server exits 1 with a `theway: <message>` line. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
-
-### Changes
-
-The Changes page, at `#/changes`, says under its title `Each change, with its spec and its tasks.` It lists the active changes of the chosen project by project then ID, each with its description, its project, its tasks done and its status: Not started, In progress, Ready to archive (all its tasks done) or Invalid (its `change.yaml` is missing or invalid; point at the badge for the error). Its tabs are In progress, where the page opens, Not started, Ready to archive, Invalid, All and Archived, each with its number of changes. Search changes keeps the changes whose ID, description, project or project's short name holds the text, ignoring case; the tabs count only those, and the text under the list gives `N of M changes`, M the tab's number without the search. Two or more active changes of one project in the same series show as one row, its series ID with its number of changes, its tasks done summed over its valid members (`–` when none is) and its status: Invalid when a member is, Ready to archive or Not started when all its members are, else In progress. The row is listed when one of its members is in the tab, and opens to all its members, in order; under a search every series listed is open. A series member listed alone adds its place, `N of M in its series`. The lists draw no progress bar. Archived lists the archived changes, newest first, with the date each was archived. The tab, the search and the open series are kept while you move between pages, until a reload.
-
-A change's page opens with a breadcrumb, Changes then the change's project, and shows its ID, its status and its description, or, when its `change.yaml` is invalid, the error; beside them on a wide window and under them on a narrow one, an active change's page gives the command that runs it, `/theway:workflow <change-id>`, with Copy. Its tabs are Spec, Tasks with its tasks done (each task numbered and marked done or open, read-only), Design and Notes when the change has them, then its other Markdown files by name. Details, beside the tabs on a wide window and under them on a narrow one, gives its project, its tasks done and, for a series member, its place in the series and every member by ordinal up to the series' total, each member that exists linked to its page; the series' total is its highest ordinal. For an active change, Workflow names the workflow `theway workflow` uses with no name for its project, marked `default`.
-
-### Workflows
-
-The Workflows page, at `#/workflows`, says under its title `The steps a change runs through.` and lists in one table the global workflows of `<home>/workflows/` and those of the chosen project (every project's with All projects), by name, a global file before a project's; their number stands beside the title. Each row gives the name, marked `default` for the default workflow, `N errors` for a workflow that does not resolve (point at the badge for the first error) and `edited` while it has unsaved edits; what it does (its `description`); its number of steps; where they run (`session` or `agents` when all steps run there, else `N session, M agents`); and where it applies: All projects, `All projects except <projects>` when projects override it, or `<project> only` (with `, overrides the global file` when it does). A project file's name is followed by its project's short name in brackets, `agents (my-api)`, only when a file of the same name from another scope is in the table. A workflow that does not resolve shows `–` for its steps and where they run. A new workflow not saved yet is listed too. Below a wide window, a row keeps only the name and the steps. Create workflow opens the [Create dialog](#creating-a-file); select a row to open the workflow's page.
-
-A workflow's page, at `#/workflows/global/<name>` or `#/workflows/projects/<key>/<name>`, draws the workflow as written, as a column of cards on a dotted canvas:
-
-- The inputs card first, with each input the workflow declares, its name over its description (`none` without one).
-- One card per step: `session`, `agents · <model>` (the step's `model`, else its prompt's) or `agents` for where it runs, the name of the prompt it runs, and that prompt's description. A matrix step forks into one card per value, side by side, each giving `<key>: <value>`; its drag handle stands on the fork, above the cards. A card's text wraps at word boundaries. An on fail is a smaller card beside the step's, joined by two arrows, with `on-fail · tries N` and the prompt it runs; on a narrow window it sits under the step's card. A matrix step's on fail sits under the fork, joined to it by a line.
-- A `+` under each card adds a step there; the last one reads Add a step.
-
-A file that cannot be drawn, such as one whose YAML does not parse or a `theway.workflow/v1` file, says so in place of the cards, with a link to the YAML view. Diagram and YAML, on the title row, switch between the drawing and the file's text, at the page with `/yaml`. History, on the title row, opens the file's [History](#history).
-
-### Prompts
-
-The Prompts page, at `#/prompts`, says under its title `What each step tells its agent, and the files those prompts refer to.` and lists the prompt files of `<home>/prompts/` and of the chosen project (every project's with All projects), by name, a global file before a project's, in two tabs, each with its number of files:
-
-- Step prompts, the files a step can run (a header that passes the header rules) and the files whose header breaks a header rule: their name, what they tell the agent to do (the header's `description`), their `model` (`–` for none), the workflows that use them (as a step, an on fail or a value of `with` or `matrix`), each a link to its page, and where they apply, All projects, `All projects except <projects>` or `<project> only`. In the name and the Used by cells, a project file's name is followed by its project's short name in brackets only beside a file of the same name from another scope.
-- Reference files, every other prompt file, read by prompts, not steps: their name, the workflows that use them and where they apply.
-
-A file with unsaved edits is marked `edited`; a file whose header breaks a header rule is marked `error` (point at the badge for the first error). Below a wide window, a row keeps only the name and the model. Select a row to open the prompt's page.
-
-A prompt's page, at `#/prompts/global/<name>` or `#/prompts/projects/<key>/<name>`, is always editable. The title row gives its name and its state, Saved, Unsaved changes or New file, with Diff and Discard, while it has edits, and Save; under it, the header's `description`. Its two tabs:
-
-- Read renders the body as Markdown, `${{ inputs.<name> }}` as written.
-- Write edits the whole file, header and body, as it is on disk, in a code editor with line numbers and colours: the header as YAML, the body as Markdown.
-
-Details, beside the tabs on a wide window and under them on a narrow one, is the same text on both tabs, read from the file's text and labelled with the header's YAML keys: `model`, `inputs` (each with `required` or its `default`, and its description), Used by (each use as `<workflow> · step N`, `<workflow> · on-fail of step N` or `<workflow> · value in step N`, linked to the workflow; a project workflow's name is followed by its project's short name in brackets, `agents (my-api) · step 4`, when a workflow of the same name from another scope uses the prompt too), Applies to (All projects, or `All projects except <projects>` when projects override it; or `<project> only`, and whether it overrides the global file) and History, a link to its versions. A reference file, with no header and a first line that is not `---`, has Use as a step on Write, which adds a header with an empty description to fill in.
-
-Diff, while the file has edits (not for a new file), shows them in place of the tabs' content, from the text you started from to your edits; it reads Back to editing while pressed. Pressing it again, or a click on Read or Write, goes back; it also goes when your edits are undone, saved or dropped.
-
-The first edit starts your edits of the file; they are kept while you move between pages and lost on reload, which the browser asks you to confirm. Ctrl or Cmd and Z undoes an edit, with Shift it redoes it, in the code editor too (there Ctrl or Cmd and Y also redoes): one history for the file, where typing less than a second apart counts as one edit. Discard asks first, then drops your edits; for a new file, it goes back to Prompts. Each edit is checked 400 ms after you stop, through every workflow that names the prompt, as [Editing a file](#editing-a-file) says. The error of a header that breaks a header rule shows even when no workflow names the prompt, while the page holds the saved text. Each error line is shown as the check writes it, without the prompt's own `prompts/<name>.md: ` prefix (`inputs.change: …`, `body: …`), and every one is listed under the description, on both tabs, warnings apart. Save is enabled when the check passes and the file has edits; after a save the page stays, and says Saved. When the file changed on disk since you opened it, the page says "Changed on disk since you opened it.", and Reload drops your edits and loads the file as it is now.
-
-### Editing a file
-
-A workflow's page is always editable. The title row gives its name, its description, Diagram and YAML, its state (Saved, Unsaved changes or New file), the check's error count, Diff and Discard while it has edits, Save and History; on a narrow window it takes two rows and leaves out the description. The page is as high as the window: the diagram, the YAML view or the diff takes the height left, and only a window too short to give it 240px scrolls.
-
-- Select a card to open its settings in a panel beside the diagram, or over the page on a narrow window. The inputs card opens the workflow settings: `description`, `default` (with the workflows already set as the default), `runs-on`, and `inputs`, each with its `name`, `type`, `description`, `required` and `default`, and Remove; Add an input declares an optional input `input` (then `input2`, …) with an empty description, which the check asks for until you write one. Last, Applies to says where the file applies.
-- A step's panel, `Step N of M`, has two tabs. Settings labels each field with its YAML key: `uses` (a step prompt), `runs-on` (the workflow's, `session` or `agents`), `model` (the prompt's, or a model; shown for a step on agents or one that sets it), `with` (one row per input its prompt declares; the `{ }` menu inserts `${{ inputs.<name> }}`, or `${{ matrix.<key> }}` for a step with a matrix), `matrix` (none, or one copy per value: a key and its values), `on-fail` (none, or a step prompt, with its own `with` and `model`) and `tries`. Prompt text shows the prompt's body, with a link to its page. Remove step removes it; undo brings it back.
-- A value that is not one a select offers shows first in it, marked `invalid`, until you choose another. Changing a step's prompt, or the prompt of its on fail, writes each required input not set yet as `${{ inputs.<name> }}` when the workflow declares an input of that name. Turning on fail on writes `tries: 1`; turning it off removes both.
-- The `+` buttons open the step picker: type to keep the prompts whose name or description holds the text, and choose one to add a step on it, its required inputs written as `${{ inputs.<name> }}` when the workflow declares an input of that name, else as `""`, which the check reports until you set it. Write a new prompt opens the Create dialog for a prompt instead; save it, then add its step.
-- Drag a card by its handle to move the step, or focus the handle and press Space or Enter, the arrow keys, then Space or Enter to drop it (Escape cancels). Steps move only at 100%: while the diagram is zoomed, the handles are disabled, and Reset view brings them back.
-- Pan and zoom the diagram at any window width: drag anywhere on the canvas, on a card too, with the mouse or one finger, to pan it (a click or tap on a card still selects it); the wheel pans it, and Ctrl or Cmd with the wheel, or a pinch, zooms it, from 50% to 200%. Zoom in, Zoom out and Reset view sit in the canvas's bottom-left corner; Zoom in and Zoom out stop at 100% on their way. The view is kept while the page is open, across the YAML view and Diff.
-- On a wide window, drag the panel's left edge to resize it, or focus the edge and press the Left arrow to widen it, the Right arrow to narrow it. Its width is kept between workflows and lost on reload.
-- Diff, while the file has edits (not for a new file), shows them in place of the diagram or the YAML view and the panel, from the text you started from to your edits, under the error and warning lines; it reads Back to editing while pressed. Pressing it again, or Diagram or YAML, goes back, and so does the browser's Back or Forward between Diagram and YAML; otherwise Back goes to the previous page. It also goes when your edits are undone, saved or dropped.
-- The YAML view holds the file's text in a code editor with line numbers and colours, which marks each error on its line; Ctrl or Cmd and F opens its own search.
-- Ctrl or Cmd and Z undoes an edit, with Shift it redoes it, in the YAML view too (there Ctrl or Cmd and Y also redoes): one history for the file, where typing less than a second apart counts as one edit.
-
-The first edit starts your edits of the file; they are kept while you move between pages, the Workflows table marks the file `edited`, and they are lost on reload, which the browser asks you to confirm. Discard asks first, then drops your edits; for a new file, it goes back to Workflows.
-
-Each edit is checked 400 ms after you stop: the resolver of `theway workflow` runs over the edited text without writing it, in every context that reads the file. A project file is checked in its project; a global file is checked on its own and in every project that has no file of its name, and a line from a project is prefixed with its label, so the page's error count can be higher than the table's. A prompt is checked through every workflow that names it. Error lines are shown as the check writes them, without the file's own `workflows/<name>.yaml: ` prefix. On the diagram, a step named by an error line is outlined, and the line shows under the field it names in the step's panel (`tries: must be an integer from 1 to 10`); a line about the workflow settings outlines the inputs card; every other line is listed above the diagram, warnings apart. The YAML view lists every error line, each that names a place of the file with its line (`line 30 · steps[3].tries: …`), and marks that line in the text: select the line number to select that line of the text. Only the open file's edits are checked: a workflow that needs an unsaved prompt reports an error until that prompt is saved.
-
-Save is enabled when the check passes and the file has edits, and writes that one file where it lives: `<home>/<kind>/<name><ext>` for a global file, `<home>/projects/<key>/<kind>/<name><ext>` for a project's; the page stays and says Saved. The server checks the text again before writing and refuses it with the error lines (`422`). A file already holding the text is not written.
-
-Each workflow edit goes through the YAML document of the file, so the text of every comment is kept; a comment's place may change.
-
-The write requests need an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and an `X-Theway-Token` header holding a random token the server makes when it starts and puts in its page; any other request gets `403`.
-
-When the file changed on disk since you opened it, Save gets `409` and writes nothing: the page says "Changed on disk since you opened it.", and Reload drops your edits and loads the file as it is now.
-
-### Creating a file
-
-Create prompt, on the Prompts page, and Create workflow, on the Workflows page, open the Create dialog, titled Create prompt or Create workflow: a Name, saved as `prompts/<name>.md` or `workflows/<name>.yaml`; a `description`; Start from, Empty or A copy of one file of the same kind; and Applies to, All projects or one project, the sidebar's project when one is chosen. Create says under a field what it is missing. Empty starts a workflow with `runs-on: agents` and one step on `prompts/implement.md` (or the first step prompt by name when there is no such prompt), and a prompt with `model: opus` and an empty body (reported by the check of a workflow that uses it until you write one); A copy of a file keeps its text and sets the description. The new file opens as your edits, a prompt on its page's Write tab and a workflow on its page, and nothing is written until you save it. A project file may take the name of a global one: it then replaces it for that project.
-
-### History
-
-Before a save from the dashboard replaces a file, the text it held is kept as a version: under `<home>/history/global/<kind>/<name>/` for a global file, `<home>/history/projects/<key>/<kind>/<name>/` for a project's. A file keeps its 20 newest versions; a new file has none until its first save replaces it. Only dashboard saves are recorded: a file you change by hand, through an agent or with `theway install` gets no version, though the next dashboard save keeps whatever was on disk. Nothing else reads `<home>/history/`, so deleting it is safe and only drops the versions.
-
-A file's History page, at its page with `/history` (History, in a prompt's Details or on a workflow's title row), lists the versions on the right: Current, then each version by its date and time to the second, newest first, each with the lines it adds and removes against the one before it (`+N −M lines`; the oldest against an empty file), then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml` or `<name>.default.md`). Current is selected first, and shows the file's text; it notes its lines added and removed against the newest version only when it differs from it. Select a version, then Changes for the diff from it to the current file, each line with its old and new line numbers and a rule between two parts ("Same as the current file." when they match), or Whole file for its text. The arrow at the top left goes back to the file's page.
-
-Restore this version puts the version's text, byte for byte, in your edits as one edit you can undo, after a confirm when the file already has edits, then opens the file's page, a prompt on its Write tab; it is disabled for Current and when the version holds the current text. Nothing is written until you save it, through the same check as any edit, and that save keeps the replaced text as a version in turn.

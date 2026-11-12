@@ -1,6 +1,5 @@
 /**
- * The `theway.workflow/v1beta` vocabulary and the resolved-document types, shared by the CLI and the dashboard's
- * browser client. This module imports nothing, so a program without node types can import it.
+ * The `theway.workflow/v1beta` vocabulary and the resolved-document types. This module imports nothing.
  */
 
 /** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */

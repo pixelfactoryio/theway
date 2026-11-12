@@ -210,8 +210,6 @@ The prompts say what each step may do: `implement` commits on the feature branch
 - Each prompt a step uses: a `description`, a valid `model`, valid input declarations, no unknown key, and no body reference to an input it does not declare.
 - `--input` values: each one a declared input, a valid change ID for a `type: change` input, every required input given.
 
-The dashboard runs the same check on every edit; see [Editing a file](../cli.mdx#editing-a-file).
-
 ## Moving from v1
 
 theway no longer reads `theway.workflow/v1`: such a file fails with `theway: workflows/<name>.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta`, and the other workflows keep working. Rewrite it with this table:

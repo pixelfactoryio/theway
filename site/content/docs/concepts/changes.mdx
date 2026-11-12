@@ -68,7 +68,7 @@ tasks:
   - text: Read the limit and the burst from the settings
 ```
 
-The CLI validates it on every read: [`theway change`](../cli.mdx#change) checks a hand-edited file, and [`theway task done`](../cli.mdx#task-done) is how a task becomes done. `theway list`, `theway archive` and the dashboard report a missing or invalid `change.yaml` as invalid. `spec.md`, `design.md` and `notes.md` are prose: no command reads a line of them.
+The CLI validates it on every read: [`theway change`](../cli.mdx#change) checks a hand-edited file, and [`theway task done`](../cli.mdx#task-done) is how a task becomes done. `theway list` and `theway archive` report a missing or invalid `change.yaml` as invalid. `spec.md`, `design.md` and `notes.md` are prose: no command reads a line of them.
 
 ## Archive format
 

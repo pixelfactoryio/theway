@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { isMap as isYamlMap, isScalar, parse, parseDocument } from "yaml";
+import { parse } from "yaml";
 import type { Warn } from "./config";
 import { escaped, type Overlay } from "./io";
 import {
@@ -156,24 +156,6 @@ function splitHeader(raw: string): { text: string; lines: string[]; end: number 
   const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
   const end = fence(lines[0]) ? lines.findIndex((l, i) => i > 0 && fence(l)) : -1;
   return { text, lines, end };
-}
-
-/**
- * The header's `model` of a prompt file as written: a string value as is, any other value its source text (`""` for an
- * empty `model:`); `null` when `parsePromptFile` finds no header or the header has no `model` key.
- */
-export function headerModel(raw: string): string | null {
-  if (parsePromptFile(raw).header === null) return null;
-  const { lines, end } = splitHeader(raw);
-  const yaml = lines.slice(1, end).join("\n");
-  const doc = parseDocument(yaml);
-  if (!isYamlMap(doc.contents)) return null;
-  const pair = doc.contents.items.find((p) => isScalar(p.key) && String(p.key.value) === "model");
-  if (pair === undefined) return null;
-  const v = pair.value;
-  if (isScalar(v) && typeof v.value === "string") return v.value;
-  const range = (v as { range?: [number, number, number] } | null)?.range;
-  return range === undefined ? "" : yaml.slice(range[0], range[1]);
 }
 
 /**
@@ -592,20 +574,6 @@ function scopedNames(
 /** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta file can, a v1 file's `default:` is not read. */
 function isDefaultRoot(root: unknown): boolean {
   return isMap(root) && root.get("version") === VERSION && root.get("default") === true;
-}
-
-/**
- * The workflow files of a project and of the home that set `default: true`, as `listWorkflowFiles` lists them (a project
- * file hiding the global one, sorted by name), without resolving them.
- */
-export function defaultWorkflows(home: string, key: string, overlay?: Overlay): { name: string; scope: "project" | "global" }[] {
-  return scopedNames(home, key, "workflows", overlay)
-    .filter(({ path }) => {
-      const text = readText(path, overlay);
-      const parsed = text === null ? null : parseYaml(text);
-      return parsed !== null && "root" in parsed && isDefaultRoot(parsed.root);
-    })
-    .map(({ name, scope }) => ({ name, scope }));
 }
 
 /**

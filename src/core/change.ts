@@ -138,7 +138,7 @@ export function checkChange(dir: string): { change: Change } | { issues: string[
 /** The error lines of `issues` for the change `id`: `changes/<id>/change.yaml: <issue>`. */
 export const issueLines = (id: string, issues: string[]): string[] => issues.map((issue) => `${changeRel(id)}: ${issue}`);
 
-/** The number of regular, non-hidden files directly in a change folder: `<files>` of `theway list` and the dashboard. */
+/** The number of regular, non-hidden files directly in a change folder: `<files>` of `theway list`. */
 export function changeFileCount(dir: string): number {
   let names: string[];
   try {
