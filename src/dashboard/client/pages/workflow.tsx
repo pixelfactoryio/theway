@@ -28,7 +28,7 @@ import { WorkflowPanel } from "@/files/WorkflowPanel";
 import { YamlView } from "@/files/YamlView";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
 import { ALL_PROJECTS, plural } from "@/lib/changes";
-import { clampPanel, groupErrors, PANEL_MIN, splitErrorLine } from "@/lib/workflows";
+import { clampPanel, distinctLines, groupErrors, PANEL_MIN, splitErrorLine } from "@/lib/workflows";
 import type { FileDetail } from "../../types";
 import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
 
@@ -368,12 +368,17 @@ function Editor({
       return textOf(d);
     });
 
-  // The lines to show: a refused save's for this text, else the last check's.
+  // The lines to show: a refused save's for this text, else the last check's; each box shows a line once (`distinctLines`).
   const mine = refused !== null && refused.text === text;
   const errors = mine ? refused.errors : (validation.result?.errors ?? []);
-  const warnings = (mine ? refused.warnings : (validation.result?.warnings ?? [])).map((l) => withoutPrefix(l, file.name));
+  const once = distinctLines(
+    errors,
+    mine ? refused.warnings : (validation.result?.warnings ?? []),
+    (files.data?.projects ?? []).map((p) => p.label),
+  );
+  const warnings = once.warnings.map((l) => withoutPrefix(l, file.name));
   const groups = groupErrors(errors, file.name, drawn?.steps.length ?? 0);
-  const loose = drawn === null ? errors.map((l) => withoutPrefix(l, file.name)) : groups.loose;
+  const loose = drawn === null ? once.errors.map((l) => withoutPrefix(l, file.name)) : groupErrors(once.errors, file.name, drawn.steps.length).loose;
 
   const discard = () => {
     drop(file);
@@ -465,7 +470,7 @@ function Editor({
           )}
           {showDiff ? (
             <>
-              <Lines lines={errors.map((l) => withoutPrefix(l, file.name))} tone="error" />
+              <Lines lines={once.errors.map((l) => withoutPrefix(l, file.name))} tone="error" />
               <Lines lines={warnings} tone="warning" />
               <Diff from={draft.start} to={text} className="max-h-none min-h-[240px] flex-1" />
             </>
@@ -473,7 +478,7 @@ function Editor({
             <YamlView
               name={file.name}
               text={text}
-              errors={errors}
+              errors={once.errors}
               warnings={<Lines lines={warnings} tone="warning" />}
               onText={(t) => change(() => t, Date.now())}
               onUndo={() => undo(file)}

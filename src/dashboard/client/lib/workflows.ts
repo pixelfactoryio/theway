@@ -165,3 +165,27 @@ export function groupErrors(lines: readonly string[], name: string, steps: numbe
   }
   return out;
 }
+
+/**
+ * The check's lines with each line shown once: a line's key is the line without a leading `<label>: ` for any of
+ * `labels` (the longest that matches); going through `errors`, then `warnings`, a line whose key equals an earlier
+ * line's key, in either list, is left out. Kept lines stay as written, in their input order.
+ */
+export function distinctLines(errors: readonly string[], warnings: readonly string[], labels: readonly string[]): { errors: string[]; warnings: string[] } {
+  const prefixes = [...labels].sort((a, b) => b.length - a.length).map((l) => `${l}: `);
+  const keyOf = (line: string): string => {
+    const p = prefixes.find((x) => line.startsWith(x));
+    return p === undefined ? line : line.slice(p.length);
+  };
+  const seen = new Set<string>();
+  const keep = (lines: readonly string[]) =>
+    lines.filter((line) => {
+      const key = keyOf(line);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  // Errors first: a warning repeating an error is the one left out.
+  const keptErrors = keep(errors);
+  return { errors: keptErrors, warnings: keep(warnings) };
+}

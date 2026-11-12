@@ -11,6 +11,7 @@ import {
   cardLabel,
   cardTitle,
   clampPanel,
+  distinctLines,
   effectiveRunsOn,
   groupErrors,
   marksOf,
@@ -209,4 +210,17 @@ test("a workflow's page and history have no kind segment", () => {
   expect([fileHref(agents), fileHref(mine)]).toEqual(["/workflows/global/agents", "/workflows/projects/k-a/mine"]);
   expect([versionsHref(agents), versionsHref(mine, "v1")]).toEqual(["/workflows/global/agents/history", "/workflows/projects/k-a/mine/history/v1"]);
   expect(versionsHref({ ...agents, kind: "prompts", name: "triage" }, "shipped")).toBe("/prompts/global/triage/history/shipped");
+});
+
+test("distinctLines shows each check line once, a project's prefix left out of the comparison", () => {
+  expect(
+    distinctLines(
+      ["workflows/x.yaml: invalid YAML: bad"],
+      ["my-api: workflows/x.yaml: invalid YAML: bad", "other: workflows/x.yaml: invalid YAML: bad", "my-api: workflows/x.yaml: steps[0].uses: y"],
+      ["my-api", "other"],
+    ),
+  ).toEqual({ errors: ["workflows/x.yaml: invalid YAML: bad"], warnings: ["my-api: workflows/x.yaml: steps[0].uses: y"] });
+  // The longest label that matches is the prefix.
+  expect(distinctLines([], ["a: b: x", "a: x", "a: b: x"], ["a", "a: b"])).toEqual({ errors: [], warnings: ["a: b: x"] });
+  expect(distinctLines(["e", "e"], ["w"], [])).toEqual({ errors: ["e"], warnings: ["w"] });
 });
