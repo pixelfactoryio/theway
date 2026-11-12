@@ -1,5 +1,5 @@
 export const tagline =
-  'theway writes a spec and a numbered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.';
+  'theway writes a spec and an ordered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.';
 
 /* Mono uppercase labels: nav links, buttons, feature-row titles and the footer. */
 export const mono = 'font-mono text-xs uppercase tracking-wider';

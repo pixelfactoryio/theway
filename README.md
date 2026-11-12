@@ -1,6 +1,6 @@
 # theway
 
-theway writes a spec and a numbered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.
+theway writes a spec and an ordered task list before any code, then implements the tasks in your session or through agents that open a reviewed, CI-green pull request.
 
 The steps are yours: a workflow is a YAML file listing steps, each using a Markdown prompt that answers pass, fail or blocked, run in your session or through agents, with commit conventions and git host commands you can replace per project. Writing the spec is a workflow too: `/theway:engineering` runs the shipped `engineering` workflow, whose investigation, critics and templates are prompts you can change. See [Workflows](https://pixelfactoryio.github.io/theway/docs/concepts/workflows/).
 

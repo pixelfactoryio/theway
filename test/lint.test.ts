@@ -199,11 +199,13 @@ test("every spawned agent gets the Authority rule", () => {
   const authority = read(join(STANDARDS, "authority.md"));
   expect(authority).toStartWith("# Authority\n\n- ");
   expect(read(join(STANDARDS, "interaction.md"))).not.toContain("Authority");
-  expect(read(join(COMMANDS, "workflow.md"))).toContain("Run `theway authority`: it prints `<home>/standards/authority.md`");
+  expect(read(join(COMMANDS, "workflow.md"))).toContain(
+    "Run `theway authority`: it prints the authority, `<home>/standards/authority.md`, or the shipped `<home>/standards/authority.default.md`",
+  );
   // The engine puts the authority text first in every prompt, the critics' included.
   expect(read(PIPELINE)).toContain("args.authority.trimEnd()");
   for (const f of ["archive.md", "workflow.md", "document.md"]) {
-    expect(read(join(COMMANDS, f))).toContain("Follow `<home>/standards/interaction.md` (exploration and reporting) and `<home>/standards/authority.md`.");
+    expect(read(join(COMMANDS, f))).toContain("Follow `<home>/standards/interaction.md` (exploration and reporting) and the text `theway authority` prints.");
   }
   // The Authority list names theway's own prompts and workflows.
   expect(authority).toContain("theway's own `config.yaml`, standards, templates, prompts and workflows under the theway home");
@@ -346,13 +348,15 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
 test("engineering.md is the alias of /theway:workflow and keeps its frontmatter", () => {
   const text = read(join(COMMANDS, "engineering.md"));
   const [, front, body] = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text) ?? [];
-  expect(front).toContain('description: "Write the spec and numbered tasks for a change');
+  expect(front).toContain('description: "Write the spec and ordered tasks for a change');
   expect(front).toContain("allowed-tools: Bash(theway:*)");
   expect(body?.trim()).toBe(
     [
       "# theway: Engineering",
       "",
       "`/theway:engineering [--light] <request>` is `/theway:workflow --workflow engineering <request>`, or `--workflow engineering-light <request>` when `--light` is given (anywhere in the arguments, counted once). Invoke the `theway:workflow` skill with the Skill tool and those arguments, then follow it.",
+      "",
+      "If the `theway:workflow` skill cannot be invoked, say so and stop: never do the request yourself.",
     ].join("\n"),
   );
 });

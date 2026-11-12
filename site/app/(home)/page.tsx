@@ -85,7 +85,7 @@ const steps: Step[] = [
       },
       {
         icon: ListChecks,
-        title: 'Numbered tasks',
+        title: 'Ordered tasks',
         body: (
           <>
             <code>change.yaml</code> lists the work as ordered tasks (a light change: 1 to 3 tasks).

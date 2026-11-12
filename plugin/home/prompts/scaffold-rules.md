@@ -1,6 +1,6 @@
 # Scaffold Rules
 
-The rules every scaffold follows, with or without `--light`. A scaffold writes the spec and numbered tasks of the change the request asks for, without code: the code is written later, by `/theway:workflow`, from that spec.
+The rules every scaffold follows, with or without `--light`. A scaffold writes the spec and ordered tasks of the change the request asks for, without code: the code is written later, by `/theway:workflow`, from that spec.
 
 ## Change IDs
 
