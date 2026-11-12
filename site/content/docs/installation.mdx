@@ -80,7 +80,8 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
     - The review lenses of earlier versions are prompts now: install removes an unedited shipped lens from the old lenses folder, keeps an edited one or one of yours with a message to move it to `prompts/`, and removes the folder once it is empty.
     - `standards/` also holds your [global user standards](./concepts/standards.mdx). When theway starts shipping a name you already use there, install keeps your file, writes its version as `<name>.default.md`, leaves the name out of `.shipped.json` so the file stays yours, and prints `Kept your standards/<name>: theway now ships a file with that name (its version: standards/<base>.default.md)` on every install while the clash lasts. When you have no `.shipped.json`, a differing file with a shipped name is treated as an edited shipped file instead.
     - A standard theway stops shipping is removed when you have not edited it (`Removed standards/<name>: theway no longer ships it`) and kept as one of your standards when you have (`Kept your edited standards/<name>: theway no longer ships it, so it is now one of your standards`). Install also removes a `standards/<name>.default.md` whose `<name>.md` it no longer ships.
-    - The Authority rules are in `standards/authority.md`, which `theway authority` prints. When install keeps an edited `standards/interaction.md` that still has a `## Authority` line, it adds `standards/interaction.md still has an Authority section: theway now reads standards/authority.md; move your edits there`.
+    - The Authority rules are in `standards/authority.md`, which `theway authority` prints. When install keeps an edited `standards/interaction.md` that still has a `## Authority` line, it adds `standards/interaction.md still has an Authority section: theway now reads standards/authority.md; move your edits there`. A `standards/authority.md` of your own, one `.shipped.json` does not list, stays a user standard: install prints `Kept your standards/authority.md: theway now ships a file with that name (its version: standards/authority.default.md)`, and `theway authority` prints the shipped `authority.default.md`. On a home with no `.shipped.json`, an existing `standards/authority.md` is taken as yours this way, not as an edited shipped file: theway shipped it long after it first wrote `.shipped.json`.
+    - When install keeps an edited file of `standards/` or `prompts/` whose text still names `tasks.md`, it adds `<rel> still names tasks.md: theway now keeps tasks in change.yaml; compare it with <dir>/<name>.default.md`.
     - A template theway no longer ships is left in `templates/` untouched. A differing template that `.shipped.json` does not list is backed up to `<name>.md.bak` and replaced.
     - The engineering standards and spec templates of earlier versions are prompts now (`prompts/tamm-framework.md`, `prompts/spec-investigation.md`, the split of the spec review into `prompts/spec-reviewer.md`, `grounding.md`, `implementability.md`, `verdicts.md`, `spec-triage.md` and `spec-fix.md`, and `prompts/spec-template.md`, `fix-spec-template.md`, `light-spec-template.md`, and `prompts/change-template.md` for the old `templates/tasks-template.md`). Install removes an unedited old copy (`Removed <rel>: theway no longer ships it`), renames an edited one to `<rel>.bak` (`Moved your edited <rel> to <backup>: theway now reads prompts/<name>.md`), so that it never becomes a standard every agent gets, and removes their `.default.md` copies. `templates/` keeps the three `/theway:document` templates.
   - `projects/<key>/`: each project's `changes/` folders, written by the commands, and its own `config.yaml`, `standards/`, `workflows/` and `prompts/`. `<key>` is the [project key](./concepts/changes.mdx#project-key) that `theway project` prints in the repository. Earlier versions kept a project in `<home>/<name>/`, named after its directory; those folders are no longer read: move each one to the folder `theway project` prints.
@@ -120,3 +121,20 @@ Install finds the data home the same way, with `--home` first. Without `--home` 
 ## Upgrading from 0.2.0
 
 theway 0.2.0 installed the CLI in the data home, as `bin/theway` and `bin/theway.js`, with the rule `Bash(~/.theway/bin/theway:*)` (or the absolute path for a custom home). Installing this version over it removes those two files when they are the ones 0.2.0 wrote, the `bin/` folder when nothing else is in it, and the old rule. Your config and change folders stay where they are.
+
+## Changes written before change.yaml
+
+Earlier versions kept a change's tasks in `tasks.md`. A change folder with a `tasks.md` and no `change.yaml` reads as invalid (`invalid: not found` in `theway list`), and `theway archive` refuses it. After it installs, install counts those active changes across every project and prints one line when there are any:
+
+```text
+2 changes still use tasks.md: they read as invalid until each has a change.yaml; see https://pixelfactoryio.github.io/theway/docs/installation/#changes-written-before-changeyaml
+```
+
+theway ships no converter. To convert one change by hand, in its folder:
+
+1. Write a `change.yaml` with `version: theway.change/v1beta`, a `description` of one line on what the change does, and `tasks` with one item per `- [ ] N.` or `- [x] N.` line of `tasks.md`, in order: its `text` without the number, and `done: true` for a `[x]` line.
+2. Move the `## Notes` part of `tasks.md` to `notes.md`.
+3. Remove the `**Series:**` line from `spec.md`.
+4. Delete `tasks.md`.
+
+`theway change <change-id>` exits 0 when the file is right, and prints each error otherwise. To archive an old change as it is instead, run `theway archive <change-id> --force`.

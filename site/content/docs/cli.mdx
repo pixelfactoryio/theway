@@ -139,6 +139,7 @@ tasks:
 | Where | Rule | Message |
 |---|---|---|
 | file | exists and is a YAML map | `not found` · `invalid YAML: <reason>` · `must be a map` |
+| any node | no anchor (`&name`) and no alias (`*name`) | `anchors and aliases are not allowed` |
 | `version` | required, exactly `theway.change/v1beta` | `must be theway.change/v1beta` |
 | `description` | required, a non-empty string on one line | `must be a non-empty string on one line` |
 | `tasks` | required, a list with at least one item | `must be a list with at least one task` |
@@ -149,10 +150,23 @@ tasks:
 
 A task's number is its position in the list, counted from 1; `tasks[i]` in an error is counted from 0. A missing required key is reported as `<key>: is required`. Every error is reported, in the file's key order, then the missing keys.
 
+Anchors and aliases are checked first: each one gives its own line, in document order, and no other rule is checked. The line's `<where>` is the path of the node in the table above, never deeper: a map key takes the path of the map that holds it, and a node below a root key's value or below `tasks[i].<key>` the path of its nearest ancestor the table names (`description: [&a x]` gives `description`, `tasks[0].text: {k: &a v}` gives `tasks[0].text`). An anchor on the file's root map has no `<where>`: the line is `anchors and aliases are not allowed`.
+
 When the file is valid, it prints the change as JSON on stdout and exits 0:
 
 ```json
-{ "id": "<change-id>", "dir": "<change folder>", "description": "…", "tasks": [{ "n": 1, "text": "…", "done": true }] }
+{
+  "id": "<change-id>",
+  "dir": "<change folder>",
+  "description": "…",
+  "tasks": [
+    {
+      "n": 1,
+      "text": "…",
+      "done": true
+    }
+  ]
+}
 ```
 
 When it is not, it prints each error on stderr and exits 1, with nothing on stdout:
@@ -170,12 +184,19 @@ The scaffold and `fix-spec` run it after writing a `change.yaml`, and fix the fi
 theway task done <change-id> <n>...
 ```
 
-Ticks the tasks numbered `<n>` of the change's `change.yaml`: it sets `done: true` on each and keeps the rest of the file (comments, key order). A task already done stays done. It prints `<done>/<total> tasks done` and exits 0.
+Ticks the tasks numbered `<n>` of the change's `change.yaml`: it sets `done: true` on each and keeps the rest of the file (comments, key order, line endings and its mode). An inserted `done: true` line ends as the line it follows (`\r\n` in a CRLF file). A task already done stays done. It prints `<done>/<total> tasks done` and exits 0.
 
-It exits 1 and writes nothing when the file is invalid (with the error lines of [`change`](#change)), or when a number is not a positive integer or greater than the number of tasks:
+It exits 1 and writes nothing when the file is invalid (with the error lines of [`change`](#change)), or with one line per bad argument, in the order given, when an argument is not a task number (digits not starting with `0`) or is greater than the number of tasks:
 
 ```text
+theway: changes/<change-id>/change.yaml: task 01: not a task number
 theway: changes/<change-id>/change.yaml: task 9: no such task (1 to 3)
+```
+
+When the file or its folder cannot be written, it exits 1 with one line, the file left as it was:
+
+```text
+theway: changes/<change-id>/change.yaml: cannot write: EACCES: permission denied, access '<path>'
 ```
 
 The implementer runs it when a task is finished. To undo a tick, edit `change.yaml`. `theway task` alone prints its help.
@@ -232,7 +253,7 @@ The key is the project root's absolute path with every character outside `[A-Za-
 
 The root is resolved to its physical path (symlinks followed) before the key is built. A linked worktree of a `--separate-git-dir` repository and a submodule get their own worktree root, so they do not share the main repository's key. See [Project key](./concepts/changes.mdx#project-key).
 
-`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
+`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
 
 - the `--project` value is not letters, digits and `-`, 1 to 200 characters:
 
@@ -278,7 +299,7 @@ theway: warning: <file>: standards.<key> cannot be switched; ignored
 
 A `workflow` key, which earlier versions read for `workflow.defaults`, is an unknown key now: `theway: warning: config.yaml: unknown key workflow; ignored`. Set the value in the workflow file or in the prompt's header, and remove the key.
 
-The `standards` warnings name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `authority`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name, or a convention standard (`commits`, `git_host`).
+The `standards` warnings name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `authority`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name (or, for `authority`, unless the global `authority.md` is one `.shipped.json` does not list, which makes it a user standard), or a convention standard (`commits`, `git_host`).
 
 It exits 1 and prints nothing on stdout when:
 
@@ -309,7 +330,7 @@ theway standards develop
 theway standards document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/projects/<key>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `authority.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/projects/<key>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed, nor `authority.md` when `.shipped.json` lists `standards/authority.md` (one it does not list is your own standard, key `authority`, listed and switched like any other); `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
 
 - A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
@@ -534,13 +555,21 @@ theway: --input change: required input is not given
 theway authority
 ```
 
-Prints `<home>/standards/authority.md` whole, without trailing blank lines. When that file is missing, it prints `<home>/standards/authority.default.md` the same way. When both are missing, it exits 1:
+Prints the authority whole, without trailing blank lines. A file that is empty or holds only whitespace counts as missing.
 
-```text
-theway: no <home>/standards/authority.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
-```
+- When `.shipped.json` lists `standards/authority.md`, it prints `<home>/standards/authority.md`, else the shipped `<home>/standards/authority.default.md`. When neither can be printed, it exits 1:
 
-The commands that spawn agents quote its output verbatim in every agent prompt.
+  ```text
+  theway: no <home>/standards/authority.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
+  ```
+
+- When `.shipped.json` does not list it, `authority.md` is your own standard (see [`standards`](#standards)), and it prints `<home>/standards/authority.default.md` only. When that cannot be printed, it exits 1:
+
+  ```text
+  theway: no <home>/standards/authority.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
+  ```
+
+The commands that spawn agents quote its output verbatim in every agent prompt, and `/theway:workflow`, `/theway:document` and `/theway:archive` follow it in the session.
 
 ## validate-id
 
@@ -630,16 +659,16 @@ Home, at `#/`, says what needs attention in the chosen project, then what is in 
 
 The Changes page, at `#/changes`, lists the active changes of the chosen project in one table, by project then ID: each with its description, its project, its tasks done and its status, Not started, In progress, Ready to archive (all its tasks done) or Invalid (its `change.yaml` is missing or invalid; point at the badge for the error). The Status menu keeps the changes of one status. Archived adds a table of the archived changes, newest first, with the date each was archived.
 
-A change's page shows its ID, its status and its description, or, when its `change.yaml` is invalid, the error. Its tabs are Spec, Tasks with its tasks done (each task numbered and marked done or open, read-only), Design and Notes when the change has them, then its other Markdown files by name. Details, beside the tabs on a wide window and under them on a narrow one, gives its project, its tasks done and, for a series member, its place in the series and every member by ordinal, each linked to its page; the series' total is its number of members, active and archived. For an active change, Run it with names the workflow `theway workflow` uses with no name for its project, marked `default`, and the command that runs the change, `/theway:workflow <change-id>`, with Copy.
+A change's page shows its ID, its status and its description, or, when its `change.yaml` is invalid, the error. Its tabs are Spec, Tasks with its tasks done (each task numbered and marked done or open, read-only), Design and Notes when the change has them, then its other Markdown files by name. Details, beside the tabs on a wide window and under them on a narrow one, gives its project, its tasks done and, for a series member, its place in the series and every member by ordinal up to the series' total, each member that exists linked to its page; the series' total is its highest ordinal. For an active change, Run it with names the workflow `theway workflow` uses with no name for its project, marked `default`, and the command that runs the change, `/theway:workflow <change-id>`, with Copy.
 
 ### Workflows
 
-The Workflows page, at `#/workflows`, lists in one table the global workflows of `<home>/workflows/` and those of the chosen project (every project's with All projects), by name, a global file before a project's, then their number. Each row gives the name, marked `default` for the default workflow, `N errors` for a workflow that does not resolve (point at the badge for the first error) and `edited` while it has unsaved edits; what it does (its `description`); its number of steps; where they run (`session` or `agents` when all steps run there, else `N session, M agents`); and where it applies, All projects or `<project> only`. A workflow that does not resolve shows `–` for its steps and where they run. A new workflow not saved yet is listed too. Below a wide window, a row keeps only the name and the steps. Create workflow opens the [Create dialog](#creating-a-file); select a row to open the workflow's page.
+The Workflows page, at `#/workflows`, lists in one table the global workflows of `<home>/workflows/` and those of the chosen project (every project's with All projects), by name, a global file before a project's, then their number. Each row gives the name, marked `default` for the default workflow, `N errors` for a workflow that does not resolve (point at the badge for the first error) and `edited` while it has unsaved edits; what it does (its `description`); its number of steps; where they run (`session` or `agents` when all steps run there, else `N session, M agents`); and where it applies: All projects, `All projects except <projects>` when projects override it, or `<project> only` (with `, overrides the global file` when it does). A project file's name is followed by its project's short name in brackets, `agents (my-api)`, only when a file of the same name from another scope is in the table. A workflow that does not resolve shows `–` for its steps and where they run. A new workflow not saved yet is listed too. Below a wide window, a row keeps only the name and the steps. Create workflow opens the [Create dialog](#creating-a-file); select a row to open the workflow's page.
 
 A workflow's page, at `#/workflows/global/<name>` or `#/workflows/projects/<key>/<name>`, draws the workflow as written, as a column of cards on a dotted canvas:
 
-- The inputs card first, with each input the workflow declares (`none` without one).
-- One card per step: `session`, `agents · <model>` (the step's `model`, else its prompt's) or `agents` for where it runs, the name of the prompt it runs, and that prompt's description. A matrix step forks into one card per value, side by side, each giving `<key>: <value>`. An on fail is a smaller card beside the step's, joined by two arrows, with `on-fail · tries N` and the prompt it runs; on a narrow window it sits under the step's card.
+- The inputs card first, with each input the workflow declares, its name over its description (`none` without one).
+- One card per step: `session`, `agents · <model>` (the step's `model`, else its prompt's) or `agents` for where it runs, the name of the prompt it runs, and that prompt's description. A matrix step forks into one card per value, side by side, each giving `<key>: <value>`; its drag handle stands on the fork, above the cards. A card's text wraps at word boundaries. An on fail is a smaller card beside the step's, joined by two arrows, with `on-fail · tries N` and the prompt it runs; on a narrow window it sits under the step's card. A matrix step's on fail sits under the fork, joined to it by a line.
 - A `+` under each card adds a step there; the last one reads Add a step.
 
 A file that cannot be drawn, such as one whose YAML does not parse or a `theway.workflow/v1` file, says so in place of the cards, with a link to the YAML view. Diagram and YAML, on the title row, switch between the drawing and the file's text, at the page with `/yaml`. History, on the title row, opens the file's [History](#history).
@@ -648,7 +677,7 @@ A file that cannot be drawn, such as one whose YAML does not parse or a `theway.
 
 The Prompts page, at `#/prompts`, lists the prompt files of `<home>/prompts/` and of the chosen project (every project's with All projects), by name, a global file before a project's, in two tabs, each with its number of files:
 
-- Step prompts, the files a step can run (a header that passes the header rules) and the files whose header breaks a header rule: their name, what they tell the agent to do (the header's `description`), their `model` (`–` for none), the workflows that use them (as a step, an on fail or a value of `with` or `matrix`), each a link to its page, and where they apply, All projects or `<project> only`.
+- Step prompts, the files a step can run (a header that passes the header rules) and the files whose header breaks a header rule: their name, what they tell the agent to do (the header's `description`), their `model` (`–` for none), the workflows that use them (as a step, an on fail or a value of `with` or `matrix`), each a link to its page, and where they apply, All projects, `All projects except <projects>` or `<project> only`. In the name and the Used by cells, a project file's name is followed by its project's short name in brackets only beside a file of the same name from another scope.
 - Reference files, every other prompt file, read by prompts, not steps: their name, the workflows that use them and where they apply.
 
 A file with unsaved edits is marked `edited`; a file whose header breaks a header rule is marked `error` (point at the badge for the first error). Below a wide window, a row keeps only the name and the model. Select a row to open the prompt's page.
@@ -658,7 +687,7 @@ A prompt's page, at `#/prompts/global/<name>` or `#/prompts/projects/<key>/<name
 - Read renders the body as Markdown, `${{ inputs.<name> }}` as written.
 - Write edits the whole file, header and body, as it is on disk, in a code editor with line numbers and colours: the header as YAML, the body as Markdown.
 
-Details, beside the tabs on a wide window and under them on a narrow one, is the same text on both tabs, read from the file's text and labelled with the header's YAML keys: `model`, `inputs` (each with `required` or its `default`, and its description), Used by (each use as `<workflow> · step N`, `<workflow> · on-fail of step N` or `<workflow> · value in step N`, linked to the workflow), Applies to (All projects, with the projects that override it; or `<project> only`, and whether it overrides the global file) and History, a link to its versions. A reference file, with no header and a first line that is not `---`, has Use as a step on Write, which adds a header with an empty description to fill in.
+Details, beside the tabs on a wide window and under them on a narrow one, is the same text on both tabs, read from the file's text and labelled with the header's YAML keys: `model`, `inputs` (each with `required` or its `default`, and its description), Used by (each use as `<workflow> · step N`, `<workflow> · on-fail of step N` or `<workflow> · value in step N`, linked to the workflow; a project workflow's name is followed by its project's short name in brackets, `agents (my-api) · step 4`, when a workflow of the same name from another scope uses the prompt too), Applies to (All projects, or `All projects except <projects>` when projects override it; or `<project> only`, and whether it overrides the global file) and History, a link to its versions. A reference file, with no header and a first line that is not `---`, has Use as a step on Write, which adds a header with an empty description to fill in.
 
 Diff, while the file has edits (not for a new file), shows them in place of the tabs' content, from the text you started from to your edits; it reads Back to editing while pressed. Pressing it again, or a click on Read or Write, goes back; it also goes when your edits are undone, saved or dropped.
 
@@ -668,7 +697,7 @@ The first edit starts your edits of the file; they are kept while you move betwe
 
 A workflow's page is always editable. The title row gives its name, its description, Diagram and YAML, its state (Saved, Unsaved changes or New file), the check's error count, Diff and Discard while it has edits, Save and History; on a narrow window it takes two rows and leaves out the description. The page is as high as the window: the diagram, the YAML view or the diff takes the height left, and only a window too short to give it 240px scrolls.
 
-- Select a card to open its settings in a panel beside the diagram, or over the page on a narrow window. The inputs card opens the workflow settings: `description`, `default` (with the workflows already set as the default), `runs-on`, and `inputs`, each with its `name`, `type`, `description`, `required` and `default`, and Remove; Add an input declares an optional input `input` (then `input2`, …) with the description "Describe this input.". Last, Applies to says where the file applies.
+- Select a card to open its settings in a panel beside the diagram, or over the page on a narrow window. The inputs card opens the workflow settings: `description`, `default` (with the workflows already set as the default), `runs-on`, and `inputs`, each with its `name`, `type`, `description`, `required` and `default`, and Remove; Add an input declares an optional input `input` (then `input2`, …) with an empty description, which the check asks for until you write one. Last, Applies to says where the file applies.
 - A step's panel, `Step N of M`, has two tabs. Settings labels each field with its YAML key: `uses` (a step prompt), `runs-on` (the workflow's, `session` or `agents`), `model` (the prompt's, or a model; shown for a step on agents or one that sets it), `with` (one row per input its prompt declares; the `{ }` menu inserts `${{ inputs.<name> }}`, or `${{ matrix.<key> }}` for a step with a matrix), `matrix` (none, or one copy per value: a key and its values), `on-fail` (none, or a step prompt, with its own `with` and `model`) and `tries`. Prompt text shows the prompt's body, with a link to its page. Remove step removes it; undo brings it back.
 - A value that is not one a select offers shows first in it, marked `invalid`, until you choose another. Changing a step's prompt, or the prompt of its on fail, writes each required input not set yet as `${{ inputs.<name> }}` when the workflow declares an input of that name. Turning on fail on writes `tries: 1`; turning it off removes both.
 - The `+` buttons open the step picker: type to keep the prompts whose name or description holds the text, and choose one to add a step on it, its required inputs written as `${{ inputs.<name> }}` when the workflow declares an input of that name, else as `""`, which the check reports until you set it. Write a new prompt opens the Create dialog for a prompt instead; save it, then add its step.
@@ -693,12 +722,12 @@ When the file changed on disk since you opened it, Save gets `409` and writes no
 
 ### Creating a file
 
-Create prompt, on the Prompts page, and Create workflow, on the Workflows page, open the Create dialog, titled Create prompt or Create workflow: a Name, saved as `prompts/<name>.md` or `workflows/<name>.yaml`; a `description`; Start from, Empty or A copy of one file of the same kind; and Applies to, All projects or one project, the sidebar's project when one is chosen. Create says under a field what it is missing. Empty starts a workflow with `runs-on: agents` and one step on `prompts/implement.md` (or the first step prompt by name when there is no such prompt), and a prompt with `model: opus` and a one-line body; A copy of a file keeps its text and sets the description. The new file opens as your edits, a prompt on its page's Write tab and a workflow on its page, and nothing is written until you save it. A project file may take the name of a global one: it then replaces it for that project.
+Create prompt, on the Prompts page, and Create workflow, on the Workflows page, open the Create dialog, titled Create prompt or Create workflow: a Name, saved as `prompts/<name>.md` or `workflows/<name>.yaml`; a `description`; Start from, Empty or A copy of one file of the same kind; and Applies to, All projects or one project, the sidebar's project when one is chosen. Create says under a field what it is missing. Empty starts a workflow with `runs-on: agents` and one step on `prompts/implement.md` (or the first step prompt by name when there is no such prompt), and a prompt with `model: opus` and an empty body (reported by the check of a workflow that uses it until you write one); A copy of a file keeps its text and sets the description. The new file opens as your edits, a prompt on its page's Write tab and a workflow on its page, and nothing is written until you save it. A project file may take the name of a global one: it then replaces it for that project.
 
 ### History
 
 Before a save from the dashboard replaces a file, the text it held is kept as a version: under `<home>/history/global/<kind>/<name>/` for a global file, `<home>/history/projects/<key>/<kind>/<name>/` for a project's. A file keeps its 20 newest versions; a new file has none until its first save replaces it. Only dashboard saves are recorded: a file you change by hand, through an agent or with `theway install` gets no version, though the next dashboard save keeps whatever was on disk. Nothing else reads `<home>/history/`, so deleting it is safe and only drops the versions.
 
-A file's History page, at its page with `/history` (History, in a prompt's Details or on a workflow's title row), lists the versions on the right: Current, then each version by its date and time to the second, newest first, each with the lines it adds and removes against the one before it (`+N −M lines`), then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml` or `<name>.default.md`). Current is selected first, and shows the file's text. Select a version, then Changes for the diff from it to the current file ("Same as the current file." when they match), or Whole file for its text. The arrow at the top left goes back to the file's page.
+A file's History page, at its page with `/history` (History, in a prompt's Details or on a workflow's title row), lists the versions on the right: Current, then each version by its date and time to the second, newest first, each with the lines it adds and removes against the one before it (`+N −M lines`; the oldest against an empty file), then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml` or `<name>.default.md`). Current is selected first, and shows the file's text; it notes its lines added and removed against the newest version only when it differs from it. Select a version, then Changes for the diff from it to the current file, each line with its old and new line numbers and a rule between two parts ("Same as the current file." when they match), or Whole file for its text. The arrow at the top left goes back to the file's page.
 
 Restore this version puts the version's text, byte for byte, in your edits as one edit you can undo, after a confirm when the file already has edits, then opens the file's page, a prompt on its Write tab; it is disabled for Current and when the version holds the current text. Nothing is written until you save it, through the same check as any edit, and that save keeps the replaced text as a version in turn.

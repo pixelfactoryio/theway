@@ -122,10 +122,9 @@ $ node --test --test-name-pattern="query string" test/
 ℹ fail 1
 ```
 
-It fails for the cause Problem states: the probes reach the limiter and miss the route. Task 2 wrote the fix, and the same command passed (`ℹ pass 1`). Both runs went into the Notes:
+It fails for the cause Problem states: the probes reach the limiter and miss the route. Task 2 wrote the fix, and the same command passed (`ℹ pass 1`). Both runs went into `notes.md`:
 
 ```md
-**Discoveries:**
 - Regression test before the fix: `node --test --test-name-pattern="query string" test/` failed with actual `[404, 404, 429]`, expected `[200, 200, 200]`.
 - After the fix: the same command passes (1 pass, 0 fail).
 ```
@@ -141,7 +140,7 @@ The report:
 ```text
 Tasks done: 2/2.
 Success Criteria:
-- Regression test fails before the fix and passes with it: yes, both runs recorded in Notes › Discoveries.
+- Regression test fails before the fix and passes with it: yes, both runs recorded in `notes.md`.
 - The reproduction no longer reproduces: the curl loop prints 61 200.
 - npm test passes: 11 tests, 11 pass.
 Deviations: none.

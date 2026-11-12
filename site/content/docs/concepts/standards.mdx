@@ -26,7 +26,7 @@ Both folders are optional. Install never touches your files in them.
 
 `<home>/standards/` also holds the standards theway ships. Their names decide what they are, whatever `.shipped.json` says:
 
-- `interaction.md`, `develop.md` and `authority.md` are always read by the commands that need them, never listed and never switchable.
+- `interaction.md`, `develop.md` and `authority.md` are always read by the commands that need them, never listed and never switchable; a global `authority.md` that `.shipped.json` does not list is your own standard instead, listed and switched like any other, and `theway authority` then prints the shipped `authority.default.md`.
 - The engineering procedures are not standards: the TAMM framework, the investigation rules, the critics' rules and lenses, the verdicts and the spec templates are [prompts](./workflows.mdx#files-and-layering) of the `engineering` workflows (`prompts/tamm-framework.md`, `prompts/spec-investigation.md`, `prompts/spec-review.md`, …). Install retires the old `standards/` copies: an unedited one is removed, an edited one is renamed to `.bak`, so that it never becomes a standard every agent gets.
 - `commits.md` and `git-host.md` are the [convention standards](#convention-standards): `/theway:workflow` reads them by path, they are never listed, from either folder, and never switchable.
 - `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards: off by default and, when switched on, read by every command that reads standards, like yours. A file of yours kept at one of these names counts as that opt-in standard.

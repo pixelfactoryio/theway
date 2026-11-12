@@ -25,7 +25,7 @@ add-user-auth-03
 
 - [`theway next-id`](../cli.mdx#next-id) names the members of a new or continued series: it validates the series ID and prints the next free IDs, counting active and archived members. Existing folders are never renamed or renumbered.
 - With `--series`, `validate-id` rejects topic suffixes (`add-user-auth-login`), letter suffixes (`-a`, `-b`), unpadded numbers (`-1`), `-00` and double ordinals.
-- A member is known by its folder name; the series' total is its number of members, active and archived. The scaffold writes every member of a series in one run.
+- A member is known by its folder name; the series' total is its highest ordinal. The scaffold writes every member of a series in one run.
 
 `/theway:workflow` takes the members in order. After each change, it asks you before merging the PR the run opened, and starts the next change once it is merged; when a run opened no PR, the series stops after that change.
 
