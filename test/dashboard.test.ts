@@ -148,7 +148,7 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   // React's development build carries this warning text; the production build does not.
   expect(js.body).not.toContain("act(...)");
   expect(js.body).toContain("Each change, with its spec and its tasks.");
-  expect(js.body).toContain("Run it with");
+  expect(js.body).toContain("Search changes");
   const css = await get(port, "/app.css");
   expect([css.status, css.headers["content-type"]]).toEqual([200, "text/css; charset=utf-8"]);
   expect(css.body).toContain(".base-ui-disable-scrollbar");

@@ -100,7 +100,7 @@ function RunCommand({ id }: { id: string }) {
       <code ref={text} className="min-w-0 flex-1 font-mono text-[12px] wrap-anywhere">
         {command}
       </code>
-      <Button variant="outline" size="sm" onClick={copy}>
+      <Button size="sm" onClick={copy}>
         {copied ? "Copied" : "Copy"}
       </Button>
     </div>
@@ -117,7 +117,7 @@ function Fact({ name, children }: { name: string; children: ReactNode }) {
   );
 }
 
-/** The Details column: the project, the tasks, the series, the default workflow and the command that runs an active change. */
+/** The Details column: the project, the tasks, the series and, for an active change, the default workflow as Workflow. */
 function Details({ projectKey, label, name, data }: { projectKey: string; label: string; name: string; data: ChangeDetail }) {
   const series = data.properties.series;
   const workflow = data.defaultWorkflow;
@@ -145,7 +145,7 @@ function Details({ projectKey, label, name, data }: { projectKey: string; label:
         </Fact>
       )}
       {!data.archived && workflow !== null && (
-        <Fact name="Run it with">
+        <Fact name="Workflow">
           <span className="flex items-center gap-1.5">
             <Link href={fileHref({ ...workflow, kind: "workflows" })} className="font-medium text-primary hover:underline">
               {workflow.name}
@@ -154,7 +154,6 @@ function Details({ projectKey, label, name, data }: { projectKey: string; label:
           </span>
         </Fact>
       )}
-      {!data.archived && <RunCommand id={data.id} />}
     </aside>
   );
 }
@@ -184,7 +183,10 @@ function TaskList({ items }: { items: ChangeDetail["taskItems"] }) {
   );
 }
 
-/** The link back to Changes, the title with its badge, the description or the error, then the tabs and the Details column. */
+/**
+ * The breadcrumb (Changes, then the project), the title with its badge, the description or the error and, for an active
+ * change, the command that runs it; then the tabs and the Details column.
+ */
 function Detail({ projectKey, date, query }: { projectKey: string; date: string | null; query: UseQueryResult<ChangeDetail> }) {
   const all = useAllChanges();
   const label = all.data?.projects.find((p) => p.key === projectKey)?.label ?? projectKey;
@@ -200,31 +202,48 @@ function Detail({ projectKey, date, query }: { projectKey: string; date: string 
   const current = tabs.find((t) => t.value === tab) ?? tabs[0];
   return (
     <main id="content" tabIndex={-1} className="flex w-full max-w-[1280px] flex-col gap-2 px-4 py-6 outline-none lg:px-8 lg:py-8">
-      <Link href="/changes" className="self-start text-[12px] text-primary hover:underline">
-        Changes ›
-      </Link>
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 self-start text-[12px]">
+        <Link href="/changes" className="text-primary hover:underline">
+          Changes
+        </Link>
+        <span aria-hidden="true" className="text-muted-foreground">
+          ›
+        </span>
+        <span className="wrap-anywhere text-muted-foreground" title={label}>
+          {name}
+        </span>
+      </nav>
       {data === undefined ? (
         <Empty error={query.isError}>{query.isError ? query.error.message : "Loading…"}</Empty>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-[28px] font-semibold wrap-anywhere">{data.id}</h1>
-            {data.archived ? (
-              <span className="flex items-center gap-2">
-                <Badge variant="invert-light">Archived</Badge>
-                <span className="text-muted-foreground tabular-nums">{date}</span>
-              </span>
-            ) : (
-              <StatusBadge change={data} />
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+            <div className="flex min-w-0 flex-col gap-2 lg:flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h1 className="text-[20px] font-semibold wrap-anywhere">{data.id}</h1>
+                {data.archived ? (
+                  <span className="flex items-center gap-2">
+                    <Badge variant="invert-light">Archived</Badge>
+                    <span className="text-muted-foreground tabular-nums">{date}</span>
+                  </span>
+                ) : (
+                  <StatusBadge change={data} />
+                )}
+              </div>
+              {data.status === "Invalid" ? (
+                <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-destructive">
+                  {data.error}
+                </p>
+              ) : (
+                <p className="text-muted-foreground">{data.description}</p>
+              )}
+            </div>
+            {!data.archived && (
+              <div className="min-w-0 lg:w-[420px]">
+                <RunCommand id={data.id} />
+              </div>
             )}
           </div>
-          {data.status === "Invalid" ? (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2.5 text-destructive">
-              {data.error}
-            </p>
-          ) : (
-            <p className="text-muted-foreground">{data.description}</p>
-          )}
           <div className="mt-3 flex flex-col gap-8 lg:flex-row">
             <div className="min-w-0 flex-1">
               {current !== undefined && (
