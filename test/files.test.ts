@@ -32,6 +32,18 @@ test("a draft takes three edits, two undos and one redo, and is dirty until its 
   expect(isDirty(startDraft("a", null, true))).toBe(true);
 });
 
+test("typed edits less than a second apart are one undo step, and any other change ends the step", () => {
+  const a = startDraft("a", "sha", false);
+  expect(undo(edit(edit(edit(a, "b", 0), "c", 200), "d", 400)).text).toBe("a");
+  const apart = edit(edit(a, "b", 0), "c", 1500);
+  expect(undo(apart).text).toBe("b");
+  expect(undo(undo(apart)).text).toBe("a");
+  expect(undo(edit(edit(edit(a, "b", 0), "c"), "d", 100)).text).toBe("c");
+  expect(undo(edit(undo(edit(a, "b", 0)), "c", 100)).text).toBe("a");
+  const typed = edit(a, "b", 0);
+  expect(edit(typed, "b", 100)).toBe(typed);
+});
+
 test("a restored version is one undoable edit that keeps its text byte for byte", () => {
   const current = shipped("workflows/agents.yaml");
   const versionText = "version: 1\nsteps:\n  - review: {rounds:   2}   # kept\n";

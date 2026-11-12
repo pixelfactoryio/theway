@@ -155,3 +155,28 @@
   background-image: radial-gradient(var(--input) 1px, transparent 1px);
   background-size: 16px 16px;
 }
+
+/*
+ * The code editor (CodeMirror). Its base theme is scoped by a generated class and inserted first in `head`, so each
+ * rule that overrides one of its properties uses at least two classes, and none sits inside `@layer`.
+ */
+.cm-editor {
+  flex: 1;
+  min-height: 0;
+  background-color: var(--card);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+}
+.cm-editor .cm-scroller {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.cm-editor .cm-gutters {
+  background-color: var(--card);
+  border-right-color: var(--divider);
+}
+.cm-editor.cm-focused {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}

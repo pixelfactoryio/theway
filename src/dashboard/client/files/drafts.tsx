@@ -16,8 +16,8 @@ type Store = {
   start: (file: FileRef, text: string, base: string | null, isNew: boolean) => void;
   /** Sets the text of a file's draft. */
   edit: (file: FileRef, text: string) => void;
-  /** Sets the text of a file's draft to `fn` of its current text. */
-  update: (file: FileRef, fn: (text: string) => string) => void;
+  /** Sets the text of a file's draft to `fn` of its current text; `at` is the time of a typed edit (see `edit` of `./draft`). */
+  update: (file: FileRef, fn: (text: string) => string, at?: number) => void;
   undo: (file: FileRef) => void;
   redo: (file: FileRef) => void;
   /** Drops a file's draft. */
@@ -43,7 +43,7 @@ export function DraftsProvider({ children }: { children: ReactNode }) {
       drafts,
       start: (file, text, base, isNew) => setDrafts((prev) => new Map(prev).set(fileKey(file), { file, draft: startDraft(text, base, isNew) })),
       edit: (file, text) => change(file, (d) => editDraft(d, text)),
-      update: (file, fn) => change(file, (d) => editDraft(d, fn(d.text))),
+      update: (file, fn, at) => change(file, (d) => editDraft(d, fn(d.text), at)),
       undo: (file) => change(file, undoDraft),
       redo: (file) => change(file, redoDraft),
       drop: (file) =>
