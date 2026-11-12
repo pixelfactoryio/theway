@@ -1,16 +1,17 @@
 /**
- * A prompt's page, always editable: the title row with its status, Discard and Save; the Read tab (the body rendered)
+ * A prompt's page, always editable: the title row with its status, Diff, Discard and Save; the Read tab (the body rendered)
  * and the Write tab (the whole file, header and body, in a code editor); and Details, as text on both tabs. It works on
  * the file's draft, which its first edit starts.
  */
 import { cn } from "cn";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/reui/badge";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/files/CodeEditor";
+import { Diff } from "@/files/Diff";
 import { type Draft, isDirty, startDraft } from "@/files/draft";
 import { takeOpenOnWrite, useDrafts, useUndoKeys } from "@/files/drafts";
 import { useFileSave, useValidation } from "@/files/editing";
@@ -153,6 +154,18 @@ function Editor({
   const header = useMemo(() => headerSource(text), [text]);
   const html = useMemo(() => renderMarkdown(editableBody(text)), [text]);
   const dirty = isDirty(draft);
+  const main = useRef<HTMLElement>(null);
+  // Diff shows the unsaved edits; it is unpressed once the draft is clean or dropped, and by a click on either tab.
+  const canDiff = dirty && !draft.isNew;
+  const [diffing, setDiffing] = useState(false);
+  if (diffing && !canDiff) setDiffing(false);
+  const showDiff = diffing && canDiff;
+  // When the Diff button goes while it had the focus, the focus goes to the page rather than staying on the body.
+  const hadDiff = useRef(canDiff);
+  useLayoutEffect(() => {
+    if (hadDiff.current && !canDiff && document.activeElement === document.body) main.current?.focus({ preventScroll: true });
+    hadDiff.current = canDiff;
+  }, [canDiff]);
   const labels = files.data?.projects.map((p) => p.label) ?? [];
   const label = file.key === null ? null : (files.data?.projects.find((p) => p.key === file.key)?.label ?? null);
   // The list item's error is about the saved text: it shows only while the page holds that text.
@@ -194,7 +207,7 @@ function Editor({
   );
 
   return (
-    <main id="content" tabIndex={-1} className="flex w-full max-w-[1200px] flex-col gap-3 px-4 py-6 outline-none lg:px-8 lg:py-8">
+    <main ref={main} id="content" tabIndex={-1} className="flex w-full max-w-[1200px] flex-col gap-3 px-4 py-6 outline-none lg:px-8 lg:py-8">
       <Link href="/prompts" className="self-start text-[12px] font-medium text-primary hover:underline">
         Prompts ›
       </Link>
@@ -203,6 +216,11 @@ function Editor({
         <span role="status" className="text-[13px] text-muted-foreground">
           {status}
         </span>
+        {canDiff && (
+          <Button variant="outline" aria-pressed={showDiff} onClick={() => setDiffing(!showDiff)}>
+            {showDiff ? "Back to editing" : "Diff"}
+          </Button>
+        )}
         {dirty && (
           <Button variant="outline" disabled={saving} onClick={() => setDiscarding(true)}>
             Discard
@@ -233,28 +251,34 @@ function Editor({
       <div className="flex flex-col gap-6 pt-2 lg:flex-row lg:items-start">
         <Tabs value={tab} onValueChange={(v) => setTab(v === "write" ? "write" : "read")} className="min-w-0 flex-1 gap-4">
           <TabsList variant="line" className="w-full justify-start border-b border-divider">
-            <TabsTrigger value="read" className="flex-none px-1">
+            <TabsTrigger value="read" className="flex-none px-1" onClick={() => setDiffing(false)}>
               Read
             </TabsTrigger>
-            <TabsTrigger value="write" className="flex-none px-1">
+            <TabsTrigger value="write" className="flex-none px-1" onClick={() => setDiffing(false)}>
               Write
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="read">
-            {/* Rendered with raw HTML escaped; the CSP is the second layer. */}
-            <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
-          </TabsContent>
-          <TabsContent value="write">
-            <CodeEditor
-              value={text}
-              onChange={(t) => change(() => t, Date.now())}
-              onUndo={() => undo(file)}
-              onRedo={() => redo(file)}
-              language="prompt"
-              label={`prompts/${file.name}.md`}
-              className="min-h-[60vh]"
-            />
-          </TabsContent>
+          {showDiff ? (
+            <Diff from={draft.start} to={text} className="max-h-none" />
+          ) : (
+            <>
+              <TabsContent value="read">
+                {/* Rendered with raw HTML escaped; the CSP is the second layer. */}
+                <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+              </TabsContent>
+              <TabsContent value="write">
+                <CodeEditor
+                  value={text}
+                  onChange={(t) => change(() => t, Date.now())}
+                  onUndo={() => undo(file)}
+                  onRedo={() => redo(file)}
+                  language="prompt"
+                  label={`prompts/${file.name}.md`}
+                  className="min-h-[60vh]"
+                />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
         <aside aria-label="Details" className="flex flex-col gap-4 lg:w-[280px] lg:shrink-0">
           <h2 className="border-b border-divider pb-3 font-semibold">Details</h2>

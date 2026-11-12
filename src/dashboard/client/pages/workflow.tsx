@@ -1,11 +1,11 @@
 /**
- * A workflow's page, always editable: the header with the Diagram / YAML switch, the status, Discard, Save and History;
+ * A workflow's page, always editable: the header with the Diagram / YAML switch, the status, Diff, Discard, Save and History;
  * then the workflow drawn as a diagram, whose cards open their settings in a panel, or its text in the YAML view. It
  * works on the file's draft, which its first edit starts.
  */
 import { cn } from "cn";
 import { X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "yaml";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/reui/badge";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { usePromptContext } from "@/files/context";
 import { Diagram, NotDrawn, type Selection } from "@/files/Diagram";
+import { Diff } from "@/files/Diff";
 import { type Draft, isDirty, startDraft } from "@/files/draft";
 import { useDrafts, useUndoKeys } from "@/files/drafts";
 import { useFileSave, useValidation } from "@/files/editing";
@@ -89,6 +90,24 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   const named = drawn === null ? [] : drawn.steps.flatMap((s) => [s.name, s.onFail?.name ?? null, ...(s.matrix?.values ?? []).map(promptName)]);
   const ctx = usePromptContext(file, named);
   const dirty = isDirty(draft);
+  const main = useRef<HTMLElement>(null);
+
+  // Diff shows the unsaved edits; it is unpressed once the draft is clean or dropped, and by any change of view.
+  const canDiff = dirty && !draft.isNew;
+  const [diffing, setDiffing] = useState(false);
+  const [diffView, setDiffView] = useState(view);
+  if (diffView !== view) {
+    setDiffView(view);
+    setDiffing(false);
+  }
+  if (diffing && !canDiff) setDiffing(false);
+  const showDiff = diffing && canDiff;
+  // When the Diff button goes while it had the focus, the focus goes to the page rather than staying on the body.
+  const hadDiff = useRef(canDiff);
+  useLayoutEffect(() => {
+    if (hadDiff.current && !canDiff && document.activeElement === document.body) main.current?.focus({ preventScroll: true });
+    hadDiff.current = canDiff;
+  }, [canDiff]);
 
   // The selection is cleared when its step is gone, or when the draft cannot be drawn.
   const valid = selection === null || (drawn !== null && (selection === "workflow" || selection.step < drawn.steps.length));
@@ -142,6 +161,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   const tab = (to: View, label: string, href: string) => (
     <Link
       href={href}
+      onClick={() => setDiffing(false)}
       aria-current={view === to ? "page" : undefined}
       className={cn("rounded-md px-3 py-1 font-medium", view === to ? "bg-card shadow-xs" : "text-muted-foreground hover:text-foreground")}
     >
@@ -150,7 +170,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   );
 
   return (
-    <main id="content" tabIndex={-1} className="flex min-h-dvh flex-1 flex-col outline-none">
+    <main ref={main} id="content" tabIndex={-1} className="flex min-h-dvh flex-1 flex-col outline-none">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-divider px-4 py-3 lg:flex-nowrap lg:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to the workflows" className="max-lg:order-1" onClick={() => navigate("/workflows")}>
           <X />
@@ -169,6 +189,11 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
           <Badge variant="destructive" className="max-lg:order-3">
             {plural(errors.length, "error", "errors")}
           </Badge>
+        )}
+        {canDiff && (
+          <Button variant="outline" aria-pressed={showDiff} className="max-lg:order-3" onClick={() => setDiffing(!showDiff)}>
+            {showDiff ? "Back to editing" : "Diff"}
+          </Button>
         )}
         {dirty && (
           <Button variant="outline" disabled={saving} className="max-lg:order-3" onClick={() => setDiscarding(true)}>
@@ -195,7 +220,13 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
               </Button>
             </div>
           )}
-          {view === "yaml" ? (
+          {showDiff ? (
+            <>
+              <Lines lines={errors.map((l) => withoutPrefix(l, file.name))} tone="error" />
+              <Lines lines={warnings} tone="warning" />
+              <Diff from={draft.start} to={text} className="max-h-none" />
+            </>
+          ) : view === "yaml" ? (
             <YamlView
               name={file.name}
               text={text}
@@ -231,13 +262,13 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
             </>
           )}
         </div>
-        {view === "diagram" && panel !== null && wide && (
+        {view === "diagram" && !showDiff && panel !== null && wide && (
           <aside aria-label={selected === "workflow" ? "Workflow settings" : "Step"} className="w-[360px] shrink-0 overflow-auto border-l border-divider p-5">
             {panel}
           </aside>
         )}
       </div>
-      <Dialog open={view === "diagram" && panel !== null && !wide} onOpenChange={(o) => !o && close()}>
+      <Dialog open={view === "diagram" && !showDiff && panel !== null && !wide} onOpenChange={(o) => !o && close()}>
         <DialogContent showCloseButton={false} className="block max-h-[calc(100dvh-2rem)] overflow-auto sm:max-w-[420px]">
           <DialogTitle className="sr-only">{selected === "workflow" ? "Workflow settings" : "Step"}</DialogTitle>
           {!wide && panel}
