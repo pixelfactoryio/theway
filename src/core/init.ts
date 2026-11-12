@@ -37,7 +37,7 @@ const MOVED: Record<string, string> = {
   "templates/spec-template.md": "prompts/spec-template.md",
   "templates/fix-spec-template.md": "prompts/fix-spec-template.md",
   "templates/light-spec-template.md": "prompts/light-spec-template.md",
-  "templates/tasks-template.md": "prompts/tasks-template.md",
+  "templates/tasks-template.md": "prompts/change-template.md",
 };
 /** The folder theway shipped review lenses in before they became prompts: retired by `retireLenses`. */
 const LENSES = "lenses";
@@ -273,9 +273,13 @@ function versionOf(text: string): unknown {
 
 /**
  * The line that follows "Kept your edited <dir>/<name>" when the kept file will no longer work: a workflow that is not
- * `theway.workflow/v1beta`, or a prompt with no header whose shipped version has one; else null.
+ * `theway.workflow/v1beta`, a prompt with no header whose shipped version has one, or an `interaction.md` that still has
+ * the Authority section `standards/authority.md` now holds; else null.
  */
 function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer): string | null {
+  if (dir === "standards" && name === "interaction.md" && current.toString("utf-8").split("\n").some((l) => l.replace(/\r$/, "") === "## Authority")) {
+    return "standards/interaction.md still has an Authority section: theway now reads standards/authority.md; move your edits there";
+  }
   if (dir === "workflows" && versionOf(current.toString("utf-8")) !== VERSION) {
     const stem = name.slice(0, -".yaml".length);
     return `workflows/${name} is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/${stem}.default.yaml`;
@@ -323,12 +327,16 @@ function copyShipped(src: string, home: string): void {
         if (!current.equals(shipped)) {
           if (typeof old === "string" && sha256(current) === old) {
             writeAtomic(dst, shipped);
-          } else if (typeof old === "string" || (isShared && previous === undefined)) {
+          } else if (typeof old === "string" || (isShared && previous === undefined && rel !== "standards/authority.md")) {
+            // Without a manifest, an `authority.md` is the user's own: theway first shipped it long after `.shipped.json`.
             removeSibling = false;
             writeAtomic(`${home}/${sibling}`, shipped);
             process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
             const stale = staleKept(dir, name, current, shipped);
             if (stale !== null) process.stdout.write(`${stale}\n`);
+            if ((dir === "standards" || dir === "prompts") && current.toString("utf-8").includes("tasks.md")) {
+              process.stdout.write(`${rel} still names tasks.md: theway now keeps tasks in change.yaml; compare it with ${sibling}\n`);
+            }
           } else if (isShared) {
             removeSibling = false;
             record = false;

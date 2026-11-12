@@ -21,7 +21,7 @@ workflow_steps:
   - "5. Plan the regression test: it fails on the base commit for the reason in Root Cause, and passes with the fix"
   - "6. Analyze each TAMM dimension for Medium/High risks only"
   - "7. Define clear scope boundaries (in/out of scope)"
-  - "8. Write the Success Criteria, starting with the two fixed criteria; task 1 of tasks.md writes the regression test"
+  - "8. Write the Success Criteria, starting with the two fixed criteria; task 1 of change.yaml writes the regression test"
 best_practices:
   - "Fix the cause the evidence shows, not the first place the symptom appears"
   - "Keep the fix to the bug: unrelated cleanups belong in another change"
@@ -108,7 +108,7 @@ The reproduction is a command that was run, with the output it printed. Reasonin
 
 ## Implementation
 
-Task 1 of `tasks.md` writes the regression test; the fix follows. Re-running the reproduction is part of Verify, not a task.
+Task 1 of `change.yaml` writes the regression test; the fix follows. Re-running the reproduction is part of Verify, not a task.
 
 **Success Criteria:**
 

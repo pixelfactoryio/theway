@@ -46,12 +46,11 @@ For each template below, read the template, follow its frontmatter instructions 
 | Template | Output |
 |----------|--------|
 | `prompts/spec-template.md`, or `prompts/fix-spec-template.md` for a `fix-` ID | `spec.md` |
-| `prompts/tasks-template.md` | `tasks.md` |
+| `prompts/change-template.md` | `change.yaml` |
+
+After writing `change.yaml`, run `theway change <change-id>` and fix the file from the error lines it prints until it exits 0.
 
 A `fix-` ID uses `prompts/fix-spec-template.md`; every other verb uses `prompts/spec-template.md`. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.
-
-For a series, each member's `spec.md` carries one line directly under its H1 title:
-`**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)` — `NN` is the member's ordinal from `next-id`, `TOTAL` the last ordinal it printed; the `01` member states no dependency.
 
 ## Optional technical design
 

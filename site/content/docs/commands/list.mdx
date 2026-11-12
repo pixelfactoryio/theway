@@ -41,11 +41,13 @@ It runs the CLI, which derives the [project key](../concepts/changes.mdx#project
 theway list
 ```
 
+For each change shown as `invalid: …`, it runs [`theway change <change-id>`](../cli.mdx#change) and shows the error lines it prints; it does not edit the change's `change.yaml` unless you ask.
+
 ## Output
 
 Each line of `theway list`, as in the example above:
 
-- An active change shows its number of `.md` files and its ticked numbered tasks out of all numbered tasks.
+- An active change shows its number of files (every regular, non-hidden file in its folder) and its tasks done out of all the tasks of its `change.yaml`, or `invalid: <error>` when that file is missing or invalid.
 - Archived changes are listed by folder name.
 
 See [`theway list`](../cli.mdx#list).

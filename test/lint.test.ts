@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { checkChange } from "../src/core/change";
 import { compactWorkflow } from "../src/core/workflow";
 import { buildProgram } from "../src/program";
 
@@ -194,18 +196,19 @@ test("plugin/ and src/ name no path of the old layout, except the migration in s
 });
 
 test("every spawned agent gets the Authority rule", () => {
-  expect(read(join(PLUGIN, "home", "standards", "interaction.md"))).toContain("\n## Authority\n");
-  expect(read(join(COMMANDS, "workflow.md"))).toContain("`## Authority` section of `<home>/standards/interaction.md`");
-  expect(read(join(COMMANDS, "workflow.md"))).toContain("`theway authority`");
+  const authority = read(join(STANDARDS, "authority.md"));
+  expect(authority).toStartWith("# Authority\n\n- ");
+  expect(read(join(STANDARDS, "interaction.md"))).not.toContain("Authority");
+  expect(read(join(COMMANDS, "workflow.md"))).toContain(
+    "Run `theway authority`: it prints the authority, `<home>/standards/authority.md`, or the shipped `<home>/standards/authority.default.md`",
+  );
   // The engine puts the authority text first in every prompt, the critics' included.
   expect(read(PIPELINE)).toContain("args.authority.trimEnd()");
   for (const f of ["archive.md", "workflow.md", "document.md"]) {
-    expect(read(join(COMMANDS, f))).toContain("`<home>/standards/interaction.md`");
+    expect(read(join(COMMANDS, f))).toContain("Follow `<home>/standards/interaction.md` (exploration and reporting) and the text `theway authority` prints.");
   }
-  // The Authority list names theway's own prompts, steps and workflows.
-  expect(section(read(join(PLUGIN, "home", "standards", "interaction.md")), "Authority")).toContain(
-    "theway's own `config.yaml`, standards, templates, prompts, steps and workflows under the theway home",
-  );
+  // The Authority list names theway's own prompts and workflows.
+  expect(authority).toContain("theway's own `config.yaml`, standards, templates, prompts and workflows under the theway home");
 });
 
 const TEMPLATES = join(PLUGIN, "home", "templates");
@@ -345,13 +348,15 @@ test("the light spec template has the spec template's frontmatter keys, the Mode
 test("engineering.md is the alias of /theway:workflow and keeps its frontmatter", () => {
   const text = read(join(COMMANDS, "engineering.md"));
   const [, front, body] = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/.exec(text) ?? [];
-  expect(front).toContain('description: "Write the spec and numbered tasks for a change');
+  expect(front).toContain('description: "Write the spec and ordered tasks for a change');
   expect(front).toContain("allowed-tools: Bash(theway:*)");
   expect(body?.trim()).toBe(
     [
       "# theway: Engineering",
       "",
       "`/theway:engineering [--light] <request>` is `/theway:workflow --workflow engineering <request>`, or `--workflow engineering-light <request>` when `--light` is given (anywhere in the arguments, counted once). Invoke the `theway:workflow` skill with the Skill tool and those arguments, then follow it.",
+      "",
+      "If the `theway:workflow` skill cannot be invoked, say so and stop: never do the request yourself.",
     ].join("\n"),
   );
 });
@@ -383,7 +388,7 @@ test("the develop standard has a Standards section and the Authority rule names 
   const headings = [...develop.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
   expect(headings.indexOf("Standards")).toBe(headings.indexOf("Implement") + 1);
   // The authority covers both standards folders.
-  const authority = section(read(join(STANDARDS, "interaction.md")), "Authority");
+  const authority = read(join(STANDARDS, "authority.md"));
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? "";
   for (const folder of ["`<home>/standards/`", "`<home>/projects/<key>/standards/`"]) expect(first).toContain(folder);
 });
@@ -418,7 +423,8 @@ const ENGINEERING_RULES: Record<string, string[]> = {
     "on `would go past -99`, stop and report it.",
     "- **Forbidden:** topic-word suffixes (`add-user-auth-login`), and mixing standalone and series IDs in one series.",
     "run `theway validate-id <change-id>` for a standalone change (`next-id` already validated a series' IDs)",
-    "`**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`",
+    "| `prompts/change-template.md` | `change.yaml` |",
+    "After writing `change.yaml`, run `theway change <change-id>` and fix the file from the error lines it prints until it exits 0.",
     "A request that contradicts a standard is an open question for the user.",
     "In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify.",
     "If needed, create `<change-dir>/design.md` for:",
@@ -431,7 +437,9 @@ const ENGINEERING_RULES: Record<string, string[]> = {
     "Adding something counts: a new response field, flag, option, config key or file key changes the contract, even when nothing existing breaks.",
     "`escalated: <what was found>; run /theway:engineering <request> without --light`",
     "never with `--series` (a light change is never a series member)",
-    "`spec.md` keeps the `**Mode:** light` line directly under its H1 title: `/theway:workflow` reads it.",
+    "`spec.md` keeps the `**Mode:** light` line directly under its H1 title: the change's prompts read it.",
+    "| `prompts/change-template.md` | `change.yaml` |",
+    "After writing `change.yaml`, run `theway change <change-id>` and fix the file from the error lines it prints until it exits 0.",
     "A light change has no `design.md`.",
   ],
   "spec-investigation.md": ["- **Not reproduced:**", "- **Possibly already covered:**", "- **Works as intended:**", "Reasoning about the code is not a reproduction."],
@@ -453,7 +461,13 @@ const ENGINEERING_RULES: Record<string, string[]> = {
     "`confirmed, settled`",
     "For a confirmed `decision`, give the question for the user.",
   ],
-  "fix-spec.md": ["Keep the files to the structure of their templates", "a confirmed decision is not yours to settle", "`${{ inputs.on_decision }}`"],
+  "fix-spec.md": [
+    "Keep the files to the structure of their templates",
+    "`prompts/change-template.md`",
+    "After editing a `change.yaml`, run `theway change <change-id>` and fix the file from the error lines it prints until it exits 0.",
+    "a confirmed decision is not yours to settle",
+    "`${{ inputs.on_decision }}`",
+  ],
   "grounding.md": [
     "Report claims that are wrong, unverified or contradicted by the current code.",
     "re-run the recorded reproduction as a single-question probe",
@@ -928,10 +942,44 @@ test("the git host headings: each prompt names its own", () => {
   }
 });
 
+test("the change template's example is a valid change.yaml with a task in block style, and the template keeps the spec template's frontmatter keys", () => {
+  const template = read(join(PROMPTS, "change-template.md"));
+  const example = /```yaml\n([\s\S]*?)```/.exec(template)?.[1] ?? "";
+  expect(example).toContain("text: >-\n");
+  expect(example).toContain("`Retry-After`");
+  const dir = mkdtempSync(join(tmpdir(), "theway-lint-"));
+  try {
+    writeFileSync(join(dir, "change.yaml"), example);
+    const c = checkChange(dir);
+    expect("change" in c && c.change.tasks.length).toBe(3);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const keys = (text: string) => [...(text.split("---")[1] ?? "").matchAll(/^([a-z_]+):/gm)].map((m) => m[1]);
+  expect(keys(template)).toEqual(keys(read(join(PROMPTS, "spec-template.md"))));
+});
+
+test("the develop standard ticks tasks with theway task done and keeps notes in notes.md", () => {
+  const develop = read(join(STANDARDS, "develop.md"));
+  for (const phrase of [
+    "`change.yaml` breaks it into tasks;",
+    "- Work through the tasks of `change.yaml`.",
+    "- Run `theway task done <change-id> <n>` once a task is done, and record anything you learn that the next person needs in `<change-dir>/notes.md`, created when first needed.",
+    "update `spec.md` (the decision and why) and the tasks of `change.yaml`, then run `theway change <change-id>`",
+  ]) {
+    expect(develop).toContain(phrase);
+  }
+  expect(develop).not.toContain("tasks.md");
+});
+
 test("the shipped prompts carry the rules the steps had", () => {
   const p = (f: string) => read(join(PROMPTS, f));
   expect(p("implement.md")).toContain("needs a decision the spec does not make, stop instead of redesigning");
   expect(p("implement.md")).toContain("For a fix change, run the regression check of `develop.md`");
+  expect(p("implement.md")).toContain("implement the tasks of `change.yaml`, in order");
+  expect(p("implement.md")).toContain("Run `theway task done <change-id> <n>` when a task is finished");
+  expect(p("implement.md")).toContain("in `<change-dir>/notes.md`, created when first needed");
+  expect(p("fix-review.md")).toContain("Write each finding and its fix in `<change-dir>/notes.md`, created when first needed.");
   expect(p("triage.md")).toContain("Look for no new problem");
   const fixCi = p("fix-ci.md");
   for (const marker of ["never diagnose from memory", "A failed check with no run ID is caused by this PR.", "**This PR causes it:**", "re-run the failed jobs of each failed run once"]) {

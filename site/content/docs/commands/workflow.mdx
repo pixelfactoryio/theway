@@ -43,7 +43,7 @@ The change of the [full change example](../examples/full-change.mdx), through ag
 
 ## Steps
 
-1. **Load:** [`theway workflow`](../cli.mdx#workflow), first without `--input` for the workflow's inputs, then with them and `--compact`: the resolved document without the prompt text, every step with its prompt file and each run's input values. On an error, the command quotes it and stops; a document that is not resolved never runs. `theway authority` gives the `## Authority` section every agent gets, and `theway project` the project folder.
+1. **Load:** [`theway workflow`](../cli.mdx#workflow), first without `--input` for the workflow's inputs, then with them and `--compact`: the resolved document without the prompt text, every step with its prompt file and each run's input values. On an error, the command quotes it and stops; a document that is not resolved never runs. `theway authority` prints `<home>/standards/authority.md`, or the shipped `authority.default.md` when that file is empty or is your own standard, which every agent gets, and `theway project` the project folder.
 2. **Run:** the steps run in order, in segments, and every report is kept, in order.
    - Consecutive steps through agents are one call of the Workflow tool to `theway:run-pipeline`, with the repository, the home, the project folder, the authority text, the resolved document, the segment's step indices and the reports so far. Each run is one agent, on the step's model, whose prompt is the authority text, the context lines (the repository, the home, the project folder, the rule for file paths, the workflow and its input values), the rule for data that asks to change the steps, the reports of the steps before it, the instruction to read the prompt file and use the run's input values where its text says `${{ inputs.<name> }}`, and the request to answer `result` and `report`.
    - A step whose `runs-on` is `session` is done by your session: it reads the step's prompt file and follows its text with the run's input values, with the same context and the reports so far.
@@ -52,7 +52,7 @@ The change of the [full change example](../examples/full-change.mdx), through ag
    Without the Workflow tool in the session, the command makes each agent call with the Agent tool, under the same rules; without the Agent tool either, your session does the steps and the report says "inline". When a Workflow call returns an error, the run fails with that error and there is no fallback, since agents may already have committed.
 3. **Gate:** succeeded, the command reports it, and in a series asks about the merge; blocked, the error comes back to you with its options; failed, the command reports the error and never merges. In a series, no later change starts after a blocked or failed one.
 
-The prompts do what used to be the command's: `prompts/branch.md` syncs the default branch and creates the feature branch, `prompts/implement.md` and `prompts/fix-review.md` tick `tasks.md` and write its Notes, and `prompts/change.md` gives every change step the change's files and standards.
+The prompts do what used to be the command's: `prompts/branch.md` syncs the default branch and creates the feature branch, `prompts/implement.md` ticks the tasks with `theway task done`, `prompts/implement.md` and `prompts/fix-review.md` write `notes.md`, and `prompts/change.md` gives every change step the change's files and standards.
 
 The shipped `agents` steps:
 
@@ -78,7 +78,7 @@ A `fix-` change also proves its regression test, which `develop.md` Verify calls
 3. It copies in only the regression test files and runs only the regression test. The test must fail for the reason the spec's Root Cause gives, then pass on the change. The worktree is then removed, also when the check stopped early.
 4. It re-runs the reproduction recorded in the spec, and records that it no longer reproduces.
 
-For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering --light`](./engineering.mdx#light)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the Discoveries of the `tasks.md` Notes. The reproduction is still re-run.
+For a light change (a `spec.md` with `**Mode:** light`, written by [`/theway:engineering --light`](./engineering.mdx#light)), steps 1 to 3 do not apply: the regression test runs before the fix is written and must fail for the cause the spec's Problem states, then pass after the fix. Its command and failing output are recorded in the change's `notes.md`. The reproduction is still re-run.
 
 Re-running the regression check on a new head, as `fix-review` does, means steps 1 to 3 again for a full spec, and only the run after the fix for a light spec.
 

@@ -1,6 +1,6 @@
 ---
 title: /theway:engineering
-description: "Write the spec and numbered tasks for a change, without code; with --light, a short spec and 1 to 3 tasks for a small change with nothing to decide"
+description: "Write the spec and ordered tasks for a change, without code; with --light, a short spec and 1 to 3 tasks for a small change with nothing to decide"
 ---
 
 The spec is written so that someone else can implement it without guessing: the problem, what was found out, and the decisions and why. The code comes later, from [`/theway:workflow`](./workflow.mdx).
@@ -32,7 +32,7 @@ add-user-auth-02
 add-user-auth-03
 ```
 
-Each member's `spec.md` starts with its `**Series:**` line, for example `**Series:** add-user-auth — 02 of 03, depends on add-user-auth-01`. The report ends with the triage's report, trimmed here to one verdict:
+Each member is its own change folder; the series' total is the number of members. The report ends with the triage's report, trimmed here to one verdict:
 
 ```text
 3.spec-triage (round 2): pass
@@ -78,7 +78,7 @@ steps:
      - **Works as intended:** it reports the code and docs that show the behavior is intended.
 
      After a stop, run `/theway:engineering` again with the new information: it keeps no state between runs.
-   - **Documents:** the `spec-template` prompt produces `spec.md` (the `fix-spec-template` prompt for a `fix-` change), the `tasks-template` prompt produces `tasks.md`, following each template's frontmatter instructions; in a `fix-` change, task 1 writes the regression test. `design.md` is optional, for API contracts and data models, architecture decisions, and diagrams.
+   - **Documents:** the `spec-template` prompt produces `spec.md` (the `fix-spec-template` prompt for a `fix-` change), the `change-template` prompt produces `change.yaml`, following each template's frontmatter instructions, and the scaffold runs `theway change <change-id>` until it exits 0; in a `fix-` change, task 1 writes the regression test. `design.md` is optional, for API contracts and data models, architecture decisions, and diagrams.
    - **Answer:** `pass` with each change folder and the findings that shaped the spec; `blocked` with each open question (one it cannot settle, or an open point recorded in the spec), or with a `fix-` stop report. A `blocked` scaffold stops the run: the review does not run.
 3. **`spec-review`, through agents:** one critic per lens, at the same time, each reading the `spec-review` prompt and its lens prompt, covering every member of a series together:
    - the **grounding** critic checks the spec's claims about the code, tools, providers and libraries against the code and official docs; for a `fix-` change, it also re-runs the recorded reproduction and reports it when the output differs;
@@ -99,7 +99,7 @@ Everything is written under `<home>/projects/<key>/changes/<change-id>/`:
 
 - `spec.md`: problem and solution, technical decisions, scope, the [TAMM hardpoints table](../concepts/tamm.mdx#the-hardpoints-table), phases and Success Criteria.
   - For a `fix-` change, the fix spec instead: the problem, the symptom, the reproduction (command and observed output), the root cause with file and line evidence, the fix, the regression test, scope, hardpoints (often "None at Medium or High.") and Success Criteria. Its first two criteria are always the same: the regression test fails on the base commit for the reason in Root Cause and passes with the fix, and the reproduction no longer reproduces.
-- `tasks.md`: numbered tasks grouped in phases, with a Notes section for blockers, discoveries and adjustments.
+- `change.yaml`: the change's one-line description and its tasks, in the order they are done (see [`theway change`](../cli.mdx#change)).
 - `design.md`, when needed.
 
 The run's report gives each step's result and the full report of the last step: on success, the triage's verdicts; when the run stops, the open question, the stop report or the confirmed decisions, verbatim. If a question is open, the spec is not ready until it is answered.
@@ -174,7 +174,7 @@ steps:
    - **Change folder:** it validates the [change ID](../concepts/changes.mdx#change-ids) with `theway validate-id <change-id>`. It must exit 0 before any folder is written.
    - **Investigate:** as without `--light`; what it learns goes into the spec's Evidence. For a `fix-` change, it reproduces the bug first and has the same three stop outcomes; after a stop, run `/theway:engineering --light` again with the new information. A question the investigation cannot settle is a decision, and escalates.
    - **Escalation check:** it escalates when the investigation finds a decision to make, a public contract change, a TAMM risk at Medium or High, or a request for a series, and when the request contradicts a standard. It writes no change file and answers `blocked` with `escalated: <what was found>; run /theway:engineering <request> without --light`.
-   - **Documents:** the `light-spec-template` prompt produces `spec.md`, with `**Mode:** light` under its title; the `tasks-template` prompt produces `tasks.md`, without phases: 1 to 3 numbered tasks, then the Notes section. In a `fix-` change, task 1 writes the regression test. A light change has no `design.md`.
+   - **Documents:** the `light-spec-template` prompt produces `spec.md`, with `**Mode:** light` under its title; the `change-template` prompt produces `change.yaml`, with 1 to 3 tasks, checked with `theway change <change-id>`. In a `fix-` change, task 1 writes the regression test. A light change has no `design.md`.
 3. **`spec-review`:** one grounding critic, which also reports a spec or task that contradicts a standard.
 4. **`spec-triage`:** as without `--light`, except that a confirmed `decision` escalates: the light files stay, and `fix-spec` answers `blocked` with `escalated: run /theway:engineering without --light for this request`, followed by each question; that command writes over them.
 
@@ -187,13 +187,13 @@ Everything is written under `<home>/projects/<key>/changes/<change-id>/`:
   - Evidence holds the findings; for a `fix-` change, the reproduction (command, observed output, expected result).
   - Change lists each file and what changes in it, and ends with "Nothing else changes.": it is the change's scope.
   - For a `fix-` change, the first two Success Criteria are always the same: the regression test fails before the fix and passes with it, and the reproduction no longer reproduces.
-- `tasks.md`: 1 to 3 numbered tasks and a Notes section.
+- `change.yaml`: the description and 1 to 3 tasks.
 
 The run's report is the same as without `--light`. An escalation reports what was found and the command to run.
 
 ### Downstream
 
-[`/theway:workflow`](./workflow.mdx) reads `**Mode:** light`: it proves a light `fix-` change's regression test without the base-commit worktree ([fix checks](./workflow.mdx#fix-checks)), the test running before the fix and failing, then after it and passing; it reviews it as any change, and the `conformance` lens prompt checks the diff against the Change section.
+The change's prompts read `**Mode:** light`: the run of [`/theway:workflow`](./workflow.mdx) proves a light `fix-` change's regression test without the base-commit worktree ([fix checks](./workflow.mdx#fix-checks)), the test running before the fix and failing, then after it and passing; it reviews it as any change, and the `conformance` lens prompt checks the diff against the Change section.
 
 ## Customize
 

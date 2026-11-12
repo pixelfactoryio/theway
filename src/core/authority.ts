@@ -1,34 +1,36 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readManifest } from "./init";
 import { thewayHome } from "./io";
 
-/** The `## Authority` section of a file, up to the next `## ` line, without trailing blank lines; `null` when the file is missing or has none. */
-function authoritySection(path: string): string | null {
+/** The text of a file without its trailing blank lines, ending with one newline; `null` when it cannot be read or holds only whitespace. */
+function wholeText(path: string): string | null {
   let text: string;
   try {
     text = readFileSync(path, "utf-8");
   } catch {
     return null;
   }
-  const lines = text.split("\n").map((l) => l.replace(/\r$/, ""));
-  const start = lines.indexOf("## Authority");
-  if (start === -1) return null;
-  const next = lines.findIndex((l, i) => i > start && l.startsWith("## "));
-  const body = lines.slice(start, next === -1 ? lines.length : next);
-  while (body.length > 1 && (body[body.length - 1] ?? "").trim() === "") body.pop();
-  return `${body.join("\n")}\n`;
+  if (text.trim() === "") return null;
+  const lines = text.split("\n");
+  while (lines.length > 1 && (lines[lines.length - 1] ?? "").trim() === "") lines.pop();
+  return `${lines.join("\n")}\n`;
 }
 
-/** `theway authority`: the `## Authority` section of `interaction.md`, else of `interaction.default.md`, to quote in agent prompts. */
+/**
+ * `theway authority`, to quote in agent prompts: `standards/authority.md` when `.shipped.json` lists it (else it is the
+ * user's own standard), then the shipped `standards/authority.default.md`; an empty file counts as missing.
+ */
 export function cmdAuthority(): number {
-  const dir = join(thewayHome(), "standards");
-  const section = authoritySection(join(dir, "interaction.md")) ?? authoritySection(join(dir, "interaction.default.md"));
-  if (section === null) {
-    process.stderr.write(
-      `theway: no ## Authority section in ${join(dir, "interaction.md")} or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`,
-    );
+  const home = thewayHome();
+  const dir = join(home, "standards");
+  const listed = "standards/authority.md" in (readManifest(home) ?? {});
+  const path = join(dir, listed ? "authority.md" : "authority.default.md");
+  const text = (listed ? wholeText(path) : null) ?? wholeText(join(dir, "authority.default.md"));
+  if (text === null) {
+    process.stderr.write(`theway: no ${path}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
     return 1;
   }
-  process.stdout.write(section);
+  process.stdout.write(text);
   return 0;
 }

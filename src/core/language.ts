@@ -71,7 +71,7 @@ function readText(path: string, overlay?: Overlay): string | null {
 }
 
 /** The YAML root of `text`, maps as `Map`, or the first line of the parser's error. */
-function parseYaml(text: string): { root: unknown } | { reason: string } {
+export function parseYaml(text: string): { root: unknown } | { reason: string } {
   try {
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
   } catch (e) {
@@ -147,18 +147,26 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
 }
 
 /**
+ * A prompt file's text with a leading BOM dropped and CRLF read as LF, its lines, and the index of the header's closing
+ * `---` line (`-1` when the file has no fenced header).
+ */
+function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
+  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const lines = text.split("\n");
+  const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
+  const end = fence(lines[0]) ? lines.findIndex((l, i) => i > 0 && fence(l)) : -1;
+  return { text, lines, end };
+}
+
+/**
  * Splits a prompt file into its header and its body. `header` is `null` when the text does not start with a `---` line
  * followed by a closing `---` line, or when that YAML is not a map holding a `description` key; `body` is then the
  * whole text. `headerErrors` holds the header rule errors as `<where>: <message>` lines, `[]` when `header` is `null`.
  */
 export function parsePromptFile(raw: string): { header: PromptHeader | null; headerErrors: string[]; body: string } {
   // A leading BOM is ignored and CRLF line endings read as LF, header and body alike.
-  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const { text, lines, end } = splitHeader(raw);
   const none = { header: null, headerErrors: [], body: text };
-  const lines = text.split("\n");
-  const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
-  if (!fence(lines[0])) return none;
-  const end = lines.findIndex((l, i) => i > 0 && fence(l));
   if (end === -1) return none;
   const parsed = parseYaml(lines.slice(1, end).join("\n"));
   if ("reason" in parsed || !isMap(parsed.root) || !parsed.root.has("description")) return none;
@@ -563,10 +571,15 @@ function scopedNames(
   ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+/** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta file can, a v1 file's `default:` is not read. */
+function isDefaultRoot(root: unknown): boolean {
+  return isMap(root) && root.get("version") === VERSION && root.get("default") === true;
+}
+
 /**
  * Every workflow file of a project and of the home, a project file hiding the global one of the same name, sorted by
- * name: its description (`null` when unreadable), its `default` (false for a file of another version), and the first error line of `resolveWorkflowFile`
- * when it does not resolve. A `.yaml` file whose stem is not a valid name is warned about and left out.
+ * name: its description (`null` when unreadable), its `default` (false for a file of another version), every error line of `resolveWorkflowFile`
+ * (the first also as `error`) and its resolved document (`null` when it does not resolve). A `.yaml` file whose stem is not a valid name is warned about and left out.
  */
 export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay?: Overlay): WorkflowFileItem[] {
   const found = scopedNames(home, key, "workflows", overlay, (path) => warn(relative(home, path), "not a valid workflow name"));
@@ -575,25 +588,25 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
     const parsed = text === null ? null : parseYaml(text);
     const root = parsed !== null && "root" in parsed ? parsed.root : null;
     const description = isMap(root) && nonEmpty(root.get("description")) ? (root.get("description") as string) : null;
-    // Only a theway.workflow/v1beta file can be the default: a v1 file's `default:` is not read.
-    const isDefault = isMap(root) && root.get("version") === VERSION && root.get("default") === true;
-    const item: WorkflowFileItem = { name, scope, description, default: isDefault };
+    const isDefault = isDefaultRoot(root);
     const result = resolveWorkflowFile(home, key, name, {}, overlay);
-    if ("errors" in result) item.error = result.errors[0] as string;
+    const errors = "errors" in result ? result.errors : [];
+    const item: WorkflowFileItem = { name, scope, description, default: isDefault, errors, doc: "doc" in result ? result.doc : null };
+    if (errors.length > 0) item.error = errors[0] as string;
     return item;
   });
 }
 
 /**
  * Every `.md` file of the project's and the home's `prompts/` folders, `.default.md` copies left out, a project file
- * hiding the global one, sorted by name: its header's description (else `null`), and `step`: whether it has a header
- * that passes the header rules.
+ * hiding the global one, sorted by name: its header's description (else `null`), `step`: whether it has a header
+ * that passes the header rules, and `error`: the first header rule error (`<where>: <message>`), `null` for none.
  */
 export function listPromptFiles(home: string, key: string, overlay?: Overlay): PromptFileItem[] {
   return scopedNames(home, key, "prompts", overlay).map(({ name, scope, path }): PromptFileItem => {
     const text = readText(path, overlay);
     const { header, headerErrors } = text === null ? { header: null, headerErrors: [] } : parsePromptFile(text);
     const description = header !== null && header.description !== "" ? header.description : null;
-    return { name, scope, description, step: header !== null && headerErrors.length === 0 };
+    return { name, scope, description, step: header !== null && headerErrors.length === 0, error: headerErrors[0] ?? null };
   });
 }

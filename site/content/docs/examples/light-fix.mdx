@@ -74,21 +74,18 @@ Nothing else changes.
 - [ ] `npm test` passes
 ````
 
-And `tasks.md`, with no phases:
+And `change.yaml`, with two tasks, the regression test first:
 
-```md
-# Implementation Tasks: Exempt /health with a query string from the rate limit
-
-- [ ] 1. In `test/app.test.js`, add "HTTP: /health with a query string is exempt": with `createApp({ rateLimit: { limit: 2 } })`, three `GET /health?probe=1` all return `200`
-- [ ] 2. In `src/app.js`, compute the path before `?` once and use it for the `/health` bypass and route; run `npm test`
-
-## Notes
-
-**Blockers:**
-
-**Discoveries:**
-
-**Adjustments:**
+```yaml
+version: theway.change/v1beta
+description: Exempt /health with a query string from the rate limit
+tasks:
+  - text: >-
+      In `test/app.test.js`, add "HTTP: /health with a query string is exempt": with
+      `createApp({ rateLimit: { limit: 2 } })`, three `GET /health?probe=1` all return `200`
+  - text: >-
+      In `src/app.js`, compute the path before `?` once and use it for the `/health` bypass
+      and route; run `npm test`
 ```
 
 The report ends with the outcome of the `spec-review` step, run with one grounding critic:
@@ -125,10 +122,9 @@ $ node --test --test-name-pattern="query string" test/
 ℹ fail 1
 ```
 
-It fails for the cause Problem states: the probes reach the limiter and miss the route. Task 2 wrote the fix, and the same command passed (`ℹ pass 1`). Both runs went into the Notes:
+It fails for the cause Problem states: the probes reach the limiter and miss the route. Task 2 wrote the fix, and the same command passed (`ℹ pass 1`). Both runs went into `notes.md`:
 
 ```md
-**Discoveries:**
 - Regression test before the fix: `node --test --test-name-pattern="query string" test/` failed with actual `[404, 404, 429]`, expected `[200, 200, 200]`.
 - After the fix: the same command passes (1 pass, 0 fail).
 ```
@@ -144,7 +140,7 @@ The report:
 ```text
 Tasks done: 2/2.
 Success Criteria:
-- Regression test fails before the fix and passes with it: yes, both runs recorded in Notes › Discoveries.
+- Regression test fails before the fix and passes with it: yes, both runs recorded in `notes.md`.
 - The reproduction no longer reproduces: the curl loop prints 61 200.
 - npm test passes: 11 tests, 11 pass.
 Deviations: none.

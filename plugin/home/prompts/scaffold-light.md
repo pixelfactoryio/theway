@@ -36,9 +36,11 @@ For each template below, read the template, follow its frontmatter instructions 
 | Template | Output |
 |----------|--------|
 | `prompts/light-spec-template.md` | `spec.md` |
-| `prompts/tasks-template.md` | `tasks.md` |
+| `prompts/change-template.md` | `change.yaml` |
 
-`spec.md` keeps the `**Mode:** light` line directly under its H1 title: `/theway:workflow` reads it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction. `tasks.md` follows the rule of `prompts/tasks-template.md` for a light change. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify. There is no series line and no fix spec template.
+After writing `change.yaml`, run `theway change <change-id>` and fix the file from the error lines it prints until it exits 0.
+
+`spec.md` keeps the `**Mode:** light` line directly under its H1 title: the change's prompts read it. For a `fix-` change, Problem states the cause with file:line evidence, and Evidence holds the reproduction. `change.yaml` follows the rule of `prompts/change-template.md` for a light change. In a `fix-` change, task 1 writes the regression test; re-running the reproduction is not a task, as it is part of Verify. There is no fix spec template.
 
 A light change has no `design.md`.
 

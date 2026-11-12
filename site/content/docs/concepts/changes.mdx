@@ -25,7 +25,7 @@ add-user-auth-03
 
 - [`theway next-id`](../cli.mdx#next-id) names the members of a new or continued series: it validates the series ID and prints the next free IDs, counting active and archived members. Existing folders are never renamed or renumbered.
 - With `--series`, `validate-id` rejects topic suffixes (`add-user-auth-login`), letter suffixes (`-a`, `-b`), unpadded numbers (`-1`), `-00` and double ordinals.
-- Each member's `spec.md` has a line under its title: `**Series:** <series-id> — NN of TOTAL, depends on <series-id>-(NN-1)`. The `01` member states no dependency.
+- A member is known by its folder name; the series' total is its highest ordinal. The scaffold writes every member of a series in one run.
 
 `/theway:workflow` takes the members in order. After each change, it asks you before merging the PR the run opened, and starts the next change once it is merged; when a run opened no PR, the series stops after that change.
 
@@ -49,13 +49,26 @@ Every project has a key, and its files live in `<home>/projects/<key>/`. The CLI
 ~/.theway/projects/<key>/changes/
 ├── add-redis-cache/
 │   ├── spec.md      # required: why, what, risks and Success Criteria
-│   ├── tasks.md     # required: numbered tasks
-│   └── design.md    # optional: contracts, data models, diagrams
+│   ├── change.yaml  # required: the description and the ordered tasks
+│   ├── design.md    # optional: contracts, data models, diagrams
+│   └── notes.md     # optional: what was learned while implementing
 └── archive/
     └── 2025-10-15-update-auth-middleware/
 ```
 
-In `tasks.md`, only numbered checkbox lines are tasks: `- [ ] 1. …` or `- [x] 2a. …`. Other checkboxes are not counted.
+`change.yaml` holds the change's one-line description and its tasks, in order; a task's number is its position, counted from 1:
+
+```yaml
+version: theway.change/v1beta
+description: Limit requests per API key with a token bucket
+tasks:
+  - text: Add a token bucket per API key, kept in memory
+    done: true
+  - text: Answer 429 with a `Retry-After` header when the bucket is empty
+  - text: Read the limit and the burst from the settings
+```
+
+The CLI validates it on every read: [`theway change`](../cli.mdx#change) checks a hand-edited file, and [`theway task done`](../cli.mdx#task-done) is how a task becomes done. `theway list` and `theway archive` report a missing or invalid `change.yaml` as invalid. `spec.md`, `design.md` and `notes.md` are prose: no command reads a line of them.
 
 ## Archive format
 

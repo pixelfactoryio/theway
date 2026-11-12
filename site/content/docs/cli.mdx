@@ -1,15 +1,17 @@
 ---
 title: CLI
-description: The theway command line and its fourteen subcommands.
+description: The theway command line and its fifteen subcommands.
 ---
 
-The `theway` program has fourteen subcommands: `install`, `uninstall`, `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id`, `next-id` and `dashboard`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has fifteen subcommands: `install`, `uninstall`, `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
 theway uninstall
 theway list [--project <key>]
 theway archive <change-id> [--force] [--project <key>]
+theway change <change-id> [--project <key>]
+theway task done <change-id> <n>... [--project <key>]
 theway path [<change-id>] [--verbose] [--project <key>]
 theway project [--project <key>]
 theway config [--project <key>]
@@ -19,7 +21,6 @@ theway workflow [<name>] [--input <name>=<value>]... [--compact] [--project <key
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
-theway dashboard [--port <n>]
 ```
 
 It needs Node.js 22.12 or later and exits 1 with a message on older versions.
@@ -81,7 +82,7 @@ Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway bin
 theway list
 ```
 
-Prints a header line, `theway changes — <key>`, then the active changes of the project, each with its number of `.md` files and its ticked numbered tasks out of all numbered tasks, then the archived change folders and a summary line. Only numbered checkbox lines in `tasks.md` (`N.` or `Na.`) count as tasks. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
+Prints a header line, `theway changes — <key>`, then the active changes of the project, then the archived change folders and a summary line. An active change is one line, `  <change-id> <files> files   <done>/<total> tasks done`, the ID padded to 20 characters: `<files>` counts every regular, non-hidden file directly in the change folder, and the tasks are those of its [`change.yaml`](#change). A change whose `change.yaml` is missing or invalid shows its first error in place of the count: `invalid: not found`, `invalid: version: must be theway.change/v1beta`. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
 
 A `--project` value must follow the rule of [`project`](#project), and a derived key must be at most 200 characters; otherwise it exits 1 with one line on stderr.
 
@@ -98,9 +99,106 @@ It exits 1 and moves nothing when:
 - the key is invalid (see [`project`](#project)) or `<change-id>` does not follow the rule of [`path`](#path);
 - the change folder does not exist;
 - the archive folder already exists;
-- `tasks.md` has unticked numbered tasks. It prints each one with its line number.
+- its `change.yaml` is invalid:
 
-`--force` archives despite unticked numbered tasks and prints them as a warning.
+  ```text
+  Error: <change-id> has an invalid change.yaml — not archiving.
+  changes/<change-id>/change.yaml: <where>: <message>
+  Fix it, or re-run with --force.
+  ```
+
+- a task of its `change.yaml` is open. It prints each one with its number and the first line of its text:
+
+  ```text
+  Error: <change-id> has open tasks — not archiving.
+  2. Answer 429 with a `Retry-After` header when the bucket is empty
+  Tick them with theway task done, or re-run with --force.
+  ```
+
+`--force` archives anyway and prints `WARNING: archiving with an invalid change.yaml (--force)`, or `WARNING: archiving with open tasks (--force):` followed by the open tasks.
+
+## change
+
+```bash
+theway change <change-id>
+```
+
+Validates `<home>/projects/<key>/changes/<change-id>/change.yaml`, the file that holds a change's description and its tasks:
+
+```yaml
+version: theway.change/v1beta
+description: Limit requests per API key with a token bucket
+tasks:
+  - text: Add a token bucket per API key, kept in memory
+    done: true
+  - text: Answer 429 with a `Retry-After` header when the bucket is empty
+  - text: Read the limit and the burst from the settings
+```
+
+| Where | Rule | Message |
+|---|---|---|
+| file | exists and is a YAML map | `not found` · `invalid YAML: <reason>` · `must be a map` |
+| any node | no anchor (`&name`) and no alias (`*name`) | `anchors and aliases are not allowed` |
+| `version` | required, exactly `theway.change/v1beta` | `must be theway.change/v1beta` |
+| `description` | required, a non-empty string on one line | `must be a non-empty string on one line` |
+| `tasks` | required, a list with at least one item | `must be a list with at least one task` |
+| `tasks[i]` | a map | `must be a map` |
+| `tasks[i].text` | required, a non-empty string | `must be a non-empty string` |
+| `tasks[i].done` | optional, `true` or `false`; absent means `false` | `must be true or false` |
+| any other key | at the root or in a task | `unknown key` |
+
+A task's number is its position in the list, counted from 1; `tasks[i]` in an error is counted from 0. A missing required key is reported as `<key>: is required`. Every error is reported, in the file's key order, then the missing keys.
+
+Anchors and aliases are checked first: each one gives its own line, in document order, and no other rule is checked. The line's `<where>` is the path of the node in the table above, never deeper: a map key takes the path of the map that holds it, and a node below a root key's value or below `tasks[i].<key>` the path of its nearest ancestor the table names (`description: [&a x]` gives `description`, `tasks[0].text: {k: &a v}` gives `tasks[0].text`). An anchor on the file's root map has no `<where>`: the line is `anchors and aliases are not allowed`.
+
+When the file is valid, it prints the change as JSON on stdout and exits 0:
+
+```json
+{
+  "id": "<change-id>",
+  "dir": "<change folder>",
+  "description": "…",
+  "tasks": [
+    {
+      "n": 1,
+      "text": "…",
+      "done": true
+    }
+  ]
+}
+```
+
+When it is not, it prints each error on stderr and exits 1, with nothing on stdout:
+
+```text
+theway: changes/<change-id>/change.yaml: not found
+theway: changes/<change-id>/change.yaml: tasks[1].done: must be true or false
+```
+
+The scaffold and `fix-spec` run it after writing a `change.yaml`, and fix the file until it exits 0. The key and the change ID follow the rules of [`archive`](#archive).
+
+## task done
+
+```bash
+theway task done <change-id> <n>...
+```
+
+Ticks the tasks numbered `<n>` of the change's `change.yaml`: it sets `done: true` on each and keeps the rest of the file (comments, key order, line endings and its mode). An inserted `done: true` line ends as the line it follows (`\r\n` in a CRLF file). A task already done stays done. It prints `<done>/<total> tasks done` and exits 0.
+
+It exits 1 and writes nothing when the file is invalid (with the error lines of [`change`](#change)), or with one line per bad argument, in the order given, when an argument is not a task number (digits not starting with `0`) or is greater than the number of tasks:
+
+```text
+theway: changes/<change-id>/change.yaml: task 01: not a task number
+theway: changes/<change-id>/change.yaml: task 9: no such task (1 to 3)
+```
+
+When the file or its folder cannot be written, it exits 1 with one line, the file left as it was:
+
+```text
+theway: changes/<change-id>/change.yaml: cannot write: EACCES: permission denied, access '<path>'
+```
+
+The implementer runs it when a task is finished. To undo a tick, edit `change.yaml`. `theway task` alone prints its help.
 
 ## path
 
@@ -154,7 +252,7 @@ The key is the project root's absolute path with every character outside `[A-Za-
 
 The root is resolved to its physical path (symlinks followed) before the key is built. A linked worktree of a `--separate-git-dir` repository and a submodule get their own worktree root, so they do not share the main repository's key. See [Project key](./concepts/changes.mdx#project-key).
 
-`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
+`--project <key>` replaces the derived key; no git command runs. Every subcommand that uses a project takes it: `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow` and `next-id`. It exits 1 with one line on stderr when:
 
 - the `--project` value is not letters, digits and `-`, 1 to 200 characters:
 
@@ -200,7 +298,7 @@ theway: warning: <file>: standards.<key> cannot be switched; ignored
 
 A `workflow` key, which earlier versions read for `workflow.defaults`, is an unknown key now: `theway: warning: config.yaml: unknown key workflow; ignored`. Set the value in the workflow file or in the prompt's header, and remove the key.
 
-The `standards` warnings name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name, or a convention standard (`commits`, `git_host`).
+The `standards` warnings name a `standards` key that no standard file of the project gives, and the key of a standard that cannot be switched: one that is always read (`interaction`, `develop`, `authority`, `tamm_framework`, `spec_review`, `spec_investigation`), unless the project's `<home>/projects/<key>/standards/` holds a file with that name (or, for `authority`, unless the global `authority.md` is one `.shipped.json` does not list, which makes it a user standard), or a convention standard (`commits`, `git_host`).
 
 It exits 1 and prints nothing on stdout when:
 
@@ -231,7 +329,7 @@ theway standards develop
 theway standards document
 ```
 
-Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/projects/<key>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed; `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
+Prints the absolute path of every enabled [standard](./concepts/standards.mdx) that applies to the phase, one per line: the regular `.md` files directly in `<home>/standards/`, then directly in `<home>/projects/<key>/standards/`, each group sorted by name. Subfolders and other files are ignored. In `<home>/standards/`, `interaction.md`, `develop.md`, `tamm-framework.md`, `spec-review.md` and `spec-investigation.md` are never listed, nor `authority.md` when `.shipped.json` lists `standards/authority.md` (one it does not list is your own standard, key `authority`, listed and switched like any other); `commits.md` and `git-host.md`, the [convention standards](./concepts/standards.mdx#convention-standards), are never listed from either folder; `core-principles.md`, `sre.md`, `web-development.md` and `quality.md` are the opt-in standards; the other files that `.shipped.json` lists as `standards/<name>`, and any `*.default.md` copy there, belong to theway and are not listed. A project file with the same name as a global one replaces it for the phases the project file applies to; for the other phases, the global file is printed as usual.
 
 - A standard, opt-in or yours, applies to the phases its `applies_to` frontmatter lists (`engineering`, `develop` and/or `document`), or to all three without one.
 - A standard is printed only when its effective `standards.<key>.enabled` is `true`: it computes the project's config as [`config`](#config) does, without printing its warnings. A missing `<home>/config.yaml` counts as empty, so the defaults apply: opt-in standards off, user standards on.
@@ -456,13 +554,21 @@ theway: --input change: required input is not given
 theway authority
 ```
 
-Prints the `## Authority` section of `<home>/standards/interaction.md`: from its heading up to the next `## ` heading or the end of the file, without trailing blank lines. When that file is missing or has no such section (an edited copy that install kept), it prints the section of `<home>/standards/interaction.default.md`. When neither has it, it exits 1:
+Prints the authority whole, without trailing blank lines. A file that is empty or holds only whitespace counts as missing.
 
-```text
-theway: no ## Authority section in <home>/standards/interaction.md or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
-```
+- When `.shipped.json` lists `standards/authority.md`, it prints `<home>/standards/authority.md`, else the shipped `<home>/standards/authority.default.md`. When neither can be printed, it exits 1:
 
-The commands that spawn agents quote its output verbatim in every agent prompt.
+  ```text
+  theway: no <home>/standards/authority.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
+  ```
+
+- When `.shipped.json` does not list it, `authority.md` is your own standard (see [`standards`](#standards)), and it prints `<home>/standards/authority.default.md` only. When that cannot be printed, it exits 1:
+
+  ```text
+  theway: no <home>/standards/authority.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins
+  ```
+
+The commands that spawn agents quote its output verbatim in every agent prompt, and `/theway:workflow`, `/theway:document` and `/theway:archive` follow it in the session.
 
 ## validate-id
 
@@ -516,70 +622,3 @@ add-user-auth-05
   ```
 
 `/theway:engineering` runs it to name the members of a new series.
-
-## dashboard
-
-```text
-theway dashboard [--port <n>]
-```
-
-Starts a local web view of the data home with two pages, Changes and Workflows. It prints one line with the address and runs until you stop it:
-
-```text
-theway dashboard: http://127.0.0.1:4870/
-```
-
-- It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
-- It reads the files on every request: coming back to the browser tab shows the files as they are now.
-- It answers `403` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`, so a web page cannot reach it through another host name. Its pages load no external script, style or font.
-- A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1:
-
-  ```text
-  theway: port 4870 is in use; pass --port <n>
-  ```
-
-  Any other error starting the server exits 1 with a `theway: <message>` line. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
-
-### Changes
-
-The Changes page, at `#/changes`, lists the active changes of every project on one page, one section per project, headed by the project's repository name (its full label shows when you point at it). A series is one row with its progress, `<done> of <total> done`, counting its archived members and its active members whose tasks are all done; select it to show its active members. Every other change is a row with its tasks done. Archived adds each project's archived changes, and the project menu shows one project.
-
-A change's page shows its tasks done, its PR link from the `**PR:**` line of its `tasks.md`, and, for a series member, every member of the series by ordinal, each linked to its page. Its `spec.md`, `tasks.md` and other Markdown files are rendered, one tab each.
-
-### Workflows
-
-The Workflows page, at `#/workflows`, lists the files where they live: the global files of `<home>/workflows/` and `<home>/prompts/`, then each project's own, marked `<project> only`. The list has three groups, each with its number of files: Workflows, Prompts (the prompt files a step can run: a header that passes the header rules) and Reference files (every other prompt file, read by prompts, not steps). The default workflow is marked `default`, and a workflow that does not resolve is marked `error`. Filter files, above the groups, keeps the files whose name contains what you type, in any case; Escape clears it. A group shows 8 files, and always the open one, until you select Show N more. On a wide window the list stays beside the page and scrolls on its own; on a narrow one, Files on the title row opens it.
-
-- A workflow's page draws its steps in order, as `theway workflow <name>` resolves them with no input: one numbered card per step with the prompt it runs (a link to its page), `agent · <model>` (or `agent` with no model) for a step an agent runs, or "your session" for a step that runs in your session, its matrix (`N copies at once` and each value), its on fail (the prompt it runs, then the step again, up to its tries) and its other inputs as written. Each badge says what it means when you point at it. Under the steps, one line says what every step answers: `pass`, `fail` or `blocked`; a fail with no on fail, and any blocked, stops the run. A workflow that does not resolve shows its error lines, each one that names a step under that step, with paths from the home (`prompts/<name>.md`); a `theway.workflow/v1` file says it is in the old format and must be rewritten. The right column gives its step defaults (where its steps run, Agents or Your session, unless a step sets its own, and how many steps do), its inputs and the file's path from the home (`~/.theway/…`), with the projects that override it.
-- A prompt's page shows "step prompt" for a step prompt and the model its header sets, its header errors when a step or an on fail uses it, its inputs (each required, or optional with its default), and its instructions, rendered. The right column gives the workflows that use it, with the step that does and how (`step N`, `on fail of step N`, `value in step N`), and the file's path.
-- Visual and YAML (Markdown for a prompt), on the title row, switch between the drawing and the file's text.
-
-### Editing a file
-
-Edit, on a file's title row, opens it in edit mode at its page with `/edit`: the title row marks it `editing`, the centre shows the file as written, and the right column holds the settings.
-
-- A workflow's steps are a timeline of cards, each with its prompt and its description, `N copies at once` for a matrix, its on fail and tries, and `agent · <model>` or "your session". Drag a card by its handle to move the step, or focus the handle and press Space or Enter, the arrow keys, then Space or Enter to drop it (Escape cancels). The `+` on the line between two cards and after the last card opens a menu of the step prompts the workflow can name (for a project workflow, the project's own, then the global ones it does not have); a new step writes each required input of its prompt as `${{ inputs.<name> }}` when the workflow declares an input of that name, else as `""`, which the check reports until you set it.
-- With no step selected, the right column holds the workflow's description, `default` and where its steps run, and its inputs: Add declares an optional input `input` (then `input2`, …) with the description "Describe this input.", to rename and rewrite. Select a step to remove it, move it up or down, change its prompt (the inputs the new prompt does not declare are dropped), set the inputs its prompt declares (the `{ }` menu inserts `${{ inputs.<name> }}`, or `${{ matrix.<key> }}` for a step with a matrix), its matrix (a key and one value per line), its on fail (a prompt, its inputs, its model, and tries) and its runs on and model. Changing a step's prompt, or the prompt of its on fail, names the workflow's input of the same name for each required input not set yet. Turning on fail on writes `tries: 1` and the first step prompt by name that needs no input; turning it off removes both. On a narrow window, selecting a step scrolls to its settings, and Back to steps scrolls back to its card.
-- A prompt's body is one text area; the right column holds its header's description, model and inputs. A file with no header, a reference file, has "Use as a step", which adds a header with an empty description to fill in.
-- Ctrl or Cmd and Z undoes an edit, with Shift it redoes it.
-- Your edits are kept while you move between pages, and the file list marks an edited file `edited`; they are lost on reload, which the browser asks you to confirm. The browser's Back leaves edit mode; the page of a file with edits then says "You have unsaved changes to this file", with Continue editing and Discard changes. Close leaves edit mode while there is no edit.
-
-New workflow and New prompt, above the list, open the New dialog: the kind, a name, a description, what to start from and where the file goes (all projects, or one project). Create says under a field what it is missing. Empty starts a workflow with `runs-on: agents` and one step on `prompts/implement.md` (or the first step prompt by name when there is no such prompt), and a prompt with `model: opus` and a one-line body; A copy of a file keeps its text and sets the description. The new file opens in edit mode and nothing is written until you save it. A project file may take the name of a global one: it then replaces it for that project.
-
-The bar at the bottom of the centre, shown while a file has unsaved edits or is new, says `Unsaved changes` or `New file`, gives the check's result and what a save affects (for a prompt, the workflows that use it), and holds Discard changes, Diff, which shows the diff of your edits in place of the editor until Back to editing, and Save. Each edit is checked 400 ms after you stop: the resolver of `theway workflow` runs over the edited text without writing it, in every context that reads the file. A project file is checked in its project; a global file is checked on its own and in every project that has no file of its name, and a line from a project is prefixed with its label. A prompt is checked through every workflow that names it. Each error line that names a field of the open file shows under that field, in plain words (`Tries: use a number from 1 to 10`, `change: required, not set`); the bar gives their number, and Show first selects the step of the first one and focuses its field. A step named by an error line is outlined and marked; any other line is listed in the bar as it is. Only the open file's edits are checked: a workflow that needs an unsaved prompt reports an error until that prompt is saved.
-
-Save is enabled when the check passes, and writes that one file where it lives: `<home>/<kind>/<name><ext>` for a global file, `<home>/projects/<key>/<kind>/<name><ext>` for a project's; `Saved <name>` and what it affects then show for a few seconds, with a link to its Versions. Discard changes drops your edits after a confirm. The server checks the text again before writing and refuses it with the error lines (`422`). A file already holding the text is not written.
-
-Each workflow edit goes through the YAML document of the file, so the text of every comment is kept; a comment's place may change. A header edit leaves the body byte for byte, and a body edit the header and the blank line after it.
-
-The write requests need an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and an `X-Theway-Token` header holding a random token the server makes when it starts and puts in its page; any other request gets `403`.
-
-When the file changed on disk since you opened it, Save gets `409` and writes nothing: the bar says "Changed on disk since you opened it.", and Reload drops your edits and loads the file as it is now.
-
-### Versions
-
-Before a save from the dashboard replaces a file, the text it held is kept as a version: under `<home>/history/global/<kind>/<name>/` for a global file, `<home>/history/projects/<key>/<kind>/<name>/` for a project's. A file keeps its 20 newest versions; a new file has none until its first save replaces it. Only dashboard saves are recorded: a file you change by hand, through an agent or with `theway install` gets no version, though the next dashboard save keeps whatever was on disk. Nothing else reads `<home>/history/`, so deleting it is safe and only drops the versions.
-
-Versions, on a file's title row, lists them in the right column at its page with `/versions`: Current, then each version by its date and time to the second, newest first, each with the lines it adds and removes against the one before it (`+N −M lines`), then As shipped for a global file that theway shipped and you edited, when the home holds its shipped text (`<name>.default.yaml` or `<name>.default.md`). Select a version to see the diff from it to the current file, under Changes, or to draw it as the file's page draws it, under Content.
-
-Restore puts the version's text, byte for byte, in the editor as your edits, after a confirm when the file already has edits; it is disabled when the version holds the current text. Nothing is written until you save it, through the same check as any edit, and that save keeps the replaced text as a version in turn.

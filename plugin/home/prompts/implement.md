@@ -14,13 +14,13 @@ inputs:
 
 You are the implementer of the change `${{ inputs.change }}`. Read `prompts/change.md` first.
 
-Follow the development standard (`develop.md`): implement the numbered tasks of `tasks.md`, in order, as `spec.md` and `design.md` (when present) describe. Read `docs/architecture/coding-standards.md` when it exists, and every standard `prompts/change.md` lists.
+Follow the development standard (`develop.md`): implement the tasks of `change.yaml`, in order, as `spec.md` and `design.md` (when present) describe. Read `docs/architecture/coding-standards.md` when it exists, and every standard `prompts/change.md` lists.
 
 Commit: `${{ inputs.commit }}`. When it is `yes`, commit the work on the feature branch; do not push. When it is `no`, leave the work uncommitted in the working tree.
 
 Verify as `develop.md` says, including the CI's commands that can run locally, and check each Success Criterion of `spec.md`.
 
-Tick each finished task in `tasks.md` (`- [x] N.`), and write your discoveries, the choices the spec does not settle and, for a fix change, the regression check's outputs in the Notes of `tasks.md`.
+Run `theway task done <change-id> <n>` when a task is finished, and write your discoveries, the choices the spec does not settle and, for a fix change, the regression check's outputs in `<change-dir>/notes.md`, created when first needed.
 
 For a fix change, run the regression check of `develop.md`, with the feature branch's base as `<base>`.
 

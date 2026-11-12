@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeIfEmpty } from "../src/core/io";
@@ -33,22 +33,282 @@ afterEach(() => {
   for (const d of homes.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-test("list and archive agree on a last task line without a newline", () => {
+/** A `change.yaml` with one task per entry of `done`, ticked when true. */
+function changeYaml(done: boolean[]): string {
+  const tasks = done.map((d, i) => `  - text: task ${i + 1}\n${d ? "    done: true\n" : ""}`).join("");
+  return `version: theway.change/v1beta\ndescription: Do the thing\ntasks:\n${tasks}`;
+}
+
+const EXAMPLE = `version: theway.change/v1beta
+description: Limit requests per API key with a token bucket
+tasks:
+  - text: Add a token bucket per API key, kept in memory
+    done: true
+  - text: Answer 429 with a \`Retry-After\` header when the bucket is empty
+  - text: Read the limit and the burst from the settings
+`;
+
+test("change prints the change of a valid change.yaml as JSON, tasks numbered from 1", () => {
   const dir = home();
-  put(join(dir, "projects", "p", "changes", "add-x", "tasks.md"), "- [x] 1. a\n- [ ] Ready to archive\n- [ ] 2. b");
-  expect(run(dir, "list", "--project", "p").stdout).toContain("1/2 tasks done");
+  const folder = join(dir, "projects", "p", "changes", "add-x");
+  put(join(folder, "change.yaml"), EXAMPLE);
+  const res = run(dir, "change", "--project", "p", "add-x");
+  expect([res.status, res.stderr]).toEqual([0, ""]);
+  expect(JSON.parse(res.stdout)).toEqual({
+    id: "add-x",
+    dir: folder,
+    description: "Limit requests per API key with a token bucket",
+    tasks: [
+      { n: 1, text: "Add a token bucket per API key, kept in memory", done: true },
+      { n: 2, text: "Answer 429 with a `Retry-After` header when the bucket is empty", done: false },
+      { n: 3, text: "Read the limit and the burst from the settings", done: false },
+    ],
+  });
+});
+
+test("change prints one error line per broken rule and exits 1 with nothing on stdout", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  const v = "version: theway.change/v1beta\n";
+  const d = "description: Do it\n";
+  const t = "tasks:\n  - text: a\n";
+  const cases: [string | null, string[]][] = [
+    [null, ["not found"]],
+    ["a: [\n", ["invalid YAML: "]],
+    ["- a\n", ["must be a map"]],
+    ["", ["must be a map"]],
+    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta"]],
+    [`${v}description: ""\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}description: "a\\nb"\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}${d}tasks: []\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks: a\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks:\n  - text: a\n  - b\n`, ["tasks[1]: must be a map"]],
+    [`${v}${d}tasks:\n  - text: ""\n`, ["tasks[0].text: must be a non-empty string"]],
+    [`${v}${d}tasks:\n  - done: true\n`, ["tasks[0].text: is required"]],
+    [`${v}${d}tasks:\n  - text: a\n    done: "yes"\n`, ["tasks[0].done: must be true or false"]],
+    [`${v}${d}tasks:\n  - text: a\n    owner: me\n`, ["tasks[0].owner: unknown key"]],
+    [`${v}${d}${t}phase: 1\n`, ["phase: unknown key"]],
+    [`${d}${t}`, ["version: is required"]],
+    [`${v}${t}`, ["description: is required"]],
+    [`${v}${d}`, ["tasks: is required"]],
+    [`phase: 1\nversion: x\n${t}`, ["phase: unknown key", "version: must be theway.change/v1beta", "description: is required"]],
+  ];
+  for (const [text, issues] of cases) {
+    rmSync(file, { force: true });
+    if (text !== null) put(file, text);
+    const res = run(dir, "change", "--project", "p", "add-x");
+    expect([res.status, res.stdout]).toEqual([1, ""]);
+    const lines = res.stderr.trimEnd().split("\n");
+    expect(lines.length).toBe(issues.length);
+    issues.forEach((issue, i) => expect(lines[i]).toStartWith(`theway: changes/add-x/change.yaml: ${issue}`));
+    if (!issues[0]?.startsWith("invalid YAML")) expect(res.stderr).toBe(issues.map((i) => `theway: changes/add-x/change.yaml: ${i}\n`).join(""));
+  }
+});
+
+test("task done ticks the named tasks, keeps the rest of the file's text and refuses an unknown number without writing", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  const long = "Read the limit and the burst from the settings, then document both of them in the README of the service";
+  const text = `version: theway.change/v1beta
+# The work, in order.
+description: Limit requests per API key
+tasks:
+  - text: '${long}'
+  - text: Answer 429 with a \`Retry-After\` header
+  - text: "Keep the bucket in memory"
+`;
+  put(file, text);
+  const bad = run(dir, "task", "done", "--project", "p", "add-x", "9");
+  expect([bad.status, bad.stdout, bad.stderr]).toEqual([1, "", "theway: changes/add-x/change.yaml: task 9: no such task (1 to 3)\n"]);
+  const partial = run(dir, "task", "done", "--project", "p", "add-x", "1", "9");
+  expect(partial.status).toBe(1);
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "0").stderr).toBe("theway: changes/add-x/change.yaml: task 0: not a task number\n");
+  expect(readFileSync(file, "utf-8")).toBe(text);
+
+  const res = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "2/3 tasks done\n", ""]);
+  expect(readFileSync(file, "utf-8")).toBe(
+    text
+      .replace("header\n", "header\n    done: true\n")
+      .replace('"Keep the bucket in memory"\n', '"Keep the bucket in memory"\n    done: true\n'),
+  );
+  const again = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
+  expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"]);
+
+  const styles = `version: theway.change/v1beta
+description: Limit requests per API key
+tasks:
+  - text: >-
+      A long task that wraps over several lines because it is long, with \`backticks\`
+      and a second line here
+  - text: Read the limit and
+      the burst from the settings
+  - text: "double quoted
+      folded"
+  - text: b   # trailing
+  - text: c
+    done: false   # not yet
+  - {text: d}
+  - text: >-
+      last task in block style
+      at the end of the file`;
+  put(file, styles);
+  const ticked = run(dir, "task", "done", "--project", "p", "add-x", "1", "4", "5", "6", "7");
+  expect([ticked.status, ticked.stdout, ticked.stderr]).toEqual([0, "5/7 tasks done\n", ""]);
+  expect(readFileSync(file, "utf-8")).toBe(
+    styles
+      .replace("second line here\n", "second line here\n    done: true\n")
+      .replace("b   # trailing\n", "b   # trailing\n    done: true\n")
+      .replace("done: false   # not yet", "done: true   # not yet")
+      .replace("{text: d}", "{text: d, done: true}")
+      .replace("at the end of the file", "at the end of the file\n    done: true"),
+  );
+
+  put(file, "version: x\n");
+  const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1");
+  expect([invalid.status, invalid.stderr]).toEqual([
+    1,
+    "theway: changes/add-x/change.yaml: version: must be theway.change/v1beta\ntheway: changes/add-x/change.yaml: description: is required\ntheway: changes/add-x/change.yaml: tasks: is required\n",
+  ]);
+  expect(readFileSync(file, "utf-8")).toBe("version: x\n");
+});
+
+test("change, task done, list and archive refuse anchors and aliases, one line per use in document order", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "al", "change.yaml");
+  const text = "version: theway.change/v1beta\ndescription: Do a thing\ntasks:\n  - &t\n    text: one\n  - *t\n  - text: three\n";
+  put(file, text);
+  const lines = "theway: changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\ntheway: changes/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n";
+  for (const args of [["change", "al"], ["task", "done", "al", "2"]]) {
+    const res = run(dir, ...args, "--project", "p");
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", lines]);
+  }
+  expect(readFileSync(file, "utf-8")).toBe(text);
+  expect(run(dir, "list", "--project", "p").stdout).toContain("invalid: tasks[0]: anchors and aliases are not allowed");
+  const archived = run(dir, "archive", "--project", "p", "al");
+  expect(archived.status).toBe(1);
+  expect(archived.stderr).toContain("changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\nchanges/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n");
+
+  const v = "version: theway.change/v1beta\n";
+  const cases: [string, string[]][] = [
+    [`${v}description: Do it\ntasks: &s\n  - text: a\n`, ["tasks: anchors and aliases are not allowed"]],
+    [`&r\n${v}description: Do it\ntasks:\n  - text: a\n`, ["anchors and aliases are not allowed"]],
+    [`${v}description: [&a x]\ntasks:\n  - text: a\n`, ["description: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\ntasks:\n  - text: {k: &a v}\n`, ["tasks[0].text: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\ntasks:\n  - &k text: a\n`, ["tasks[0]: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\nfoo: {b: &a c}\ntasks:\n  - text: a\n`, ["foo: anchors and aliases are not allowed"]],
+    [`&k version: theway.change/v1beta\ndescription: *k\ntasks:\n  - text: a\n`, ["anchors and aliases are not allowed", "description: anchors and aliases are not allowed"]],
+  ];
+  for (const [t, issues] of cases) {
+    put(file, t);
+    const res = run(dir, "change", "--project", "p", "al");
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", issues.map((i) => `theway: changes/al/change.yaml: ${i}\n`).join("")]);
+  }
+});
+
+test("task done refuses an argument that is not a task number, one line per argument in order, without writing", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "t", "change.yaml");
+  const text = changeYaml([false, false, false]);
+  put(file, text);
+  const bad = run(dir, "task", "done", "--project", "p", "t", "01", "+1", "1e0", "0");
+  expect([bad.status, bad.stdout]).toEqual([1, ""]);
+  expect(bad.stderr).toBe(["01", "+1", "1e0", "0"].map((n) => `theway: changes/t/change.yaml: task ${n}: not a task number\n`).join(""));
+  expect(run(dir, "task", "done", "--project", "p", "t", "--", " 1").stderr).toBe("theway: changes/t/change.yaml: task  1: not a task number\n");
+  expect(run(dir, "task", "done", "--project", "p", "t", "1", "4").stderr).toBe("theway: changes/t/change.yaml: task 4: no such task (1 to 3)\n");
+  expect(readFileSync(file, "utf-8")).toBe(text);
+});
+
+test("task done ends the inserted line as the line it follows", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n  - text: two\r\n");
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true\r\n  - text: two\r\n");
+  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one");
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true");
+});
+
+test("task done keeps the file's mode", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  put(file, changeYaml([false, false]));
+  chmodSync(file, 0o600);
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(statSync(file).mode & 0o777).toBe(0o600);
+});
+
+test.skipIf(process.getuid?.() === 0)("task done reports a file or folder it cannot write in one line and leaves the file as it was", () => {
+  const dir = home();
+  const ro = join(dir, "projects", "p", "changes", "ro", "change.yaml");
+  const text = changeYaml([false, false]);
+  put(ro, text);
+  chmodSync(ro, 0o444);
+  const res = run(dir, "task", "done", "--project", "p", "ro", "1");
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toStartWith(`theway: changes/ro/change.yaml: cannot write: EACCES: permission denied, access '`);
+  expect(res.stderr.split("\n")).toHaveLength(2);
+  expect(readFileSync(ro, "utf-8")).toBe(text);
+  expect(statSync(ro).mode & 0o777).toBe(0o444);
+
+  const folder = join(dir, "projects", "p", "changes", "rd");
+  put(join(folder, "change.yaml"), text);
+  chmodSync(folder, 0o555);
+  try {
+    const rd = run(dir, "task", "done", "--project", "p", "rd", "1");
+    expect([rd.status, rd.stdout]).toEqual([1, ""]);
+    expect(rd.stderr).toStartWith(`theway: changes/rd/change.yaml: cannot write: EACCES: permission denied, open '`);
+    expect(rd.stderr.split("\n")).toHaveLength(2);
+    expect(readFileSync(join(folder, "change.yaml"), "utf-8")).toBe(text);
+    expect(readdirSync(folder)).toEqual(["change.yaml"]);
+  } finally {
+    chmodSync(folder, 0o755);
+  }
+});
+
+test("change and task done validate the project and the change id", () => {
+  const dir = home();
+  for (const args of [["change"], ["task", "done"]]) {
+    const extra = args[0] === "task" ? ["1"] : [];
+    expect(run(dir, ...args, "--project", "a/b", "add-x", ...extra).stderr).toBe(`theway: invalid project 'a/b': ${PROJECT_REASON}\n`);
+    expect(run(dir, ...args, "--project", "p", "..", ...extra).stderr).toBe(`theway: invalid change id '..': ${CHANGE_ID_REASON}\n`);
+  }
+  const help = run(dir, "task");
+  expect(help.stderr).toContain("Usage: theway task");
+});
+
+test("archive refuses open tasks and an invalid change.yaml, and archives either with --force", () => {
+  const dir = home();
+  const changes = join(dir, "projects", "p", "changes");
+  put(join(changes, "add-x", "change.yaml"), changeYaml([true, false]).replace("task 2", ">-\n      task 2\n      second line"));
   const res = run(dir, "archive", "--project", "p", "add-x");
-  expect(res.status).toBe(1);
-  expect(res.stderr).toContain("3:- [ ] 2. b");
-  expect(res.stderr).not.toContain("Ready to archive");
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toBe("Error: add-x has open tasks — not archiving.\n2. task 2 second line\nTick them with theway task done, or re-run with --force.\n");
+  const forced = run(dir, "archive", "--project", "p", "add-x", "--force");
+  expect(forced.status).toBe(0);
+  expect(forced.stderr).toBe("WARNING: archiving with open tasks (--force):\n2. task 2 second line\n");
+
+  put(join(changes, "add-y", "spec.md"), "# y\n");
+  const invalid = run(dir, "archive", "--project", "p", "add-y");
+  expect([invalid.status, invalid.stdout]).toEqual([1, ""]);
+  expect(invalid.stderr).toBe("Error: add-y has an invalid change.yaml — not archiving.\nchanges/add-y/change.yaml: not found\nFix it, or re-run with --force.\n");
+  const forcedInvalid = run(dir, "archive", "--project", "p", "add-y", "--force");
+  expect([forcedInvalid.status, forcedInvalid.stderr]).toEqual([0, "WARNING: archiving with an invalid change.yaml (--force)\n"]);
+  expect(existsSync(join(changes, "add-y"))).toBe(false);
+
+  put(join(changes, "add-z", "change.yaml"), changeYaml([true]));
+  const done = run(dir, "archive", "--project", "p", "add-z");
+  expect([done.status, done.stderr]).toEqual([0, ""]);
+  expect(done.stdout).toStartWith(`Archived: ${join(changes, "archive")}/`);
 });
 
 test("archive refuses an id already archived today", () => {
   const dir = home();
-  const spec = join(dir, "projects", "p", "changes", "add-y", "spec.md");
-  put(spec, "# y\n");
+  const spec = join(dir, "projects", "p", "changes", "add-y", "change.yaml");
+  put(spec, changeYaml([true]));
   expect(run(dir, "archive", "--project", "p", "add-y").status).toBe(0);
-  put(spec, "# y\n");
+  put(spec, changeYaml([true]));
   const res = run(dir, "archive", "--project", "p", "add-y");
   expect(res.status).toBe(1);
   expect(res.stderr).toContain("already exists — not archiving.");
@@ -66,13 +326,17 @@ test("list prints the active and archived changes of a project", () => {
   const spec = "# Spec Analysis: Alpha\n\n**Problem:** Alpha problem.\n";
   const changes = join(dir, "projects", "p", "changes");
   put(join(changes, "add-alpha", "spec.md"), spec);
-  put(join(changes, "add-alpha", "tasks.md"), "- [x] 1. a\n- [x] 2. b\n- [ ] 3. c\n");
+  put(join(changes, "add-alpha", "change.yaml"), changeYaml([true, false, false]));
+  put(join(changes, "add-alpha", "notes.txt"), "n\n");
+  put(join(changes, "add-alpha", ".hidden"), "h\n");
+  mkdirSync(join(changes, "add-alpha", "sub"));
   put(join(changes, "update-beta", "spec.md"), spec);
+  put(join(changes, "update-gone", "change.yaml"), "version: x\ndescription: d\ntasks: [{text: a}]\n");
   put(join(changes, "archive", "2026-01-10-add-gamma", "spec.md"), spec);
   const res = run(dir, "list", "--project", "p");
   expect(res.status).toBe(0);
   expect(res.stdout).toBe(
-    "theway changes — p\n\nActive changes\n\n  add-alpha            2 files   2/3 tasks done\n  update-beta          1 files   0/0 tasks done\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 2 active change(s), 1 archived.\n",
+    "theway changes — p\n\nActive changes\n\n  add-alpha            3 files   1/3 tasks done\n  update-beta          1 files   invalid: not found\n  update-gone          1 files   invalid: version: must be theway.change/v1beta\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 3 active change(s), 1 archived.\n",
   );
 });
 
@@ -220,7 +484,7 @@ test("changeIdReason and projectReason reject a NUL byte and accept allowlisted 
 test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
   const root = home();
   const data = join(root, "data");
-  put(join(data, "projects", "p", "changes", "add-x", "tasks.md"), "- [x] 1. a\n");
+  put(join(data, "projects", "p", "changes", "add-x", "change.yaml"), changeYaml([true]));
   put(join(root, "config", "theway", "home"), `${data}\n`);
   const res = spawnSync("node", [CLI, "list", "--project", "p"], {
     encoding: "utf-8",
@@ -832,14 +1096,33 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
-test("standards does not list the global interaction.md and develop.md, which .shipped.json does not list", () => {
+test("standards lists the global authority.md as a user standard unless .shipped.json lists it, never interaction.md and develop.md", () => {
   const dir = home();
   const g = join(dir, "standards");
-  put(join(dir, ".shipped.json"), "{}\n");
-  for (const name of ["interaction.md", "develop.md", "own.md"]) put(join(g, name), "x\n");
+  for (const name of ["interaction.md", "develop.md", "authority.md", "own.md"]) put(join(g, name), "x\n");
   put(join(dir, "config.yaml"), "");
-  const res = run(dir, "standards", "--project", "p", "engineering");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+  put(join(dir, ".shipped.json"), "{}\n");
+  const own = run(dir, "standards", "--project", "p", "engineering");
+  expect([own.status, own.stdout, own.stderr]).toEqual([0, `${join(g, "authority.md")}\n${join(g, "own.md")}\n`, ""]);
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
+  const listed = run(dir, "standards", "--project", "p", "engineering");
+  expect([listed.status, listed.stdout, listed.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+});
+
+test("context engineering lists the global authority.md only when .shipped.json does not list it", () => {
+  const dir = home();
+  const g = join(dir, "standards");
+  put(join(g, "authority.md"), "# Authority\n");
+  put(join(dir, "config.yaml"), "");
+  put(join(dir, ".shipped.json"), "{}\n");
+  const own = run(dir, "context", "--project", "p", "engineering");
+  expect(own.status).toBe(0);
+  expect(own.stdout).toContain(join(g, "authority.md"));
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
+  const res = run(dir, "context", "--project", "p", "engineering");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("standards: []\n");
+  expect(res.stdout).not.toContain("authority.md");
 });
 
 test("standards named like Object.prototype keys are listed and switched like any other", () => {
@@ -942,27 +1225,39 @@ test("context writes config's warnings once and exits 1 on the missing config, a
   }
 });
 
-test("authority prints the Authority section of interaction.md, else of interaction.default.md, else exits 1", () => {
+test("authority prints a listed authority.md whole, else authority.default.md, else exits 1", () => {
   const dir = home();
-  const kept = join(dir, "standards", "interaction.md");
-  const shipped = join(dir, "standards", "interaction.default.md");
-  const noSection = `theway: no ## Authority section in ${kept} or interaction.default.md; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
+  const kept = join(dir, "standards", "authority.md");
+  const shipped = join(dir, "standards", "authority.default.md");
+  const advice = "; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n";
+  const missing = `theway: no ${kept}${advice}`;
+  const missingDefault = `theway: no ${shipped}${advice}`;
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
   const none = run(dir, "authority");
-  expect(none.status).toBe(1);
-  expect(none.stderr).toBe(noSection);
-  put(shipped, "# I\n\n## Authority\n\n- shipped\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
-  put(kept, "# I\n\n## Reporting\n\n- r\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n\n- shipped\n");
-  put(kept, "# I\n\n## Authority\n\n- kept\n- two\n\n\n## Next\n\nz\n");
+  expect([none.status, none.stdout, none.stderr]).toEqual([1, "", missing]);
+  put(shipped, "# Authority\n\n- shipped\n");
+  expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
+  put(kept, "# Authority\n\n- kept\n\n## More\n\n- two\n\n\n");
   const res = run(dir, "authority");
-  expect(res.status).toBe(0);
-  expect(res.stdout).toBe("## Authority\n\n- kept\n- two\n");
-  put(kept, "# I\n\n## Authority\n- last\n\n");
-  expect(run(dir, "authority").stdout).toBe("## Authority\n- last\n");
+  expect([res.status, res.stdout, res.stderr]).toEqual([0, "# Authority\n\n- kept\n\n## More\n\n- two\n", ""]);
+  put(kept, "- last");
+  expect(run(dir, "authority").stdout).toBe("- last\n");
+  put(kept, "  \n\n");
+  expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
   rmSync(shipped);
-  put(kept, "# I\n");
-  expect(run(dir, "authority").stderr).toBe(noSection);
+  const blank = run(dir, "authority");
+  expect([blank.status, blank.stdout, blank.stderr]).toEqual([1, "", missing]);
+
+  put(kept, "---\napplies_to: [engineering]\n---\n# My own rules\n");
+  put(shipped, "# Authority\n\n- shipped\n");
+  for (const manifest of ["{}\n", null]) {
+    if (manifest === null) rmSync(join(dir, ".shipped.json"));
+    else put(join(dir, ".shipped.json"), manifest);
+    expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
+  }
+  rmSync(shipped);
+  const notListed = run(dir, "authority");
+  expect([notListed.status, notListed.stdout, notListed.stderr]).toEqual([1, "", missingDefault]);
 });
 
 test("next-id continues after the highest active or archived ordinal of the exact series", () => {
@@ -1109,7 +1404,7 @@ test("list, path and archive without --project use the derived key's folder unde
   const cwd = realpathSync(home());
   git(cwd, "init", "-q");
   const key = keyFor(cwd);
-  put(join(dir, "projects", key, "changes", "add-x", "spec.md"), "# x\n");
+  put(join(dir, "projects", key, "changes", "add-x", "change.yaml"), changeYaml([true]));
   expect(runIn(cwd, dir, "list").stdout).toStartWith(`theway changes — ${key}\n\nActive changes\n\n  add-x `);
   expect(runIn(cwd, dir, "path", "add-x").stdout).toBe(`${join(dir, "projects", key, "changes", "add-x")}\n`);
   const res = runIn(cwd, dir, "archive", "add-x");
@@ -1536,12 +1831,13 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
   const dir = fixtureHome();
   const warned: string[] = [];
   const before = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
-  expect(before).toEqual([
-    { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false },
-    { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true },
-    { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false },
-    { name: "engineering-light", scope: "global", description: "A short spec and 1 to 3 tasks, reviewed by one grounding critic", default: false },
+  expect(before.map(({ doc: _, ...item }) => item)).toEqual([
+    { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false, errors: [] },
+    { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true, errors: [] },
+    { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false, errors: [] },
+    { name: "engineering-light", scope: "global", description: "A short spec and 1 to 3 tasks, reviewed by one grounding critic", default: false, errors: [] },
   ]);
+  expect(before.map((w) => w.doc?.steps.length)).toEqual([6, 1, 3, 3]);
   put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1\ndescription: Old\nsteps:\n  - implement:\n");
   const after = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
   expect(after.filter((w) => w.name !== "old")).toEqual(before);
@@ -1551,6 +1847,8 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
     description: "Old",
     default: false,
     error: "workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
+    errors: ["workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta"],
+    doc: null,
   });
   expect(warned).toEqual([]);
 });

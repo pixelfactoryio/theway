@@ -97,47 +97,44 @@ This recording predates the spec review: runs since then end with the review out
 
 ## The tasks
 
-`/theway:engineering` also wrote `tasks.md`: nine numbered tasks in four phases.
+`/theway:engineering` also wrote `change.yaml`: nine tasks, in the order they are done. The implementer ticked each one with `theway task done`.
 
-```md
-# Implementation Tasks: Add Rate Limiting
-
-## Phase 1: Limiter
-
-- [x] 1. Create `src/rate-limit.js` exporting `createRateLimiter({ limit, windowMs, now })`: `check(key)` returns `{ allowed, retryAfterSec }` using a fixed window per key (window starts at the key's first request, resets lazily when `now >= resetAt`); `retryAfterSec = max(1, ceil((resetAt - now) / 1000))`
-- [x] 2. Add `sweep()` deleting entries with `resetAt <= now`
-
-## Phase 2: Wiring
-
-- [x] 3. In `src/app.js`, `createApp(options = {})` builds the limiter from `options.rateLimit` with defaults `limit: 60`, `windowMs: 60000`, `now: Date.now`
-- [x] 4. At the start of the handler: skip the limiter when `req.url === "/health"`; otherwise `check(req.socket.remoteAddress)` and on `allowed === false` respond `429` with `Retry-After` and body `{"error":"rate limit exceeded"}`
-- [x] 5. Start a `setInterval(sweep, windowMs)` with `unref()`; clear it on the server's `close` event
-
-## Phase 3: Testing
-
-- [x] 6. Limiter unit tests with a fake clock: limit boundary (60 ok, 61st denied), `Retry-After` value, window reset, independent keys, sweep removes expired entries
-- [x] 7. HTTP tests via `createApp({ rateLimit: { limit: 2, ... } })`: third request gets 429 + header + body; `/health` still 200 while limited and does not consume quota; a 404 path counts toward the limit
-- [x] 8. Run `npm test`
-
-## Phase 4: Documentation
-
-- [x] 9. README: document the 60 req/min/IP limit, `/health` exemption, 429 response, and that it assumes a single instance with no proxy
-
-## Notes
-
-**Blockers:**
-- None.
-
-**Discoveries:**
-- None.
-
-**Adjustments:**
-- None.
+```yaml
+version: theway.change/v1beta
+description: Limit each client IP to 60 requests a minute and answer 429 with Retry-After beyond it
+tasks:
+  - text: >-
+      Create `src/rate-limit.js` exporting `createRateLimiter({ limit, windowMs, now })`: `check(key)` returns `{ allowed, retryAfterSec }` using a fixed window per key (window starts at the key's first request, resets lazily when `now >= resetAt`); `retryAfterSec = max(1, ceil((resetAt - now) / 1000))`
+    done: true
+  - text: >-
+      Add `sweep()` deleting entries with `resetAt <= now`
+    done: true
+  - text: >-
+      In `src/app.js`, `createApp(options = {})` builds the limiter from `options.rateLimit` with defaults `limit: 60`, `windowMs: 60000`, `now: Date.now`
+    done: true
+  - text: >-
+      At the start of the handler: skip the limiter when `req.url === "/health"`; otherwise `check(req.socket.remoteAddress)` and on `allowed === false` respond `429` with `Retry-After` and body `{"error":"rate limit exceeded"}`
+    done: true
+  - text: >-
+      Start a `setInterval(sweep, windowMs)` with `unref()`; clear it on the server's `close` event
+    done: true
+  - text: >-
+      Limiter unit tests with a fake clock: limit boundary (60 ok, 61st denied), `Retry-After` value, window reset, independent keys, sweep removes expired entries
+    done: true
+  - text: >-
+      HTTP tests via `createApp({ rateLimit: { limit: 2, ... } })`: third request gets 429 + header + body; `/health` still 200 while limited and does not consume quota; a 404 path counts toward the limit
+    done: true
+  - text: >-
+      Run `npm test`
+    done: true
+  - text: >-
+      README: document the 60 req/min/IP limit, `/health` exemption, 429 response, and that it assumes a single instance with no proxy
+    done: true
 ```
 
 ## The implementation
 
-`/theway:workflow` implemented the tasks in the session and ticked them. First `src/rate-limit.js`:
+`/theway:workflow` implemented the tasks in the session and ticked them with `theway task done`. First `src/rate-limit.js`:
 
 ```js
 export function createRateLimiter({ limit, windowMs, now }) {

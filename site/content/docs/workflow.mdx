@@ -6,7 +6,7 @@ description: Engineering, then workflow, then archive.
 A change goes through three commands.
 
 ```text
-/theway:engineering <request>        writes spec.md and tasks.md
+/theway:engineering <request>        writes spec.md and change.yaml
   or /theway:engineering --light <request>   writes a short spec for a small change
 /theway:workflow <change-id>         implements the tasks inline, in your session
   or /theway:workflow --workflow agents <change-id>   implements them through agents and a PR
@@ -15,7 +15,7 @@ A change goes through three commands.
 
 ## 1. Engineering
 
-[`/theway:engineering`](./commands/engineering.mdx) runs the shipped `engineering` [workflow](./concepts/workflows.mdx), whose one input is the request, through `/theway:workflow`. Its `scaffold` step, in your session, runs `theway context engineering` for the [standards](./concepts/standards.mdx), follows the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`, or, for a series, gets the member IDs from `theway next-id`. It investigates the code and the open questions, then writes `spec.md` and `tasks.md` from the template prompts, and `design.md` when the change needs API contracts, data models or diagrams. Its `spec-review` step then runs two critic agents on the spec and tasks, unless a question is already open; its `spec-triage` step verifies each finding, a fix agent fixes every confirmed gap that can be settled from facts, and the run stops if a finding needs your decision.
+[`/theway:engineering`](./commands/engineering.mdx) runs the shipped `engineering` [workflow](./concepts/workflows.mdx), whose one input is the request, through `/theway:workflow`. Its `scaffold` step, in your session, runs `theway context engineering` for the [standards](./concepts/standards.mdx), follows the [TAMM framework](./concepts/tamm.mdx), picks a [change ID](./concepts/changes.mdx) and validates it with `theway validate-id`, or, for a series, gets the member IDs from `theway next-id`. It investigates the code and the open questions, then writes `spec.md` and `change.yaml` from the template prompts, checks `change.yaml` with `theway change`, and `design.md` when the change needs API contracts, data models or diagrams. Its `spec-review` step then runs two critic agents on the spec and tasks, unless a question is already open; its `spec-triage` step verifies each finding, a fix agent fixes every confirmed gap that can be settled from facts, and the run stops if a finding needs your decision.
 
 A `fix-` change uses the fix template for `spec.md`, and the command reproduces the bug before it writes anything. When the bug cannot be reproduced, may already be covered by another active change, or turns out to be intended behavior, it stops and asks you, and writes no change folder.
 
@@ -25,11 +25,11 @@ It writes the change files only under `<home>/projects/<key>/changes/<change-id>
 
 ## 2. Workflow
 
-[`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file, resolved by `theway workflow` with the change ID as its input: each step uses a prompt and answers `pass`, `fail` or `blocked`. The change steps read `standards/develop.md`, the standards `theway context` lists, the change's `spec.md`, `tasks.md` and `design.md`, and `docs/architecture/coding-standards.md` when it exists (`prompts/change.md`). The spec is the contract: when the code contradicts it, the work stops and comes back to you with the options.
+[`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file, resolved by `theway workflow` with the change ID as its input: each step uses a prompt and answers `pass`, `fail` or `blocked`. The change steps read `standards/develop.md`, the standards `theway context` lists, the change's `spec.md`, `change.yaml`, `design.md` and `notes.md`, and `docs/architecture/coding-standards.md` when it exists (`prompts/change.md`). The spec is the contract: when the code contradicts it, the work stops and comes back to you with the options.
 
 Each step runs in your session or through agents in the plugin workflow `theway:run-pipeline`, as its `runs-on` says. theway ships two workflows that run a change:
 
-- **`develop`**, the default: one `implement` step in your session, with `commit: "no"`. Your session implements the tasks, ticks each one in `tasks.md` and reports how each Success Criterion was verified. Nothing is committed: the change stays in your working tree.
+- **`develop`**, the default: one `implement` step in your session, with `commit: "no"`. Your session implements the tasks, ticks each one with `theway task done` and reports how each Success Criterion was verified. Nothing is committed: the change stays in your working tree.
 - **`agents`:** your session creates the feature branch; an implementer agent commits on it; reviewer agents, one per lens, review it; a triage judges their findings and a fix agent fixes the confirmed ones; then the branch is pushed once, the PR opened and CI driven to green. The fix rounds are capped by each step's `tries`. In a series, each PR is merged after you confirm it.
 
 The other two shipped workflows, `engineering` and `engineering-light`, take a request: [`/theway:engineering`](./commands/engineering.mdx) runs them to write a change's spec.
@@ -48,6 +48,6 @@ Use `develop` to watch and steer the work in your session. Use `--workflow agent
 
 ## 3. Archive
 
-[`/theway:archive`](./commands/archive.mdx) moves a finished change to `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a numbered task in `tasks.md` is open, unless you accept the open tasks and it runs with `--force`.
+[`/theway:archive`](./commands/archive.mdx) moves a finished change to `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a task in `change.yaml` is not done, or the file is invalid, unless you accept and it runs with `--force`.
 
 See the [Examples](./examples/full-change.mdx) section: one change from request to passing tests, then a light fix, an escalation, a workflow run, a series and standards.

@@ -2,9 +2,9 @@
 import { Command, InvalidArgumentError } from "commander";
 import { cmdArchive } from "./core/archive";
 import { cmdAuthority } from "./core/authority";
+import { cmdChange, cmdTaskDone } from "./core/change";
 import { cmdConfig } from "./core/config";
 import { cmdContext } from "./core/context";
-import { cmdDashboard } from "./core/dashboard";
 import { cmdList } from "./core/list";
 import { cmdNextId } from "./core/next-id";
 import { cmdPath } from "./core/path";
@@ -20,10 +20,6 @@ const nonEmpty = (value: string): string => {
 };
 const positive = (value: string): number => {
   if (!/^[1-9][0-9]*$/.test(value)) throw new InvalidArgumentError("must be a positive integer");
-  return Number(value);
-};
-const port = (value: string): number => {
-  if (!/^[0-9]{1,5}$/.test(value) || Number(value) > 65535) throw new InvalidArgumentError("must be an integer from 0 to 65535");
   return Number(value);
 };
 const exit = (code: number): void => {
@@ -48,6 +44,18 @@ export function buildProgram(): Command {
     .option("--project <key>")
     .option("--force")
     .action((change: string, o: { project?: string; force?: boolean }) => exit(cmdArchive(change, o.project, o.force === true)));
+  program
+    .command("change")
+    .argument("<change-id>", "", nonEmpty)
+    .option("--project <key>")
+    .action((change: string, o: { project?: string }) => exit(cmdChange(change, o.project)));
+  program
+    .command("task")
+    .command("done")
+    .argument("<change-id>", "", nonEmpty)
+    .argument("<n...>")
+    .option("--project <key>")
+    .action((change: string, numbers: string[], o: { project?: string }) => exit(cmdTaskDone(change, numbers, o.project)));
   program
     .command("path")
     .argument("[change-id]")
@@ -96,9 +104,5 @@ export function buildProgram(): Command {
     .argument("<id>")
     .option("--series")
     .action((id: string, o: { series?: boolean }) => exit(cmdValidateId(id, o.series === true)));
-  program
-    .command("dashboard")
-    .option("--port <n>", "", port, 4870)
-    .action(async (o: { port: number }) => exit(await cmdDashboard(o.port)));
   return program;
 }

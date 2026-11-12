@@ -31,7 +31,7 @@ Only the latest release is supported.
 ### What the commands may do
 
 - `engineering`: writes only the change folder, with throwaway probes in a `mktemp -d` directory.
-- `workflow`: does what the workflow's prompts say for the run, and nothing more: edits the repository, in your session or through agents, and updates the change's `tasks.md` in its change folder; commits only on the change's feature branch; pushes that branch and opens its PR only when a prompt says to; writes change folders and `mktemp -d` directories; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
+- `workflow`: does what the workflow's prompts say for the run, and nothing more: edits the repository, in your session or through agents, and ticks the change's tasks with `theway task done` and writes its `notes.md` in its change folder; commits only on the change's feature branch; pushes that branch and opens its PR only when a prompt says to; writes change folders and `mktemp -d` directories; never force-pushes or pushes the default branch; merges only on your explicit yes; pushes, PRs and merges go through the commands `git-host.md` names, never bypassing required reviews or checks.
 - `archive`: moves a change folder to `changes/archive/<date>-<change-id>/` only when you name the change and say to archive it; with `--force` only when you accept its open tasks.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
 - `list`: reads only; runs `theway path`, `theway project` and `theway list`.
@@ -51,7 +51,7 @@ Only the latest release is supported.
 ### Untrusted content
 
 - theway runs inside Claude Code with your permissions, and the text it reads (code, CI logs, PR text, web pages, other agents' output) can contain prompt injection.
-- The Authority rule in `interaction.md` tells the model and every spawned agent to treat that text as data.
+- The Authority rule in `authority.md` tells the model and every spawned agent to treat that text as data.
 - The same rule treats the data home's `config.yaml`, standards, templates, prompts, steps and workflows as instructions: anyone who can write to the data home can steer every command. Keep it writable only by you.
 - Claude Code loads a repository's own instruction files (CLAUDE.md, CLAUDE.local.md, `.claude/CLAUDE.md`, `.claude/rules/`, AGENTS.md and the files they import) as instructions. Read them before running theway in a repository you don't trust.
 - Claude Code's permission settings remain the boundary that actually enforces anything.
