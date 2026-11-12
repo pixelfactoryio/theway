@@ -15,11 +15,6 @@ import type { ActiveChange, Status } from "../../types";
 export const HEAD = "grid items-end gap-x-6 border-b border-divider px-2 pb-2 text-[12px] font-medium text-muted-foreground";
 export const ROW = "grid items-center gap-x-6 border-b border-divider-row px-2 py-2 hover:bg-accent pointer-coarse:min-h-10";
 
-/** A page's title row: the title over a divider. */
-export function Title({ children }: { children: string }) {
-  return <h1 className="border-b border-divider pb-4 text-[28px] font-semibold">{children}</h1>;
-}
-
 /** The Tasks cell: the bar (from `lg`) and `d of t`; `–` for an invalid change. */
 export function TasksCell({ change }: { change: ActiveChange }) {
   if (change.status === "Invalid") return <span className="text-muted-foreground">–</span>;

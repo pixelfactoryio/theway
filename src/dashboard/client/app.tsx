@@ -1,7 +1,7 @@
 import { CSPProvider } from "@base-ui/react/csp-provider";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cn } from "cn";
-import { FileText, House, List, Menu, Workflow } from "lucide-react";
+import { FileText, List, Menu, Workflow } from "lucide-react";
 import { type ComponentType, useState } from "react";
 import { Link, Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { useHashLocation } from "wouter/use-hash-location";
@@ -10,12 +10,11 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DraftsProvider } from "@/files/drafts";
 import { type FileRef, retryQuery, useFiles } from "@/lib/api";
-import { ALL_PROJECTS } from "@/lib/changes";
+import { ALL_PROJECTS, brokenCount, plural } from "@/lib/changes";
 import { projectNames } from "@/lib/labels";
 import { ChangePage } from "@/pages/change";
 import { History } from "@/files/History";
 import { ChangesPage } from "@/pages/changes";
-import { HomePage } from "@/pages/home";
 import { PromptPage } from "@/pages/prompt";
 import { PromptsPage } from "@/pages/prompts";
 import { WorkflowPage } from "@/pages/workflow";
@@ -23,22 +22,20 @@ import { WorkflowsPage } from "@/pages/workflows";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: retryQuery } } });
 
-type Area = "Home" | "Changes" | "Workflows" | "Prompts";
+type Area = "Changes" | "Workflows" | "Prompts";
 
 /** The sidebar's entries: each area, its route and its icon. */
 const AREAS: { name: Area; href: string; icon: ComponentType<{ className?: string }> }[] = [
-  { name: "Home", href: "/", icon: House },
   { name: "Changes", href: "/changes", icon: List },
   { name: "Workflows", href: "/workflows", icon: Workflow },
   { name: "Prompts", href: "/prompts", icon: FileText },
 ];
 
-/** The area of a route: Changes for a change or an archived one, Workflows and Prompts for their pages, else Home. */
+/** The area of a route: Workflows and Prompts for their pages, else Changes (the changes, an archived one, the landing page). */
 function areaOf(location: string): Area {
-  if (location.startsWith("/changes") || location.startsWith("/archive")) return "Changes";
   if (location.startsWith("/workflows")) return "Workflows";
   if (location.startsWith("/prompts")) return "Prompts";
-  return "Home";
+  return "Changes";
 }
 
 /** The logo mark: three lines on a rounded primary square. */
@@ -67,8 +64,7 @@ function ProjectSwitcher({ project, onProject }: { project: string; onProject: (
       <SelectTrigger
         aria-label="Project"
         title={items.find((i) => i.value === project)?.title}
-        size="sm"
-        className="h-auto max-w-full gap-1 border-0 p-0 text-[12px] text-muted-foreground hover:text-foreground">
+        className="w-full rounded-md border border-input bg-card text-[13px] font-medium text-foreground pointer-coarse:min-h-10">
         <SelectValue />
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} align="start">
@@ -82,20 +78,26 @@ function ProjectSwitcher({ project, onProject }: { project: string; onProject: (
   );
 }
 
-/** The sidebar's content: the logo, the word theway and the project switcher, then one link per area, the current one in the primary colour. */
+/**
+ * The sidebar's content: the logo and the word theway, the project switcher, then one link per area, the current one
+ * filled; a red dot on Workflows while a workflow of the chosen project cannot run.
+ */
 function SidebarContent({ project, onProject, onPick }: { project: string; onProject: (key: string) => void; onPick?: () => void }) {
   const [location] = useLocation();
   const current = areaOf(location);
+  const files = useFiles();
+  const broken = brokenCount(files.data?.workflows ?? [], project);
+  const dot = `${plural(broken, "workflow", "workflows")} cannot run`;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-start gap-2.5 px-2">
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2.5 px-2">
         <Logo />
-        <div className="flex min-w-0 flex-col">
-          <span className="leading-tight font-semibold">theway</span>
-          <ProjectSwitcher project={project} onProject={onProject} />
-        </div>
+        <span className="text-[14px] font-semibold">theway</span>
       </div>
-      <nav aria-label="Main" className="flex flex-col gap-0.5">
+      <div className="mt-3">
+        <ProjectSwitcher project={project} onProject={onProject} />
+      </div>
+      <nav aria-label="Main" className="mt-4 flex flex-col gap-0.5">
         {AREAS.map(({ name, href, icon: Icon }) => (
           <Link
             key={name}
@@ -104,11 +106,14 @@ function SidebarContent({ project, onProject, onPick }: { project: string; onPro
             aria-current={name === current ? "page" : undefined}
             className={cn(
               "flex items-center gap-2.5 rounded-md px-2 py-1.5 font-medium hover:bg-accent pointer-coarse:py-2.5",
-              name === current ? "text-primary" : "text-foreground/80",
+              name === current ? "bg-card text-foreground ring-1 ring-divider" : "text-foreground/80",
             )}
           >
-            <Icon className="size-4" />
+            <Icon className={cn("size-4", name === current && "text-primary")} />
             {name}
+            {name === "Workflows" && broken > 0 && (
+              <span role="img" aria-label={dot} title={dot} className="ml-auto size-[7px] flex-none rounded-full bg-destructive" />
+            )}
           </Link>
         ))}
       </nav>
@@ -127,7 +132,7 @@ function MobileBar({ project, onProject }: { project: string; onProject: (key: s
       </Button>
       <span className="font-semibold">{areaOf(location)}</span>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="top-0 left-0 block h-dvh max-w-[min(280px,calc(100%-3rem))] translate-x-0 translate-y-0 overflow-auto rounded-none p-4 pt-5 sm:max-w-[280px] pointer-coarse:pt-14">
+        <DialogContent className="top-0 left-0 block h-dvh bg-canvas max-w-[min(280px,calc(100%-3rem))] translate-x-0 translate-y-0 overflow-auto rounded-none p-4 pt-5 sm:max-w-[280px] pointer-coarse:pt-14">
           <DialogTitle className="sr-only">Menu</DialogTitle>
           <SidebarContent project={project} onProject={onProject} onPick={() => setOpen(false)} />
         </DialogContent>
@@ -161,9 +166,6 @@ const prompt = (scope: "global" | "project", key: string | null, name: string): 
 function Routes({ project, panelWidth, setPanelWidth }: { project: string; panelWidth: number; setPanelWidth: (width: number) => void }) {
   return (
     <Switch>
-      <Route path="/">
-        <HomePage project={project} />
-      </Route>
       <Route path="/changes">
         <ChangesPage project={project} />
       </Route>
@@ -198,7 +200,7 @@ function Routes({ project, panelWidth, setPanelWidth }: { project: string; panel
       <Route path="/prompts/projects/:key/:name/history">{(p) => <History file={prompt("project", p.key, p.name)} id={null} />}</Route>
       <Route path="/prompts/projects/:key/:name/history/:id">{(p) => <History file={prompt("project", p.key, p.name)} id={p.id} />}</Route>
       <Route>
-        <Redirect to="/" replace />
+        <Redirect to="/changes" replace />
       </Route>
     </Switch>
   );
@@ -216,7 +218,7 @@ export function App() {
           <Router hook={useHashLocation}>
             <div className="flex min-h-dvh">
               <SkipLink />
-              <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[220px] flex-none overflow-auto border-r border-divider px-3 py-5 lg:block">
+              <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[232px] flex-none overflow-auto border-r border-divider bg-canvas px-3 py-5 lg:block">
                 <SidebarContent project={project} onProject={setProject} />
               </aside>
               <div className="flex min-w-0 flex-1 flex-col">

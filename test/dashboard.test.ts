@@ -147,7 +147,7 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   expect(js.body.length).toBeGreaterThan(1000);
   // React's development build carries this warning text; the production build does not.
   expect(js.body).not.toContain("act(...)");
-  expect(js.body).toContain("Nothing in progress.");
+  expect(js.body).toContain("Each change, with its spec and its tasks.");
   expect(js.body).toContain("Run it with");
   const css = await get(port, "/app.css");
   expect([css.status, css.headers["content-type"]]).toEqual([200, "text/css; charset=utf-8"]);
@@ -602,12 +602,12 @@ test("the client uses no cmdk and wraps the app in CSPProvider disableStyleEleme
   expect(existsSync(join(ROOT, "src", "components"))).toBe(false);
 });
 
-test("the app routes Home, the changes, the workflows and the prompts, and sends any other path to Home", () => {
+test("the app routes the changes, the workflows and the prompts, and sends any other path to Changes", () => {
   const app = readFileSync(join(ROOT, "src", "dashboard", "client", "app.tsx"), "utf-8");
   const paths = [...app.matchAll(/<Route path="([^"]+)"/g)].map((m) => m[1] as string);
-  expect(paths.filter((p) => !p.startsWith("/workflows/") && !p.startsWith("/prompts/"))).toEqual(["/", "/changes", "/changes/:key/:id", "/archive/:key/:folder", "/workflows", "/prompts"]);
+  expect(paths.filter((p) => !p.startsWith("/workflows/") && !p.startsWith("/prompts/"))).toEqual(["/changes", "/changes/:key/:id", "/archive/:key/:folder", "/workflows", "/prompts"]);
   expect(app).toContain('<Route path="/workflows">\n        <WorkflowsPage project={project} />\n      </Route>');
-  // The first route a path matches, as the Switch picks it; `null` for the catch-all redirect to Home.
+  // The first route a path matches, as the Switch picks it; `null` for the catch-all redirect to Changes.
   // wouter's default parser, the one the app's Switch uses.
   let parser: Parser | undefined;
   renderToString(
@@ -618,6 +618,7 @@ test("the app routes Home, the changes, the workflows and the prompts, and sends
   );
   const parse = parser as Parser;
   const route = (path: string) => paths.find((p) => matchRoute(parse, p, path)[0]) ?? null;
+  expect(route("/")).toBeNull();
   expect(route("/prompts/global/triage/history")).toBe("/prompts/global/:name/history");
   expect(route("/prompts/global/triage/history/shipped")).toBe("/prompts/global/:name/history/:id");
   expect(route("/prompts/projects/k/triage")).toBe("/prompts/projects/:key/:name");
@@ -628,12 +629,12 @@ test("the app routes Home, the changes, the workflows and the prompts, and sends
   expect(route("/workflows/projects/k/mine")).toBe("/workflows/projects/:key/:name");
   expect(route("/workflows/projects/k/mine/yaml")).toBe("/workflows/projects/:key/:name/yaml");
   expect(route("/workflows/projects/k/mine/history/shipped")).toBe("/workflows/projects/:key/:name/history/:id");
-  // The routes with a kind segment are gone: they fall to the redirect to Home.
+  // The routes with a kind segment are gone: they fall to the redirect to Changes.
   expect(route("/workflows/global/workflows/agents")).toBeNull();
   expect(route("/workflows/global/workflows/agents/edit")).toBeNull();
   expect(route("/workflows/global/workflows/agents/versions/shipped")).toBeNull();
   expect(route("/workflows/projects/k/workflows/mine/edit")).toBeNull();
-  expect(app).toContain('<Route>\n        <Redirect to="/" replace />\n      </Route>\n    </Switch>');
+  expect(app).toContain('<Route>\n        <Redirect to="/changes" replace />\n      </Route>\n    </Switch>');
   expect(app).not.toContain("function TopBar");
 });
 

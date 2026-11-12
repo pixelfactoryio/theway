@@ -7,8 +7,6 @@ import {
   type ChangeEntry,
   changeEntries,
   changesRows,
-  homeRows,
-  notices,
   type Project,
   STATUSES,
   seriesStatus,
@@ -63,15 +61,6 @@ const PROJECTS: Project[] = [
 ];
 
 const ids = (rows: { label: string; change: ActiveChange }[]) => rows.map((r) => `${r.label}/${r.change.id}`);
-
-test("Home rows are the chosen project's In progress changes, ordered by project label then ID, with a member's place in its series, 1 of 1 alone", () => {
-  expect(ids(homeRows(PROJECTS, ALL_PROJECTS))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
-  expect(ids(homeRows(PROJECTS, "k-a"))).toEqual(["zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
-  expect(ids(homeRows(PROJECTS, "k-b"))).toEqual(["alpha/add-c"]);
-  expect(homeRows(PROJECTS, "k-none")).toEqual([]);
-  const rows = homeRows(PROJECTS, "k-a");
-  expect(rows.map((r) => r.series)).toEqual([null, { ordinal: 2, total: 3 }, { ordinal: 1, total: 1 }, null]);
-});
 
 test("the Changes rows are the chosen project's changes of a status, every status for none", () => {
   expect(ids(changesRows(PROJECTS, ALL_PROJECTS, ""))).toEqual([
@@ -209,37 +198,6 @@ const workflow = (name: string, key: string | null, error: string | null): Workf
   errors: error === null ? 0 : 1,
   steps: null,
   runsOn: null,
-});
-
-test("Home's notices name one workflow that cannot run, count several, and count the invalid changes", () => {
-  const none = [project("k-a", "a", [change("add-a", "In progress")])];
-  expect(notices(none, [workflow("ok", null, null)], ALL_PROJECTS)).toEqual([]);
-
-  const one = [project("k-a", "a", [change("add-a", "Invalid")])];
-  expect(notices(one, [workflow("broken", null, "workflows/broken.yaml: bad"), workflow("ok", null, null)], ALL_PROJECTS)).toEqual([
-    { text: "broken cannot run.", link: "Open it", href: "/workflows/global/broken" },
-    { text: "1 change has an invalid change.yaml.", link: "See changes", href: "/changes" },
-  ]);
-  expect(notices(one, [workflow("mine", "k-a", "bad")], "k-a")[0]).toEqual({
-    text: "mine cannot run.",
-    link: "Open it",
-    href: "/workflows/projects/k-a/mine",
-  });
-
-  const two = [project("k-a", "a", [change("add-a", "Invalid"), change("add-b", "Invalid")]), project("k-b", "b", [change("add-c", "Invalid")])];
-  const broken = [workflow("g", null, "bad"), workflow("pa", "k-a", "bad"), workflow("pb", "k-b", "bad")];
-  expect(notices(two, broken, "k-a")).toEqual([
-    { text: "2 workflows cannot run.", link: "See workflows", href: "/workflows" },
-    { text: "2 changes have an invalid change.yaml.", link: "See changes", href: "/changes" },
-  ]);
-  expect(notices(two, broken, ALL_PROJECTS)[0]?.text).toBe("3 workflows cannot run.");
-  expect(notices(two, broken, ALL_PROJECTS)[1]?.text).toBe("3 changes have an invalid change.yaml.");
-  // A project's own broken workflow does not count for another project; the global one does.
-  expect(notices(two, broken, "k-b")).toEqual([
-    { text: "2 workflows cannot run.", link: "See workflows", href: "/workflows" },
-    { text: "1 change has an invalid change.yaml.", link: "See changes", href: "/changes" },
-  ]);
-  expect(notices(two, [workflow("pa", "k-a", "bad")], "k-b")).toEqual([{ text: "1 change has an invalid change.yaml.", link: "See changes", href: "/changes" }]);
 });
 
 test("the workflows that cannot run count the global ones and the chosen project's, every project's for all", () => {
