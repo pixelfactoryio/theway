@@ -1096,28 +1096,33 @@ test("a project file with a core name is a user standard that the project config
   ]);
 });
 
-test("standards does not list the global interaction.md, develop.md and authority.md, which .shipped.json does not list", () => {
+test("standards lists the global authority.md as a user standard unless .shipped.json lists it, never interaction.md and develop.md", () => {
   const dir = home();
   const g = join(dir, "standards");
-  put(join(dir, ".shipped.json"), "{}\n");
   for (const name of ["interaction.md", "develop.md", "authority.md", "own.md"]) put(join(g, name), "x\n");
   put(join(dir, "config.yaml"), "");
-  const res = run(dir, "standards", "--project", "p", "engineering");
-  expect([res.status, res.stdout, res.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
+  put(join(dir, ".shipped.json"), "{}\n");
+  const own = run(dir, "standards", "--project", "p", "engineering");
+  expect([own.status, own.stdout, own.stderr]).toEqual([0, `${join(g, "authority.md")}\n${join(g, "own.md")}\n`, ""]);
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
+  const listed = run(dir, "standards", "--project", "p", "engineering");
+  expect([listed.status, listed.stdout, listed.stderr]).toEqual([0, `${join(g, "own.md")}\n`, ""]);
 });
 
-test("context engineering lists no authority.md, with and without it in .shipped.json", () => {
+test("context engineering lists the global authority.md only when .shipped.json does not list it", () => {
   const dir = home();
   const g = join(dir, "standards");
   put(join(g, "authority.md"), "# Authority\n");
   put(join(dir, "config.yaml"), "");
-  for (const manifest of ["{}\n", `${JSON.stringify({ "standards/authority.md": "x" })}\n`]) {
-    put(join(dir, ".shipped.json"), manifest);
-    const res = run(dir, "context", "--project", "p", "engineering");
-    expect(res.status).toBe(0);
-    expect(res.stdout).toContain("standards: []\n");
-    expect(res.stdout).not.toContain("authority.md");
-  }
+  put(join(dir, ".shipped.json"), "{}\n");
+  const own = run(dir, "context", "--project", "p", "engineering");
+  expect(own.status).toBe(0);
+  expect(own.stdout).toContain(join(g, "authority.md"));
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
+  const res = run(dir, "context", "--project", "p", "engineering");
+  expect(res.status).toBe(0);
+  expect(res.stdout).toContain("standards: []\n");
+  expect(res.stdout).not.toContain("authority.md");
 });
 
 test("standards named like Object.prototype keys are listed and switched like any other", () => {
@@ -1220,11 +1225,14 @@ test("context writes config's warnings once and exits 1 on the missing config, a
   }
 });
 
-test("authority prints authority.md whole, else authority.default.md, else exits 1", () => {
+test("authority prints a listed authority.md whole, else authority.default.md, else exits 1", () => {
   const dir = home();
   const kept = join(dir, "standards", "authority.md");
   const shipped = join(dir, "standards", "authority.default.md");
-  const missing = `theway: no ${kept}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`;
+  const advice = "; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n";
+  const missing = `theway: no ${kept}${advice}`;
+  const missingDefault = `theway: no ${shipped}${advice}`;
+  put(join(dir, ".shipped.json"), `${JSON.stringify({ "standards/authority.md": "x" })}\n`);
   const none = run(dir, "authority");
   expect([none.status, none.stdout, none.stderr]).toEqual([1, "", missing]);
   put(shipped, "# Authority\n\n- shipped\n");
@@ -1234,9 +1242,22 @@ test("authority prints authority.md whole, else authority.default.md, else exits
   expect([res.status, res.stdout, res.stderr]).toEqual([0, "# Authority\n\n- kept\n\n## More\n\n- two\n", ""]);
   put(kept, "- last");
   expect(run(dir, "authority").stdout).toBe("- last\n");
-  rmSync(kept);
+  put(kept, "  \n\n");
+  expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
   rmSync(shipped);
-  expect(run(dir, "authority").stderr).toBe(missing);
+  const blank = run(dir, "authority");
+  expect([blank.status, blank.stdout, blank.stderr]).toEqual([1, "", missing]);
+
+  put(kept, "---\napplies_to: [engineering]\n---\n# My own rules\n");
+  put(shipped, "# Authority\n\n- shipped\n");
+  for (const manifest of ["{}\n", null]) {
+    if (manifest === null) rmSync(join(dir, ".shipped.json"));
+    else put(join(dir, ".shipped.json"), manifest);
+    expect(run(dir, "authority").stdout).toBe("# Authority\n\n- shipped\n");
+  }
+  rmSync(shipped);
+  const notListed = run(dir, "authority");
+  expect([notListed.status, notListed.stdout, notListed.stderr]).toEqual([1, "", missingDefault]);
 });
 
 test("next-id continues after the highest active or archived ordinal of the exact series", () => {

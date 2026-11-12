@@ -17,7 +17,10 @@ const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
 export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
-/** The shipped standards the commands always read by path: a global file with one of these names is never listed nor switchable. */
+/**
+ * The shipped standards the commands always read by path: a global file with one of these names is never listed nor
+ * switchable; `authority.md` only when `.shipped.json` lists it, else it is the user's own standard.
+ */
 const CORE = ["interaction.md", "develop.md", "authority.md"];
 /**
  * The shipped convention standards the prompts read by path, the project file over the global one: never listed from
@@ -62,7 +65,8 @@ export function standardsOf(home: string, key: string): Standard[] {
   const shipped = readManifest(home) ?? {};
   const out: Standard[] = [];
   for (const name of mdFiles(globalDir)) {
-    if (CORE.includes(name) || CONVENTIONS.includes(name)) continue;
+    const core = name === "authority.md" ? "standards/authority.md" in shipped : CORE.includes(name);
+    if (core || CONVENTIONS.includes(name)) continue;
     const optIn = OPT_IN.includes(name);
     if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue;
     const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn };
