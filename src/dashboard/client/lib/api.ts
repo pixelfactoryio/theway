@@ -72,6 +72,13 @@ export const fileKey = (f: FileRef): string => `${f.scope}/${f.key ?? ""}/${f.ki
 /** The process token the server put in the page, sent on every write. */
 const token = (): string => document.querySelector('meta[name="theway-token"]')?.getAttribute("content") ?? "";
 
+/** The style nonce of this page's response, read from its meta on the first call; `""` when the page has none. */
+let nonce: string | null = null;
+export const styleNonce = (): string => {
+  nonce ??= document.querySelector('meta[name="theway-style-nonce"]')?.getAttribute("content") ?? "";
+  return nonce;
+};
+
 /** A write's outcome: its status and JSON body. */
 export type Written<T> = { status: number; body: T };
 

@@ -5,7 +5,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { secureHeaders } from "hono/secure-headers";
+import { NONCE, secureHeaders } from "hono/secure-headers";
 import { allChanges, archivedChange, change, file, files, fileVersion, fileVersions, NOT_JSON, type Reply, saveFile, validateFileText } from "./api";
 import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/client.txt" with { type: "text" };
@@ -41,7 +41,8 @@ export function createApp(home: string, port: () => number): Hono {
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } });
   const reply = <T>(r: Reply<T>): Response => json(r.status, r.body);
-  const page = html.replace("__THEWAY_TOKEN__", TOKEN);
+  /** The page with the token, whose style-nonce meta holds the nonce `secureHeaders` made for this response. */
+  const page = (nonce: string): string => html.replace("__THEWAY_TOKEN__", TOKEN).replace("__THEWAY_STYLE_NONCE__", nonce);
 
   /**
    * The write guard: an `Origin` of this server's own loopback address and the process token. The custom header forces
@@ -68,7 +69,7 @@ export function createApp(home: string, port: () => number): Hono {
       contentSecurityPolicy: {
         defaultSrc: ["'none'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'"],
+        styleSrc: ["'self'", NONCE],
         imgSrc: ["'self'", "data:"],
         fontSrc: ["'self'"],
         connectSrc: ["'self'"],
@@ -94,7 +95,7 @@ export function createApp(home: string, port: () => number): Hono {
     c.res.headers.set("Cache-Control", "no-store");
   });
 
-  app.get("/", (c) => c.body(page, 200, { "Content-Type": "text/html; charset=utf-8" }));
+  app.get("/", (c) => c.body(page(c.get("secureHeadersNonce") ?? ""), 200, { "Content-Type": "text/html; charset=utf-8" }));
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }));
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
   app.get("/favicon.svg", (c) => c.body(ICON, 200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" }));

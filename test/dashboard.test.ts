@@ -17,6 +17,8 @@ const CLI = join(ROOT, "dist", "theway.js");
 const SHIPPED_HOME = join(ROOT, "plugin", "home");
 const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+/** A response's policy with its style nonce cut out: every response carries a different one. */
+const withoutNonce = (h: string | string[] | undefined): string | undefined => (typeof h === "string" ? h.replace(/ 'nonce-[^']+'/, "") : undefined);
 const PORT_ERROR = (v: string) => `error: option '--port <n>' argument '${v}' is invalid. must be an integer from 0 to 65535\n`;
 
 const homes: string[] = [];
@@ -124,7 +126,7 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   const page = await get(port, "/");
   expect(page.status).toBe(200);
   expect(page.headers["content-type"]).toBe("text/html; charset=utf-8");
-  expect(page.headers["content-security-policy"]).toBe(CSP);
+  expect(withoutNonce(page.headers["content-security-policy"])).toBe(CSP);
   expect(page.headers["x-content-type-options"]).toBe("nosniff");
   expect(page.headers["referrer-policy"]).toBe("no-referrer");
   expect(page.headers["strict-transport-security"]).toBeUndefined();
@@ -143,9 +145,25 @@ test("dashboard prints its startup line and serves the page, the bundle and the 
   expect(css.body).toContain("/fonts/inter.woff2");
   const api = await get(port, "/api/v1/changes");
   expect(api.headers["cache-control"]).toBe("no-store");
-  expect(api.headers["content-security-policy"]).toBe(CSP);
+  expect(withoutNonce(api.headers["content-security-policy"])).toBe(CSP);
   expect(page.headers["cache-control"]).toBeUndefined();
   expect(JSON.parse(api.body)).toEqual({ total: 0, projects: [] });
+});
+
+test("each response's policy allows the styles of its own nonce, which the page carries in its meta", async () => {
+  const { port } = await start(home());
+  const pages = [await get(port, "/"), await get(port, "/")];
+  const nonces = pages.map((page) => {
+    const policy = page.headers["content-security-policy"] as string;
+    const m = /style-src 'self' 'nonce-([^']+)';/.exec(policy);
+    expect(m).not.toBeNull();
+    const nonce = (m as RegExpExecArray)[1] as string;
+    expect(policy).toBe(CSP.replace("style-src 'self'", `style-src 'self' 'nonce-${nonce}'`));
+    expect(page.body).toContain(`<meta name="theway-style-nonce" content="${nonce}" />`);
+    expect(page.body).toMatch(/<meta name="theway-token" content="[0-9a-f]{64}" \/>\n    <meta name="theway-style-nonce" /);
+    return nonce;
+  });
+  expect(nonces[0]).not.toBe(nonces[1]);
 });
 
 /** The bytes of one GET, with its headers. */
@@ -171,7 +189,7 @@ test("dashboard serves its two fonts as woff2 from its own origin", async () => 
     expect([path, res.status, res.headers["content-type"], res.headers["cache-control"]]).toEqual([path, 200, "font/woff2", "public, max-age=86400"]);
     expect(res.body.subarray(0, 4).toString("latin1")).toBe("wOF2");
     expect(res.body.equals(readFileSync(join(ROOT, "node_modules", "@fontsource-variable", file)))).toBe(true);
-    expect(res.headers["content-security-policy"]).toBe(CSP);
+    expect(withoutNonce(res.headers["content-security-policy"])).toBe(CSP);
   }
 });
 
@@ -180,7 +198,7 @@ test("dashboard serves its icon, the logo mark as SVG, linked from the page", as
   const page = await get(port, "/");
   expect(page.body).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg" />');
   const icon = await get(port, "/favicon.svg");
-  expect([icon.status, icon.headers["content-type"], icon.headers["content-security-policy"]]).toEqual([200, "image/svg+xml", CSP]);
+  expect([icon.status, icon.headers["content-type"], withoutNonce(icon.headers["content-security-policy"])]).toEqual([200, "image/svg+xml", CSP]);
   expect(icon.body).toStartWith('<svg xmlns="http://www.w3.org/2000/svg"');
   expect(icon.body).toContain('d="M7 8h8M7 11h5M7 14h8"');
 });
@@ -256,7 +274,7 @@ test("dashboard answers 403 to a request whose Host is not its own", async () =>
   for (const host of [`evil.example:${port}`, "127.0.0.1", `localhost:${port + 1}`]) {
     const res = await get(port, "/api/v1/changes", { host });
     expect([res.status, JSON.parse(res.body)]).toEqual([403, { error: "forbidden host" }]);
-    expect(res.headers["content-security-policy"]).toBe(CSP);
+    expect(withoutNonce(res.headers["content-security-policy"])).toBe(CSP);
   }
   expect((await get(port, "/", { host: `localhost:${port}` })).status).toBe(200);
 });
