@@ -27,9 +27,9 @@ export function YamlView({
   const editor = useRef<CodeEditorHandle>(null);
   const shown = errors.map((l) => shownError(l, name, text));
   return (
-    <div className="flex flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {shown.length > 0 && (
-        <ul className="flex flex-col gap-0.5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-[13px] break-words text-destructive">
+        <ul className="flex max-h-[160px] shrink-0 flex-col gap-0.5 overflow-y-auto rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-[13px] break-words text-destructive">
           {shown.map((e, i) => (
             <li key={`${i}:${e.text}`}>
               {e.line !== null && (
@@ -59,7 +59,7 @@ export function YamlView({
         language="yaml"
         marks={marksOf(errors, name, text)}
         label={`workflows/${name}.yaml`}
-        className="min-h-[60vh]"
+        className="min-h-[240px] flex-1"
       />
     </div>
   );

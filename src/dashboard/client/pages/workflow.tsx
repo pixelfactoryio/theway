@@ -47,13 +47,13 @@ function useWide(): boolean {
   return wide;
 }
 
-/** A box of check lines: destructive for errors, warning for warnings. */
+/** A box of check lines: destructive for errors, warning for warnings; at most 160px high, scrolling inside itself. */
 function Lines({ lines, tone }: { lines: readonly string[]; tone: "error" | "warning" }) {
   if (lines.length === 0) return null;
   return (
     <ul
       className={cn(
-        "flex flex-col gap-0.5 rounded-lg border px-4 py-2.5 font-mono text-[12px] break-words",
+        "flex max-h-[160px] shrink-0 flex-col gap-0.5 overflow-y-auto rounded-lg border px-4 py-2.5 font-mono text-[12px] break-words",
         tone === "error" ? "border-destructive/30 bg-destructive/5 text-destructive" : "border-warning/40 bg-warning/10",
       )}
     >
@@ -170,7 +170,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   );
 
   return (
-    <main ref={main} id="content" tabIndex={-1} className="flex min-h-dvh flex-1 flex-col outline-none">
+    <main ref={main} id="content" tabIndex={-1} className="flex h-[calc(100dvh-var(--topbar-h))] flex-1 flex-col outline-none">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-divider px-4 py-3 lg:flex-nowrap lg:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to the workflows" className="max-lg:order-1" onClick={() => navigate("/workflows")}>
           <X />
@@ -210,10 +210,12 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
         )}
       </div>
       <Confirm open={discarding} title={`Discard your unsaved changes to ${file.name}?`} action="Discard" onConfirm={discard} onClose={() => setDiscarding(false)} />
-      <div className="flex flex-1 flex-col lg:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 lg:p-6">
+      {/* As high as the viewport under the top bar: the canvas, the YAML editor or the diff takes the height left, at
+          least 240px, and the panel scrolls inside itself; only a window too short for those 240px scrolls. */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4 lg:p-6">
           {conflict && (
-            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5">
+            <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5">
               <span className="mr-auto">Changed on disk since you opened it.</span>
               <Button size="sm" variant="outline" onClick={reload}>
                 Reload
@@ -224,7 +226,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
             <>
               <Lines lines={errors.map((l) => withoutPrefix(l, file.name))} tone="error" />
               <Lines lines={warnings} tone="warning" />
-              <Diff from={draft.start} to={text} className="max-h-none" />
+              <Diff from={draft.start} to={text} className="max-h-none min-h-[240px] flex-1" />
             </>
           ) : view === "yaml" ? (
             <YamlView
@@ -240,7 +242,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
             <>
               <Lines lines={loose} tone="error" />
               <Lines lines={warnings} tone="warning" />
-              <div className="wf-canvas flex-1 overflow-x-auto rounded-xl p-4 lg:p-6">
+              <div className="wf-canvas relative min-h-[240px] flex-1 overflow-hidden rounded-xl p-4 lg:p-6">
                 {drawn === null ? (
                   <NotDrawn error={"error" in source ? source.error : ""} yamlHref={yamlHref} />
                 ) : (

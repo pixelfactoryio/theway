@@ -208,7 +208,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <DraftsProvider>
           <Router hook={useHashLocation}>
-            <div className="flex min-h-screen">
+            <div className="flex min-h-dvh">
               <SkipLink />
               <aside aria-label="Sidebar" className="sticky top-0 hidden h-dvh w-[220px] flex-none overflow-auto border-r border-divider px-3 py-5 lg:block">
                 <SidebarContent project={project} onProject={setProject} />
