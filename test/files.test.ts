@@ -11,7 +11,7 @@ import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/f
 import { promptLine, withItemError } from "../src/dashboard/client/files/problems";
 import { workflowSource } from "../src/dashboard/client/files/source";
 import { deltaText, diffRows, lineDelta, versionNotes, whenOf } from "../src/dashboard/client/files/version-info";
-import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
+import { copyText, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
 
 const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
 const shipped = (rel: string) => readFileSync(join(SHIPPED_HOME, rel), "utf-8");
@@ -160,13 +160,14 @@ test("a new workflow and a new prompt start as written;the workflow names implem
   expect(workflow).toBe('version: theway.workflow/v1beta\ndescription: Ship a thing\nruns-on: agents\nsteps:\n  - uses: prompts/implement.md\n    with:\n      change: ""\n');
   expect(errorsOf("ship", workflow)).toEqual(["workflows/ship.yaml: steps[0].with: required input change is not set"]);
   const prompt = newPromptText("Do one thing");
-  expect(prompt).toBe(`---\ndescription: Do one thing\nmodel: opus\n---\n\n${NEW_PROMPT_BODY}`);
-  expect(NEW_PROMPT_BODY).toBe("Say what this step does, and when it answers pass, fail or blocked.\n");
+  expect(prompt).toBe("---\ndescription: Do one thing\nmodel: opus\n---\n\n");
   const doc = parse(workflow);
   setStepPrompt(doc, 0, "one-thing", []);
   const changed = textOf(doc);
   expect(changed).toBe("version: theway.workflow/v1beta\ndescription: Ship a thing\nruns-on: agents\nsteps:\n  - uses: prompts/one-thing.md\n");
-  expect(errorsOf("ship", changed, { "one-thing": prompt })).toEqual([]);
+  // The new prompt's empty body is reported only through a workflow that uses it.
+  expect(errorsOf("ship", changed, { "one-thing": prompt })).toEqual(["prompts/one-thing.md: body: must not be empty"]);
+  expect(errorsOf("ship", changed, { "one-thing": `${prompt}Do it.\n` })).toEqual([]);
   // With no implement step prompt, the first step prompt by name; with none, implement all the same.
   expect(newWorkflowText("x", STEP_PROMPTS.filter((p) => p.name !== "implement"))).toContain('  - uses: prompts/branch.md\n    with:\n      change: ""\n');
   expect(newWorkflowText("x", [])).toContain("  - uses: prompts/implement.md\n");

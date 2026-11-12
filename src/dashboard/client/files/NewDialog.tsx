@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
 import { projectNames } from "@/lib/labels";
 import { NAME } from "../../../core/language-schema";
@@ -76,7 +76,6 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
     >
       <DialogHeader>
         <DialogTitle>{kind === "prompts" ? "Create prompt" : "Create workflow"}</DialogTitle>
-        <DialogDescription>Opens as a draft. Nothing is written until you save.</DialogDescription>
       </DialogHeader>
       <Row
         label="Name"

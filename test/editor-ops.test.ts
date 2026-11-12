@@ -120,7 +120,7 @@ test("a ci step inserted at each position keeps every comment and resolves; impl
   }
   // The workflow declares an input `change`: the new step's required `change` names it, and the check passes.
   const out = run("implement", COMMENTED, [(d) => insertStep(d, 2, "implement", ["change"])]);
-  expect(out).toContain('  - uses: prompts/implement.md\n    with:\n      change: "${{ inputs.change }}"\n');
+  expect(out).toContain("  - uses: prompts/implement.md\n    with:\n      change: ${{ inputs.change }}\n");
   // A required input the workflow does not declare is written `""`, which the check reports.
   const bare = parse("version: theway.workflow/v1beta\ndescription: x\nruns-on: agents\nsteps:\n  - uses: prompts/ci.md\n");
   insertStep(bare, 1, "implement", ["change"]);
@@ -140,6 +140,32 @@ test("a step's prompt changed, and an on-fail turned on or changed, name the wor
   expect(onFail.with).toEqual([["change", "${{ inputs.change }}"], ["other", ""], ["kept", "y"]]);
   expect(declaredInputs(doc)).toEqual(["change"]);
   expect(prefill(doc, "nope")).toBe("");
+});
+
+test("references are written as yaml writes them: plain in a block map, quoted in a flow one; an unchanged on-fail value is kept as written", () => {
+  const on = run("on-fail", COMMENTED, [
+    (d) => setStepOnFail(d, 1, prefillOnFail(d, { name: "fix-review", with: [["change", ""]], model: null })),
+  ]);
+  expect(on).toContain("    on-fail:\n      uses: prompts/fix-review.md\n      with:\n        change: ${{ inputs.change }}\n");
+  const doc = parse(AGENTS);
+  setStepWith(doc, 1, "change", "${{ inputs.change }} x");
+  expect(textOf(doc)).toContain("      change: ${{ inputs.change }} x\n");
+
+  // Changing only the model keeps a double-quoted value, and its comment, byte for byte.
+  const quoted = AGENTS.replace(
+    "      with:\n        change: ${{ inputs.change }}\n    tries: 1",
+    '      with:\n        change: "${{ inputs.change }}" # kept\n    tries: 1',
+  );
+  expect(quoted).not.toBe(AGENTS);
+  const q = parse(quoted);
+  setStepOnFail(q, 3, { name: "fix-review", with: [["change", "${{ inputs.change }}"]], model: "haiku" });
+  const out = textOf(q);
+  expect(out).toContain('        change: "${{ inputs.change }}" # kept\n      model: haiku\n');
+  expect(out.split("# kept")).toHaveLength(2);
+
+  const flow = parse("version: theway.workflow/v1beta\ndescription: x\nruns-on: agents\nsteps:\n  - uses: prompts/ci.md\n    with: { a: b }\n");
+  setStepWith(flow, 0, "x", "${{ inputs.x }}");
+  expect(textOf(flow)).toContain('with: {a: b, x: "${{ inputs.x }}"}');
 });
 
 test("moving a step up, down, and step 5 to position 3 in one operation keeps every comment; removing a step keeps them too", () => {
@@ -213,28 +239,37 @@ test("each workflow field is set, and a workflow input added twice and removed, 
     (d) => setWorkflowField(d, "runs-on", "session"),
     (d) => setWorkflowField(d, "runs-on", "agents"),
   ]);
-  const added = run("inputs", COMMENTED, [(d) => addInput(d, WORKFLOW_ORDER)]);
-  expect(added).toContain("    type: change\n  input:\n    description: Describe this input.\nruns-on: agents\n");
-  const twice = run("inputs twice", added, [(d) => addInput(d, WORKFLOW_ORDER)]);
-  expect(twice).toContain("  input:\n    description: Describe this input.\n  input2:\n    description: Describe this input.\nruns-on: agents\n");
-  const back = run("remove", twice, [(d) => removeInput(d, "input2"), (d) => removeInput(d, "input")]);
+  const empty = (name: string) => `workflows/agents.yaml: inputs.${name}: description must be a non-empty string`;
+  const added = run("inputs", COMMENTED, [(d) => addInput(d, WORKFLOW_ORDER)], [[empty("input")]]);
+  expect(added).toContain('    type: change\n  input:\n    description: ""\nruns-on: agents\n');
+  const twice = run("inputs twice", added, [(d) => addInput(d, WORKFLOW_ORDER)], [[empty("input"), empty("input2")]]);
+  expect(twice).toContain('  input:\n    description: ""\n  input2:\n    description: ""\nruns-on: agents\n');
+  const back = run("remove", twice, [(d) => removeInput(d, "input2"), (d) => removeInput(d, "input")], [[empty("input")], []]);
   expect(back).toBe(textOf(parse(COMMENTED)));
-  run("input fields", added, [
-    (d) => renameInput(d, "input", "notes"),
-    (d) => setInputField(d, "notes", "default", "none"),
-    (d) => setInputField(d, "notes", "type", "text"),
-    (d) => setInputField(d, "notes", "description", "Notes to add"),
-  ]);
+  run(
+    "input fields",
+    added,
+    [
+      (d) => renameInput(d, "input", "notes"),
+      (d) => setInputField(d, "notes", "default", "none"),
+      (d) => setInputField(d, "notes", "type", "text"),
+      (d) => setInputField(d, "notes", "description", "Notes to add"),
+    ],
+    [[empty("notes")], [empty("notes")], [empty("notes")], []],
+  );
 });
 
-test("an input added to the review.md header writes input then input2, and agents still resolves", () => {
+test("an input added to the review.md header writes input then input2, each reported until it has a description", () => {
   const review = readFileSync(join(SHIPPED_HOME, "prompts", "review.md"), "utf-8");
   const once = editHeader(review, (h) => addInput(h, HEADER_ORDER));
-  expect(once).toContain("    required: true\n  input:\n    description: Describe this input.\n---\n");
-  expect(errorsOf(AGENTS, { review: once })).toEqual([]);
+  expect(once).toContain('    required: true\n  input:\n    description: ""\n---\n');
+  expect(errorsOf(AGENTS, { review: once })).toEqual(["prompts/review.md: inputs.input: description must be a non-empty string"]);
   const twice = editHeader(once, (h) => addInput(h, HEADER_ORDER));
-  expect(twice).toContain("  input:\n    description: Describe this input.\n  input2:\n    description: Describe this input.\n---\n");
-  expect(errorsOf(AGENTS, { review: twice })).toEqual([]);
+  expect(twice).toContain('  input:\n    description: ""\n  input2:\n    description: ""\n---\n');
+  expect(errorsOf(AGENTS, { review: twice })).toEqual([
+    "prompts/review.md: inputs.input: description must be a non-empty string",
+    "prompts/review.md: inputs.input2: description must be a non-empty string",
+  ]);
 });
 
 test("a move keeps the selection on the same step: the moved one, one it passes over, and one it does not reach", () => {

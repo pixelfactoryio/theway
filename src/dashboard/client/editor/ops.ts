@@ -45,11 +45,16 @@ function addComments(node: Node, texts: string[], where: "comment" | "commentBef
 
 /**
  * Gives `next` every comment of the node it replaces: its leading comment before a block `next`, and the rest, with
- * the comments of the items inside it, after `next`.
+ * the comments of the items inside it, after `next`; the comments of the nodes of `prev` that `next` keeps (`kept`)
+ * stay on them.
  */
-function carry(prev: unknown, next: unknown): void {
+function carry(prev: unknown, next: unknown, kept: readonly unknown[] = []): void {
   if (!isNode(prev) || !isNode(next)) return;
   const texts = commentsIn(prev);
+  for (const t of kept.flatMap((k) => commentsIn(k))) {
+    const at = texts.indexOf(t);
+    if (at !== -1) texts.splice(at, 1);
+  }
   const block = (isMap(next) || isSeq(next)) && !next.flow;
   const before = block && prev.commentBefore ? 1 : 0;
   addComments(next, texts.slice(0, before), "commentBefore");
@@ -68,13 +73,12 @@ function removeItem(seq: YAMLSeq, index: number): void {
   else addComments(seq, texts, "commentBefore");
 }
 
-/** A value turned into a node: a reference as a double-quoted string, a list as a flow list. */
+/**
+ * A value turned into a node, a list as a flow list. A string, a reference included, is written as `yaml` writes it by
+ * default: plain in a block map, quoted where a plain scalar cannot hold it (inside a flow collection, or a value with
+ * `: ` or ` #`).
+ */
 function valueNode(doc: Document, v: unknown): unknown {
-  if (typeof v === "string" && v.includes("${")) {
-    const s = new Scalar(v);
-    s.type = Scalar.QUOTE_DOUBLE;
-    return s;
-  }
   const node = doc.createNode(v);
   if (isSeq(node)) node.flow = true;
   return node;
@@ -321,6 +325,28 @@ function onFailNode(doc: Document, o: OnFail): unknown {
 }
 
 /**
+ * Puts back in the new on-fail `next` each entry of the old on-fail `prev`'s `with` whose value is unchanged, its key,
+ * value, quote style and comments as written; returns the entries kept.
+ */
+function keepWith(prev: unknown, next: unknown): unknown[] {
+  const withOf = (n: unknown) => (isMap(n) ? n.get("with", true) : undefined);
+  const before = withOf(prev);
+  const after = withOf(next);
+  if (!isMap(before) || !isMap(after)) return [];
+  const keyOf = (p: { key: unknown }) => String(isScalar(p.key) ? p.key.value : p.key);
+  const kept: unknown[] = [];
+  after.items.forEach((p, i) => {
+    const old = before.items.find((q) => keyOf(q) === keyOf(p));
+    const v = isScalar(p.value) ? p.value.value : undefined;
+    const was = isScalar(old?.value) ? old.value.value : undefined;
+    if (old === undefined || typeof v !== "string" || (typeof was !== "string" && typeof was !== "number" && typeof was !== "boolean") || String(was) !== v) return;
+    after.items[i] = old;
+    kept.push(old.key, old.value);
+  });
+  return kept;
+}
+
+/**
  * Sets the on-fail of step `index`, in the string form or the map form (`onFailNode`), with `tries: 1` when the step
  * has no `tries`; `undefined` removes `on-fail` and `tries` together.
  */
@@ -338,7 +364,7 @@ export function setStepOnFail(doc: Document, index: number, onFail: OnFail | und
   else {
     const pair = step.items.find((p) => (isScalar(p.key) ? p.key.value : p.key) === "on-fail");
     if (pair !== undefined) {
-      carry(prev, node);
+      carry(prev, node, keepWith(prev, node));
       pair.value = node;
     }
   }
@@ -393,7 +419,7 @@ export function newInputName(declared: readonly string[]): string {
 
 /**
  * Adds an optional input as the last of `inputs` (created in its place by `order`, the keys of the root), declared
- * with `description: Describe this input.`; returns its name.
+ * with `description: ""`, which the check reports until a description is set; returns its name.
  */
 export function addInput(doc: Document, order: readonly string[]): string {
   const root = rootOf(doc);
@@ -405,7 +431,7 @@ export function addInput(doc: Document, order: readonly string[]): string {
   }
   inputs.flow = false;
   const name = newInputName(withKeys(inputs));
-  inputs.items.push(doc.createPair(name, doc.createNode({ description: "Describe this input." })));
+  inputs.items.push(doc.createPair(name, doc.createNode({ description: "" })));
   return name;
 }
 

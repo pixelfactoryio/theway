@@ -28,12 +28,9 @@ export function newWorkflowText(description: string, prompts: readonly PromptCho
   return textOf(doc);
 }
 
-/** The body of a new prompt. */
-export const NEW_PROMPT_BODY = "Say what this step does, and when it answers pass, fail or blocked.\n";
-
-/** A new prompt: a header with `description` and `model: opus`, then a one-line body. */
+/** A new prompt: a header with `description` and `model: opus`, then one blank line and an empty body. */
 export function newPromptText(description: string): string {
-  return editHeader(`---\n---\n\n${NEW_PROMPT_BODY}`, (h) => {
+  return editHeader("---\n---\n\n", (h) => {
     setHeaderField(h, "description", description);
     setHeaderField(h, "model", "opus");
   });
