@@ -129,7 +129,9 @@ export function CodeEditor({
     const extensions = extensionsOf.current;
     if (v === null || extensions === null) return;
     const lf = withLf(value);
-    if (lf === v.state.doc.toString()) return;
+    // Equal texts with another separator still replace it, or the next keystroke would rewrite every line end.
+    const separator = allCrlf(value) ? "\r\n" : "\n";
+    if (lf === v.state.doc.toString() && separator === v.state.lineBreak) return;
     const anchor = Math.min(v.state.selection.main.head, lf.length);
     v.setState(EditorState.create({ doc: value, extensions: extensions(value), selection: { anchor } }));
     v.dispatch(setDiagnostics(v.state, diagnostics(v.state, latest.current.marks)));
