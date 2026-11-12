@@ -114,10 +114,6 @@ function usePanZoom(root: HTMLElement | null, kept: { current: PanView }, draggi
     const onStart = () => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     };
-    // Only the primary mouse button pans: panzoom 4.6.2 does not look at the button.
-    const onOtherButton = (e: PointerEvent) => {
-      if (e.pointerType === "mouse" && e.button !== 0) e.stopPropagation();
-    };
     // A drag is not a click: a press that moves more than 5px swallows the click that follows it.
     let start: { x: number; y: number } | null = null;
     let moved = false;
@@ -126,6 +122,13 @@ function usePanZoom(root: HTMLElement | null, kept: { current: PanView }, draggi
     const onDown = (e: PointerEvent) => {
       start = { x: e.clientX, y: e.clientY };
       moved = false;
+    };
+    // Only the primary mouse button pans: panzoom 4.6.2 does not look at the button. Its listener is on the canvas too,
+    // so a press on the canvas itself needs `stopImmediatePropagation`, which also skips `onDown`: it runs here instead.
+    const onOtherButton = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse" || e.button === 0) return;
+      onDown(e);
+      e.stopImmediatePropagation();
     };
     const onMove = (e: PointerEvent) => {
       if ((e.buttons !== 0 || e.pointerType === "touch") && far(e)) moved = true;
