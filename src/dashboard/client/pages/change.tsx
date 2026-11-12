@@ -184,9 +184,6 @@ function TaskList({ items }: { items: ChangeDetail["taskItems"] }) {
   );
 }
 
-const TRIGGER =
-  "flex-none rounded-none border-0 border-b-2 border-transparent px-0 py-2 font-normal text-muted-foreground after:hidden data-active:border-primary data-active:text-primary";
-
 /** The link back to Changes, the title with its badge, the description or the error, then the tabs and the Details column. */
 function Detail({ projectKey, date, query }: { projectKey: string; date: string | null; query: UseQueryResult<ChangeDetail> }) {
   const all = useAllChanges();
@@ -232,9 +229,9 @@ function Detail({ projectKey, date, query }: { projectKey: string; date: string 
             <div className="min-w-0 flex-1">
               {current !== undefined && (
                 <Tabs value={current.value} onValueChange={(v) => setTab(String(v))} className="gap-4">
-                  <TabsList variant="line" className="h-auto w-full justify-start gap-5 overflow-x-auto rounded-none border-b border-divider p-0">
+                  <TabsList variant="line" className="w-full justify-start overflow-x-auto">
                     {tabs.map((t) => (
-                      <TabsTrigger key={t.value} value={t.value} className={TRIGGER}>
+                      <TabsTrigger key={t.value} value={t.value}>
                         {t.name}
                       </TabsTrigger>
                     ))}

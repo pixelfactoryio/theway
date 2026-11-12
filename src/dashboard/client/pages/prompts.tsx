@@ -137,11 +137,11 @@ export function PromptsPage({ project }: { project: string }) {
         <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>
       ) : (
         <Tabs defaultValue="steps">
-          <TabsList variant="line" className="w-full justify-start border-b border-divider">
-            <TabsTrigger value="steps" className="flex-none px-1">
+          <TabsList variant="line" className="w-full justify-start">
+            <TabsTrigger value="steps">
               Step prompts · {steps.length}
             </TabsTrigger>
-            <TabsTrigger value="references" className="flex-none px-1">
+            <TabsTrigger value="references">
               Reference files · {references.length}
             </TabsTrigger>
           </TabsList>

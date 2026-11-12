@@ -442,11 +442,11 @@ export function StepPanel({
         </Button>
       </div>
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="flex-1 gap-4">
-        <TabsList variant="line" className="w-full justify-start border-b border-divider">
-          <TabsTrigger value="settings" className="flex-none px-1">
+        <TabsList variant="line" className="w-full justify-start">
+          <TabsTrigger value="settings">
             Settings
           </TabsTrigger>
-          <TabsTrigger value="text" className="flex-none px-1">
+          <TabsTrigger value="text">
             Prompt text
           </TabsTrigger>
         </TabsList>

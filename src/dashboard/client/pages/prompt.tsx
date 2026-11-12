@@ -264,11 +264,11 @@ function Editor({
       <Lines lines={warnings.map((l) => promptLine(l, file.name, labels))} tone="warning" />
       <div className="flex flex-col gap-6 pt-2 lg:flex-row lg:items-start">
         <Tabs value={tab} onValueChange={(v) => setTab(v === "write" ? "write" : "read")} className="min-w-0 flex-1 gap-4">
-          <TabsList variant="line" className="w-full justify-start border-b border-divider">
-            <TabsTrigger value="read" className="flex-none px-1" onClick={() => setDiffing(false)}>
+          <TabsList variant="line" className="w-full justify-start">
+            <TabsTrigger value="read" onClick={() => setDiffing(false)}>
               Read
             </TabsTrigger>
-            <TabsTrigger value="write" className="flex-none px-1" onClick={() => setDiffing(false)}>
+            <TabsTrigger value="write" onClick={() => setDiffing(false)}>
               Write
             </TabsTrigger>
           </TabsList>
