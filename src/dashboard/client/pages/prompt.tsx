@@ -85,7 +85,7 @@ function Reach({
               title={u.scope === "project" ? (u.label ?? u.key ?? undefined) : undefined}
               className="font-medium text-primary hover:underline"
             >
-              {usageText(u)}
+              {usageText(u, uses, names)}
             </Link>
           ))
         )}

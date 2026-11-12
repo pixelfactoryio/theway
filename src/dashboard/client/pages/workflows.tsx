@@ -13,7 +13,7 @@ import { workflowSource } from "@/files/source";
 import { fileHref, fileKey, useFiles } from "@/lib/api";
 import { plural } from "@/lib/changes";
 import { projectNames } from "@/lib/labels";
-import { appliesText } from "@/lib/prompts";
+import { appliesText, nameTag, overridersOf } from "@/lib/prompts";
 import { newWorkflowItem, runsOnText, workflowRows } from "@/lib/workflows";
 import type { WorkflowItem } from "../../types";
 import { HEAD, ROW } from "./changes";
@@ -21,14 +21,37 @@ import { HEAD, ROW } from "./changes";
 /** The columns: below `lg`, Name and Steps. */
 const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)_60px_minmax(0,160px)_minmax(0,160px)]";
 
-/** A row: the whole row links to the workflow's page. */
-function Row({ item, edited, names }: { item: WorkflowItem; edited: boolean; names: ReadonlyMap<string, string> }) {
+/** A row: the whole row links to the workflow's page. `rows` are the table's rows, `all` every workflow of the files list. */
+function Row({
+  item,
+  edited,
+  names,
+  rows,
+  all,
+}: {
+  item: WorkflowItem;
+  edited: boolean;
+  names: ReadonlyMap<string, string>;
+  rows: readonly WorkflowItem[];
+  all: readonly WorkflowItem[];
+}) {
   const none = <span className="text-muted-foreground">–</span>;
+  const tag = nameTag(item, rows, names);
+  const overriddenBy = overridersOf(item, all);
+  const overrides = item.scope === "project" && all.some((o) => o.scope === "global" && o.name === item.name);
   return (
     <div className={cn(ROW, "relative", COLUMNS)}>
       <span className="flex min-w-0 flex-wrap items-center gap-1.5">
         <Link href={fileHref(item)} className="truncate font-semibold after:absolute after:inset-0">
           {item.name}
+          {tag !== null && (
+            <>
+              {" "}
+              <span className="font-normal text-muted-foreground" title={item.label ?? item.key ?? undefined}>
+                ({tag})
+              </span>
+            </>
+          )}
         </Link>
         {item.default && <Badge variant="secondary">default</Badge>}
         {item.errors > 0 && (
@@ -41,8 +64,8 @@ function Row({ item, edited, names }: { item: WorkflowItem; edited: boolean; nam
       <span className="hidden truncate text-muted-foreground lg:block">{item.description ?? ""}</span>
       <span>{item.steps === null ? none : item.steps}</span>
       <span className="hidden truncate lg:block">{item.runsOn === null ? none : runsOnText(item.runsOn)}</span>
-      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item)}>
-        {appliesText(item, [], false, names)}
+      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
+        {appliesText(item, overriddenBy, overrides, names)}
       </span>
     </div>
   );
@@ -87,7 +110,7 @@ export function WorkflowsPage({ project }: { project: string }) {
             <span className="hidden lg:block">Applies to</span>
           </div>
           {rows.map((item) => (
-            <Row key={fileKey(item)} item={item} edited={edited(item)} names={names} />
+            <Row key={fileKey(item)} item={item} edited={edited(item)} names={names} rows={rows} all={files.data?.workflows ?? []} />
           ))}
           <p className="px-2 pt-3 text-[12px] text-muted-foreground">{plural(rows.length, "workflow", "workflows")}</p>
         </div>
