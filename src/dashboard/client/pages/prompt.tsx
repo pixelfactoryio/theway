@@ -226,7 +226,7 @@ function Editor({
         Prompts ›
       </Link>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="mr-auto min-w-0 text-[28px] font-semibold break-all">{file.name}</h1>
+        <h1 className="mr-auto min-w-0 text-[28px] font-semibold wrap-anywhere">{file.name}</h1>
         <span role="status" className="text-[13px] text-muted-foreground">
           {status}
         </span>

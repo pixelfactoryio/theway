@@ -47,10 +47,10 @@ function ActiveRow({ row, project }: { row: ChangeRow; project: string }) {
   return (
     <Link href={`/changes/${row.key}/${row.change.id}`} className={cn(ROW, COLUMNS)}>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-semibold">{row.change.id}</span>
-        {row.change.description !== null && <span className="truncate text-muted-foreground">{row.change.description}</span>}
+        <span className="wrap-anywhere font-semibold">{row.change.id}</span>
+        {row.change.description !== null && <span className="wrap-anywhere text-muted-foreground">{row.change.description}</span>}
       </span>
-      <span className="hidden truncate text-muted-foreground lg:block" title={row.label}>
+      <span className="hidden wrap-anywhere text-muted-foreground lg:block" title={row.label}>
         {project}
       </span>
       <TasksCell change={row.change} />
@@ -78,8 +78,8 @@ function ArchivedTable({ rows, names }: { rows: ArchivedRow[]; names: Map<string
           </div>
           {rows.map((r) => (
             <Link key={`${r.key}/${r.archived.folder}`} href={`/archive/${r.key}/${r.archived.folder}`} className={cn(ROW, ARCHIVED_COLUMNS)}>
-              <span className="truncate font-semibold">{r.archived.id ?? r.archived.folder}</span>
-              <span className="hidden truncate text-muted-foreground lg:block" title={r.label}>
+              <span className="wrap-anywhere font-semibold">{r.archived.id ?? r.archived.folder}</span>
+              <span className="hidden wrap-anywhere text-muted-foreground lg:block" title={r.label}>
                 {names.get(r.label) ?? r.label}
               </span>
               <span className="text-muted-foreground tabular-nums">{r.archived.date ?? ""}</span>

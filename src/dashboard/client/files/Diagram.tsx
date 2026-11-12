@@ -20,13 +20,14 @@ export type Selection = { step: number } | "workflow";
 const COLUMN_CARD = "w-full lg:w-[340px]";
 
 /** A card's icon tile: neutral, or the primary tint for a step on agents, or the warning tint for an on-fail. */
-function Tile({ tone, children }: { tone: "neutral" | "primary" | "warning"; children: ReactNode }) {
+function Tile({ tone, children, className }: { tone: "neutral" | "primary" | "warning"; children: ReactNode; className?: string }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
         "flex size-8 shrink-0 items-center justify-center rounded-md [&_svg]:size-4",
         tone === "primary" ? "bg-primary/10 text-primary" : tone === "warning" ? "bg-warning/20 text-amber-700" : "bg-muted text-muted-foreground",
+        className,
       )}
     >
       {children}
@@ -35,16 +36,21 @@ function Tile({ tone, children }: { tone: "neutral" | "primary" | "warning"; chi
 }
 
 /** A step's icon tile from its effective runs-on: agents in the primary tint, anything else neutral. */
-export function StepTile({ runsOn }: { runsOn: string | null }) {
-  return <Tile tone={runsOn === "agents" ? "primary" : "neutral"}>{runsOn === "agents" ? <Sparkles /> : <User />}</Tile>;
+export function StepTile({ runsOn, className }: { runsOn: string | null; className?: string }) {
+  return (
+    <Tile tone={runsOn === "agents" ? "primary" : "neutral"} className={className}>
+      {runsOn === "agents" ? <Sparkles /> : <User />}
+    </Tile>
+  );
 }
 
 /** The ring of a card: the primary colour when selected, else the destructive colour when it has an error. */
 const ring = (selected: boolean, error: boolean): string => (selected ? "ring-2 ring-primary" : error ? "ring-2 ring-destructive" : "");
 
 /**
- * A card: its tile, small label, title and third line, a button over the whole card that selects it, and an optional
- * handle on its right edge above that button.
+ * A card: its tile, small label, title and third line, wrapped at word boundaries (a word longer than its line runs
+ * into the card's padding), a button over the whole card that selects it, and an optional handle on its right edge
+ * above that button.
  */
 function Card({
   tile,
@@ -73,8 +79,8 @@ function Card({
     <div className={cn("relative flex items-start gap-3 rounded-lg border bg-card p-3.5 text-left shadow-xs", ring(selected, error), className)}>
       {tile}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[12px] text-muted-foreground">{label}</span>
-        {title !== "" && <span className="truncate font-semibold">{title}</span>}
+        <span className="text-[12px] text-muted-foreground">{label}</span>
+        {title !== "" && <span className="font-semibold">{title}</span>}
         {line !== undefined && line !== null && line !== "" && <span className="text-muted-foreground">{line}</span>}
       </span>
       <button
@@ -93,15 +99,21 @@ function Card({
 type HandleAttributes = Pick<HTMLAttributes<HTMLElement>, "aria-describedby" | "aria-disabled" | "aria-pressed" | "aria-roledescription">;
 const HandleContext = createContext<HandleAttributes>({});
 
-/** A step's drag handle, on the right edge of its card, above the card's button; disabled while the view is zoomed. */
-function Handle({ label, zoomed }: { label: string; zoomed: boolean }) {
+/**
+ * A step's drag handle: on the right edge of a plain step's card, above the card's button, or on a matrix step's fork;
+ * disabled while the view is zoomed.
+ */
+function Handle({ label, zoomed, className }: { label: string; zoomed: boolean; className?: string }) {
   const attributes = useContext(HandleContext);
   return (
     <SortableItemHandle
       render={<button type="button" disabled={zoomed} title={zoomed ? "Reset the view to move steps" : undefined} />}
       {...attributes}
       aria-label={label}
-      className="panzoom-exclude relative z-10 -mr-1.5 flex size-8 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11"
+      className={cn(
+        "panzoom-exclude relative z-10 -mr-1.5 flex size-8 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11",
+        className,
+      )}
     >
       <GripVertical className="size-4" />
     </SortableItemHandle>
@@ -185,7 +197,8 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
   const selected = typeof selection === "object" && selection !== null && selection.step === index;
   const error = props.stepError(index);
   const onSelect = () => select({ step: index });
-  const handle = <Handle label={`Reorder step ${index + 1}: ${title}`} zoomed={props.zoomed} />;
+  const handleLabel = `Reorder step ${index + 1}: ${title}`;
+  const handle = <Handle label={handleLabel} zoomed={props.zoomed} />;
   const values = step.matrix?.values ?? [];
   const tile = <StepTile runsOn={runsOn} />;
   const name = (n: string) => `Step ${index + 1}: ${title}${n}`;
@@ -194,12 +207,14 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
       <Card tile={tile} label={label} title={title} line={description} selected={selected} error={error} name={name("")} onSelect={onSelect} handle={handle} className={COLUMN_CARD} />
     ) : (
       <div className="flex w-full flex-col items-center">
+        {/* The handle stands on the fork's line, above the copies, none of which carries one. */}
+        <Handle label={handleLabel} zoomed={props.zoomed} className="mr-0" />
         <span aria-hidden="true" className={cn("h-3 rounded-t-lg border-x border-t border-input", BRACKET[Math.min(values.length, 3) - 1])} />
         <div className="flex w-full flex-wrap justify-center gap-3 lg:max-w-[816px]">
           {values.map((v, i) => (
             <Card
               key={`${i}:${v}`}
-              tile={tile}
+              tile={<StepTile runsOn={runsOn} className="max-lg:size-6.5" />}
               label={label}
               title={title}
               line={matrixText(step.matrix?.key ?? "", v)}
@@ -207,8 +222,7 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
               error={error}
               name={name(`, ${matrixText(step.matrix?.key ?? "", v)}`)}
               onSelect={onSelect}
-              handle={i === 0 ? handle : undefined}
-              className="w-[calc(50%-6px)] lg:w-[264px]"
+              className="w-[calc(50%-6px)] max-lg:p-2.5 lg:w-[264px]"
             />
           ))}
         </div>
@@ -306,8 +320,9 @@ export function Diagram(props: DiagramProps) {
             ) : (
               <span className="flex flex-col">
                 {source.inputs.map((i) => (
-                  <span key={i.name} className="truncate">
-                    <span className="font-semibold text-foreground">{i.name}</span> {i.description}
+                  <span key={i.name} className="flex flex-col">
+                    <span className="font-semibold text-foreground">{i.name}</span>
+                    {i.description !== "" && <span>{i.description}</span>}
                   </span>
                 ))}
               </span>

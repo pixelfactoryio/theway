@@ -45,7 +45,7 @@ export function HomePage({ project }: { project: string }) {
               {rows.map((r) => (
                 <Link key={`${r.key}/${r.change.id}`} href={`/changes/${r.key}/${r.change.id}`} className={cn(ROW, COLUMNS)}>
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate">
+                    <span className="wrap-anywhere">
                       <span className="font-semibold">{r.change.id}</span>
                       {r.series !== null && (
                         <span className="text-muted-foreground">
@@ -54,9 +54,9 @@ export function HomePage({ project }: { project: string }) {
                         </span>
                       )}
                     </span>
-                    {r.change.description !== null && <span className="truncate text-muted-foreground">{r.change.description}</span>}
+                    {r.change.description !== null && <span className="wrap-anywhere text-muted-foreground">{r.change.description}</span>}
                   </span>
-                  <span className="hidden truncate text-muted-foreground lg:block" title={r.label}>
+                  <span className="hidden wrap-anywhere text-muted-foreground lg:block" title={r.label}>
                     {names.get(r.label) ?? r.label}
                   </span>
                   <TasksCell change={r.change} />

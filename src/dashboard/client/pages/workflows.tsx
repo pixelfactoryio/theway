@@ -42,7 +42,7 @@ function Row({
   return (
     <Link href={fileHref(item)} className={cn(ROW, COLUMNS)}>
       <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <span className="truncate font-semibold">
+        <span className="wrap-anywhere font-semibold">
           {item.name}
           {tag !== null && (
             <>
@@ -61,10 +61,10 @@ function Row({
         )}
         {edited && <Badge variant="warning-light">edited</Badge>}
       </span>
-      <span className="hidden truncate text-muted-foreground lg:block">{item.description ?? ""}</span>
+      <span className="hidden wrap-anywhere text-muted-foreground lg:block">{item.description ?? ""}</span>
       <span>{item.steps === null ? none : item.steps}</span>
-      <span className="hidden truncate lg:block">{item.runsOn === null ? none : runsOnText(item.runsOn)}</span>
-      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
+      <span className="hidden wrap-anywhere lg:block">{item.runsOn === null ? none : runsOnText(item.runsOn)}</span>
+      <span className="hidden wrap-anywhere text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
         {appliesText(item, overriddenBy, overrides, names)}
       </span>
     </Link>

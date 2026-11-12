@@ -86,7 +86,7 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
             </span>
           ) : (
             <>
-              Saved as <span className="font-mono break-all">{`${kind}/${name === "" ? "<name>" : name}${EXT[kind]}`}</span>
+              Saved as <span className="font-mono wrap-anywhere">{`${kind}/${name === "" ? "<name>" : name}${EXT[kind]}`}</span>
             </>
           )
         }

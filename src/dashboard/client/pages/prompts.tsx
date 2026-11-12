@@ -23,7 +23,7 @@ const REFERENCE_COLUMNS = "grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)
 function UsedByCell({ item, names }: { item: PromptItem; names: ReadonlyMap<string, string> }) {
   if (item.usedBy.length === 0) return <span className="hidden text-muted-foreground lg:block">–</span>;
   return (
-    <span className="hidden min-w-0 truncate lg:block">
+    <span className="hidden min-w-0 wrap-anywhere lg:block">
       {item.usedBy.map((u, i) => (
         <Fragment key={`${u.scope}/${u.key ?? ""}/${u.name}`}>
           {i > 0 && ", "}
@@ -65,7 +65,7 @@ function Row({
   return (
     <div className={cn(ROW, "relative", step ? STEP_COLUMNS : REFERENCE_COLUMNS)}>
       <span className="flex min-w-0 items-center gap-1.5">
-        <Link href={fileHref(item)} className="truncate font-semibold after:absolute after:inset-0">
+        <Link href={fileHref(item)} className="wrap-anywhere font-semibold after:absolute after:inset-0">
           {item.name}
           {tag !== null && (
             <>
@@ -83,10 +83,10 @@ function Row({
           </Badge>
         )}
       </span>
-      {step && <span className="hidden truncate text-muted-foreground lg:block">{item.description ?? ""}</span>}
+      {step && <span className="hidden wrap-anywhere text-muted-foreground lg:block">{item.description ?? ""}</span>}
       {step && <span className={item.model === null ? "text-muted-foreground" : undefined}>{item.model ?? "–"}</span>}
       <UsedByCell item={item} names={names} />
-      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
+      <span className="hidden wrap-anywhere text-muted-foreground lg:block" title={appliesText(item, overriddenBy, overrides)}>
         {appliesText(item, overriddenBy, overrides, names)}
       </span>
     </div>

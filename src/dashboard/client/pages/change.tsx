@@ -97,7 +97,7 @@ function RunCommand({ id }: { id: string }) {
   };
   return (
     <div className="flex items-center gap-2 rounded-md bg-canvas p-2">
-      <code ref={text} className="min-w-0 flex-1 font-mono text-[12px] break-all">
+      <code ref={text} className="min-w-0 flex-1 font-mono text-[12px] wrap-anywhere">
         {command}
       </code>
       <Button variant="outline" size="sm" onClick={copy}>
@@ -208,7 +208,7 @@ function Detail({ projectKey, date, query }: { projectKey: string; date: string 
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="text-[28px] font-semibold break-all">{data.id}</h1>
+            <h1 className="text-[28px] font-semibold wrap-anywhere">{data.id}</h1>
             {data.archived ? (
               <span className="flex items-center gap-2">
                 <Badge variant="invert-light">Archived</Badge>

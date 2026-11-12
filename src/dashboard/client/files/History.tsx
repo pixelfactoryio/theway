@@ -89,7 +89,7 @@ export function History({ file, id }: { file: FileRef; id: string | null }) {
         <Button variant="ghost" size="icon" aria-label={`Back to ${file.name}`} onClick={() => navigate(fileHref(file))}>
           <ArrowLeft />
         </Button>
-        <h1 className="min-w-0 text-[18px] font-semibold break-all">{file.name}</h1>
+        <h1 className="min-w-0 text-[18px] font-semibold wrap-anywhere">{file.name}</h1>
         <span className="mr-auto text-muted-foreground">History</span>
         <Tabs value={whole ? "whole" : "changes"} onValueChange={(v) => setWhole(v === "whole")}>
           <TabsList>

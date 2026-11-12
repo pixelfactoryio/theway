@@ -423,7 +423,7 @@ function Editor({
         <Button variant="ghost" size="icon" aria-label="Back to the workflows" className="max-lg:order-1" onClick={() => navigate("/workflows")}>
           <X />
         </Button>
-        <h1 className="min-w-0 text-[18px] font-semibold break-all max-lg:order-1 max-lg:mr-auto">{file.name}</h1>
+        <h1 className="min-w-0 text-[18px] font-semibold wrap-anywhere max-lg:order-1 max-lg:mr-auto">{file.name}</h1>
         <span className="hidden min-w-0 flex-1 truncate text-muted-foreground lg:block">{description}</span>
         <span aria-hidden="true" className="h-0 basis-full max-lg:order-2 lg:hidden" />
         <nav aria-label="View" className="flex rounded-lg bg-muted p-0.5 max-lg:order-3">
