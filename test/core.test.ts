@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeIfEmpty } from "../src/core/io";
@@ -122,7 +122,7 @@ tasks:
   expect([bad.status, bad.stdout, bad.stderr]).toEqual([1, "", "theway: changes/add-x/change.yaml: task 9: no such task (1 to 3)\n"]);
   const partial = run(dir, "task", "done", "--project", "p", "add-x", "1", "9");
   expect(partial.status).toBe(1);
-  expect(run(dir, "task", "done", "--project", "p", "add-x", "0").stderr).toBe("theway: changes/add-x/change.yaml: task 0: no such task (1 to 3)\n");
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "0").stderr).toBe("theway: changes/add-x/change.yaml: task 0: not a task number\n");
   expect(readFileSync(file, "utf-8")).toBe(text);
 
   const res = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
@@ -171,6 +171,100 @@ tasks:
     "theway: changes/add-x/change.yaml: version: must be theway.change/v1beta\ntheway: changes/add-x/change.yaml: description: is required\ntheway: changes/add-x/change.yaml: tasks: is required\n",
   ]);
   expect(readFileSync(file, "utf-8")).toBe("version: x\n");
+});
+
+test("change, task done, list and archive refuse anchors and aliases, one line per use in document order", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "al", "change.yaml");
+  const text = "version: theway.change/v1beta\ndescription: Do a thing\ntasks:\n  - &t\n    text: one\n  - *t\n  - text: three\n";
+  put(file, text);
+  const lines = "theway: changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\ntheway: changes/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n";
+  for (const args of [["change", "al"], ["task", "done", "al", "2"]]) {
+    const res = run(dir, ...args, "--project", "p");
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", lines]);
+  }
+  expect(readFileSync(file, "utf-8")).toBe(text);
+  expect(run(dir, "list", "--project", "p").stdout).toContain("invalid: tasks[0]: anchors and aliases are not allowed");
+  const archived = run(dir, "archive", "--project", "p", "al");
+  expect(archived.status).toBe(1);
+  expect(archived.stderr).toContain("changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\nchanges/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n");
+
+  const v = "version: theway.change/v1beta\n";
+  const cases: [string, string[]][] = [
+    [`${v}description: Do it\ntasks: &s\n  - text: a\n`, ["tasks: anchors and aliases are not allowed"]],
+    [`&r\n${v}description: Do it\ntasks:\n  - text: a\n`, ["anchors and aliases are not allowed"]],
+    [`${v}description: [&a x]\ntasks:\n  - text: a\n`, ["description: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\ntasks:\n  - text: {k: &a v}\n`, ["tasks[0].text: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\ntasks:\n  - &k text: a\n`, ["tasks[0]: anchors and aliases are not allowed"]],
+    [`${v}description: Do it\nfoo: {b: &a c}\ntasks:\n  - text: a\n`, ["foo: anchors and aliases are not allowed"]],
+    [`&k version: theway.change/v1beta\ndescription: *k\ntasks:\n  - text: a\n`, ["anchors and aliases are not allowed", "description: anchors and aliases are not allowed"]],
+  ];
+  for (const [t, issues] of cases) {
+    put(file, t);
+    const res = run(dir, "change", "--project", "p", "al");
+    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", issues.map((i) => `theway: changes/al/change.yaml: ${i}\n`).join("")]);
+  }
+});
+
+test("task done refuses an argument that is not a task number, one line per argument in order, without writing", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "t", "change.yaml");
+  const text = changeYaml([false, false, false]);
+  put(file, text);
+  const bad = run(dir, "task", "done", "--project", "p", "t", "01", "+1", "1e0", "0");
+  expect([bad.status, bad.stdout]).toEqual([1, ""]);
+  expect(bad.stderr).toBe(["01", "+1", "1e0", "0"].map((n) => `theway: changes/t/change.yaml: task ${n}: not a task number\n`).join(""));
+  expect(run(dir, "task", "done", "--project", "p", "t", "--", " 1").stderr).toBe("theway: changes/t/change.yaml: task  1: not a task number\n");
+  expect(run(dir, "task", "done", "--project", "p", "t", "1", "4").stderr).toBe("theway: changes/t/change.yaml: task 4: no such task (1 to 3)\n");
+  expect(readFileSync(file, "utf-8")).toBe(text);
+});
+
+test("task done ends the inserted line as the line it follows", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n  - text: two\r\n");
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true\r\n  - text: two\r\n");
+  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one");
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true");
+});
+
+test("task done keeps the file's mode", () => {
+  const dir = home();
+  const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
+  put(file, changeYaml([false, false]));
+  chmodSync(file, 0o600);
+  expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
+  expect(statSync(file).mode & 0o777).toBe(0o600);
+});
+
+test.skipIf(process.getuid?.() === 0)("task done reports a file or folder it cannot write in one line and leaves the file as it was", () => {
+  const dir = home();
+  const ro = join(dir, "projects", "p", "changes", "ro", "change.yaml");
+  const text = changeYaml([false, false]);
+  put(ro, text);
+  chmodSync(ro, 0o444);
+  const res = run(dir, "task", "done", "--project", "p", "ro", "1");
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toStartWith(`theway: changes/ro/change.yaml: cannot write: EACCES: permission denied, access '`);
+  expect(res.stderr.split("\n")).toHaveLength(2);
+  expect(readFileSync(ro, "utf-8")).toBe(text);
+  expect(statSync(ro).mode & 0o777).toBe(0o444);
+
+  const folder = join(dir, "projects", "p", "changes", "rd");
+  put(join(folder, "change.yaml"), text);
+  chmodSync(folder, 0o555);
+  try {
+    const rd = run(dir, "task", "done", "--project", "p", "rd", "1");
+    expect([rd.status, rd.stdout]).toEqual([1, ""]);
+    expect(rd.stderr).toStartWith(`theway: changes/rd/change.yaml: cannot write: EACCES: permission denied, open '`);
+    expect(rd.stderr.split("\n")).toHaveLength(2);
+    expect(readFileSync(join(folder, "change.yaml"), "utf-8")).toBe(text);
+    expect(readdirSync(folder)).toEqual(["change.yaml"]);
+  } finally {
+    chmodSync(folder, 0o755);
+  }
 });
 
 test("change and task done validate the project and the change id", () => {

@@ -1,7 +1,7 @@
 /** A change's `change.yaml`: its description and ordered tasks, validated on every read; `theway change` and `theway task done`. */
-import { readdirSync, readFileSync } from "node:fs";
+import { accessSync, constants, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { isMap as isYamlMap, isScalar, isSeq, parseDocument } from "yaml";
+import { isAlias, isCollection, isMap as isYamlMap, isPair, isScalar, isSeq, parseDocument } from "yaml";
 import { escaped, isFile, thewayHome, writeAtomic } from "./io";
 import { parseYaml } from "./language";
 import { invalidChangeId } from "./path";
@@ -40,6 +40,60 @@ function taskIssues(v: unknown, at: string): string[] {
   return out;
 }
 
+/** A YAML key's text, as error lines name it. */
+const keyText = (key: unknown): string => escaped(String(isScalar(key) ? key.value : key));
+
+const ANCHOR = "anchors and aliases are not allowed";
+
+/**
+ * One `<where>: anchors and aliases are not allowed` line per anchor and per alias of `text`, in document order.
+ * `<where>` is the node's path in the error grammar of `change.yaml`, never deeper: a map key takes the path of the map
+ * that holds it, a node below a root key's value or below `tasks[i].<key>` the path of its nearest named ancestor; the
+ * root and the root map's keys have no path.
+ */
+function anchorIssues(text: string): string[] {
+  const out: string[] = [];
+  const flag = (node: unknown, where: string | null): void => {
+    if (isAlias(node) || (node as { anchor?: string } | null)?.anchor) out.push(where === null ? ANCHOR : `${where}: ${ANCHOR}`);
+  };
+  // Every node of the subtree, all at `where` (an alias is not followed).
+  const all = (node: unknown, where: string | null): void => {
+    flag(node, where);
+    if (!isCollection(node)) return;
+    for (const item of node.items) {
+      if (isPair(item)) {
+        all(item.key, where);
+        all(item.value, where);
+      } else all(item, where);
+    }
+  };
+  const root = parseDocument(text).contents;
+  if (!isYamlMap(root)) {
+    all(root, null);
+    return out;
+  }
+  flag(root, null);
+  for (const pair of root.items) {
+    all(pair.key, null);
+    const key = keyText(pair.key);
+    if (key !== "tasks" || !isSeq(pair.value)) {
+      all(pair.value, key);
+      continue;
+    }
+    flag(pair.value, "tasks");
+    pair.value.items.forEach((task, i) => {
+      const at = `tasks[${i}]`;
+      if (!isYamlMap(task)) return all(task, at);
+      flag(task, at);
+      for (const p of task.items) {
+        all(p.key, at);
+        all(p.value, `${at}.${keyText(p.key)}`);
+      }
+    });
+  }
+  return out;
+}
+
 /**
  * The change of the folder `dir`, or every reason its `change.yaml` is invalid: `<where>: <message>`, or `<message>`
  * alone for a file-level rule; collected in the file's key order, then the missing keys.
@@ -55,6 +109,8 @@ export function checkChange(dir: string): { change: Change } | { issues: string[
   }
   const parsed = parseYaml(text);
   if ("reason" in parsed) return { issues: [parsed.reason] };
+  const anchors = anchorIssues(text);
+  if (anchors.length > 0) return { issues: anchors };
   const root = parsed.root;
   if (!isMap(root)) return { issues: ["must be a map"] };
 
@@ -121,12 +177,17 @@ function tickedText(text: string, indexes: number[]): string {
       continue;
     }
     const indent = " ".repeat(keyStart - (text.lastIndexOf("\n", keyStart - 1) + 1));
+    // The inserted line ends as the line it follows: `\r\n` when that line does.
+    const ending = (nl: number): string => (text[nl - 1] === "\r" ? "\r\n" : "\n");
     if (text[end - 1] === "\n") {
-      edits.push({ at: end, end, insert: `${indent}done: true\n` });
+      edits.push({ at: end, end, insert: `${indent}done: true${ending(end - 1)}` });
     } else {
       const nl = text.indexOf("\n", end);
-      if (nl === -1) edits.push({ at: text.length, end: text.length, insert: `\n${indent}done: true` });
-      else edits.push({ at: nl + 1, end: nl + 1, insert: `${indent}done: true\n` });
+      if (nl === -1) {
+        // After a last line with no ending: it takes the ending of the line before it.
+        const prev = text.lastIndexOf("\n");
+        edits.push({ at: text.length, end: text.length, insert: `${prev === -1 ? "\n" : ending(prev)}${indent}done: true` });
+      } else edits.push({ at: nl + 1, end: nl + 1, insert: `${indent}done: true${ending(nl)}` });
     }
   }
   let out = text;
@@ -136,21 +197,29 @@ function tickedText(text: string, indexes: number[]): string {
 
 /**
  * Sets `done: true` on the tasks numbered `numbers` (from 1) of the change `id` in `dir`, keeping the rest of the file's
- * text; writes nothing when the file is invalid or a number names no task. Returns the error lines, or the counts after.
+ * text, mode and line endings; writes nothing when the file is invalid, an argument is not a task number or names no task,
+ * or the file cannot be written. Returns the error lines, or the counts after.
  */
 export function tickTasks(dir: string, id: string, numbers: string[]): { errors: string[] } | { done: number; total: number } {
   const c = checkChange(dir);
   if ("issues" in c) return { errors: issueLines(id, c.issues) };
   const total = c.change.tasks.length;
-  const errors = numbers
-    .filter((n) => !/^[1-9][0-9]*$/.test(n) || Number(n) > total)
-    .map((n) => `${changeRel(id)}: task ${escaped(n)}: no such task (1 to ${total})`);
+  const errors = numbers.flatMap((n) => {
+    if (!/^[1-9][0-9]*$/.test(n)) return [`${changeRel(id)}: task ${escaped(n)}: not a task number`];
+    return Number(n) > total ? [`${changeRel(id)}: task ${n}: no such task (1 to ${total})`] : [];
+  });
   if (errors.length > 0) return { errors };
 
   const todo = [...new Set(numbers.map(Number))].filter((n) => !(c.change.tasks[n - 1] as ChangeTask).done);
   if (todo.length > 0) {
     const path = join(dir, CHANGE_FILE);
-    writeAtomic(path, tickedText(readFileSync(path, "utf-8"), todo.map((n) => n - 1)));
+    const text = tickedText(readFileSync(path, "utf-8"), todo.map((n) => n - 1));
+    try {
+      accessSync(path, constants.W_OK);
+      writeAtomic(path, text, statSync(path).mode & 0o777);
+    } catch (e) {
+      return { errors: [`${changeRel(id)}: cannot write: ${e instanceof Error ? e.message : String(e)}`] };
+    }
   }
   const done = c.change.tasks.filter((t, i) => t.done || todo.includes(i + 1)).length;
   return { done, total };
