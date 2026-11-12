@@ -430,7 +430,7 @@ test("GET /api/v1/changes counts every project and gives the changes and series 
   expect(yankee).toEqual({ key: "-Users-me-yankee", label: "yankee", active: [], archived: [{ folder: "2026-01-01-add-old", date: "2026-01-01", id: "add-old" }], series: [] });
 });
 
-test("a change's properties give its series from its ID and the project's members, the total being the member count", async () => {
+test("a change's properties give its series from its ID and the project's members, the total being the highest ordinal", async () => {
   const dir = home();
   const x = join(dir, "projects", "-Users-me-xray", "changes");
   put(join(x, "archive", "2026-02-01-add-x-01", "change.yaml"), changeYaml(true));
@@ -463,6 +463,35 @@ test("a change's properties give its series from its ID and the project's member
   const one = await at("archive/2026-02-01-add-x-01");
   expect(Object.keys(one.body.properties)).toEqual(["series"]);
   expect([one.body.properties.series.ordinal, one.body.properties.series.total, one.body.properties.series.members.length]).toEqual([1, 3, 3]);
+});
+
+test("a series' total is its highest ordinal, and a lone member past 01 has a progress entry", async () => {
+  const dir = home();
+  const q = join(dir, "projects", "-Users-me-quebec", "changes");
+  put(join(q, "archive", "2026-01-01-add-q-02", "change.yaml"), changeYaml(true));
+  put(join(q, "archive", "2026-01-02-add-q-05", "change.yaml"), changeYaml(true));
+  put(join(q, "add-q-01", "change.yaml"), changeYaml(false));
+  put(join(q, "add-q-03", "change.yaml"), changeYaml(true, true));
+  put(join(q, "add-y-01", "change.yaml"), changeYaml(false));
+  put(join(q, "add-z-03", "change.yaml"), changeYaml(false));
+  const { port } = await start(dir);
+  const res = await json(port, "/api/v1/changes");
+  expect(res.body.projects[0].series).toEqual([
+    { id: "add-q", done: 3, total: 5 },
+    { id: "add-z", done: 0, total: 3 },
+  ]);
+  const detail = await json(port, "/api/v1/projects/-Users-me-quebec/changes/add-q-01");
+  expect(detail.body.properties.series.total).toBe(5);
+  expect(detail.body.properties.series.members.map((m: { ordinal: number }) => m.ordinal)).toEqual([1, 2, 3, 5]);
+});
+
+test("a change.yaml with anchors or aliases is invalid in the dashboard's detail", async () => {
+  const dir = home();
+  const text = "version: theway.change/v1beta\ndescription: Do a thing\ntasks:\n  - &t\n    text: one\n  - *t\n  - text: three\n";
+  put(join(dir, "projects", "-Users-me-alpha", "changes", "al", "change.yaml"), text);
+  const { port } = await start(dir);
+  const res = await json(port, "/api/v1/projects/-Users-me-alpha/changes/al");
+  expect([res.body.status, res.body.error]).toEqual(["Invalid", "tasks[0]: anchors and aliases are not allowed"]);
 });
 
 test("dashboard answers 400 to invalid inputs and 404 to unknown ones, POST on a GET route included", async () => {

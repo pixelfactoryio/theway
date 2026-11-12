@@ -124,12 +124,15 @@ function seriesMembers(pdir: string): Map<string, (SeriesMember & { done: boolea
   return out;
 }
 
-/** The progress of each series of two or more members of a project, sorted by series ID. */
+/** The highest ordinal of a series' members, sorted by ordinal: the series' total. */
+const highest = (members: readonly SeriesMember[]): number => members[members.length - 1]?.ordinal ?? 0;
+
+/** The progress of each series of a project whose highest ordinal is 2 or more, sorted by series ID; its total is that ordinal. */
 function seriesProgress(pdir: string): SeriesProgress[] {
   return [...seriesMembers(pdir)]
-    .filter(([, members]) => members.length >= 2)
+    .filter(([, members]) => highest(members) >= 2)
     .sort(([a], [b]) => byText(a, b))
-    .map(([id, members]) => ({ id, done: members.filter((m) => m.done).length, total: members.length }));
+    .map(([id, members]) => ({ id, done: members.filter((m) => m.done).length, total: highest(members) }));
 }
 
 /** `GET /api/v1/changes`: the number of projects, and the changes and series progress of each project that has a change. */
@@ -149,7 +152,7 @@ function propertiesOf(pdir: string, id: string): ChangeProperties {
   const m = memberOf(id);
   if (m === null) return { series: null };
   const members = (seriesMembers(pdir).get(m.id) ?? []).map(({ ordinal, id, folder }) => ({ ordinal, id, folder }));
-  return { series: { id: m.id, ordinal: m.ordinal, total: members.length, members } };
+  return { series: { id: m.id, ordinal: m.ordinal, total: highest(members), members } };
 }
 
 /**

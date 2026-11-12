@@ -20,8 +20,8 @@ export const chosenProjects = (projects: readonly Project[], chosen: string): Pr
   projects.filter((p) => chosen === ALL_PROJECTS || p.key === chosen);
 
 /**
- * An active change with its project; `series` is its place in its series, whose total comes from the project's progress,
- * which lists only series of two or more members: a member missing from it is alone in its series.
+ * An active change with its project; `series` is its place in its series, whose total (its highest ordinal) comes from the
+ * project's progress, which lists only series whose highest ordinal is 2 or more: a member missing from it is a lone `-01`.
  */
 export type ChangeRow = { key: string; label: string; change: ActiveChange; series: { ordinal: number; total: number } | null };
 

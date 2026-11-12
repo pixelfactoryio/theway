@@ -26,7 +26,10 @@ export type ArchivedChange = { folder: string; date: string | null; id: string |
 /** A project's active changes, sorted by ID, and its archived ones, newest first. */
 export type ChangesResponse = { active: ActiveChange[]; archived: ArchivedChange[] };
 
-/** The progress of a series of two or more members: `done` counts the archived members and the active ones ready to archive. */
+/**
+ * The progress of a series whose highest ordinal is 2 or more: `total` is that ordinal, `done` counts the archived members
+ * and the active ones ready to archive.
+ */
 export type SeriesProgress = { id: string; done: number; total: number };
 
 /** `GET /api/v1/changes`: `total` is the number of projects; `projects` holds those with an active or archived change. */
@@ -38,7 +41,7 @@ export type AllChangesResponse = {
 /** A member of a series: `folder` is its archive folder name, `null` for an active member. */
 export type SeriesMember = { ordinal: number; id: string; folder: string | null };
 
-/** For a series member ID, its series with every member, sorted by ordinal; `total` is the member count. */
+/** For a series member ID, its series with every member folder that exists, sorted by ordinal; `total` is the highest ordinal. */
 export type ChangeProperties = {
   series: { id: string; ordinal: number; total: number; members: SeriesMember[] } | null;
 };
