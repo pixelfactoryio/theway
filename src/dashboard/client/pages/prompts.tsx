@@ -2,6 +2,7 @@ import { cn } from "cn";
 import { Plus } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Link } from "wouter";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/reui/badge";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
@@ -127,12 +128,11 @@ export function PromptsPage({ project }: { project: string }) {
   const names = projectNames((files.data?.projects ?? []).map((p) => p.label));
   return (
     <main id="content" tabIndex={-1} className="flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 outline-none lg:px-8 lg:py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[28px] font-semibold">Prompts</h1>
+      <PageHeader title="Prompts" purpose="What each step tells its agent, and the files those prompts refer to.">
         <Button onClick={() => setCreating(true)}>
           <Plus /> Create prompt
         </Button>
-      </div>
+      </PageHeader>
       {files.data === undefined ? (
         <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>
       ) : (

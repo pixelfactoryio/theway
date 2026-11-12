@@ -1,18 +1,19 @@
 import { cn } from "cn";
 import { useState } from "react";
 import { Link } from "wouter";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/reui/badge";
 import { Bar, Empty } from "@/components/state";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAllChanges } from "@/lib/api";
-import { type ArchivedRow, archivedRows, badgeVariant, type ChangeRow, changesRows, plural, STATUSES } from "@/lib/changes";
+import { activeCount, type ArchivedRow, archivedRows, badgeVariant, type ChangeRow, changesRows, plural, STATUSES } from "@/lib/changes";
 import { projectNames } from "@/lib/labels";
 import type { ActiveChange, Status } from "../../types";
 
 /** A table's header cells and rows: the grid of its columns, the Project column and the bar dropped below `lg`. */
-export const HEAD = "grid items-end gap-x-6 border-b border-divider px-2 pb-2 text-[12px] font-semibold";
-export const ROW = "grid items-center gap-x-6 border-b border-divider-row px-2 py-3 hover:bg-accent";
+export const HEAD = "grid items-end gap-x-6 border-b border-divider px-2 pb-2 text-[12px] font-medium text-muted-foreground";
+export const ROW = "grid items-center gap-x-6 border-b border-divider-row px-2 py-2 hover:bg-accent pointer-coarse:min-h-10";
 
 /** A page's title row: the title over a divider. */
 export function Title({ children }: { children: string }) {
@@ -106,7 +107,7 @@ export function ChangesPage({ project }: { project: string }) {
   const items = [{ value: ALL_STATUSES, label: "All statuses" }, ...STATUSES.map((s) => ({ value: s, label: s }))];
   return (
     <main id="content" tabIndex={-1} className="flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 outline-none lg:px-8 lg:py-8">
-      <Title>Changes</Title>
+      <PageHeader title="Changes" count={data === undefined ? undefined : activeCount(projects, project)} purpose="Each change, with its spec and its tasks." />
       <div className="flex flex-wrap items-center gap-4">
         <Select items={items} value={status} onValueChange={(v) => setStatus(typeof v === "string" ? (v as Status | "") : ALL_STATUSES)}>
           <SelectTrigger aria-label="Status" className="h-8 min-w-40">

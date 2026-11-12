@@ -3,6 +3,7 @@ import { cn } from "cn";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/reui/badge";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
@@ -92,12 +93,11 @@ export function WorkflowsPage({ project }: { project: string }) {
   };
   return (
     <main id="content" tabIndex={-1} className="flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 outline-none lg:px-8 lg:py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-[28px] font-semibold">Workflows</h1>
+      <PageHeader title="Workflows" count={files.data === undefined ? undefined : rows.length} purpose="The steps a change runs through.">
         <Button onClick={() => setCreating(true)}>
           <Plus /> Create workflow
         </Button>
-      </div>
+      </PageHeader>
       {files.data === undefined ? (
         <Empty error={files.isError}>{files.isError ? files.error.message : "Loading…"}</Empty>
       ) : (
@@ -112,7 +112,6 @@ export function WorkflowsPage({ project }: { project: string }) {
           {rows.map((item) => (
             <Row key={fileKey(item)} item={item} edited={edited(item)} names={names} rows={rows} all={files.data?.workflows ?? []} />
           ))}
-          <p className="px-2 pt-3 text-[12px] text-muted-foreground">{plural(rows.length, "workflow", "workflows")}</p>
         </div>
       )}
       <NewDialog kind={creating ? "workflows" : null} project={project} onClose={() => setCreating(false)} />
