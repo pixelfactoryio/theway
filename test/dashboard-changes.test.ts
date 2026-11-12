@@ -132,9 +132,9 @@ test("Home's notices name one workflow that cannot run, count several, and count
 
 test("each status has its badge variant", () => {
   expect(STATUSES.map((s) => [s, badgeVariant(s)])).toEqual([
-    ["Not started", "secondary"],
-    ["In progress", "default"],
-    ["Ready to archive", "success"],
-    ["Invalid", "destructive"],
+    ["Not started", "invert-light"],
+    ["In progress", "primary-light"],
+    ["Ready to archive", "success-light"],
+    ["Invalid", "destructive-light"],
   ]);
 });

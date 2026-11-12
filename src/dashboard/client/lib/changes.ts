@@ -79,16 +79,16 @@ export function notices(projects: readonly Project[], workflows: readonly Workfl
   return out;
 }
 
-/** The Badge variant of a status. */
-export function badgeVariant(status: Status): "default" | "success" | "secondary" | "destructive" {
+/** The Badge variant of a status: a pale one. */
+export function badgeVariant(status: Status): "primary-light" | "success-light" | "invert-light" | "destructive-light" {
   switch (status) {
     case "In progress":
-      return "default";
+      return "primary-light";
     case "Ready to archive":
-      return "success";
+      return "success-light";
     case "Not started":
-      return "secondary";
+      return "invert-light";
     case "Invalid":
-      return "destructive";
+      return "destructive-light";
   }
 }

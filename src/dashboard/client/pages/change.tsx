@@ -211,7 +211,7 @@ function Detail({ projectKey, date, query }: { projectKey: string; date: string 
             <h1 className="text-[28px] font-semibold break-all">{data.id}</h1>
             {data.archived ? (
               <span className="flex items-center gap-2">
-                <Badge variant="secondary">Archived</Badge>
+                <Badge variant="invert-light">Archived</Badge>
                 <span className="text-muted-foreground tabular-nums">{date}</span>
               </span>
             ) : (
