@@ -1,7 +1,8 @@
 /**
  * A workflow drawn as written: the inputs card, then one card per step joined by a line, a matrix step forked into one
  * card per value, an on-fail as a side card joined by two arrows, and a `+` under each card. The steps are moved by
- * their handle. Plain CSS, nothing measured in script.
+ * their handle, only at 100%: the page pans and zooms the diagram, and every control a press must reach (the handles and
+ * the `+` buttons) carries panzoom's exclude class. Plain CSS, nothing measured in script.
  */
 import { cn } from "cn";
 import { GripVertical, LogIn, Plus, RotateCw, Sparkles, User } from "lucide-react";
@@ -92,15 +93,15 @@ function Card({
 type HandleAttributes = Pick<HTMLAttributes<HTMLElement>, "aria-describedby" | "aria-disabled" | "aria-pressed" | "aria-roledescription">;
 const HandleContext = createContext<HandleAttributes>({});
 
-/** A step's drag handle, on the right edge of its card, above the card's button. */
-function Handle({ label }: { label: string }) {
+/** A step's drag handle, on the right edge of its card, above the card's button; disabled while the view is zoomed. */
+function Handle({ label, zoomed }: { label: string; zoomed: boolean }) {
   const attributes = useContext(HandleContext);
   return (
     <SortableItemHandle
-      render={<button type="button" />}
+      render={<button type="button" disabled={zoomed} title={zoomed ? "Reset the view to move steps" : undefined} />}
       {...attributes}
       aria-label={label}
-      className="relative z-10 -mr-1.5 flex size-8 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11"
+      className="panzoom-exclude relative z-10 -mr-1.5 flex size-8 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:size-11"
     >
       <GripVertical className="size-4" />
     </SortableItemHandle>
@@ -118,7 +119,7 @@ function AddButton({ last, onAdd, label }: { last: boolean; onAdd: () => void; l
       <button
         type="button"
         aria-label={last ? undefined : label}
-        className="group/add flex cursor-pointer items-center gap-2 rounded-full font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group/add panzoom-exclude flex cursor-pointer items-center gap-2 rounded-full font-medium text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         onClick={onAdd}
       >
         <span className="flex size-5 items-center justify-center rounded-full border border-primary bg-card group-hover/add:bg-primary/10">
@@ -157,6 +158,12 @@ export type DiagramProps = {
   /** Opens the step picker to insert a step at `index`. */
   add: (index: number) => void;
   move: (from: number, to: number) => void;
+  /** Set on the diagram's root element, the element the page pans and zooms. */
+  rootRef: (el: HTMLDivElement | null) => void;
+  /** Whether the view's scale is not 100%: the steps cannot be moved then. */
+  zoomed: boolean;
+  /** Called with `true` when a step starts being dragged, `false` when the drag ends or is cancelled. */
+  onDragging: (dragging: boolean) => void;
 };
 
 /** The ID of the sortable item of step `i`. */
@@ -178,7 +185,7 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
   const selected = typeof selection === "object" && selection !== null && selection.step === index;
   const error = props.stepError(index);
   const onSelect = () => select({ step: index });
-  const handle = <Handle label={`Reorder step ${index + 1}: ${title}`} />;
+  const handle = <Handle label={`Reorder step ${index + 1}: ${title}`} zoomed={props.zoomed} />;
   const values = step.matrix?.values ?? [];
   const tile = <StepTile runsOn={runsOn} />;
   const name = (n: string) => `Step ${index + 1}: ${title}${n}`;
@@ -283,7 +290,7 @@ export function Diagram(props: DiagramProps) {
     onDragCancel: ({ active }: { active: { id: string | number } }) => `Moving ${said(active.id)} was cancelled.`,
   };
   return (
-    <div className="mx-auto flex w-full max-w-[884px] flex-col">
+    <div ref={props.rootRef} className="mx-auto flex w-full max-w-[884px] flex-col">
       <div className="flex justify-center">
         <Card
           tile={
@@ -324,11 +331,17 @@ export function Diagram(props: DiagramProps) {
           // A drop is one move from the old index to the new one; the draft's text then orders the cards.
           onMove={({ activeIndex, overIndex }) => props.move(activeIndex, overIndex)}
           onValueChange={() => {}}
+          onDragStart={() => props.onDragging(true)}
+          onDragEnd={() => props.onDragging(false)}
+          onDragCancel={() => props.onDragging(false)}
         >
           {steps.map((step, i) => (
             <SortableItem
               key={idOf(i)}
               value={idOf(i)}
+              // Reordering works only at 100%; a disabled item stays fully opaque.
+              disabled={props.zoomed}
+              className={props.zoomed ? "opacity-100" : undefined}
               // dnd-kit's role, tab stop and descriptions go to the handle, the list item stays a list item.
               render={({ role: _role, tabIndex: _tabIndex, ...rest }) => {
                 const {

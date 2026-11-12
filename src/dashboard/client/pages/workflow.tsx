@@ -3,8 +3,9 @@
  * then the workflow drawn as a diagram, whose cards open their settings in a panel, or its text in the YAML view. It
  * works on the file's draft, which its first edit starts.
  */
+import Panzoom, { type PanzoomEventDetail, type PanzoomObject } from "@panzoom/panzoom";
 import { cn } from "cn";
-import { X } from "lucide-react";
+import { RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "yaml";
 import { Link, useLocation } from "wouter";
@@ -70,6 +71,166 @@ const withoutPrefix = (line: string, name: string): string => {
   return s.own && s.where !== null ? `${s.where}: ${s.message}` : s.message;
 };
 
+/** The scale counts as 100% within this distance of 1: repeated zooms multiply floats. */
+const ONE = 0.001;
+
+/** How far, in pixels, a press may move and still be a click. */
+const CLICK_SLOP = 5;
+
+/** The view of the diagram: its pan and its scale. */
+type PanView = { x: number; y: number; scale: number };
+
+/**
+ * Pans and zooms `root`, the diagram's element, inside its parent, the canvas, while `root` is set; `kept` holds the
+ * view, which a new instance starts from, `dragging` whether a step is being dragged. Returns the instance, `null`
+ * while there is none, and whether the scale is not 100%.
+ */
+function usePanZoom(root: HTMLElement | null, kept: { current: PanView }, dragging: { current: boolean }): { instance: PanzoomObject | null; zoomed: boolean } {
+  const [instance, setInstance] = useState<PanzoomObject | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  useEffect(() => {
+    const canvas = root?.parentElement;
+    if (root === null || canvas === null || canvas === undefined) return;
+    let dead = false;
+    const pz = Panzoom(root, {
+      canvas: true,
+      cursor: "grab",
+      minScale: 0.5,
+      maxScale: 2,
+      startX: kept.current.x,
+      startY: kept.current.y,
+      startScale: kept.current.scale,
+      // Panzoom writes in an animation frame and its start pan in a timeout, which can run after the cleanup.
+      setTransform: (el, { x, y, scale }) => {
+        if (!dead) el.style.transform = `scale(${scale}) translate(${x}px, ${y}px)`;
+      },
+    });
+    const onChange = (e: Event) => {
+      const { x, y, scale } = (e as CustomEvent<PanzoomEventDetail>).detail;
+      kept.current = { x, y, scale };
+      setZoomed(Math.abs(scale - 1) >= ONE);
+    };
+    // Panzoom cancels the press, so the focus would stay where it was: a panel field would keep Ctrl/Cmd+Z.
+    const onStart = () => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    };
+    // Only the primary mouse button pans: panzoom 4.6.2 does not look at the button.
+    const onOtherButton = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" && e.button !== 0) e.stopPropagation();
+    };
+    // A drag is not a click: a press that moves more than 5px swallows the click that follows it.
+    let start: { x: number; y: number } | null = null;
+    let moved = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const far = (e: PointerEvent) => start !== null && Math.hypot(e.clientX - start.x, e.clientY - start.y) > CLICK_SLOP;
+    const onDown = (e: PointerEvent) => {
+      start = { x: e.clientX, y: e.clientY };
+      moved = false;
+    };
+    const onMove = (e: PointerEvent) => {
+      if ((e.buttons !== 0 || e.pointerType === "touch") && far(e)) moved = true;
+    };
+    const onUpCanvas = (e: PointerEvent) => {
+      if (far(e)) moved = true;
+    };
+    const onRelease = () => {
+      start = null;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        moved = false;
+      }, 0);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (e.detail === 0) return;
+      if (moved) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+      moved = false;
+    };
+    // The canvas hides its overflow but still scrolls, to a focused card or a find: an offset becomes a pan.
+    const onScroll = () => {
+      if (canvas.scrollLeft === 0 && canvas.scrollTop === 0) return;
+      const scale = pz.getScale();
+      pz.pan(-canvas.scrollLeft / scale, -canvas.scrollTop / scale, { relative: true });
+      canvas.scrollLeft = 0;
+      canvas.scrollTop = 0;
+    };
+    // The wheel pans, by its deltas on screen; with Ctrl or Cmd it zooms.
+    const onWheel = (e: WheelEvent) => {
+      if (dragging.current) return;
+      if (e.ctrlKey || e.metaKey) {
+        pz.zoomWithWheel(e);
+        return;
+      }
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight : 1;
+      const scale = pz.getScale();
+      pz.pan((-e.deltaX * unit) / scale, (-e.deltaY * unit) / scale, { relative: true });
+    };
+    root.addEventListener("panzoomchange", onChange);
+    root.addEventListener("panzoomstart", onStart);
+    canvas.addEventListener("pointerdown", onOtherButton, true);
+    canvas.addEventListener("pointerdown", onDown, true);
+    addEventListener("pointermove", onMove, true);
+    canvas.addEventListener("pointerup", onUpCanvas, true);
+    addEventListener("pointerup", onRelease);
+    addEventListener("pointercancel", onRelease);
+    canvas.addEventListener("click", onClick, true);
+    canvas.addEventListener("scroll", onScroll);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    setInstance(pz);
+    return () => {
+      dead = true;
+      root.removeEventListener("panzoomchange", onChange);
+      root.removeEventListener("panzoomstart", onStart);
+      canvas.removeEventListener("pointerdown", onOtherButton, true);
+      canvas.removeEventListener("pointerdown", onDown, true);
+      removeEventListener("pointermove", onMove, true);
+      canvas.removeEventListener("pointerup", onUpCanvas, true);
+      removeEventListener("pointerup", onRelease);
+      removeEventListener("pointercancel", onRelease);
+      canvas.removeEventListener("click", onClick, true);
+      canvas.removeEventListener("scroll", onScroll);
+      canvas.removeEventListener("wheel", onWheel);
+      clearTimeout(timer);
+      pz.destroy();
+      pz.resetStyle();
+      pz.setStyle("transform", "");
+      pz.setStyle("transition", "");
+      setInstance(null);
+      setZoomed(false);
+    };
+  }, [root]);
+  return { instance, zoomed: instance !== null && zoomed };
+}
+
+/** Zooms `pz` one step in (`1`) or out (`-1`) about the centre of `canvas`, stopping at 100% when the step crosses it. */
+function zoomStep(pz: PanzoomObject, canvas: HTMLElement, dir: 1 | -1): void {
+  const s = pz.getScale();
+  let t = Math.min(2, Math.max(0.5, s * Math.exp(0.3 * dir)));
+  if ((s < 1 - ONE && t > 1) || (s > 1 + ONE && t < 1) || Math.abs(t - 1) < ONE) t = 1;
+  const r = canvas.getBoundingClientRect();
+  pz.zoomToPoint(t, { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+}
+
+/** Zoom in, Zoom out and Reset view, in the canvas's bottom-left corner, outside the element panzoom moves. */
+function ZoomButtons({ instance, canvas }: { instance: PanzoomObject; canvas: HTMLElement }) {
+  return (
+    <div className="panzoom-exclude absolute bottom-3 left-3 flex gap-1 rounded-lg border bg-card p-0.5 shadow-xs">
+      <Button variant="ghost" size="icon-sm" aria-label="Zoom in" title="Zoom in" onClick={() => zoomStep(instance, canvas, 1)}>
+        <ZoomIn />
+      </Button>
+      <Button variant="ghost" size="icon-sm" aria-label="Zoom out" title="Zoom out" onClick={() => zoomStep(instance, canvas, -1)}>
+        <ZoomOut />
+      </Button>
+      <Button variant="ghost" size="icon-sm" aria-label="Reset view" title="Reset view" onClick={() => instance.reset({ startX: 0, startY: 0, startScale: 1 })}>
+        <RotateCcw />
+      </Button>
+    </div>
+  );
+}
+
 /** The page of a workflow on `draft`: the file's draft, or, before its first edit, the saved text as one; `own` when the store holds it. */
 function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draft; own: boolean; detail: FileDetail | undefined; view: View }) {
   const { start, update, drop, undo, redo } = useDrafts();
@@ -91,6 +252,11 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   const ctx = usePromptContext(file, named);
   const dirty = isDirty(draft);
   const main = useRef<HTMLElement>(null);
+  // Pan and zoom: the kept view and whether a step is being dragged are refs, so a pan does not render the page.
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const kept = useRef<PanView>({ x: 0, y: 0, scale: 1 });
+  const dragging = useRef(false);
+  const { instance, zoomed } = usePanZoom(root, kept, dragging);
 
   // Diff shows the unsaved edits; it is unpressed once the draft is clean or dropped, and by any change of view.
   const canDiff = dirty && !draft.isNew;
@@ -258,7 +424,15 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
                       apply((d) => moveStep(d, from, to));
                       if (selected !== null && selected !== "workflow") select({ step: movedIndex(selected.step, from, to) });
                     }}
+                    rootRef={setRoot}
+                    zoomed={zoomed}
+                    onDragging={(d) => {
+                      dragging.current = d;
+                    }}
                   />
+                )}
+                {instance !== null && root?.parentElement && (
+                  <ZoomButtons instance={instance} canvas={root.parentElement} />
                 )}
               </div>
             </>
