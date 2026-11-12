@@ -158,7 +158,7 @@ const workflow = (scope: "global" | "project", key: string | null, name: string)
 /** A prompt's file reference. */
 const prompt = (scope: "global" | "project", key: string | null, name: string): FileRef => ({ scope, key, kind: "prompts", name });
 
-function Routes({ project }: { project: string }) {
+function Routes({ project, panelWidth, setPanelWidth }: { project: string; panelWidth: number; setPanelWidth: (width: number) => void }) {
   return (
     <Switch>
       <Route path="/">
@@ -172,15 +172,19 @@ function Routes({ project }: { project: string }) {
       <Route path="/workflows">
         <WorkflowsPage project={project} />
       </Route>
-      <Route path="/workflows/global/:name">{(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="diagram" />}</Route>
-      <Route path="/workflows/global/:name/yaml">{(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="yaml" />}</Route>
+      <Route path="/workflows/global/:name">
+        {(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="diagram" panelWidth={panelWidth} setPanelWidth={setPanelWidth} />}
+      </Route>
+      <Route path="/workflows/global/:name/yaml">
+        {(p) => <WorkflowPage key={`g/${p.name}`} file={workflow("global", null, p.name)} view="yaml" panelWidth={panelWidth} setPanelWidth={setPanelWidth} />}
+      </Route>
       <Route path="/workflows/global/:name/history">{(p) => <History file={workflow("global", null, p.name)} id={null} />}</Route>
       <Route path="/workflows/global/:name/history/:id">{(p) => <History file={workflow("global", null, p.name)} id={p.id} />}</Route>
       <Route path="/workflows/projects/:key/:name">
-        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="diagram" />}
+        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="diagram" panelWidth={panelWidth} setPanelWidth={setPanelWidth} />}
       </Route>
       <Route path="/workflows/projects/:key/:name/yaml">
-        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="yaml" />}
+        {(p) => <WorkflowPage key={`p/${p.key}/${p.name}`} file={workflow("project", p.key, p.name)} view="yaml" panelWidth={panelWidth} setPanelWidth={setPanelWidth} />}
       </Route>
       <Route path="/workflows/projects/:key/:name/history">{(p) => <History file={workflow("project", p.key, p.name)} id={null} />}</Route>
       <Route path="/workflows/projects/:key/:name/history/:id">{(p) => <History file={workflow("project", p.key, p.name)} id={p.id} />}</Route>
@@ -203,6 +207,8 @@ function Routes({ project }: { project: string }) {
 export function App() {
   // The project switcher's choice, in memory: a reload returns to All projects.
   const [project, setProject] = useState(ALL_PROJECTS);
+  // The width of the panel beside a workflow's diagram, in memory like the project: kept between workflows, lost on reload.
+  const [panelWidth, setPanelWidth] = useState(360);
   return (
     <CSPProvider disableStyleElements>
       <QueryClientProvider client={queryClient}>
@@ -215,7 +221,7 @@ export function App() {
               </aside>
               <div className="flex min-w-0 flex-1 flex-col">
                 <MobileBar project={project} onProject={setProject} />
-                <Routes project={project} />
+                <Routes project={project} panelWidth={panelWidth} setPanelWidth={setPanelWidth} />
               </div>
             </div>
           </Router>

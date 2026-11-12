@@ -10,6 +10,7 @@ import { ALL_PROJECTS } from "../src/dashboard/client/lib/changes";
 import {
   cardLabel,
   cardTitle,
+  clampPanel,
   effectiveRunsOn,
   groupErrors,
   marksOf,
@@ -192,6 +193,14 @@ test("the YAML view marks each error with a line on that line, with the text it 
     { line: 7, message: "invalid YAML: Unexpected flow-seq-end at line 7, column 3" },
   ]);
   expect(marksOf([], "agents", AGENTS)).toEqual([]);
+});
+
+test("the panel's width stays from 320 to 720 and leaves 480px of its row, the minimum winning", () => {
+  expect(clampPanel(100, 1600)).toBe(320);
+  expect(clampPanel(2000, 1600)).toBe(720);
+  expect(clampPanel(500, 1600)).toBe(500);
+  expect(clampPanel(700, 1000)).toBe(520);
+  expect(clampPanel(400, 700)).toBe(320);
 });
 
 test("a workflow's page and history have no kind segment", () => {

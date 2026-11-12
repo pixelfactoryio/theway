@@ -28,7 +28,7 @@ import { WorkflowPanel } from "@/files/WorkflowPanel";
 import { YamlView } from "@/files/YamlView";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, versionsHref } from "@/lib/api";
 import { ALL_PROJECTS, plural } from "@/lib/changes";
-import { groupErrors, splitErrorLine } from "@/lib/workflows";
+import { clampPanel, groupErrors, PANEL_MIN, splitErrorLine } from "@/lib/workflows";
 import type { FileDetail } from "../../types";
 import { insertStep, movedIndex, moveStep, parse, textOf } from "../editor/ops";
 
@@ -231,8 +231,67 @@ function ZoomButtons({ instance, canvas }: { instance: PanzoomObject; canvas: HT
   );
 }
 
+/** How far, in pixels, an arrow key moves the panel's edge. */
+const PANEL_STEP = 16;
+
+/**
+ * The panel's left edge, from `lg` up: a separator that a pointer drags and the Left and Right arrows move, setting the
+ * panel's width (`width`, the one applied) clamped for a row `available` pixels wide.
+ */
+function PanelEdge({ width, available, setWidth }: { width: number; available: number; setWidth: (width: number) => void }) {
+  const drag = useRef<{ x: number; width: number } | null>(null);
+  const set = (w: number) => setWidth(clampPanel(w, available));
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize the panel"
+      aria-valuenow={width}
+      aria-valuemin={PANEL_MIN}
+      aria-valuemax={clampPanel(Number.POSITIVE_INFINITY, available)}
+      tabIndex={0}
+      className="w-1.5 shrink-0 cursor-col-resize touch-none outline-none hover:bg-primary/20 focus-visible:bg-primary/30"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { x: e.clientX, width };
+      }}
+      onPointerMove={(e) => {
+        if (drag.current !== null) set(drag.current.width + drag.current.x - e.clientX);
+      }}
+      onPointerUp={() => {
+        drag.current = null;
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        set(width + (e.key === "ArrowLeft" ? PANEL_STEP : -PANEL_STEP));
+      }}
+    />
+  );
+}
+
 /** The page of a workflow on `draft`: the file's draft, or, before its first edit, the saved text as one; `own` when the store holds it. */
-function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draft; own: boolean; detail: FileDetail | undefined; view: View }) {
+function Editor({
+  file,
+  draft,
+  own,
+  detail,
+  view,
+  panelWidth,
+  setPanelWidth,
+}: {
+  file: FileRef;
+  draft: Draft;
+  own: boolean;
+  detail: FileDetail | undefined;
+  view: View;
+  panelWidth: number;
+  setPanelWidth: (width: number) => void;
+}) {
   const { start, update, drop, undo, redo } = useDrafts();
   const files = useFiles();
   const [, navigate] = useLocation();
@@ -257,6 +316,19 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   const kept = useRef<PanView>({ x: 0, y: 0, scale: 1 });
   const dragging = useRef(false);
   const { instance, zoomed } = usePanZoom(root, kept, dragging);
+  // The row of the canvas column and the panel, measured before the first paint, so the panel never paints clamped against 0.
+  const row = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState(0);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (el === null) return;
+    const measure = () => setAvailable(el.getBoundingClientRect().width);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const panelShown = clampPanel(panelWidth, available);
 
   // Diff shows the unsaved edits; it is unpressed once the draft is clean or dropped, and by any change of view.
   const canDiff = dirty && !draft.isNew;
@@ -378,7 +450,7 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
       <Confirm open={discarding} title={`Discard your unsaved changes to ${file.name}?`} action="Discard" onConfirm={discard} onClose={() => setDiscarding(false)} />
       {/* As high as the viewport under the top bar: the canvas, the YAML editor or the diff takes the height left, at
           least 240px, and the panel scrolls inside itself; only a window too short for those 240px scrolls. */}
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div ref={row} className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-4 lg:p-6">
           {conflict && (
             <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5">
@@ -439,9 +511,16 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
           )}
         </div>
         {view === "diagram" && !showDiff && panel !== null && wide && (
-          <aside aria-label={selected === "workflow" ? "Workflow settings" : "Step"} className="w-[360px] shrink-0 overflow-auto border-l border-divider p-5">
-            {panel}
-          </aside>
+          <>
+            <PanelEdge width={panelShown} available={available} setWidth={setPanelWidth} />
+            <aside
+              aria-label={selected === "workflow" ? "Workflow settings" : "Step"}
+              style={{ width: panelShown }}
+              className="shrink-0 overflow-auto border-l border-divider p-5"
+            >
+              {panel}
+            </aside>
+          </>
         )}
       </div>
       <Dialog open={view === "diagram" && !showDiff && panel !== null && !wide} onOpenChange={(o) => !o && close()}>
@@ -466,7 +545,17 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
 }
 
 /** A workflow's page in `view`: its draft when it has one, else its saved text; a new file has nothing on disk to read. */
-export function WorkflowPage({ file, view }: { file: FileRef; view: View }) {
+export function WorkflowPage({
+  file,
+  view,
+  panelWidth,
+  setPanelWidth,
+}: {
+  file: FileRef;
+  view: View;
+  panelWidth: number;
+  setPanelWidth: (width: number) => void;
+}) {
   const { drafts } = useDrafts();
   const draft = drafts.get(fileKey(file))?.draft;
   const detail = useFile(file, draft === undefined || !draft.isNew);
@@ -479,5 +568,5 @@ export function WorkflowPage({ file, view }: { file: FileRef; view: View }) {
     );
   }
   const shown = draft ?? startDraft((saved as FileDetail).text, (saved as FileDetail).sha256, false);
-  return <Editor file={file} draft={shown} own={draft !== undefined} detail={saved} view={view} />;
+  return <Editor file={file} draft={shown} own={draft !== undefined} detail={saved} view={view} panelWidth={panelWidth} setPanelWidth={setPanelWidth} />;
 }

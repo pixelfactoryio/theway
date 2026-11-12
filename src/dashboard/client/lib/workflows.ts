@@ -103,6 +103,18 @@ export const marksOf = (errors: readonly string[], name: string, text: string): 
     return e.line === null ? [] : [{ line: e.line, message: e.text }];
   });
 
+/** The narrowest the panel beside the diagram gets, and the widest. */
+export const PANEL_MIN = 320;
+const PANEL_MAX = 720;
+/** The width the canvas column and the panel's 6px edge keep together beside the panel. */
+const PANEL_ROOM = 480;
+
+/**
+ * The panel's width for a wanted `width` in a row `available` pixels wide: at most 720 and at most `available - 480`,
+ * at least 320, the minimum winning when the two disagree.
+ */
+export const clampPanel = (width: number, available: number): number => Math.max(PANEL_MIN, Math.min(PANEL_MAX, available - PANEL_ROOM, width));
+
 /** The keys of the workflow settings panel an error line can name. */
 export type WorkflowKey = "description" | "default" | "runs-on" | "inputs";
 
