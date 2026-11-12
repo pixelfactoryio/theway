@@ -306,6 +306,29 @@ test("validate checks a prompt through every workflow that uses it, and a workfl
   expect((agents.json().errors as string[]).some((l) => l.startsWith("workflows/agents.yaml: steps[3].tries"))).toBe(true);
 });
 
+test("validate reports a second workflow that sets default: true, as a warning when the clash existed before the edit", async () => {
+  const dir = shippedHome();
+  const develop = readFileSync(join(dir, "workflows", "develop.yaml"), "utf-8");
+  expect(develop).toContain("\ndefault: true\n");
+  const { port, token } = await start(dir);
+  const mine = await write(port, token, "POST", "/api/v1/files/projects/p/workflows/mine/validate", { text: develop });
+  expect(mine.json()).toEqual({
+    ok: false,
+    errors: ["workflows/mine.yaml: default: workflows/develop.yaml and projects/p/workflows/mine.yaml both set default: true"],
+    warnings: [],
+  });
+  const plain = await write(port, token, "POST", "/api/v1/files/projects/p/workflows/mine/validate", { text: develop.replace("default: true\n", "") });
+  expect(plain.json().ok).toBe(true);
+
+  put(join(dir, "workflows", "other.yaml"), develop);
+  const other = await write(port, token, "POST", "/api/v1/files/global/workflows/other/validate", { text: develop });
+  expect(other.json()).toEqual({
+    ok: true,
+    errors: [],
+    warnings: ["workflows/other.yaml: default: workflows/develop.yaml and workflows/other.yaml both set default: true"],
+  });
+});
+
 test("a global prompt that breaks a project's own workflow gets that project's line", async () => {
   const dir = twoProjects();
   put(join(dir, "prompts", "probe.md"), PROBE);

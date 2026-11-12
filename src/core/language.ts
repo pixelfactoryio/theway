@@ -563,6 +563,25 @@ function scopedNames(
   ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+/** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta file can, a v1 file's `default:` is not read. */
+function isDefaultRoot(root: unknown): boolean {
+  return isMap(root) && root.get("version") === VERSION && root.get("default") === true;
+}
+
+/**
+ * The workflow files of a project and of the home that set `default: true`, as `listWorkflowFiles` lists them (a project
+ * file hiding the global one, sorted by name), without resolving them.
+ */
+export function defaultWorkflows(home: string, key: string, overlay?: Overlay): { name: string; scope: "project" | "global" }[] {
+  return scopedNames(home, key, "workflows", overlay)
+    .filter(({ path }) => {
+      const text = readText(path, overlay);
+      const parsed = text === null ? null : parseYaml(text);
+      return parsed !== null && "root" in parsed && isDefaultRoot(parsed.root);
+    })
+    .map(({ name, scope }) => ({ name, scope }));
+}
+
 /**
  * Every workflow file of a project and of the home, a project file hiding the global one of the same name, sorted by
  * name: its description (`null` when unreadable), its `default` (false for a file of another version), every error line of `resolveWorkflowFile`
@@ -575,8 +594,7 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
     const parsed = text === null ? null : parseYaml(text);
     const root = parsed !== null && "root" in parsed ? parsed.root : null;
     const description = isMap(root) && nonEmpty(root.get("description")) ? (root.get("description") as string) : null;
-    // Only a theway.workflow/v1beta file can be the default: a v1 file's `default:` is not read.
-    const isDefault = isMap(root) && root.get("version") === VERSION && root.get("default") === true;
+    const isDefault = isDefaultRoot(root);
     const result = resolveWorkflowFile(home, key, name, {}, overlay);
     const errors = "errors" in result ? result.errors : [];
     const item: WorkflowFileItem = { name, scope, description, default: isDefault, errors, doc: "doc" in result ? result.doc : null };

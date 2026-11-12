@@ -6,8 +6,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { isFile, type Overlay } from "../core/io";
-import { listWorkflowFiles, resolveWorkflowFile } from "../core/language";
+import { defaultWorkflows, listWorkflowFiles, resolveWorkflowFile } from "../core/language";
 import { projectDir } from "../core/project";
+import { joinAnd, markedPath } from "../core/workflow";
 import { projectLabels } from "./projects";
 import { EXT, type FileUse, type SourceKind } from "./types";
 
@@ -90,12 +91,23 @@ const workflowPath = (home: string, scope: "global" | "project", key: string, na
   scope === "global" ? join(home, "workflows", `${name}.yaml`) : projectPath(home, key, "workflows", name);
 
 /**
+ * The line of a workflow target that sets `default: true` beside another file of the context `key` that does, as the CLI
+ * refuses a run without a name: `workflows/<name>.yaml: default: <paths> both set default: true`; `null` otherwise.
+ */
+function defaultClash(home: string, key: string, target: FileTarget, overlay?: Overlay): string | null {
+  const marked = defaultWorkflows(home, key, overlay);
+  if (marked.length < 2 || !marked.some((w) => w.name === target.name && w.scope === target.scope)) return null;
+  return `workflows/${target.name}.yaml: default: ${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true`;
+}
+
+/**
  * Validates `text` as the new content of one file, in every context that reads it: a project file in its project's
  * context; a global file in `GLOBAL_CONTEXT`, then in every project (in `projectKeys` order) that has no file of that
  * kind and name. In each context:
  *
  * - a workflow is resolved with the overlay and no input; in another project, a workflow that already failed without
- *   it is only a warning;
+ *   it is only a warning; it also reports the `default` clash the CLI refuses (`defaultClash`), only a warning in any
+ *   context, its own included, when the same line comes without the overlay;
  * - a prompt: every workflow of the context that names it (by `uses`, `on-fail` or as a value), and that resolves
  *   without the overlay, is resolved with it.
  *
@@ -131,6 +143,8 @@ export function validateFile(home: string, target: FileTarget, text: string): Va
         const before = label === null ? null : resolveWorkflowFile(home, key, target.name, {});
         for (const line of r.errors) report(before === null || !("errors" in before) ? "errors" : "warnings", line);
       }
+      const clash = defaultClash(home, key, target, overlay);
+      if (clash !== null) report(clash === defaultClash(home, key, target) ? "warnings" : "errors", clash);
     } else {
       for (const item of listWorkflowFiles(home, key, () => {})) {
         if (item.error !== undefined) continue;

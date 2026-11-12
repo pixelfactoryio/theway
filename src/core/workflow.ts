@@ -1,9 +1,8 @@
-import { join, relative } from "node:path";
 import { warnLoud } from "./config";
 import { escaped, invalidName, thewayHome } from "./io";
 import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language";
 import type { ResolvedWorkflow } from "./language-schema";
-import { projectDir, resolveKey } from "./project";
+import { resolveKey } from "./project";
 
 /**
  * The `--input <name>=<value>` options as a record, or the line that refuses one: a value without `=`, an empty name,
@@ -22,8 +21,12 @@ function parseInputs(given: string[]): Record<string, string> | { error: string 
 }
 
 /** `a`, `a and b`, `a, b and c`. */
-const joinAnd = (items: string[]) =>
+export const joinAnd = (items: string[]) =>
   items.length === 1 ? (items[0] as string) : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+
+/** The home-relative path of a workflow file of the project `key`'s context: `workflows/<name>.yaml` or `projects/<key>/workflows/<name>.yaml`. */
+export const markedPath = (key: string, w: { name: string; scope: "project" | "global" }): string =>
+  w.scope === "project" ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`;
 
 /**
  * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta` file of the project and the
@@ -39,8 +42,7 @@ function defaultName(home: string, key: string): { name: string } | { error: str
     return { error: "theway: no workflow sets default: true" };
   }
   if (marked.length > 1) {
-    const files = marked.map((w) => relative(home, join(w.scope === "project" ? projectDir(home, key) : home, "workflows", `${w.name}.yaml`)));
-    return { error: `theway: ${joinAnd(files)} both set default: true` };
+    return { error: `theway: ${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true` };
   }
   return { name: (marked[0] as { name: string }).name };
 }
