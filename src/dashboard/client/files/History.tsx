@@ -15,7 +15,7 @@ import { Diff } from "./Diff";
 import { isDirty } from "./draft";
 import { openOnWrite, useDrafts } from "./drafts";
 import { Confirm } from "./fields";
-import { deltaText, lineDelta, whenOf } from "./version-info";
+import { versionNotes, whenOf } from "./version-info";
 
 /** An item of the list: its label, and its note on the right. */
 function VersionItem({ href, selected, label, note }: { href: string; selected: boolean; label: string; note?: string }) {
@@ -39,22 +39,17 @@ function VersionItem({ href, selected, label, note }: { href: string; selected: 
 function VersionList({ file, id, current }: { file: FileRef; id: string | null; current: string | undefined }) {
   const versions = useVersions(file);
   const texts = useQueries({ queries: (versions.data?.versions ?? []).map((v) => versionQuery(file, v.id)) }).map((q) => q.data?.text);
-  /** The delta of the text at `i` (`-1` for Current) against the version before it; `undefined` while either loads or for the oldest. */
-  const delta = (i: number): string | undefined => {
-    const to = i === -1 ? current : texts[i];
-    const from = texts[i + 1];
-    return to === undefined || from === undefined ? undefined : deltaText(lineDelta(from, to));
-  };
+  const notes = versionNotes(current, texts);
   return (
     <nav aria-label="Versions" className="flex flex-col gap-px">
       <h2 className="px-2.5 pb-2 font-semibold">Versions</h2>
-      <VersionItem href={versionsHref(file)} selected={id === null} label="Current" note={delta(-1)} />
+      <VersionItem href={versionsHref(file)} selected={id === null} label="Current" note={notes.current} />
       {versions.data === undefined ? (
         <Empty error={versions.isError}>{versions.isError ? versions.error.message : "Loading…"}</Empty>
       ) : (
         <>
           {versions.data.versions.map((v, i) => (
-            <VersionItem key={v.id} href={versionsHref(file, v.id)} selected={id === v.id} label={whenOf(v.at)} note={delta(i)} />
+            <VersionItem key={v.id} href={versionsHref(file, v.id)} selected={id === v.id} label={whenOf(v.at)} note={notes.versions[i]} />
           ))}
           {versions.data.shipped && <VersionItem href={versionsHref(file, "shipped")} selected={id === "shipped"} label="As shipped" />}
         </>

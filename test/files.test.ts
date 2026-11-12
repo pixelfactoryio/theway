@@ -10,7 +10,7 @@ import { addHeader, editableBody, editHeader, joinPrompt, setBody, setHeaderFiel
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
 import { promptLine, withItemError } from "../src/dashboard/client/files/problems";
 import { workflowSource } from "../src/dashboard/client/files/source";
-import { deltaText, lineDelta, whenOf } from "../src/dashboard/client/files/version-info";
+import { deltaText, diffRows, lineDelta, versionNotes, whenOf } from "../src/dashboard/client/files/version-info";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
 
 const SHIPPED_HOME = join(import.meta.dirname, "..", "plugin", "home");
@@ -187,4 +187,35 @@ test("a v1 workflow cannot be drawn, with the resolver's line after its file pat
     error: "theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
   });
   expect("steps" in (workflowSource(shipped("workflows/agents.yaml")) as object)).toBe(true);
+});
+
+test("versionNotes gives each kept version its delta from the one before it, and Current one only when it differs", () => {
+  expect(versionNotes("a\nB\nc\n", ["a\nb\n", "a\n"])).toEqual({ current: "+2 −1 lines", versions: ["+1 −0 line", "+1 −0 line"] });
+  expect(versionNotes("a\nb\n", ["a\nb\n", "a\n"]).current).toBeUndefined();
+  expect(versionNotes("a\n", [])).toEqual({ current: undefined, versions: [] });
+  expect(versionNotes(undefined, ["a\nb\n", "a\n"]).current).toBeUndefined();
+  expect(versionNotes("x\n", [undefined, "a\n"])).toEqual({ current: undefined, versions: [undefined, "+1 −0 line"] });
+  expect(versionNotes("x\n", ["a\nb\n", undefined])).toEqual({ current: "+1 −2 lines", versions: [undefined, undefined] });
+});
+
+test("diffRows numbers each line on the sides it is on, with one gap between two hunks", () => {
+  expect(diffRows("a\nb\nc\n", "a\nB\nc\n")).toEqual([
+    { old: 1, new: 1, text: " a" },
+    { old: 2, new: null, text: "-b" },
+    { old: null, new: 2, text: "+B" },
+    { old: 3, new: 3, text: " c" },
+  ]);
+  const lines = Array.from({ length: 20 }, (_, i) => `l${i + 1}`);
+  const from = `${lines.join("\n")}\n`;
+  const to = from.replace("l2\n", "X\n").replace("l19\n", "Y\n");
+  const rows = diffRows(from, to);
+  const gaps = rows.flatMap((r, i) => ("gap" in r ? [i] : []));
+  expect(gaps).toHaveLength(1);
+  expect(rows[(gaps[0] as number) + 1]).toEqual({ old: 16, new: 16, text: " l16" });
+  expect(diffRows("a", "b")).toEqual([
+    { old: 1, new: null, text: "-a" },
+    { old: null, new: null, text: "\\ No newline at end of file" },
+    { old: null, new: 1, text: "+b" },
+    { old: null, new: null, text: "\\ No newline at end of file" },
+  ]);
 });
