@@ -57,12 +57,6 @@ export function editableBody(text: string): string {
   return p.body.slice(separatorOf(p).length);
 }
 
-/** The prompt file with its editable body replaced by `body`; the header and the blank line after it are kept byte for byte. */
-export function setEditableBody(text: string, body: string): string {
-  const p = splitPrompt(text);
-  return joinPrompt({ ...p, body: `${separatorOf(p)}${body}` });
-}
-
 /** "Use as a step": a header with an empty description put before the text, kept byte for byte after it; a file with a header is returned as is. */
 export function addHeader(text: string): string {
   if (splitPrompt(text).open !== null) return text;

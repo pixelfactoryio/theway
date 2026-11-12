@@ -1,35 +1,28 @@
 /**
  * A prompt's page, always editable: the title row with its status, Discard and Save; the Read tab (the body rendered)
- * and the Write tab (the body in a text box); and Details, as text on Read and as fields on Write. It works on the
- * file's draft, which its first edit starts.
+ * and the Write tab (the whole file, header and body, in a code editor); and Details, as text on both tabs. It works on
+ * the file's draft, which its first edit starts.
  */
 import { cn } from "cn";
-import { Plus } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import type { Document } from "yaml";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/reui/badge";
 import { Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { CodeEditor } from "@/files/CodeEditor";
 import { type Draft, isDirty, startDraft } from "@/files/draft";
 import { takeOpenOnWrite, useDrafts, useUndoKeys } from "@/files/drafts";
 import { useFileSave, useValidation } from "@/files/editing";
-import { Check, Choice, Confirm, type FieldProblem, Problems, Row, TextField } from "@/files/fields";
-import { type HeaderProblem, headerProblem, promptLine, withItemError } from "@/files/problems";
+import { Confirm } from "@/files/fields";
+import { promptLine, withItemError } from "@/files/problems";
 import { type HeaderSource, headerSource } from "@/files/source";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, useVersions, versionsHref } from "@/lib/api";
 import { plural } from "@/lib/changes";
 import { appliesText, usageText } from "@/lib/prompts";
-import { MODELS, PARAM } from "../../../core/language-schema";
 import { renderMarkdown } from "../../markdown";
 import type { FileDetail } from "../../types";
-import { addInput, HEADER_ORDER, removeInput, renameInput, setInputField } from "../editor/ops";
-import { addHeader, editableBody, editHeader, setEditableBody, setHeaderField } from "../editor/prompt";
-
-/** The value of the model select that stands for "not written". */
-const UNSET = "";
+import { addHeader, editableBody } from "../editor/prompt";
 
 /** A YAML key as a label: in monospace. */
 const Key = ({ children }: { children: string }) => <span className="font-mono text-[13px]">{children}</span>;
@@ -58,29 +51,6 @@ function Lines({ lines, tone }: { lines: string[]; tone: "error" | "warning" }) 
         <li key={`${i}:${l}`}>{l}</li>
       ))}
     </ul>
-  );
-}
-
-/** The body's text box: it keeps what is typed while the draft's body is that text, and shows the draft's otherwise, as on undo. */
-function BodyField({ text, setBody }: { text: string; setBody: (body: string) => void }) {
-  const body = editableBody(text);
-  const [typed, setTyped] = useState(body);
-  const [seen, setSeen] = useState(body);
-  if (seen !== body) {
-    setSeen(body);
-    if (typed !== body) setTyped(body);
-  }
-  return (
-    <Textarea
-      aria-label="Body"
-      className="min-h-[60vh] bg-card font-mono text-[13px] md:text-[13px]"
-      value={typed}
-      spellCheck={false}
-      onChange={(e) => {
-        setTyped(e.target.value);
-        setBody(e.target.value);
-      }}
-    />
   );
 }
 
@@ -119,7 +89,7 @@ function Reach({ file, detail, label }: { file: FileRef; detail: FileDetail | un
   );
 }
 
-/** Details on the Read tab: `model` and `inputs` of a header, as text. */
+/** Details of a header: `model` and `inputs`, as text. */
 function HeaderText({ header }: { header: HeaderSource }) {
   return (
     <>
@@ -150,89 +120,6 @@ function HeaderText({ header }: { header: HeaderSource }) {
   );
 }
 
-/** The ID of a header field's control, and the ID its problems are described by. */
-const fieldId = (key: HeaderProblem["key"], input: string | null = null): string => `prompt-${key}${input === null ? "" : `-${input}`}`;
-
-/** Details on the Write tab: `description`, `model` and `inputs` as fields, each with the problems tied to it. */
-function HeaderFields({
-  header,
-  apply,
-  problems,
-}: {
-  header: HeaderSource;
-  apply: (op: (d: Document) => void) => void;
-  problems: readonly HeaderProblem[];
-}) {
-  const at = (key: HeaderProblem["key"], input: string | null = null): FieldProblem => ({
-    id: fieldId(key, input),
-    messages: problems.filter((p) => p.key === key && p.input === input).map((p) => p.message),
-  });
-  const names = header.inputs.map((i) => i.name);
-  return (
-    <>
-      <Row label={<Key>description</Key>} problem={at("description")}>
-        <TextField value={header.description} problem={at("description")} onChange={(v) => apply((d) => setHeaderField(d, "description", v))} />
-      </Row>
-      <Row label={<Key>model</Key>} problem={at("model")}>
-        <Choice
-          value={header.model ?? UNSET}
-          options={[UNSET, ...MODELS]}
-          labels={{ [UNSET]: "None" }}
-          problem={at("model")}
-          onChange={(v) => apply((d) => setHeaderField(d, "model", v === UNSET ? undefined : v))}
-        />
-      </Row>
-      <div role="group" aria-label="inputs" className="flex flex-col gap-2">
-        <Key>inputs</Key>
-        <Problems problem={at("inputs")} />
-        {header.inputs.map((input, i) => (
-          // By position, so a rename keeps the focus in its field.
-          <div key={i} className="flex flex-col gap-2 border-l-2 border-divider pl-3">
-            <Row label={<Key>name</Key>}>
-              <TextField
-                value={input.name}
-                mono
-                same={(typed, v) => typed === v || !PARAM.test(typed) || (names.includes(typed) && typed !== input.name)}
-                onChange={(v) => {
-                  if (PARAM.test(v) && !names.includes(v)) apply((d) => renameInput(d, input.name, v));
-                }}
-              />
-            </Row>
-            <Row label={<Key>description</Key>}>
-              <TextField value={input.description} onChange={(v) => apply((d) => setInputField(d, input.name, "description", v))} />
-            </Row>
-            <div className="flex items-center justify-between gap-2">
-              <Check
-                checked={input.required}
-                onChange={(on) =>
-                  apply((d) => {
-                    setInputField(d, input.name, "required", on ? true : undefined);
-                    if (on) setInputField(d, input.name, "default", undefined);
-                  })
-                }
-              >
-                <Key>required</Key>
-              </Check>
-              <Button variant="ghost" size="sm" className="text-destructive" onClick={() => apply((d) => removeInput(d, input.name))}>
-                Remove
-              </Button>
-            </div>
-            {!input.required && (
-              <Row label={<Key>default</Key>}>
-                <TextField value={input.default ?? ""} onChange={(v) => apply((d) => setInputField(d, input.name, "default", v === "" ? undefined : v))} />
-              </Row>
-            )}
-            <Problems problem={at("inputs", input.name)} />
-          </div>
-        ))}
-        <Button variant="ghost" size="sm" className="self-start text-primary" onClick={() => apply((d) => void addInput(d, HEADER_ORDER))}>
-          <Plus /> Add an input
-        </Button>
-      </div>
-    </>
-  );
-}
-
 /** The open tab of a prompt's page. */
 type Tab = "read" | "write";
 
@@ -255,7 +142,7 @@ function Editor({
   tab: Tab;
   setTab: (tab: Tab) => void;
 }) {
-  const { start, update, drop } = useDrafts();
+  const { start, update, drop, undo, redo } = useDrafts();
   const files = useFiles();
   const [, navigate] = useLocation();
   const [discarding, setDiscarding] = useState(false);
@@ -272,27 +159,20 @@ function Editor({
   const itemError =
     draft.isNew || dirty ? null : (files.data?.prompts.find((p) => p.scope === file.scope && p.key === file.key && p.name === file.name)?.error ?? null);
 
-  /** One edit of the draft: `fn` of its text; the first edit starts the draft from the saved text. */
-  const change = (fn: (text: string) => string) => {
+  /** One edit of the draft: `fn` of its text, `at` the time of a typed edit; the first edit starts the draft from the saved text. */
+  const change = (fn: (text: string) => string, at?: number) => {
     if (!own) start(file, draft.text, draft.base, false);
-    update(file, fn);
+    update(file, fn, at);
   };
-  const apply = (op: (d: Document) => void) => change((t) => editHeader(t, op));
 
   // The lines to show: a refused save's for this text, else the last check's.
   const mine = refused !== null && refused.text === text;
   const errors = withItemError(mine ? refused.errors : (validation.result?.errors ?? []), itemError, file.name, labels);
   const warnings = mine ? refused.warnings : (validation.result?.warnings ?? []);
   const fields = header !== null && !("error" in header) ? header : null;
-  /** The header problem of a line when the Write tab has a field for it. */
-  const fielded = (line: string): HeaderProblem | null => {
-    if (fields === null) return null;
-    const p = headerProblem(line, file.name, labels);
-    if (p === null || (p.key === "inputs" && p.input !== null && !fields.inputs.some((i) => i.name === p.input))) return null;
-    return p;
-  };
-  const tied = tab === "write" ? errors.flatMap((l) => fielded(l) ?? []) : [];
-  const loose = (tab === "write" ? errors.filter((l) => fielded(l) === null) : errors).map((l) => promptLine(l, file.name, labels));
+  const loose = errors.map((l) => promptLine(l, file.name, labels));
+  // A file whose header is opened and not closed has none, and gets no second one.
+  const headless = header === null && text.split("\n")[0]?.replace(/\r$/, "") !== "---";
 
   const discard = () => {
     drop(file);
@@ -303,8 +183,8 @@ function Editor({
   const details = (
     <>
       {header !== null && "error" in header && <p className="text-[12px] break-words text-destructive">{header.error}</p>}
-      {fields !== null && (tab === "write" ? <HeaderFields header={fields} apply={apply} problems={tied} /> : <HeaderText header={fields} />)}
-      {header === null && tab === "write" && (
+      {fields !== null && <HeaderText header={fields} />}
+      {headless && tab === "write" && (
         <Button variant="outline" className="self-start" onClick={() => change(addHeader)}>
           Use as a step
         </Button>
@@ -365,7 +245,15 @@ function Editor({
             <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
           </TabsContent>
           <TabsContent value="write">
-            <BodyField text={text} setBody={(body) => change((t) => setEditableBody(t, body))} />
+            <CodeEditor
+              value={text}
+              onChange={(t) => change(() => t, Date.now())}
+              onUndo={() => undo(file)}
+              onRedo={() => redo(file)}
+              language="prompt"
+              label={`prompts/${file.name}.md`}
+              className="min-h-[60vh]"
+            />
           </TabsContent>
         </Tabs>
         <aside aria-label="Details" className="flex flex-col gap-4 lg:w-[280px] lg:shrink-0">

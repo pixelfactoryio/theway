@@ -1,10 +1,8 @@
 /**
- * A prompt's check lines tied to the prompt page's fields: a line that names a header key gives that key and the
- * validator's reason unchanged. Pure: no DOM, no React.
+ * A prompt's check lines as its page lists them: each line without its `theway: ` and the open prompt's own prefix
+ * (`promptLine`), and the error of the prompt's list item added when no line reports it (`withItemError`). Pure: no
+ * DOM, no React.
  */
-
-/** A quoted name as the resolver escapes it, unquoted. */
-const unquote = (s: string): string => (/^".*"$/.test(s) ? s.slice(1, -1) : s);
 
 /** A line without its `<label>: ` (one of `labels`) and its `theway: `: the label, `null` for none, and the rest. */
 function unprefixed(line: string, labels: readonly string[]): { label: string | null; rest: string } {
@@ -13,26 +11,6 @@ function unprefixed(line: string, labels: readonly string[]): { label: string | 
   if (label !== null) rest = rest.slice(label.length + 2);
   if (rest.startsWith("theway: ")) rest = rest.slice("theway: ".length);
   return { label, rest };
-}
-
-/** A prompt check line that names a key of the open prompt's header: the key, the input it names, and the validator's reason. */
-export type HeaderProblem = { key: "description" | "model" | "inputs"; input: string | null; message: string };
-
-/**
- * The header problem of a check line for the open prompt `name`: the line, after an optional `<label>: ` (one of
- * `labels`) and `theway: `, is `prompts/<name>.md: <key>[.<input>]: <message>` for the key `description`, `model` or
- * `inputs`; the message is kept as the validator wrote it. `null` for any other line.
- */
-export function headerProblem(line: string, name: string, labels: readonly string[] = []): HeaderProblem | null {
-  const { rest } = unprefixed(line, labels);
-  const own = `prompts/${name}.md: `;
-  if (!rest.startsWith(own)) return null;
-  const m = /^(description|model|inputs)(?:\.("[^"]*"|[^:\s]+))?: (.*)$/.exec(rest.slice(own.length));
-  if (m === null) return null;
-  const key = m[1] as HeaderProblem["key"];
-  const input = m[2] === undefined ? null : unquote(m[2]);
-  if (key !== "inputs" && input !== null) return null;
-  return { key, input, message: m[3] as string };
 }
 
 /**

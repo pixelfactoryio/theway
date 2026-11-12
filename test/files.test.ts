@@ -6,9 +6,9 @@ import type { Document } from "yaml";
 import type { Overlay } from "../src/core/io";
 import { parsePromptFile, resolveWorkflowFile } from "../src/core/language";
 import { addInput, HEADER_ORDER, type PromptChoice, parse, removeInput, setStepPrompt, textOf } from "../src/dashboard/client/editor/ops";
-import { addHeader, editableBody, editHeader, joinPrompt, setBody, setEditableBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
+import { addHeader, editableBody, editHeader, joinPrompt, setBody, setHeaderField, splitPrompt } from "../src/dashboard/client/editor/prompt";
 import { edit, isDirty, redo, startDraft, undo } from "../src/dashboard/client/files/draft";
-import { headerProblem, promptLine, withItemError } from "../src/dashboard/client/files/problems";
+import { promptLine, withItemError } from "../src/dashboard/client/files/problems";
 import { workflowSource } from "../src/dashboard/client/files/source";
 import { deltaText, lineDelta, whenOf } from "../src/dashboard/client/files/version-info";
 import { copyText, NEW_PROMPT_BODY, newPromptText, newWorkflowText } from "../src/dashboard/client/files/new-file";
@@ -108,20 +108,15 @@ test("each header edit of review.md keeps its body byte for byte, and a body edi
   expect(replaced).toBe(`---\n${header}---\nNew text.\n`);
 });
 
-test("the editor's body leaves out the blank line after the header, and an edit writes it back", () => {
+test("the editor's body leaves out the blank line after the header", () => {
   const review = fixture("prompts/review.md");
-  const { header, body } = splitPrompt(review);
+  const { body } = splitPrompt(review);
   expect(body.startsWith("\n#")).toBe(true);
   expect(editableBody(review)).toBe(body.slice(1));
-  expect(setEditableBody(review, editableBody(review))).toBe(review);
-  expect(setEditableBody(review, "New text.\n")).toBe(`---\n${header}---\n\nNew text.\n`);
-  // A CRLF separator is kept as it is; a header with no blank line after it, or no header, has none to leave out.
+  // A CRLF separator is left out as it is; a header with no blank line after it, or no header, has none to leave out.
   expect(editableBody("---\r\ndescription: d\r\n---\r\n\r\nText\r\n")).toBe("Text\r\n");
-  expect(setEditableBody("---\r\ndescription: d\r\n---\r\n\r\nText\r\n", "New")).toBe("---\r\ndescription: d\r\n---\r\n\r\nNew");
   expect(editableBody("---\ndescription: d\n---\nText\n")).toBe("Text\n");
-  expect(setEditableBody("---\ndescription: d\n---\nText\n", "New\n")).toBe("---\ndescription: d\n---\nNew\n");
   expect(editableBody("\nNotes.\n")).toBe("\nNotes.\n");
-  expect(setEditableBody("\nNotes.\n", "Other.\n")).toBe("Other.\n");
 });
 
 test("Use as a step on conformance.md adds a header and keeps its text byte for byte after it", () => {
@@ -135,21 +130,7 @@ test("Use as a step on conformance.md adds a header and keeps its text byte for 
   expect(headerErrors).toEqual(["description: must be a non-empty string"]);
 });
 
-test("a prompt check line that names a header key gives the key, the input and the validator's message unchanged", () => {
-  const message = "description must be a non-empty string";
-  expect(headerProblem(`prompts/x.md: inputs.change: ${message}`, "x")).toEqual({ key: "inputs", input: "change", message });
-  expect(headerProblem("prompts/triage.md: description: must be a non-empty string", "triage")).toEqual({ key: "description", input: null, message: "must be a non-empty string" });
-  expect(headerProblem("my-app: theway: prompts/triage.md: model: must be one of opus, sonnet, haiku", "triage", ["my-app"])).toEqual({
-    key: "model",
-    input: null,
-    message: "must be one of opus, sonnet, haiku",
-  });
-  expect(headerProblem('prompts/x.md: inputs."a b": unknown key', "x")).toEqual({ key: "inputs", input: "a b", message: "unknown key" });
-  expect(headerProblem("prompts/triage.md: body: must not be empty", "triage")).toBeNull();
-  expect(headerProblem("prompts/triage.md: model.x: must be one of opus, sonnet, haiku", "triage")).toBeNull();
-  expect(headerProblem("prompts/other.md: description: must be a non-empty string", "triage")).toBeNull();
-  expect(headerProblem("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBeNull();
-  // The page lists a line without the open prompt's own prefix, its label kept, not reworded.
+test("a prompt check line is listed without the open prompt's own prefix, its label kept, not reworded", () => {
   expect(promptLine("prompts/triage.md: body: must not be empty", "triage")).toBe("body: must not be empty");
   expect(promptLine("my-app: theway: prompts/triage.md: inputs.change: unknown key", "triage", ["my-app"])).toBe("my-app: inputs.change: unknown key");
   expect(promptLine("workflows/agents.yaml: steps[3].with: required input change is not set", "triage")).toBe("workflows/agents.yaml: steps[3].with: required input change is not set");
