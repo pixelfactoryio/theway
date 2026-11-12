@@ -71,7 +71,7 @@ const withoutPrefix = (line: string, name: string): string => {
 
 /** The page of a workflow on `draft`: the file's draft, or, before its first edit, the saved text as one; `own` when the store holds it. */
 function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draft; own: boolean; detail: FileDetail | undefined; view: View }) {
-  const { start, update, drop } = useDrafts();
+  const { start, update, drop, undo, redo } = useDrafts();
   const files = useFiles();
   const [, navigate] = useLocation();
   const wide = useWide();
@@ -95,10 +95,10 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
   if (!valid) select(null);
   const selected = valid ? selection : null;
 
-  /** One edit of the draft: `fn` of its text; the first edit starts the draft from the saved text. */
-  const change = (fn: (text: string) => string) => {
+  /** One edit of the draft: `fn` of its text, `at` the time of a typed edit; the first edit starts the draft from the saved text. */
+  const change = (fn: (text: string) => string, at?: number) => {
     if (!own) start(file, draft.text, draft.base, false);
-    update(file, fn);
+    update(file, fn, at);
   };
   /** Applies `op` to the workflow's Document, as one edit of the draft. */
   const apply = (op: (d: Document) => void) =>
@@ -196,7 +196,15 @@ function Editor({ file, draft, own, detail, view }: { file: FileRef; draft: Draf
             </div>
           )}
           {view === "yaml" ? (
-            <YamlView name={file.name} text={text} errors={errors} warnings={<Lines lines={warnings} tone="warning" />} onText={(t) => change(() => t)} />
+            <YamlView
+              name={file.name}
+              text={text}
+              errors={errors}
+              warnings={<Lines lines={warnings} tone="warning" />}
+              onText={(t) => change(() => t, Date.now())}
+              onUndo={() => undo(file)}
+              onRedo={() => redo(file)}
+            />
           ) : (
             <>
               <Lines lines={loose} tone="error" />

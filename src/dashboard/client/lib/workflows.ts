@@ -1,8 +1,10 @@
 /**
  * What the Workflows pages compute from the API and a workflow's text: the table's rows, the "Runs on" text, a card's
- * label and title, and the check's error lines split and grouped by step and key. Pure: no DOM, no JSX.
+ * label and title, the check's error lines split and grouped by step and key, the lines the YAML view shows and
+ * marks, and the panel's width. Pure: no DOM, no JSX.
  */
 import type { WorkflowItem } from "../../types";
+import { lineOf, lineOfMessage } from "../editor/lines";
 import { promptName } from "../files/source";
 import { ALL_PROJECTS } from "./changes";
 
@@ -84,6 +86,22 @@ export function splitErrorLine(line: string, name: string): SplitLine {
   if (at !== -1 && WHERE.some((r) => r.test(head))) return { own: true, where: head, message: rest.slice(at + 2) };
   return { own: true, where: null, message: rest };
 }
+
+/** An error line as the YAML view shows it: its text, and the line of the text it points at (`null` for none). */
+export function shownError(line: string, name: string, text: string): { line: number | null; text: string } {
+  const split = splitErrorLine(line, name);
+  if (!split.own) return { line: null, text: line };
+  if (split.where !== null) return { line: lineOf(text, split.where), text: `${split.where}: ${split.message}` };
+  if (split.message.startsWith("invalid YAML:")) return { line: lineOfMessage(split.message), text: split.message };
+  return { line: null, text: split.message };
+}
+
+/** The code editor's marks of the error lines `errors` on the workflow `name`'s `text`: one per shown error with a line, in order. */
+export const marksOf = (errors: readonly string[], name: string, text: string): { line: number; message: string }[] =>
+  errors.flatMap((l) => {
+    const e = shownError(l, name, text);
+    return e.line === null ? [] : [{ line: e.line, message: e.text }];
+  });
 
 /** The keys of the workflow settings panel an error line can name. */
 export type WorkflowKey = "description" | "default" | "runs-on" | "inputs";

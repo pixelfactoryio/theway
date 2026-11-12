@@ -12,6 +12,7 @@ import {
   cardTitle,
   effectiveRunsOn,
   groupErrors,
+  marksOf,
   matrixText,
   newWorkflowItem,
   onFailLabel,
@@ -172,6 +173,25 @@ test("lineOf finds the line of a where on the shipped agents.yaml, from real err
   expect(lineOf("steps: [\n", "steps")).toBeNull();
   expect(lineOfMessage("invalid YAML: Unexpected flow-seq-end at line 7, column 3")).toBe(7);
   expect(lineOfMessage("must be a non-empty string")).toBeNull();
+});
+
+test("the YAML view marks each error with a line on that line, with the text it shows, in order", () => {
+  const own = "workflows/agents.yaml: ";
+  const lines = [
+    `${own}steps[3].tries: must be an integer from 1 to 10`,
+    `my-app: ${own}steps[0].tries: must be an integer from 1 to 10`,
+    "workflows/other.yaml: steps[0].tries: x",
+    `${own}runs-on: must be one of agents, session`,
+    `${own}inputs.change: description must be a non-empty string`,
+    `${own}invalid YAML: Unexpected flow-seq-end at line 7, column 3`,
+  ];
+  expect(marksOf(lines, "agents", AGENTS)).toEqual([
+    { line: 30, message: "steps[3].tries: must be an integer from 1 to 10" },
+    { line: 8, message: "runs-on: must be one of agents, session" },
+    { line: 4, message: "inputs.change: description must be a non-empty string" },
+    { line: 7, message: "invalid YAML: Unexpected flow-seq-end at line 7, column 3" },
+  ]);
+  expect(marksOf([], "agents", AGENTS)).toEqual([]);
 });
 
 test("a workflow's page and history have no kind segment", () => {
