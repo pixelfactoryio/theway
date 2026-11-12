@@ -408,7 +408,7 @@ function Editor({
   );
 
   return (
-    <main ref={main} id="content" tabIndex={-1} className="flex h-[calc(100dvh-var(--topbar-h))] flex-1 flex-col outline-none">
+    <main ref={main} id="content" tabIndex={-1} className="flex h-[calc(100dvh-var(--topbar-h))] flex-none flex-col outline-none">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-divider px-4 py-3 lg:flex-nowrap lg:px-6">
         <Button variant="ghost" size="icon" aria-label="Back to the workflows" className="max-lg:order-1" onClick={() => navigate("/workflows")}>
           <X />
