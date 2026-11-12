@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { isDir, isFile, type Overlay, writeAtomic } from "../core/io";
-import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
+import { headerModel, listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
 import { NAME } from "../core/language-schema";
 import { type Change, changeFileCount, checkChange } from "../core/change";
 import { activeIds, archiveDirs, filesEndingWith } from "../core/list";
@@ -329,7 +329,6 @@ function promptItems(home: string, p: Place, all: { key: string; label: string }
     .filter((f) => f.scope === p.scope)
     .map((f) => {
       const path = pathOf(home, p, "prompts", f.name);
-      const { header } = parsePromptFile(readText(path));
       const target: FileTarget = { scope: p.scope, key: p.key, kind: "prompts", name: f.name };
       return {
         ...p,
@@ -338,7 +337,7 @@ function promptItems(home: string, p: Place, all: { key: string; label: string }
         path,
         description: f.description,
         step: f.step,
-        model: header?.model ?? null,
+        model: headerModel(readText(path)),
         usedBy: usersOf(usedBy(home, target, all, r)),
         error: f.error,
       };

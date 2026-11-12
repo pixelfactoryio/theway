@@ -108,8 +108,8 @@ export type WorkflowItem = FileBase & {
 export type PromptUser = { scope: "global" | "project"; key: string | null; label: string | null; name: string };
 
 /**
- * A prompt file: `step` when it has a header that passes the header rules; its header's `model` (`null` for none); the
- * workflows that use it, each once, in files-list order; and its first header rule error (`null` for none).
+ * A prompt file: `step` when it has a header that passes the header rules; its header's `model` as written, valid or
+ * not (`null` with no header or no `model` key); the workflows that use it, each once, in files-list order; and its first header rule error (`null` for none).
  */
 export type PromptItem = FileBase & { kind: "prompts"; step: boolean; model: string | null; usedBy: PromptUser[]; error: string | null };
 

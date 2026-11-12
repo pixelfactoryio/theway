@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { parse } from "yaml";
+import { isMap as isYamlMap, isScalar, parse, parseDocument } from "yaml";
 import type { Warn } from "./config";
 import { escaped, type Overlay } from "./io";
 import {
@@ -147,18 +147,44 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
 }
 
 /**
+ * A prompt file's text with a leading BOM dropped and CRLF read as LF, its lines, and the index of the header's closing
+ * `---` line (`-1` when the file has no fenced header).
+ */
+function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
+  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const lines = text.split("\n");
+  const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
+  const end = fence(lines[0]) ? lines.findIndex((l, i) => i > 0 && fence(l)) : -1;
+  return { text, lines, end };
+}
+
+/**
+ * The header's `model` of a prompt file as written: a string value as is, any other value its source text (`""` for an
+ * empty `model:`); `null` when `parsePromptFile` finds no header or the header has no `model` key.
+ */
+export function headerModel(raw: string): string | null {
+  if (parsePromptFile(raw).header === null) return null;
+  const { lines, end } = splitHeader(raw);
+  const yaml = lines.slice(1, end).join("\n");
+  const doc = parseDocument(yaml);
+  if (!isYamlMap(doc.contents)) return null;
+  const pair = doc.contents.items.find((p) => isScalar(p.key) && String(p.key.value) === "model");
+  if (pair === undefined) return null;
+  const v = pair.value;
+  if (isScalar(v) && typeof v.value === "string") return v.value;
+  const range = (v as { range?: [number, number, number] } | null)?.range;
+  return range === undefined ? "" : yaml.slice(range[0], range[1]);
+}
+
+/**
  * Splits a prompt file into its header and its body. `header` is `null` when the text does not start with a `---` line
  * followed by a closing `---` line, or when that YAML is not a map holding a `description` key; `body` is then the
  * whole text. `headerErrors` holds the header rule errors as `<where>: <message>` lines, `[]` when `header` is `null`.
  */
 export function parsePromptFile(raw: string): { header: PromptHeader | null; headerErrors: string[]; body: string } {
   // A leading BOM is ignored and CRLF line endings read as LF, header and body alike.
-  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const { text, lines, end } = splitHeader(raw);
   const none = { header: null, headerErrors: [], body: text };
-  const lines = text.split("\n");
-  const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
-  if (!fence(lines[0])) return none;
-  const end = lines.findIndex((l, i) => i > 0 && fence(l));
   if (end === -1) return none;
   const parsed = parseYaml(lines.slice(1, end).join("\n"));
   if ("reason" in parsed || !isMap(parsed.root) || !parsed.root.has("description")) return none;

@@ -172,7 +172,19 @@ test("a listed prompt gives its header's model, the workflows that use it once e
   expect(names(of("grounding"))).toEqual(["global/engineering", "global/engineering-light"]);
   expect(of("spec-template").usedBy).toEqual([]);
   for (const p of prompts.filter((p) => p.scope === "global")) expect([p.name, p.error]).toEqual([p.name, null]);
-  expect([of("odd", "p").error, of("odd", "p").model, of("odd", "p").step]).toEqual([`model: must be one of ${MODELS.join(", ")}`, null, false]);
+  expect([of("odd", "p").error, of("odd", "p").model, of("odd", "p").step]).toEqual([`model: must be one of ${MODELS.join(", ")}`, "gpt", false]);
+});
+
+test("a listed prompt's model is its header's model as written, null with no header or no model key", async () => {
+  const dir = shippedHome();
+  put(join(dir, "prompts", "bare.md"), "No header.\n");
+  put(join(dir, "prompts", "num.md"), "---\ndescription: Num\nmodel: 3\n---\n\nNum.\n");
+  put(join(dir, "prompts", "blank.md"), "---\r\ndescription: Blank\r\nmodel:\r\n---\r\n\r\nBlank.\r\n");
+  put(join(dir, "prompts", "plain.md"), "---\ndescription: Plain\n---\n\nPlain.\n");
+  const { port } = await start(dir);
+  const prompts = (await get(port, "/api/v1/files")).json().prompts as PromptItem[];
+  const of = (name: string) => (prompts.find((p) => p.name === name) as PromptItem).model;
+  expect([of("triage"), of("bare"), of("num"), of("blank"), of("plain")]).toEqual(["opus", null, "3", "", null]);
 });
 
 test("a v1 workflow file is listed with the error that it is no longer read", async () => {
