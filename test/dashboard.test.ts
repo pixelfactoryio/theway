@@ -512,6 +512,13 @@ const PINS: Record<string, string> = {
   "@dnd-kit/core": "6.3.1",
   "@dnd-kit/sortable": "10.0.0",
   "@dnd-kit/utilities": "3.2.2",
+  codemirror: "6.0.2",
+  "@codemirror/state": "6.7.6",
+  "@codemirror/view": "6.43.15",
+  "@codemirror/lang-yaml": "6.1.3",
+  "@codemirror/lang-markdown": "6.5.2",
+  "@codemirror/lint": "6.9.7",
+  "@panzoom/panzoom": "4.6.2",
 };
 
 test("package.json has no dependencies and pins every dashboard package exactly", () => {
