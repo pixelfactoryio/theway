@@ -97,12 +97,15 @@ export function Choice({
   options,
   onChange,
   labels = {},
+  titles = {},
   problem,
 }: {
   value: string;
   options: readonly string[];
   onChange: (v: string) => void;
   labels?: Record<string, string>;
+  /** Each option's `title`, by value. */
+  titles?: Record<string, string>;
   problem?: FieldProblem;
 }) {
   return (
@@ -112,7 +115,7 @@ export function Choice({
       </SelectTrigger>
       <SelectContent>
         {options.map((o) => (
-          <SelectItem key={o} value={o}>
+          <SelectItem key={o} value={o} title={titles[o]}>
             {labels[o] ?? o}
           </SelectItem>
         ))}

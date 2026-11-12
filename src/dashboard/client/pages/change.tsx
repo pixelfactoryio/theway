@@ -8,6 +8,7 @@ import { Bar, Empty } from "@/components/state";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fileHref, useAllChanges, useArchived, useChange } from "@/lib/api";
+import { projectNames } from "@/lib/labels";
 import { StatusBadge } from "@/pages/changes";
 import type { ChangeDetail } from "../../types";
 
@@ -117,14 +118,16 @@ function Fact({ name, children }: { name: string; children: ReactNode }) {
 }
 
 /** The Details column: the project, the tasks, the series, the default workflow and the command that runs an active change. */
-function Details({ projectKey, label, data }: { projectKey: string; label: string; data: ChangeDetail }) {
+function Details({ projectKey, label, name, data }: { projectKey: string; label: string; name: string; data: ChangeDetail }) {
   const series = data.properties.series;
   const workflow = data.defaultWorkflow;
   return (
     <aside aria-label="Details" className="flex flex-col gap-3 lg:w-[280px] lg:flex-none">
       <h2 className="border-b border-divider pb-3 font-semibold">Details</h2>
       <Fact name="Project">
-        <span className="break-words">{label}</span>
+        <span className="break-words" title={label}>
+          {name}
+        </span>
       </Fact>
       {data.status !== "Invalid" && (
         <Fact name="Tasks">
@@ -188,6 +191,7 @@ const TRIGGER =
 function Detail({ projectKey, date, query }: { projectKey: string; date: string | null; query: UseQueryResult<ChangeDetail> }) {
   const all = useAllChanges();
   const label = all.data?.projects.find((p) => p.key === projectKey)?.label ?? projectKey;
+  const name = projectNames((all.data?.projects ?? []).map((p) => p.label)).get(label) ?? label;
   const data = query.data;
   const files = data === undefined ? [] : ordered(data.files);
   const tabs = [
@@ -248,7 +252,7 @@ function Detail({ projectKey, date, query }: { projectKey: string; date: string 
                 </Tabs>
               )}
             </div>
-            <Details projectKey={projectKey} label={label} data={data} />
+            <Details projectKey={projectKey} label={label} name={name} data={data} />
           </div>
         </>
       )}

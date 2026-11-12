@@ -7,6 +7,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type FileRef, fileHref, fileKey, useFile, useFiles } from "@/lib/api";
+import { projectNames } from "@/lib/labels";
 import { NAME } from "../../../core/language-schema";
 import { EXT, type FileItem, type FilesResponse, type SourceKind } from "../../types";
 import { usePromptContext } from "./context";
@@ -60,7 +61,10 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
     if (kind === "prompts") openOnWrite(target);
     navigate(fileHref(target));
   };
-  const label = (f: FileItem) => `A copy of ${f.scope === "global" ? f.name : `${f.name} (${f.label ?? f.key ?? ""})`}`;
+  const names = projectNames(files.projects.map((p) => p.label));
+  const projectName = (f: FileItem) => (f.label === null ? (f.key ?? "") : (names.get(f.label) ?? f.label));
+  const label = (f: FileItem) => `A copy of ${f.scope === "global" ? f.name : `${f.name} (${projectName(f)})`}`;
+  const projectFiles = items.filter((f) => f.scope === "project");
   return (
     <form
       className="contents"
@@ -105,6 +109,7 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
           value={from}
           options={[EMPTY, ...items.map(fileKey)]}
           labels={{ [EMPTY]: "Empty", ...Object.fromEntries(items.map((f) => [fileKey(f), label(f)])) }}
+          titles={Object.fromEntries(projectFiles.map((f) => [fileKey(f), f.label ?? f.key ?? ""]))}
           onChange={(v) => {
             setFrom(v);
             const d = items.find((f) => fileKey(f) === v)?.description;
@@ -116,7 +121,8 @@ function NewForm({ kind, project, files, onClose }: { kind: SourceKind; project:
         <Choice
           value={scope}
           options={[ALL, ...files.projects.map((p) => p.key)]}
-          labels={{ [ALL]: "All projects", ...Object.fromEntries(files.projects.map((p) => [p.key, p.label])) }}
+          labels={{ [ALL]: "All projects", ...Object.fromEntries(files.projects.map((p) => [p.key, names.get(p.label) ?? p.label])) }}
+          titles={Object.fromEntries(files.projects.map((p) => [p.key, p.label]))}
           onChange={setScope}
         />
       </Row>

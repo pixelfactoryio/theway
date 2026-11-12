@@ -20,6 +20,7 @@ import { promptLine, withItemError } from "@/files/problems";
 import { type HeaderSource, headerSource } from "@/files/source";
 import { type FileRef, fileHref, fileKey, useFile, useFiles, useVersions, versionsHref } from "@/lib/api";
 import { plural } from "@/lib/changes";
+import { projectNames } from "@/lib/labels";
 import { appliesText, usageText } from "@/lib/prompts";
 import { renderMarkdown } from "../../markdown";
 import type { FileDetail } from "../../types";
@@ -56,7 +57,18 @@ function Lines({ lines, tone }: { lines: string[]; tone: "error" | "warning" }) 
 }
 
 /** The part of Details both tabs show as text: Used by, Applies to and History. */
-function Reach({ file, detail, label }: { file: FileRef; detail: FileDetail | undefined; label: string | null }) {
+function Reach({
+  file,
+  detail,
+  label,
+  names,
+}: {
+  file: FileRef;
+  detail: FileDetail | undefined;
+  label: string | null;
+  names: ReadonlyMap<string, string>;
+}) {
+  const applies = { scope: file.scope, key: file.key, label };
   const versions = useVersions(file);
   const count = versions.data === undefined ? null : versions.data.versions.length + (versions.data.shipped ? 1 : 0);
   const uses = detail?.usedBy ?? [];
@@ -79,7 +91,9 @@ function Reach({ file, detail, label }: { file: FileRef; detail: FileDetail | un
         )}
       </Entry>
       <Entry label="Applies to">
-        <span>{appliesText({ scope: file.scope, key: file.key, label }, detail?.overriddenBy ?? [], detail?.overrides ?? false)}</span>
+        <span title={appliesText(applies, detail?.overriddenBy ?? [], detail?.overrides ?? false)}>
+          {appliesText(applies, detail?.overriddenBy ?? [], detail?.overrides ?? false, names)}
+        </span>
       </Entry>
       <Entry label="History">
         <Link href={versionsHref(file)} className="font-medium text-primary hover:underline">
@@ -202,7 +216,7 @@ function Editor({
           Use as a step
         </Button>
       )}
-      <Reach file={file} detail={detail} label={label} />
+      <Reach file={file} detail={detail} label={label} names={projectNames(labels)} />
     </>
   );
 

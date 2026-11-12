@@ -28,14 +28,17 @@ export function usageText(u: Pick<FileUse, "name" | "use" | "step">): string {
 
 /**
  * Where a file applies: `All projects` for a global file, with `, overridden in <labels>` when projects override it;
- * `<label> only` for a project file, with `, overrides the global file` when it does.
+ * `<label> only` for a project file, with `, overrides the global file` when it does. Each label is printed as its
+ * name in `names`, the label itself when it has none.
  */
 export function appliesText(
   f: { scope: "global" | "project"; key: string | null; label: string | null },
   overriddenBy: readonly { label: string }[] = [],
   overrides = false,
+  names: ReadonlyMap<string, string> = new Map(),
 ): string {
-  if (f.scope === "global") return overriddenBy.length === 0 ? "All projects" : `All projects, overridden in ${overriddenBy.map((p) => p.label).join(", ")}`;
-  const only = `${f.label ?? f.key ?? ""} only`;
+  const named = (label: string): string => names.get(label) ?? label;
+  if (f.scope === "global") return overriddenBy.length === 0 ? "All projects" : `All projects, overridden in ${overriddenBy.map((p) => named(p.label)).join(", ")}`;
+  const only = `${f.label === null ? (f.key ?? "") : named(f.label)} only`;
   return overrides ? `${only}, overrides the global file` : only;
 }

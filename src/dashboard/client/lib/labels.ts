@@ -1,4 +1,4 @@
-/** The short names of projects for the Changes page's headings. Pure: no DOM, no JSX. */
+/** The short names of projects that the pages, the project switcher and the dialogs show. Pure: no DOM, no JSX. */
 
 /**
  * A project's repository name from its label: the last segment of a `<parent>/<name>` label; the part after
@@ -13,4 +13,11 @@ export function repoName(label: string): string {
 export function shortLabels(labels: readonly string[]): string[] {
   const names = labels.map(repoName);
   return labels.map((l, i) => (names.filter((n) => n === names[i]).length > 1 ? l : (names[i] as string)));
+}
+
+/** The short name of each project label: its repository name, or the whole label when two give the same. */
+export function projectNames(labels: readonly string[]): Map<string, string> {
+  const unique = [...new Set(labels)];
+  const short = shortLabels(unique);
+  return new Map(unique.map((l, i) => [l, short[i] ?? l]));
 }

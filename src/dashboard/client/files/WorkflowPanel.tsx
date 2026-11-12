@@ -5,6 +5,7 @@
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FileRef } from "@/lib/api";
+import { projectNames } from "@/lib/labels";
 import { appliesText } from "@/lib/prompts";
 import type { WorkflowKey } from "@/lib/workflows";
 import { PARAM, RUNS_ON, WORKFLOW_INPUT_TYPES } from "../../../core/language-schema";
@@ -64,6 +65,8 @@ export function WorkflowPanel({
   const note = files === undefined ? null : defaultNote(otherDefaults(file, files));
   const runsOn = source.runsOn === null ? { options: [UNSET, ...RUNS_ON], labels: { [UNSET]: "not set" } } : withInvalid(source.runsOn, RUNS_ON, {});
   const label = file.key === null ? null : (files?.projects.find((p) => p.key === file.key)?.label ?? null);
+  const applies = { scope: file.scope, key: file.key, label };
+  const projectNamed = projectNames((files?.projects ?? []).map((p) => p.label));
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -158,7 +161,9 @@ export function WorkflowPanel({
       </div>
       <div className="flex flex-col gap-1 border-t border-divider pt-4">
         <span className="font-medium">Applies to</span>
-        <span>{appliesText({ scope: file.scope, key: file.key, label }, detail?.overriddenBy ?? [], detail?.overrides ?? false)}</span>
+        <span title={appliesText(applies, detail?.overriddenBy ?? [], detail?.overrides ?? false)}>
+          {appliesText(applies, detail?.overriddenBy ?? [], detail?.overrides ?? false, projectNamed)}
+        </span>
       </div>
     </div>
   );

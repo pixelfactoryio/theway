@@ -12,6 +12,7 @@ import { NewDialog } from "@/files/NewDialog";
 import { workflowSource } from "@/files/source";
 import { fileHref, fileKey, useFiles } from "@/lib/api";
 import { plural } from "@/lib/changes";
+import { projectNames } from "@/lib/labels";
 import { appliesText } from "@/lib/prompts";
 import { newWorkflowItem, runsOnText, workflowRows } from "@/lib/workflows";
 import type { WorkflowItem } from "../../types";
@@ -21,7 +22,7 @@ import { HEAD, ROW } from "./changes";
 const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,200px)_minmax(0,1fr)_60px_minmax(0,160px)_minmax(0,160px)]";
 
 /** A row: the whole row links to the workflow's page. */
-function Row({ item, edited }: { item: WorkflowItem; edited: boolean }) {
+function Row({ item, edited, names }: { item: WorkflowItem; edited: boolean; names: ReadonlyMap<string, string> }) {
   const none = <span className="text-muted-foreground">–</span>;
   return (
     <div className={cn(ROW, "relative", COLUMNS)}>
@@ -40,7 +41,9 @@ function Row({ item, edited }: { item: WorkflowItem; edited: boolean }) {
       <span className="hidden truncate text-muted-foreground lg:block">{item.description ?? ""}</span>
       <span>{item.steps === null ? none : item.steps}</span>
       <span className="hidden truncate lg:block">{item.runsOn === null ? none : runsOnText(item.runsOn)}</span>
-      <span className="hidden truncate text-muted-foreground lg:block">{appliesText(item)}</span>
+      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item)}>
+        {appliesText(item, [], false, names)}
+      </span>
     </div>
   );
 }
@@ -51,6 +54,7 @@ export function WorkflowsPage({ project }: { project: string }) {
   const { drafts } = useDrafts();
   const [creating, setCreating] = useState(false);
   const labels = new Map((files.data?.projects ?? []).map((p) => [p.key, p.label]));
+  const names = projectNames((files.data?.projects ?? []).map((p) => p.label));
   const fresh = [...drafts.values()]
     .filter((e) => e.draft.isNew && e.file.kind === "workflows")
     .map((e) => {
@@ -83,7 +87,7 @@ export function WorkflowsPage({ project }: { project: string }) {
             <span className="hidden lg:block">Applies to</span>
           </div>
           {rows.map((item) => (
-            <Row key={fileKey(item)} item={item} edited={edited(item)} />
+            <Row key={fileKey(item)} item={item} edited={edited(item)} names={names} />
           ))}
           <p className="px-2 pt-3 text-[12px] text-muted-foreground">{plural(rows.length, "workflow", "workflows")}</p>
         </div>

@@ -3,7 +3,8 @@ import { Link } from "wouter";
 import { Empty } from "@/components/state";
 import { useAllChanges, useFiles } from "@/lib/api";
 import { activeCount, homeRows, notices, plural } from "@/lib/changes";
-import { HEAD, projectNames, ROW, TasksCell, Title } from "@/pages/changes";
+import { projectNames } from "@/lib/labels";
+import { HEAD, ROW, TasksCell, Title } from "@/pages/changes";
 
 const COLUMNS = "grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,200px)_160px]";
 

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DraftsProvider } from "@/files/drafts";
 import { type FileRef, useFiles } from "@/lib/api";
 import { ALL_PROJECTS } from "@/lib/changes";
+import { projectNames } from "@/lib/labels";
 import { ChangePage } from "@/pages/change";
 import { History } from "@/files/History";
 import { ChangesPage } from "@/pages/changes";
@@ -54,15 +55,25 @@ function Logo() {
 /** The project switcher: All projects, then each project by its full label. */
 function ProjectSwitcher({ project, onProject }: { project: string; onProject: (key: string) => void }) {
   const files = useFiles();
-  const items = [{ value: ALL_PROJECTS, label: "All projects" }, ...(files.data?.projects ?? []).map((p) => ({ value: p.key, label: p.label }))];
+  const projects = files.data?.projects ?? [];
+  const names = projectNames(projects.map((p) => p.label));
+  // Each project by its short name, its full label as the title; "All projects" has none.
+  const items = [
+    { value: ALL_PROJECTS, label: "All projects", title: undefined },
+    ...projects.map((p) => ({ value: p.key, label: names.get(p.label) ?? p.label, title: p.label })),
+  ];
   return (
     <Select items={items} value={project} onValueChange={(v) => onProject(typeof v === "string" ? v : ALL_PROJECTS)}>
-      <SelectTrigger aria-label="Project" size="sm" className="h-auto max-w-full gap-1 border-0 p-0 text-[12px] text-muted-foreground hover:text-foreground">
+      <SelectTrigger
+        aria-label="Project"
+        title={items.find((i) => i.value === project)?.title}
+        size="sm"
+        className="h-auto max-w-full gap-1 border-0 p-0 text-[12px] text-muted-foreground hover:text-foreground">
         <SelectValue />
       </SelectTrigger>
       <SelectContent alignItemWithTrigger={false} align="start">
         {items.map((i) => (
-          <SelectItem key={i.value} value={i.value}>
+          <SelectItem key={i.value} value={i.value} title={i.title}>
             {i.label}
           </SelectItem>
         ))}

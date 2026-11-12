@@ -10,6 +10,7 @@ import { isDirty } from "@/files/draft";
 import { useDrafts } from "@/files/drafts";
 import { NewDialog } from "@/files/NewDialog";
 import { fileHref, fileKey, useFiles } from "@/lib/api";
+import { projectNames } from "@/lib/labels";
 import { appliesText, promptRows } from "@/lib/prompts";
 import type { PromptItem } from "../../types";
 import { HEAD, ROW } from "./changes";
@@ -36,7 +37,7 @@ function UsedByCell({ item }: { item: PromptItem }) {
 }
 
 /** A row: the whole row links to the prompt's page; the Used by links sit above that link. */
-function Row({ item, step, edited }: { item: PromptItem; step: boolean; edited: boolean }) {
+function Row({ item, step, edited, names }: { item: PromptItem; step: boolean; edited: boolean; names: ReadonlyMap<string, string> }) {
   return (
     <div className={cn(ROW, "relative", step ? STEP_COLUMNS : REFERENCE_COLUMNS)}>
       <span className="flex min-w-0 items-center gap-1.5">
@@ -53,13 +54,15 @@ function Row({ item, step, edited }: { item: PromptItem; step: boolean; edited: 
       {step && <span className="hidden truncate text-muted-foreground lg:block">{item.description ?? ""}</span>}
       {step && <span className={item.model === null ? "text-muted-foreground" : undefined}>{item.model ?? "–"}</span>}
       <UsedByCell item={item} />
-      <span className="hidden truncate text-muted-foreground lg:block">{appliesText(item)}</span>
+      <span className="hidden truncate text-muted-foreground lg:block" title={appliesText(item)}>
+        {appliesText(item, [], false, names)}
+      </span>
     </div>
   );
 }
 
 /** A tab's table: its header cells, then its rows. */
-function Table({ rows, step }: { rows: PromptItem[]; step: boolean }) {
+function Table({ rows, step, names }: { rows: PromptItem[]; step: boolean; names: ReadonlyMap<string, string> }) {
   const { drafts } = useDrafts();
   const edited = (item: PromptItem) => {
     const d = drafts.get(fileKey(item))?.draft;
@@ -76,7 +79,7 @@ function Table({ rows, step }: { rows: PromptItem[]; step: boolean }) {
         <span className="hidden lg:block">Applies to</span>
       </div>
       {rows.map((item) => (
-        <Row key={fileKey(item)} item={item} step={step} edited={edited(item)} />
+        <Row key={fileKey(item)} item={item} step={step} edited={edited(item)} names={names} />
       ))}
     </div>
   );
@@ -89,6 +92,7 @@ export function PromptsPage({ project }: { project: string }) {
   const prompts = files.data?.prompts ?? [];
   const steps = promptRows(prompts, project, true);
   const references = promptRows(prompts, project, false);
+  const names = projectNames((files.data?.projects ?? []).map((p) => p.label));
   return (
     <main id="content" tabIndex={-1} className="flex w-full max-w-[1120px] flex-col gap-5 px-4 py-6 outline-none lg:px-8 lg:py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -110,10 +114,10 @@ export function PromptsPage({ project }: { project: string }) {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="steps">
-            <Table rows={steps} step />
+            <Table rows={steps} step names={names} />
           </TabsContent>
           <TabsContent value="references">
-            <Table rows={references} step={false} />
+            <Table rows={references} step={false} names={names} />
           </TabsContent>
         </Tabs>
       )}

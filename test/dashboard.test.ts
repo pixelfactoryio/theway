@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { matchRoute, type Parser, useRouter } from "wouter";
 import { folderOf, labels } from "../src/dashboard/api";
-import { repoName, shortLabels } from "../src/dashboard/client/lib/labels";
+import { projectNames, repoName, shortLabels } from "../src/dashboard/client/lib/labels";
 import { keyOf } from "../src/core/project";
 import type { ActiveChange } from "../src/dashboard/types";
 
@@ -118,6 +118,15 @@ test("a project heading shows the repository name, the whole label when two give
   expect(repoName("work/api")).toBe("api");
   expect(repoName("demo-my-api")).toBe("demo-my-api");
   expect(shortLabels(["a/api", "b/api", "github-com-x-tower"])).toEqual(["a/api", "b/api", "tower"]);
+});
+
+test("a project's name is its folder name, its full label when another project shares that name", () => {
+  expect([...projectNames(["-Users-amine-Dev-github-com-pixelfactoryio-theway"])]).toEqual([["-Users-amine-Dev-github-com-pixelfactoryio-theway", "theway"]]);
+  expect([...projectNames(["a/api", "b/api", "github-com-x-tower", "github-com-x-tower"])]).toEqual([
+    ["a/api", "a/api"],
+    ["b/api", "b/api"],
+    ["github-com-x-tower", "tower"],
+  ]);
 });
 
 test("dashboard prints its startup line and serves the page, the bundle and the stylesheet with the security headers", async () => {

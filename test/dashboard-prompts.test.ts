@@ -59,4 +59,10 @@ test("Applies to reads All projects or <label> only, with what overrides it or w
   expect(appliesText(item("review", true), [{ label: "my-app" }, { label: "api" }])).toBe("All projects, overridden in my-app, api");
   expect(appliesText(item("mine", true, "a"))).toBe("label-a only");
   expect(appliesText(item("review", true, "b"), [], true)).toBe("label-b only, overrides the global file");
+  const names = new Map([
+    ["label-a", "a-name"],
+    ["my-app", "app"],
+  ]);
+  expect(appliesText(item("mine", true, "a"), [], false, names)).toBe("a-name only");
+  expect(appliesText(item("review", true), [{ label: "my-app" }, { label: "api" }], false, names)).toBe("All projects, overridden in app, api");
 });

@@ -7,19 +7,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAllChanges } from "@/lib/api";
 import { type ArchivedRow, archivedRows, badgeVariant, type ChangeRow, changesRows, plural, STATUSES } from "@/lib/changes";
-import { shortLabels } from "@/lib/labels";
+import { projectNames } from "@/lib/labels";
 import type { ActiveChange, Status } from "../../types";
 
 /** A table's header cells and rows: the grid of its columns, the Project column and the bar dropped below `lg`. */
 export const HEAD = "grid items-end gap-x-6 border-b border-divider px-2 pb-2 text-[12px] font-semibold";
 export const ROW = "grid items-center gap-x-6 border-b border-divider-row px-2 py-3 hover:bg-accent";
-
-/** The short name of each project label: its repository name, or the whole label when two give the same. */
-export function projectNames(labels: readonly string[]): Map<string, string> {
-  const unique = [...new Set(labels)];
-  const short = shortLabels(unique);
-  return new Map(unique.map((l, i) => [l, short[i] ?? l]));
-}
 
 /** A page's title row: the title over a divider. */
 export function Title({ children }: { children: string }) {
