@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DraftsProvider } from "@/files/drafts";
-import { type FileRef, useFiles } from "@/lib/api";
+import { type FileRef, retryQuery, useFiles } from "@/lib/api";
 import { ALL_PROJECTS } from "@/lib/changes";
 import { projectNames } from "@/lib/labels";
 import { ChangePage } from "@/pages/change";
@@ -21,7 +21,7 @@ import { PromptsPage } from "@/pages/prompts";
 import { WorkflowPage } from "@/pages/workflow";
 import { WorkflowsPage } from "@/pages/workflows";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: retryQuery } } });
 
 type Area = "Home" | "Changes" | "Workflows" | "Prompts";
 

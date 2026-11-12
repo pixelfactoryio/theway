@@ -13,13 +13,30 @@ import {
   type SourceKind,
 } from "../../types";
 
-/** The JSON body of `GET <path>`; an error response throws its `error` text. */
+/** An error response of the API: its `error` text and HTTP status. */
+export class HttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
+/** The JSON body of `GET <path>`; an error response throws an `HttpError` with its `error` text. */
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: { Accept: "application/json" } });
   const body = (await res.json().catch(() => null)) as (T & { error?: string }) | { error?: string } | null;
-  if (!res.ok) throw new Error(body?.error ?? `${res.status} ${res.statusText}`);
+  if (!res.ok) throw new HttpError(res.status, body?.error ?? `${res.status} ${res.statusText}`);
   return body as T;
 }
+
+/**
+ * Whether a failed query is tried again: never after a 4xx answer, which another try would not change; otherwise up to
+ * TanStack Query's default of 3 retries.
+ */
+export const retryQuery = (failureCount: number, error: unknown): boolean =>
+  error instanceof HttpError && error.status >= 400 && error.status <= 499 ? false : failureCount < 3;
 
 const at = (key: string) => `/api/v1/projects/${encodeURIComponent(key)}`;
 

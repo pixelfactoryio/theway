@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { matchRoute, type Parser, useRouter } from "wouter";
 import { folderOf, labels } from "../src/dashboard/api";
+import { HttpError, retryQuery } from "../src/dashboard/client/lib/api";
 import { projectNames, repoName, shortLabels } from "../src/dashboard/client/lib/labels";
 import { keyOf } from "../src/core/project";
 import type { ActiveChange } from "../src/dashboard/types";
@@ -659,4 +660,12 @@ test("dashboard labels a project by its folder's name, <parent>/<name> when shar
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+test("a query is not tried again after a 4xx answer, else up to 3 retries", () => {
+  expect(retryQuery(0, new HttpError(404, "x"))).toBe(false);
+  expect(retryQuery(0, new HttpError(400, "x"))).toBe(false);
+  expect(retryQuery(0, new HttpError(500, "x"))).toBe(true);
+  expect(retryQuery(2, new Error("x"))).toBe(true);
+  expect(retryQuery(3, new Error("x"))).toBe(false);
 });
