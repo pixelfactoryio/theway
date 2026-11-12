@@ -1,4 +1,7 @@
-/** What the Home and Changes pages compute from the API: rows, notices and badge variants. Pure: no DOM, no JSX. */
+/**
+ * What the Changes page and the sidebar compute from the API: the tabs' entries and counts under a search, a series'
+ * status, the archived rows, the workflows that cannot run, and the badge variants. Pure: no DOM, no JSX.
+ */
 import type { ActiveChange, AllChangesResponse, ArchivedChange, Status, WorkflowItem } from "../../types";
 
 export type Project = AllChangesResponse["projects"][number];
@@ -6,7 +9,7 @@ export type Project = AllChangesResponse["projects"][number];
 /** The project switcher's value for every project. */
 export const ALL_PROJECTS = "";
 
-/** The statuses, in the order of the Status select. */
+/** The statuses. */
 export const STATUSES: readonly Status[] = ["Not started", "In progress", "Ready to archive", "Invalid"];
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -40,10 +43,6 @@ function activeRows(projects: readonly Project[], chosen: string): ChangeRow[] {
 /** The number of active changes of the chosen projects. */
 export const activeCount = (projects: readonly Project[], chosen: string): number =>
   chosenProjects(projects, chosen).reduce((n, p) => n + p.active.length, 0);
-
-/** The Changes page's rows: the chosen projects' active changes of `status` (every status for `""`), ordered by project label then ID. */
-export const changesRows = (projects: readonly Project[], chosen: string, status: Status | ""): ChangeRow[] =>
-  activeRows(projects, chosen).filter((r) => status === "" || r.change.status === status);
 
 /** An archived change with its project. */
 export type ArchivedRow = { key: string; label: string; archived: ArchivedChange };

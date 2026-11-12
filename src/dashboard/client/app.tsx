@@ -14,7 +14,7 @@ import { ALL_PROJECTS, brokenCount, plural } from "@/lib/changes";
 import { projectNames } from "@/lib/labels";
 import { ChangePage } from "@/pages/change";
 import { History } from "@/files/History";
-import { ChangesPage } from "@/pages/changes";
+import { ChangesPage, type ChangesView } from "@/pages/changes";
 import { PromptPage } from "@/pages/prompt";
 import { PromptsPage } from "@/pages/prompts";
 import { WorkflowPage } from "@/pages/workflow";
@@ -163,11 +163,23 @@ const workflow = (scope: "global" | "project", key: string | null, name: string)
 /** A prompt's file reference. */
 const prompt = (scope: "global" | "project", key: string | null, name: string): FileRef => ({ scope, key, kind: "prompts", name });
 
-function Routes({ project, panelWidth, setPanelWidth }: { project: string; panelWidth: number; setPanelWidth: (width: number) => void }) {
+function Routes({
+  project,
+  panelWidth,
+  setPanelWidth,
+  changesView,
+  setChangesView,
+}: {
+  project: string;
+  panelWidth: number;
+  setPanelWidth: (width: number) => void;
+  changesView: ChangesView;
+  setChangesView: (view: ChangesView) => void;
+}) {
   return (
     <Switch>
       <Route path="/changes">
-        <ChangesPage project={project} />
+        <ChangesPage project={project} view={changesView} setView={setChangesView} />
       </Route>
       <Route path="/changes/:key/:id">{(p) => <ChangePage key={`c/${p.key}/${p.id}`} projectKey={p.key} id={p.id} archived={false} />}</Route>
       <Route path="/archive/:key/:folder">{(p) => <ChangePage key={`a/${p.key}/${p.folder}`} projectKey={p.key} id={p.folder} archived={true} />}</Route>
@@ -211,6 +223,8 @@ export function App() {
   const [project, setProject] = useState(ALL_PROJECTS);
   // The width of the panel beside a workflow's diagram, in memory like the project: kept between workflows, lost on reload.
   const [panelWidth, setPanelWidth] = useState(360);
+  // The Changes page's tab, search and open series, in memory like the project: kept between pages, lost on reload.
+  const [changesView, setChangesView] = useState<ChangesView>({ tab: "In progress", search: "", open: new Set() });
   return (
     <CSPProvider disableStyleElements>
       <QueryClientProvider client={queryClient}>
@@ -223,7 +237,7 @@ export function App() {
               </aside>
               <div className="flex min-w-0 flex-1 flex-col">
                 <MobileBar project={project} onProject={setProject} />
-                <Routes project={project} panelWidth={panelWidth} setPanelWidth={setPanelWidth} />
+                <Routes project={project} panelWidth={panelWidth} setPanelWidth={setPanelWidth} changesView={changesView} setChangesView={setChangesView} />
               </div>
             </div>
           </Router>

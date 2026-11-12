@@ -6,7 +6,6 @@ import {
   brokenCount,
   type ChangeEntry,
   changeEntries,
-  changesRows,
   type Project,
   STATUSES,
   seriesStatus,
@@ -61,26 +60,6 @@ const PROJECTS: Project[] = [
 ];
 
 const ids = (rows: { label: string; change: ActiveChange }[]) => rows.map((r) => `${r.label}/${r.change.id}`);
-
-test("the Changes rows are the chosen project's changes of a status, every status for none", () => {
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, ""))).toEqual([
-    "alpha/add-c",
-    "alpha/add-j",
-    "zulu/add-a",
-    "zulu/add-i",
-    "zulu/add-n",
-    "zulu/add-r",
-    "zulu/add-s-02",
-    "zulu/add-y-01",
-    "zulu/fix-b",
-  ]);
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "In progress"))).toEqual(["alpha/add-c", "zulu/add-a", "zulu/add-s-02", "zulu/add-y-01", "zulu/fix-b"]);
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Ready to archive"))).toEqual(["zulu/add-r"]);
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Not started"))).toEqual(["zulu/add-n"]);
-  expect(ids(changesRows(PROJECTS, ALL_PROJECTS, "Invalid"))).toEqual(["alpha/add-j", "zulu/add-i"]);
-  expect(ids(changesRows(PROJECTS, "k-b", "Invalid"))).toEqual(["alpha/add-j"]);
-  expect(ids(changesRows(PROJECTS, "k-b", "Ready to archive"))).toEqual([]);
-});
 
 /** One project with a series of three active members, a lone member of another series, an invalid change and two archived ones. */
 const G: Project[] = [
