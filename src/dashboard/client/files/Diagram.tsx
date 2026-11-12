@@ -254,8 +254,10 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
         <div className={cn("flex justify-center", step.matrix !== null && values.length > 0 ? "lg:col-span-3" : "lg:col-start-2")}>{main}</div>
         {onFail !== null &&
           (step.matrix !== null && values.length > 0 ? (
-            <div className="flex items-start max-lg:mt-2 lg:col-span-3 lg:mt-3 lg:justify-center">
-              <OnFailBelow>{onFail}</OnFailBelow>
+            // A matrix step's on-fail: centred under the fork's join, joined to it by a vertical line; the line to the next `+` continues under it.
+            <div className="flex flex-col items-center lg:col-span-3">
+              <Line className="h-2 lg:h-3" />
+              <div className="w-full lg:w-[176px]">{onFail}</div>
             </div>
           ) : (
             <>
@@ -263,7 +265,7 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
                 <Arrows />
                 {onFail}
               </div>
-              <div className="flex lg:hidden">
+              <div className="mt-2 flex lg:hidden">
                 <OnFailBelow>{onFail}</OnFailBelow>
               </div>
             </>
@@ -274,7 +276,7 @@ function StepItem({ step, index, count, props }: { step: StepSource; index: numb
   );
 }
 
-/** An on-fail card under its step's, indented and joined to it by a corner line. */
+/** Below `lg`, a plain step's on-fail card under its step's, 8px below it, indented and joined to it by a corner line. */
 function OnFailBelow({ children }: { children: ReactNode }) {
   return (
     <div className="flex w-full items-start pl-4">

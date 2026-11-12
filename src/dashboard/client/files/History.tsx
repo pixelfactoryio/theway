@@ -119,7 +119,8 @@ export function History({ file, id }: { file: FileRef; id: string | null }) {
             <Diff from={text} to={detail.text} className="max-h-none" />
           )}
         </div>
-        <aside aria-label="Versions" className="border-t border-divider p-4 lg:w-[280px] lg:shrink-0 lg:border-t-0 lg:border-l">
+        {/* Below `lg`, the versions list comes first, above the diff or the text. */}
+        <aside aria-label="Versions" className="border-b border-divider p-4 max-lg:order-first lg:w-[280px] lg:shrink-0 lg:border-b-0 lg:border-l">
           <VersionList file={file} id={id} current={detail?.text} />
         </aside>
       </div>
