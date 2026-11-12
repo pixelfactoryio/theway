@@ -747,6 +747,85 @@ test("install keeps an edited interaction.md and hints when it still has an Auth
   expect(run(env, "install").stdout).not.toContain(hint);
 });
 
+test("install keeps a user's own authority.md unrecorded, and theway authority prints the shipped one", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const manifestPath = join(env.theway, ".shipped.json");
+  const file = join(env.theway, "standards", "authority.md");
+  const own = "---\napplies_to: [engineering]\n---\n# My own rules\n";
+  const kept = "Kept your standards/authority.md: theway now ships a file with that name (its version: standards/authority.default.md)\n";
+  const text = shipped("standards/authority.md");
+
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  delete manifest["standards/authority.md"];
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  put(file, own);
+  const upgrade = run(env, "install");
+  expect(upgrade.stdout).toContain(kept);
+  expect(run(env, "authority").stdout).toBe(text);
+  expect(run(env, "standards", "engineering", "--project", "p").stdout).toContain(`${file}\n`);
+
+  rmSync(manifestPath);
+  put(file, own);
+  const bare = run(env, "install");
+  expect(bare.status).toBe(0);
+  expect(bare.stdout).toContain(kept);
+  expect(bare.stdout).not.toContain("Kept your edited standards/authority.md");
+  const after = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  expect(Object.hasOwn(after, "standards/authority.md")).toBe(false);
+  for (const rel of SHIPPED_FILES.filter((r) => r !== "standards/authority.md")) expect(Object.hasOwn(after, rel)).toBe(true);
+  expect(readFileSync(file, "utf-8")).toBe(own);
+  expect(readFileSync(join(env.theway, "standards", "authority.default.md"), "utf-8")).toBe(text);
+  expect(run(env, "authority").stdout).toBe(text);
+});
+
+test("install counts the active changes of every project that still use tasks.md", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const projects = join(env.theway, "projects");
+  const line = (n: number) =>
+    n === 1
+      ? "1 change still uses tasks.md: it reads as invalid until it has a change.yaml; see https://pixelfactoryio.github.io/theway/docs/installation/#changes-written-before-changeyaml\n"
+      : `${n} changes still use tasks.md: they read as invalid until each has a change.yaml; see https://pixelfactoryio.github.io/theway/docs/installation/#changes-written-before-changeyaml\n`;
+  expect(run(env, "install").stdout).not.toContain("tasks.md");
+  put(join(projects, "a", "changes", "add-x", "tasks.md"), "# Tasks\n");
+  put(join(projects, "b", "changes", "add-y", "tasks.md"), "# Tasks\n");
+  put(join(projects, "b", "changes", "add-z", "tasks.md"), "# Tasks\n");
+  put(join(projects, "b", "changes", "add-z", "change.yaml"), "version: theway.change/v1beta\n");
+  put(join(projects, "b", "changes", "archive", "2026-01-01-add-w", "tasks.md"), "# Tasks\n");
+  expect(run(env, "install").stdout).toContain(line(2));
+  rmSync(join(projects, "b", "changes", "add-y"), { recursive: true });
+  expect(run(env, "install").stdout).toContain(line(1));
+});
+
+test("install names a kept edited standard or prompt that still names tasks.md", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const develop = join(env.theway, "standards", "develop.md");
+  const implement = join(env.theway, "prompts", "implement.md");
+  const review = join(env.theway, "prompts", "review.md");
+  put(develop, "# Mine\n\nTick `- [x] N.` in tasks.md.\n");
+  put(implement, `${shipped("prompts/implement.md")}\nTick tasks.md.\n`);
+  put(review, `${shipped("prompts/review.md")}\nMine.\n`);
+  const res = run(env, "install");
+  expect(res.stdout).toContain(
+    "Kept your edited standards/develop.md (shipped version: standards/develop.default.md)\nstandards/develop.md still names tasks.md: theway now keeps tasks in change.yaml; compare it with standards/develop.default.md\n",
+  );
+  expect(res.stdout).toContain(
+    "Kept your edited prompts/implement.md (shipped version: prompts/implement.default.md)\nprompts/implement.md still names tasks.md: theway now keeps tasks in change.yaml; compare it with prompts/implement.default.md\n",
+  );
+  expect(res.stdout).not.toContain("prompts/review.md still names");
+
+  const manifestPath = join(env.theway, ".shipped.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  delete manifest["standards/quality.md"];
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  put(join(env.theway, "standards", "quality.md"), "# Mine\n\nSee tasks.md.\n");
+  const own = run(env, "install");
+  expect(own.stdout).toContain("Kept your standards/quality.md: theway now ships a file with that name");
+  expect(own.stdout).not.toContain("standards/quality.md still names");
+});
+
 const WF = "workflows/develop.yaml";
 const WF_DEFAULT = "workflows/develop.default.yaml";
 

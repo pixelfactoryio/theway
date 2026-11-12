@@ -7,6 +7,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   readlinkSync,
   realpathSync,
@@ -21,7 +22,8 @@ import { fileURLToPath } from "node:url";
 import { isCancel, multiselect, text } from "@clack/prompts";
 import { OPT_IN_KEYS } from "./core/config";
 import { init } from "./core/init";
-import { defaultHome, isFile, pointerPath, readPointer, removeIfEmpty, resolveHome, writeAtomic } from "./core/io";
+import { activeIds } from "./core/list";
+import { defaultHome, isDir, isFile, pointerPath, readPointer, removeIfEmpty, resolveHome, writeAtomic } from "./core/io";
 
 const self = fileURLToPath(import.meta.url);
 const pkgRoot = dirname(dirname(self));
@@ -76,6 +78,28 @@ function recordedHome(): string {
 /** The 0.2.0 rules for the launcher in `<home>/bin`, for `~/.theway` and for `home`. */
 function legacyRules(home: string): string[] {
   return [...new Set(["Bash(~/.theway/bin/theway:*)", `Bash(${shownHome(home)}/bin/theway:*)`])];
+}
+
+const CHANGE_YAML_DOCS = "https://pixelfactoryio.github.io/theway/docs/installation/#changes-written-before-changeyaml";
+
+/** Prints one line when active changes of any project still hold a `tasks.md` and no `change.yaml`. */
+function reportTasksMd(home: string): void {
+  const projects = join(home, "projects");
+  let keys: string[];
+  try {
+    keys = readdirSync(projects).filter((n) => !n.startsWith(".") && isDir(join(projects, n)));
+  } catch {
+    return;
+  }
+  let n = 0;
+  for (const key of keys) {
+    for (const id of activeIds(join(projects, key))) {
+      const dir = join(projects, key, "changes", id);
+      if (isFile(join(dir, "tasks.md")) && !existsSync(join(dir, "change.yaml"))) n++;
+    }
+  }
+  if (n === 1) process.stdout.write(`1 change still uses tasks.md: it reads as invalid until it has a change.yaml; see ${CHANGE_YAML_DOCS}\n`);
+  else if (n > 1) process.stdout.write(`${n} changes still use tasks.md: they read as invalid until each has a change.yaml; see ${CHANGE_YAML_DOCS}\n`);
 }
 
 function fail(line: string): number {
@@ -451,6 +475,7 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   }
   const status = init(join(plugin, "home"), tHome, enabled);
   if (status !== 0) return status;
+  reportTasksMd(tHome);
   if (firstInstall && opts.standards === undefined && !asked) {
     process.stdout.write(
       `Opt-in standards are off (${OPT_IN_KEYS.join(", ")}): set standards.<key>.enabled: true in ${config} to enable one\n`,

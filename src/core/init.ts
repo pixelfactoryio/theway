@@ -327,12 +327,16 @@ function copyShipped(src: string, home: string): void {
         if (!current.equals(shipped)) {
           if (typeof old === "string" && sha256(current) === old) {
             writeAtomic(dst, shipped);
-          } else if (typeof old === "string" || (isShared && previous === undefined)) {
+          } else if (typeof old === "string" || (isShared && previous === undefined && rel !== "standards/authority.md")) {
+            // Without a manifest, an `authority.md` is the user's own: theway first shipped it long after `.shipped.json`.
             removeSibling = false;
             writeAtomic(`${home}/${sibling}`, shipped);
             process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
             const stale = staleKept(dir, name, current, shipped);
             if (stale !== null) process.stdout.write(`${stale}\n`);
+            if ((dir === "standards" || dir === "prompts") && current.toString("utf-8").includes("tasks.md")) {
+              process.stdout.write(`${rel} still names tasks.md: theway now keeps tasks in change.yaml; compare it with ${sibling}\n`);
+            }
           } else if (isShared) {
             removeSibling = false;
             record = false;
