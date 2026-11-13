@@ -598,7 +598,7 @@ The Workflows page lists every workflow file of the home in one table: the globa
 
 A click on a row opens the workflow's page:
 
-- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; the percentage button returns to 100%. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta` map, cannot be drawn: the tab says why and links to YAML.
+- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; a workflow opens zoomed to fit (never above 100%), and the percentage button fits it again. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta` map, cannot be drawn: the tab says why and links to YAML.
 - **YAML** shows the file in a code editor, each error marked on its line. Ctrl or Cmd and F searches. You can edit it: see [Editing a file](#editing-a-file).
 - **History** lists the versions the dashboard kept: see [History](#history).
 - The errors stand in a strip under the tabs; a click on one selects its card on Editor, or puts the cursor on its line on YAML.

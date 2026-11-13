@@ -1,6 +1,6 @@
 import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
-import { FileTextIcon, PlusIcon, TextCursorInputIcon, Trash2Icon, XIcon } from "lucide-react"
+import { FileTextIcon, PlusIcon, RotateCcwIcon, TextCursorInputIcon, Trash2Icon, XIcon } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "wouter"
 
@@ -512,7 +512,7 @@ function StepHeader({
   return (
     <div className="flex items-center gap-3">
       <IconTile size="sm" {...toneTile(tone)}>
-        <FileTextIcon aria-hidden="true" />
+        {tone === "on-fail" ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
       </IconTile>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-xs text-muted-foreground">

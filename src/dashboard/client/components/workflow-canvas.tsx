@@ -32,7 +32,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { errorCount } from "@/lib/files"
-import { type Drawing, hasOnFail, percent, type Selection, zoomStep } from "@/lib/workflow"
+import { type Drawing, fitScale, hasOnFail, percent, type Selection, zoomStep } from "@/lib/workflow"
 
 /** The rem in pixels, for the narrow-surface rule. */
 const REM = 16
@@ -392,6 +392,47 @@ export function WorkflowCanvas({
 
   const zoomTo = (next: number) => panzoom.current?.zoom(next, { animate: false })
 
+  /**
+   * Fits the drawing's height between the surface's top + 16px and its bottom − 72px, at the largest 0.1 step from 0.5
+   * to 1, its top 16px under the surface's top, at Panzoom's start x. The drawing is the column and every card (an
+   * on-fail card stands outside the column's box). Panzoom writes its transform on the next animation frame, so the
+   * boxes are measured once, from the transform the page shows now, and never after a Panzoom call.
+   */
+  const fit = () => {
+    const pz = panzoom.current
+    const elem = inner.current
+    const area = surface.current?.getBoundingClientRect()
+    const column = elem?.firstElementChild
+    if (pz === null || elem === null || area === undefined || column == null) return
+    const shown = getComputedStyle(elem).transform
+    const m = new DOMMatrixReadOnly(shown === "none" ? undefined : shown)
+    const s0 = m.a
+    const innerTop = elem.getBoundingClientRect().top
+    // The origin is `50% 0`: scaling does not move the top edge, so only the translation lies between it and the shown top.
+    const untransformedTop = innerTop - m.f
+    const boxes = [column, ...elem.querySelectorAll("button[aria-pressed]")].map((n) => n.getBoundingClientRect())
+    const top = Math.min(...boxes.map((b) => b.top))
+    const bottom = Math.max(...boxes.map((b) => b.bottom))
+    const T = (top - innerTop) / s0
+    const h = (bottom - top) / s0
+    const s = fitScale(h, area.height - KEEP.top - KEEP.bottom)
+    pz.zoom(s, { animate: false })
+    pz.pan(0, (area.top + KEEP.top - untransformedTop) / s - T, { animate: false, force: true })
+  }
+
+  // Fitted once per mount, once the surface's width has settled the layout (`narrow`); later resizes do not refit.
+  // Panzoom's constructor queues its start pan, an absolute pan to (0, 0), in a `setTimeout`: the fit is queued as a
+  // later timer, which runs after it, so that pan cannot undo the fit.
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (width === null || fitted.current) return
+    const timer = setTimeout(() => {
+      fitted.current = true
+      fit()
+    })
+    return () => clearTimeout(timer)
+  }, [width])
+
   // A placeholder card that appears out of view is panned in: 96px above the bottom edge, or 16px under the top edge.
   const placeholderRef = useRef<HTMLDivElement>(null)
   const placeholderAt = edits?.placeholder ?? null
@@ -541,11 +582,10 @@ export function WorkflowCanvas({
           <MinusIcon aria-hidden="true" />
         </ToolbarButton>
         <ToolbarButton
-          tip="Reset to 100%"
-          label={`Zoom ${percent(scale)}, reset to 100%`}
+          tip="Fit to view"
+          label={`Zoom ${percent(scale)}, fit to view`}
           className="w-16 tabular-nums"
-          onClick={() => panzoom.current?.reset({ animate: false })}
-         
+          onClick={fit}
           size="default"
         >
           {percent(scale)}
