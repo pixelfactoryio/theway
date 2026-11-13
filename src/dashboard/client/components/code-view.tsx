@@ -78,6 +78,8 @@ const THEME = EditorView.theme({
     textDecoration: "underline wavy var(--destructive)",
     textUnderlineOffset: "3px",
   },
+  // The lint gutter's error mark: a dot drawn in CSS, in place of the stock `data:` image the page's policy refuses.
+  ".cm-lint-marker-error": { content: "normal", borderRadius: "50%", backgroundColor: "var(--destructive)" },
   ".cm-tooltip": { backgroundColor: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)" },
   ".cm-tooltip-lint, .cm-diagnostic": { fontFamily: "var(--font-sans)" },
   ".cm-diagnostic-error": { borderLeftColor: "var(--destructive)" },

@@ -194,6 +194,12 @@ test("the router takes its own navigation, each Back or Forward once, with or wi
   expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/);
 });
 
+test("the lint gutter's error mark is a destructive dot drawn in CSS, with no image", () => {
+  const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8");
+  expect(text).toContain('".cm-lint-marker-error": { content: "normal", borderRadius: "50%", backgroundColor: "var(--destructive)" }');
+  expect(text).not.toMatch(/data:image|url\(/);
+});
+
 test("the code view holds its own extension set, read-only through EditorState.readOnly, with the page's nonce", () => {
   const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8");
   expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/);
