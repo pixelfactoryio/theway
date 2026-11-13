@@ -1,4 +1,3 @@
-import { cn } from "cn"
 import { CircleAlertIcon } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { Link } from "wouter"
@@ -7,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { errorCount, type PromptInputRow, quoted } from "@/lib/files"
+import { keyLabel } from "@/lib/workflow"
 
 /** One line of an error alert: its text, and what clicking it does (`null`: plain text). */
 export type AlertLine = { text: string; onClick: (() => void) | null }
@@ -75,11 +75,34 @@ export function LinesAlert({ lines }: { lines: readonly string[] }) {
   )
 }
 
-/** A labelled row of a panel; `code` writes the label in the code font (a YAML key). */
-export function PanelRow({ label, code = false, children }: { label: string; code?: boolean; children: ReactNode }) {
+/**
+ * A YAML key as a label: `keyLabel(yamlKey)` in the label's font and, when the key has a `-` or `.`, the key itself
+ * after it in muted monospace. One span, so it stays one flex item inside a `FieldLabel`.
+ */
+export function KeyLabelText({ yamlKey }: { yamlKey: string }) {
+  return (
+    <span>
+      {keyLabel(yamlKey)}
+      {/[-.]/.test(yamlKey) ? (
+        <>
+          {" "}
+          <span className="font-mono font-normal text-muted-foreground">{yamlKey}</span>
+        </>
+      ) : null}
+    </span>
+  )
+}
+
+/** A labelled row of a panel: `label` as plain text, or `yamlKey` as `KeyLabelText`. */
+export function PanelRow({
+  children,
+  ...props
+}: ({ label: string; yamlKey?: never } | { yamlKey: string; label?: never }) & { children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className={cn("text-xs text-muted-foreground", code && "font-mono")}>{label}</dt>
+      <dt className="text-xs text-muted-foreground">
+        {props.yamlKey !== undefined ? <KeyLabelText yamlKey={props.yamlKey} /> : props.label}
+      </dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
   )

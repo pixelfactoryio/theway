@@ -27,14 +27,14 @@ function DetailsPanel({ file, row, fields }: { file: FileBody; row: PromptRow; f
     <div className="flex flex-col gap-4 p-4">
       <h2 className="text-sm font-medium">Details</h2>
       <dl className="flex flex-col gap-4">
-        <PanelRow label="description" code>
+        <PanelRow yamlKey="description">
           {fields.header && fields.description !== null ? fields.description : <Dash />}
         </PanelRow>
         <PanelRow label="Kind">{KIND_LABEL[kindOf(fields)]}</PanelRow>
-        <PanelRow label="model" code>
+        <PanelRow yamlKey="model">
           {fields.model ?? <Dash />}
         </PanelRow>
-        <PanelRow label="inputs" code>
+        <PanelRow yamlKey="inputs">
           <InputsList inputs={fields.inputs} />
         </PanelRow>
         <PanelRow label="Used by">

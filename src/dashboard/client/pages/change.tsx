@@ -79,8 +79,8 @@ type DescriptionEdit = { field: (OpenField & { kind: "description" }) | null; op
 
 function Header({ change, column, edit }: { change: ChangeDetail; column: boolean; edit: DescriptionEdit | null }) {
   const invalid = change.archived === null && change.issues.length > 0
-  return (
-    <div className={column ? "mx-auto w-full max-w-4xl shrink-0" : "w-full shrink-0"}>
+  const body = (
+    <div className={column ? "mx-auto w-full max-w-4xl" : "w-full shrink-0"}>
       <div className="flex w-full flex-col gap-1 px-4 pt-6 pb-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h1 className="truncate text-lg font-semibold tracking-tight">{change.id}</h1>
@@ -115,6 +115,7 @@ function Header({ change, column, edit }: { change: ChangeDetail; column: boolea
       </div>
     </div>
   )
+  return column ? <div className="w-full shrink-0 overflow-hidden [scrollbar-gutter:stable_both-edges]">{body}</div> : body
 }
 
 /** The tasks of an archived change, read-only, as member 02 built them. */
@@ -308,7 +309,7 @@ function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string;
                 ),
             }))}
           />
-          <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+          <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
             <div className={file !== undefined ? "mx-auto w-full max-w-4xl px-4 py-6" : "mx-auto w-full max-w-4xl px-4 py-4"}>
               {file !== undefined ? <MarkdownView key={file.name} text={file.text} /> : <Tasks change={data} />}
             </div>
@@ -771,7 +772,7 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
       editingView && draft !== null ? (
         <MarkdownEditor key={name} store={draft.store} name={name} startLine={startLine} />
       ) : (
-        <div ref={scrollRoot} data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={scrollRoot} data-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
           <div className="mx-auto w-full max-w-4xl px-4 py-6">
             <MarkdownView key={name} text={text} onToggle={draft === null ? null : toggleBox(name)} />
           </div>
@@ -779,15 +780,17 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
       )
   } else if (textView && yaml !== null) {
     content = (
-      <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col border-x">
-        <div className="min-h-0 flex-1">
-          <EditableCodeView ref={code} draft={yaml.store} errors={errors} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden [scrollbar-gutter:stable_both-edges]">
+        <div className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col border-x">
+          <div className="min-h-0 flex-1">
+            <EditableCodeView ref={code} draft={yaml.store} errors={errors} />
+          </div>
         </div>
       </div>
     )
   } else {
     content = (
-      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
         <div className="mx-auto w-full max-w-4xl px-4 py-4">
           {yaml === null || !valid ? (
             <IssuesAlert issues={shown.issues} className="max-w-[80ch]" />
