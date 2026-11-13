@@ -107,7 +107,7 @@ const COMPONENTS: Components = {
 }
 
 const PROSE = [
-  "prose prose-sm prose-neutral dark:prose-invert max-w-[80ch]",
+  "prose prose-sm prose-theway max-w-[80ch]",
   "prose-headings:font-semibold prose-h2:text-lg prose-h3:text-base prose-h4:text-sm prose-h5:text-sm prose-h6:text-sm",
   "prose-pre:bg-muted prose-pre:text-foreground [&_pre_code]:bg-transparent [&_pre_code]:p-0",
   "prose-code:font-mono prose-code:font-normal prose-code:text-xs prose-code:bg-muted prose-code:rounded-sm prose-code:px-1",
