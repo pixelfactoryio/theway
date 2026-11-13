@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { type Tone, toneTile } from "@/components/workflow-canvas"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
 import { findPrompt } from "@/lib/workflow"
 import {
@@ -308,6 +309,7 @@ export function StepEditPanel({
   project,
   workflowRunsOn,
   onFailCard,
+  tone,
   write,
   onChange,
   onRemove,
@@ -320,6 +322,8 @@ export function StepEditPanel({
   project: string | null
   workflowRunsOn: string | null
   onFailCard: boolean
+  /** The header tile's tone: the selected card's. */
+  tone: Tone
   write: Write
   onChange: () => void
   onRemove: () => void
@@ -337,7 +341,7 @@ export function StepEditPanel({
   if (!form.valid) {
     return (
       <div className="flex flex-col gap-6 p-4">
-        <StepHeader n={n} total={total} name={`Step ${n}`} code={false} onChange={null} />
+        <StepHeader n={n} total={total} name={`Step ${n}`} code={false} tone={tone} onChange={null} />
         <LinesAlert lines={places.map((p) => p.line)} />
         <RemoveStep onRemove={onRemove} />
       </div>
@@ -369,7 +373,7 @@ export function StepEditPanel({
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <StepHeader n={n} total={total} name={name} code={prompt === null} onChange={onChange} />
+      <StepHeader n={n} total={total} name={name} code={prompt === null} tone={tone} onChange={onChange} />
       <LinesAlert lines={alert} />
       <div className="flex flex-col gap-4">
         <Field>
@@ -490,10 +494,24 @@ export function StepEditPanel({
 }
 
 /** The step panel's header: `Step N of M`, the step's name, and Change. */
-function StepHeader({ n, total, name, code, onChange }: { n: number; total: number; name: string; code: boolean; onChange: (() => void) | null }) {
+function StepHeader({
+  n,
+  total,
+  name,
+  code,
+  tone,
+  onChange,
+}: {
+  n: number
+  total: number
+  name: string
+  code: boolean
+  tone: Tone
+  onChange: (() => void) | null
+}) {
   return (
     <div className="flex items-center gap-3">
-      <IconTile variant="outline" size="sm">
+      <IconTile size="sm" {...toneTile(tone)}>
         <FileTextIcon aria-hidden="true" />
       </IconTile>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -773,7 +791,7 @@ export function WorkflowEditPanel({ file, text, lines, write }: { file: FileBody
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex items-center gap-3">
-        <IconTile variant="outline" size="sm">
+        <IconTile size="sm" {...toneTile("inputs")}>
           <TextCursorInputIcon aria-hidden="true" />
         </IconTile>
         <h2 className="text-sm font-medium">Workflow</h2>

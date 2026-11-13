@@ -47,6 +47,8 @@ export type StepCard = {
   code: boolean;
   description: string | null;
   badge: string | null;
+  /** Where the step runs: its valid `runs-on`, else the workflow's; `null` for an invalid step or when neither names one. */
+  target: "session" | "agents" | null;
   /** `matrix · N`, `matrix`, or `null` without one. */
   matrix: string | null;
   errors: string[];
@@ -128,7 +130,7 @@ const str = (node: unknown): string | null => {
 const badgeOf = (runsOn: string | null, model: string | null): string | null =>
   runsOn === "session" ? "session" : runsOn === "agents" ? (model !== null && model !== "" ? `agents · ${model}` : "agents") : null;
 
-const validRunsOn = (v: string | null): string | null => (v === "agents" || v === "session" ? v : null);
+const validRunsOn = (v: string | null): "session" | "agents" | null => (v === "agents" || v === "session" ? v : null);
 
 /** A `with` value as the panel shows it: one row per key with its source text, or the whole source text. */
 function withOf(text: string, node: unknown): { key: string; value: string }[] | { source: string } | null {
@@ -224,6 +226,7 @@ export function drawWorkflow(
         code: false,
         description: null,
         badge: null,
+        target: null,
         matrix: null,
         errors: [...errors, ...(split.onFail.get(index) ?? [])],
         onFail: null,
@@ -297,6 +300,7 @@ export function drawWorkflow(
       code: uses.code,
       description: p?.description ?? null,
       badge: badgeOf(runsOn, stepModel ?? p?.model ?? null),
+      target: runsOn,
       matrix,
       // Without an on-fail card, its lines count on the step card.
       errors: onFail === null ? [...errors, ...(split.onFail.get(index) ?? [])] : errors,
