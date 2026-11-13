@@ -486,7 +486,7 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
   const narrowedActive = query.q.trim() !== "" || query.statuses.length > 0
   const narrowedArchived = query.q.trim() !== ""
 
-  const top = <TopBar items={[{ label: "Changes" }, { selector: true }]} />
+  const top = <TopBar items={[{ selector: true }, { label: "Changes" }]} />
 
   if (changes.isError) {
     return (

@@ -25,7 +25,7 @@ import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
 function ShownValue({ shown, prompts, project }: { shown: Shown; prompts: readonly PromptRow[]; project: string | null }) {
@@ -303,7 +303,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     [errors, yamlTab, drawing, select]
   )
 
-  const crumbs = [{ label: "Workflows", href: "/workflows?" }, { label: name }]
+  const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Workflows", href: "/workflows?" }, { label: name }]
   const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {

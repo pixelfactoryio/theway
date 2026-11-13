@@ -988,7 +988,7 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
   const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson<ChangeDetail>(path) })
 
   const name = dir ?? id ?? ""
-  const crumbs = (label: string): TopBarItem[] => [{ label: "Changes", href: changesPath(projectKey) }, { selector: true }, { label }]
+  const crumbs = (label: string): TopBarItem[] => [{ selector: true }, { label: "Changes", href: changesPath(projectKey) }, { label }]
   const fallback = dir !== undefined && /^\d{4}-\d{2}-\d{2}-.+/.test(dir) ? dir.slice(11) : name
 
   if (change.isPending) {

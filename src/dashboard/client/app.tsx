@@ -11,15 +11,17 @@ import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
 import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
+import { SiteHeader } from "@/shell/site-header"
+import { TopBarSlot } from "@/shell/top-bar"
 
-/** The `localStorage` key of the sidebar's state: `open` or `closed`; closed (the icon rail) when absent. */
+/** The `localStorage` key of the sidebar's state: `open` or `closed`; open (expanded) when absent. */
 const SIDEBAR_KEY = "theway-sidebar"
 
 function readSidebar(): boolean {
   try {
-    return localStorage.getItem(SIDEBAR_KEY) === "open"
+    return localStorage.getItem(SIDEBAR_KEY) !== "closed"
   } catch {
-    return false
+    return true
   }
 }
 
@@ -84,25 +86,34 @@ function Routes() {
   )
 }
 
+/** The shell: the full-width site header, then the sidebar beside the page; pages render their `TopBar` into the header. */
 function Shell() {
   const [open, setOpen] = useState(readSidebar)
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
   useScrollMemory()
 
   return (
-    <SidebarProvider
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        writeSidebar(next)
-      }}
-      className="h-svh overflow-hidden"
-    >
-      <SkipLink />
-      <AppSidebar />
-      <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
-        <Routes />
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="[--header-height:calc(--spacing(12))]">
+      <SidebarProvider
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          writeSidebar(next)
+        }}
+        className="flex h-svh flex-col overflow-hidden"
+      >
+        <TopBarSlot.Provider value={slot}>
+          <SkipLink />
+          <SiteHeader setSlot={setSlot} />
+          <div className="flex min-h-0 flex-1">
+            <AppSidebar />
+            <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
+              <Routes />
+            </SidebarInset>
+          </div>
+        </TopBarSlot.Provider>
+      </SidebarProvider>
+    </div>
   )
 }
 

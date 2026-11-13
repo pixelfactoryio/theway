@@ -1,6 +1,9 @@
 /** The write token of this page's response, which every request that is not a read carries. */
 const token = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-token"]')?.content ?? ""
 
+/** theway's version, from this page's `theway-version` meta; `""` when absent. */
+export const version = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-version"]')?.content ?? ""
+
 /** In place of the server's `error` when a request got no JSON answer. */
 export const NO_ANSWER = "The server did not answer."
 

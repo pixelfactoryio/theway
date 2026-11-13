@@ -275,7 +275,7 @@ export function PromptsPage() {
     [list, query.q, query.kind]
   )
   const counts = useMemo(() => kindCounts(list?.prompts ?? [], query.q), [list, query.q])
-  const top = <TopBar items={[{ label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
+  const top = <TopBar items={[{ section: "Library" }, { label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
 
   if (prompts.isError || projects.isError) {
     return (

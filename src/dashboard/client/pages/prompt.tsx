@@ -14,7 +14,7 @@ import { appliesTo, type FileBody, filePath, KIND_LABEL, kindOf, previewText, ty
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
@@ -114,7 +114,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     [errors, view, base, navigate]
   )
 
-  const crumbs = [{ label: "Prompts", href: "/prompts?" }, { label: name }]
+  const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Prompts", href: "/prompts?" }, { label: name }]
   const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
   const unknown = unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))
