@@ -34,6 +34,7 @@ import {
   useText,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
+import { NewFileButton } from "@/components/new-file"
 import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, StatusCell, useFilesQuery } from "@/pages/files-table"
 import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
@@ -274,7 +275,7 @@ export function PromptsPage() {
     [list, query.q, query.kind]
   )
   const counts = useMemo(() => kindCounts(list?.prompts ?? [], query.q), [list, query.q])
-  const top = <TopBar items={[{ label: "Prompts" }]} />
+  const top = <TopBar items={[{ label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
 
   if (prompts.isError || projects.isError) {
     return (
@@ -297,7 +298,7 @@ export function PromptsPage() {
       <>
         {top}
         <PageBody>
-          <NoFile title="No prompt yet" kind="Markdown" folder={list.folder} />
+          <NoFile title="No prompt yet" kind="Markdown" folder={list.folder} action={<NewFileButton kind="prompts" variant="outline" />} />
         </PageBody>
       </>
     )

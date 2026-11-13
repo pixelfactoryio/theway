@@ -63,8 +63,8 @@ export function StatusCell({ errors }: { errors: readonly string[] }) {
 /** A missing value: `–` in the secondary colour. */
 export const None = () => <span className="text-muted-foreground">–</span>
 
-/** A home with no file of the section. */
-export function NoFile({ title, kind, folder }: { title: string; kind: string; folder: string }) {
+/** A home with no file of the section, with the section's New button (`outline`). */
+export function NoFile({ title, kind, folder, action }: { title: string; kind: string; folder: string; action?: ReactNode }) {
   return (
     <Empty className="py-12">
       <EmptyHeader>
@@ -73,6 +73,7 @@ export function NoFile({ title, kind, folder }: { title: string; kind: string; f
           Add a {kind} file to <code className="font-mono">{folder}/</code>.
         </EmptyDescription>
       </EmptyHeader>
+      {action !== undefined ? <EmptyContent>{action}</EmptyContent> : null}
     </Empty>
   )
 }
