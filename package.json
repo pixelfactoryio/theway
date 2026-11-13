@@ -31,10 +31,6 @@
   "devDependencies": {
     "@base-ui/react": "1.9.0",
     "@clack/prompts": "1.8.1",
-    "@dnd-kit/core": "6.3.1",
-    "@dnd-kit/modifiers": "9.0.0",
-    "@dnd-kit/sortable": "10.0.0",
-    "@dnd-kit/utilities": "3.2.2",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@hono/node-server": "2.1.8",
@@ -42,7 +38,6 @@
     "@tailwindcss/typography": "0.5.20",
     "@tanstack/react-query": "5.107.1",
     "@tanstack/react-table": "9.3.1",
-    "@tanstack/react-virtual": "3.14.26",
     "@types/node": "^22",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

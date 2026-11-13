@@ -94,11 +94,6 @@ const ADDED: Record<string, string> = {
   "@types/react-dom": "19.3.0",
   cmdk: "1.1.1",
   "@tanstack/react-table": "9.3.1",
-  "@tanstack/react-virtual": "3.14.26",
-  "@dnd-kit/core": "6.3.1",
-  "@dnd-kit/sortable": "10.0.0",
-  "@dnd-kit/utilities": "3.2.2",
-  "@dnd-kit/modifiers": "9.0.0",
   "react-resizable-panels": "4.21.0",
   "react-markdown": "10.1.0",
   "remark-gfm": "4.0.1",
@@ -118,7 +113,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
     .filter((f) => /\.(tsx?|css)$/.test(f))
     .map((f) => readFileSync(f, "utf-8"))
     .join("\n");
-  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "@tanstack/react-virtual", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities", "@dnd-kit/modifiers", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography"]) {
+  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography"]) {
     expect([name, new RegExp(`["']${name.replace("/", "\\/")}(?:/[^"']*)?["']`).test(sources)]).toEqual([name, true]);
   }
 });
