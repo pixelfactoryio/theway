@@ -184,7 +184,7 @@ The scaffold and `fix-spec` run it after writing a `change.yaml`, and fix the fi
 theway task done <change-id> <n>...
 ```
 
-Ticks the tasks numbered `<n>` of the change's `change.yaml`: it sets `done: true` on each and keeps the rest of the file (comments, key order, line endings and its mode). An inserted `done: true` line ends as the line it follows (`\r\n` in a CRLF file). A task already done stays done. It prints `<done>/<total> tasks done` and exits 0.
+Ticks the tasks numbered `<n>` of the change's `change.yaml`: it loads the file, sets `done: true` on each named task and prints the file again. Values, comments, line endings and the file's mode are kept. On other lines the layout may change, the values staying the same: a `>-` text is written on one line, several spaces before a trailing comment become one, indentation becomes two spaces, a final line break is added, and a flow list written over several lines is laid out again. A task already done stays done. It prints `<done>/<total> tasks done` and exits 0.
 
 It exits 1 and writes nothing when the file is invalid (with the error lines of [`change`](#change)), or with one line per bad argument, in the order given, when an argument is not a task number (digits not starting with `0`) or is greater than the number of tasks:
 
@@ -572,6 +572,103 @@ theway dashboard: http://127.0.0.1:4870/
   ```
 
   Any other error starting the server exits 1 with a `theway: <message>` line on stderr. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
+
+### Changes
+
+The Changes page shows where every change of the project stands, in one table:
+
+- **Active** lists the active changes with their status, their progress (`done/total` tasks) and the date their `change.yaml` last changed. What needs attention comes first: Invalid, In progress, Not started, then Ready to archive, each by ID; a column header sorts by that column instead. A change is Invalid when its `change.yaml` does not validate (its first issue shows under its ID), Ready to archive when all its tasks are done, Not started when none is.
+- Two or more active changes of one series (`<id>-01`, `<id>-02`, …) show as one row you open to see its members, with their summed progress.
+- **Archived** lists the archived changes, newest first, 25 a page (50 or 100 on request).
+- The search keeps the changes whose ID or description holds the text (the ID only on Archived); the Status filter keeps the statuses you check. The view, the search, the statuses, the page and the page size are kept in the address, so Back and a reload restore them.
+
+A click on a row opens the change's own page:
+
+- Its header gives its ID, its status and its description, or the reasons its `change.yaml` cannot be read.
+- One tab per Markdown file of its folder (Spec, Design, Notes, then the others by name) shows the file rendered, then the Tasks tab lists its tasks. Raw HTML is not rendered, and only `http:`, `https:` and `mailto:` links are links.
+- The panel at the right gives the next task, the command to run next (`/theway:workflow <id>`, or `/theway:archive <id>` once all tasks are done), the other members of its series, and its folder. The command and the folder each have a Copy button. From 1024px wide it sits beside the page, can be resized, and the toggle at the top right hides it; the browser remembers its width and whether it is hidden. On a narrower window the toggle opens it over the page.
+- An active change is edited in place: see [Editing a change](#editing-a-change). An archived change is read-only.
+
+### Workflows
+
+The Workflows page lists every workflow file of the home in one table: the global ones (`~/.theway/workflows/`, which apply to all projects) and each project's own (`projects/<key>/workflows/`). The project selector does not change it.
+
+- Each row gives the workflow's name (with a `default` badge for the default one) and description, what it applies to (All projects, or `<project> only`), its number of steps, where its steps run (`agents`, `session` or `mixed`), and its status: Valid, or `N errors` with the first error in a tooltip. A global file is checked with the global folders only; a project's file as that project resolves it.
+- The search keeps the files whose name or description holds the text, and is kept in the address.
+
+A click on a row opens the workflow's page:
+
+- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; the percentage button returns to 100%. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta` map, cannot be drawn: the tab says why and links to YAML.
+- **YAML** shows the file in a code editor, each error marked on its line. Ctrl or Cmd and F searches. You can edit it: see [Editing a file](#editing-a-file).
+- **History** lists the versions the dashboard kept: see [History](#history).
+- The errors stand in a strip under the tabs; a click on one selects its card on Editor, or puts the cursor on its line on YAML.
+- The panel at the right gives the workflow's description, `runs-on`, `default`, inputs, what it applies to and its file path, or the selected step's keys.
+
+### Prompts
+
+The Prompts page lists every prompt file of the home the same way, with a Kind filter: a Step prompt has a header (even one with errors), a Reference file has none.
+
+- Each row gives the prompt's name and description, what it applies to, its kind, its model, the workflows that use it (as a step, an on-fail, or a value), and its status. A prompt's errors are its header's and those the workflows that use it report about it.
+- The search and the Kind filter are kept in the address.
+
+A click on a row opens the prompt's page: **Prompt** shows the whole file in the code editor, its header coloured as YAML and its body as Markdown, each error marked on its line, and you can edit it; **Preview** renders the body; **History** lists its versions. The panel gives its description, kind, model, inputs, the workflows that use it, what it applies to and its file path.
+
+### Editing a file
+
+A prompt's Prompt tab and a workflow's YAML tab are editable. What you type is a draft that lives on the file's page:
+
+- 400ms after your last keystroke, the dashboard checks the draft as `theway workflow` would read it, without writing anything. The errors show on their lines, in the strip under the tabs and in the tabs row's `N errors` badge; the Editor tab, the Preview and the panel follow the draft. When the check cannot run (the server stopped), a notice says so and the errors are cleared until the next check.
+- Two workflows of one context that both set `default: true` are reported as `theway workflow` reports them, on the line of the `default` key: both global files when both are global, only the project's file when a project's file and a global one both set it.
+- While the draft differs from the file, an "Unsaved changes" bar under the tabs offers Discard and Save. Saving is never automatic. Ctrl or Cmd and Z undoes, Ctrl or Cmd, Shift and Z redoes; the draft stays while you move between the page's tabs.
+- Save waits for the check of the current draft and asks once when it has errors ("Save anyway"): the file is still written, since your own editor could write the same text. "Saved" shows in the tabs row until the next edit.
+- Save is refused when the file changed on disk since the page loaded it: a notice offers Reload, which drops the draft and loads the file. A save that fails otherwise shows the server's error. Neither drops your draft.
+- Leaving the page with unsaved changes (a link, the sidebar, the project selector, Back) asks first: Keep editing, Discard, or Save then leave. Moving between the tabs of the same file does not ask. Closing or reloading the browser tab gets the browser's own prompt.
+- Writes go through the file's folder with a temporary file and a rename, so an interrupted write never leaves a truncated file.
+
+Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, `~/.theway/history/`, and the `change.yaml` and Markdown files of a project's active change folders.
+
+### Editing a workflow
+
+A workflow's Editor tab edits the file too. Every edit changes the same draft as the YAML tab, so the unsaved bar, the check, Save, Discard and History work the same way, and the YAML tab always shows the text the canvas made:
+
+- **Add a step**: the round "+" on each connector of the column, and under the last card, opens a step picker in the panel. Search by name or description, move with the arrow keys and press Enter, or click a prompt: the step goes in at that place with `uses: prompts/<name>.md` and, under `with`, each input the prompt requires (`${{ inputs.<name> }}` when the workflow declares an input of that name, else `""`, which the check reports until you set it). Escape or Close leaves the picker. A project's workflow lists that project's prompts first, then the global ones it does not replace.
+- **Move or remove a step**: the "…" menu at the top right of a step card has Move up, Move down and Remove step.
+- **Edit a step**: select its card. The panel shows its keys as fields labelled as in the file: Change (another prompt: the `with` keys it declares are kept, its required inputs added, the others removed), `runs-on`, `model`, one field per input of its prompt under `with`, `matrix` (a key and its values, one per line), `on-fail` with its own inputs, `on-fail.model` and `tries`. Choosing the first option of a select ("Workflow's", "Prompt's", None) removes the key. Selecting an on-fail card opens its step's panel at `on-fail`.
+- **Edit the workflow**: with no card or the Inputs card selected, the panel edits `description`, `runs-on`, `default` and the inputs (Add input, rename, `type`, `description`, `required`, `default`, remove). An empty name, or one another input has, is not written.
+- Each error stands under the field it names, or in the panel's alert.
+- Undo and Redo in the canvas toolbar (or Ctrl or Cmd and Z on the YAML tab) undo the canvas's edits and the YAML tab's alike; the keystrokes typed in one field undo together.
+- Each edit writes the whole file again with the `yaml` package: values and comments are kept (a comment goes with the step or key it belongs to when that is removed), and so are blank lines and the quoting of each value. The layout may change on lines you did not touch, the values staying the same: a `>-` text is written on one line, indentation becomes two spaces, a comment on the line of a key whose value is a block moves to the next line, and a final line break is added.
+- A value a field cannot show (a `tries` out of 1 to 10, a list where text is expected, a matrix that is not one key with a list of strings) leaves that field disabled: edit it on the YAML tab. A file that uses YAML anchors is drawn read-only, and a file that cannot be drawn is fixed on the YAML tab.
+
+### Editing a change
+
+The page of an active change edits its tasks, its description and its Markdown files where they are shown. Every edit changes a draft the page holds, one per file; nothing is written until you press Save in the "Unsaved changes in `<file>`" bar under the tabs, which also offers Discard. A tab whose file has unsaved changes shows a dot after its label.
+
+- **Tasks**: tick a task's checkbox, click its text (or press Enter on its row) to change it, type in the "Add a task" row at the bottom and press Enter to add one. A text field applies with Enter or Apply and cancels with Escape; Shift and Enter adds a line to a task's text. Each row's "…" menu has Edit, Move up, Move down, Add a task below and Delete; a task also moves by dragging its handle, or with Alt and the Up or Down arrow while its row has the focus. Delete shows "Task N deleted." with Undo. A change keeps at least one task.
+- **Description**: click it in the header to change it; it is one line.
+- **`change.yaml` as text**: the "…" menu at the right of the tabs opens the file in the code editor, its errors listed and marked on their lines; "Back to the list" returns. The list, the description and the text are one draft, so undo in the editor undoes the list's edits too. While the draft does not pass the check, the Tasks tab shows the text only, and the header shows its issues.
+- The status, the Tasks count, the next task and the Run command follow the draft before you save.
+- Each task edit loads `change.yaml`, changes it and prints it again as [`task done`](#task-done) does: values, comments and line endings are kept, a comment above a task moves and is removed with it, and the layout of other lines may change as described there.
+- **Markdown**: in a file's reading view, the checkboxes of its task lists can be ticked; each flips one character of its line. Edit opens the source beside a live preview that follows the cursor (Write and Preview tabs when the window is narrow), with a toolbar: Bold, Italic, Code and Link (Ctrl or Cmd and B, I, E and K), Heading, Bulleted list, Numbered list and Task list. Done returns to the reading view and asks first when the file has unsaved changes.
+- Save is refused when the file changed on disk since the page loaded it, for example when an agent ran `theway task done`: a notice offers Reload, which drops that file's draft and loads the file. Leaving the change page with unsaved changes asks first; Save there writes every changed file.
+- Do not add, move or remove tasks while a workflow runs on the change: agents address tasks by their number.
+
+### Creating a file
+
+The Workflows page's "New workflow" button and the Prompts page's "New prompt" open one dialog:
+
+- **Name**: lowercase letters and digits, in words joined by single hyphens, not taken where the file would be written.
+- **Applies to**: All projects (the home's folder), or One project (that project's folder, created when missing). A project's file of the name of a global file replaces the global one for that project; the dialog says so.
+- **Start from**: Empty, or a copy of any file of that kind, written unchanged.
+- **Description**, for Empty only. An Empty workflow is `version: theway.workflow/v1beta`, its description, `runs-on: agents` and `steps: []`, so the page then reports that its steps are missing; an Empty prompt is a header with its description and `model: opus`, and an empty body.
+
+On Create the new file's page opens.
+
+### History
+
+Each time the dashboard saves or restores a file, it keeps the text it replaces as a version, under `~/.theway/history/global/<kind>/<name>/` for a global file and `~/.theway/history/projects/<key>/<kind>/<name>/` for a project's, one file per version named by its UTC time and the start of its SHA-256. A file keeps its 20 newest versions. Only the dashboard writes there; deleting the folder only drops the versions. A save of the same text keeps nothing.
+
+The History tab of a workflow's and a prompt's page lists Current, then each version by its date and time in your time zone with the lines it added and removed. Selecting a version shows its difference from the file as saved (not your draft), unchanged stretches collapsed, in one column (Unified) or side by side (Split); the browser remembers the layout. Turning off Show changes shows the version's text alone. Restore writes the version as the file, after asking, and keeps the replaced text as a version, so a restore can itself be undone; it drops unsaved changes.
 
 ## authority
 

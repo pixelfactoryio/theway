@@ -1,12 +1,15 @@
 import { useState } from "react"
 import { Redirect, Route, Router, Switch } from "wouter"
-import { useHashLocation } from "wouter/use-hash-location"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChangesRoute, HomeRoute } from "@/pages/changes"
-import { SectionPage } from "@/pages/section"
+import { PromptPage } from "@/pages/prompt"
+import { PromptsPage } from "@/pages/prompts-list"
+import { WorkflowPage } from "@/pages/workflow"
+import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
+import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 
 /** The `localStorage` key of the sidebar's state: `open` or `closed`; closed (the icon rail) when absent. */
@@ -54,10 +57,22 @@ function Routes() {
         {(params) => <ChangesRoute routeKey={params.key} />}
       </Route>
       <Route path="/workflows">
-        <SectionPage title="Workflows" items={[{ label: "Workflows" }]} />
+        <WorkflowsPage />
+      </Route>
+      <Route<{ name: string; tab?: string }> path="/workflows/global/:name/:tab?">
+        {(params) => <WorkflowPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
+      </Route>
+      <Route<{ key: string; name: string; tab?: string }> path="/workflows/projects/:key/:name/:tab?">
+        {(params) => <WorkflowPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
       </Route>
       <Route path="/prompts">
-        <SectionPage title="Prompts" items={[{ label: "Prompts" }]} />
+        <PromptsPage />
+      </Route>
+      <Route<{ name: string; tab?: string }> path="/prompts/global/:name/:tab?">
+        {(params) => <PromptPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
+      </Route>
+      <Route<{ key: string; name: string; tab?: string }> path="/prompts/projects/:key/:name/:tab?">
+        {(params) => <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
       </Route>
       <Route>
         <Redirect to="/?" replace />
@@ -88,10 +103,10 @@ function Shell() {
   )
 }
 
-/** The dashboard: hash routes, the tooltip provider and the shell. */
+/** The dashboard: hash routes through the guarded location hook, the tooltip provider and the shell. */
 export function App() {
   return (
-    <Router hook={useHashLocation}>
+    <Router hook={useGuardedLocation}>
       <TooltipProvider>
         <Shell />
       </TooltipProvider>
