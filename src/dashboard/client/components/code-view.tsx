@@ -3,6 +3,7 @@ import { markdown } from "@codemirror/lang-markdown"
 import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml"
 import { HighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language"
 import { type Diagnostic, lintGutter, setDiagnostics } from "@codemirror/lint"
+import { MergeView, unifiedMergeView } from "@codemirror/merge"
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
 import { EditorSelection, EditorState, type Extension, type TransactionSpec } from "@codemirror/state"
 import {
@@ -261,4 +262,91 @@ export function CodeView({
   useImperativeHandle(ref, () => ({ goToLine: (n: number) => goTo(view.current, n) }), [])
 
   return <div ref={host} className="h-full min-h-0" />
+}
+
+/** A tint of a colour token for a difference: `color-mix` of the token at `percent`. */
+const tint = (token: string, percent: number): string => `color-mix(in oklab, var(--${token}) ${percent}%, transparent) !important`
+
+/**
+ * The colours of a difference. Unified: changed lines `success` at 10%, inserted text `success` at 18%, deleted
+ * chunks `destructive` at 10% and deleted text `destructive` at 18%. Split: the version's changes `destructive` at 12%,
+ * the saved file's `success` at 12%. A collapsed stretch on `muted` with `muted-foreground` text.
+ */
+const DIFF_THEME = EditorView.theme({
+  "&.cm-merge-b .cm-changedLine, & .cm-inlineChangedLine": { backgroundColor: tint("success", 10) },
+  "&.cm-merge-b .cm-changedText": { background: tint("success", 18) },
+  "& .cm-deletedChunk": { backgroundColor: tint("destructive", 10) },
+  "& .cm-deletedChunk .cm-deletedText, & .cm-deletedLine": { background: tint("destructive", 18) },
+  "& .cm-deletedChunk del": { textDecoration: "none" },
+  "&.cm-merge-b .cm-changedLineGutter, & .cm-inlineChangedLineGutter": { background: "var(--success) !important" },
+  "&.cm-merge-a .cm-changedLineGutter, & .cm-deletedLineGutter": { background: "var(--destructive) !important" },
+  "& .cm-collapsedLines": {
+    background: "var(--muted) !important",
+    color: "var(--muted-foreground) !important",
+    fontFamily: "var(--font-mono)",
+  },
+})
+
+/** The split view's colours: each side's changes at 12%. */
+const SPLIT_THEME = EditorView.theme({
+  "&.cm-merge-a .cm-changedLine": { backgroundColor: tint("destructive", 12) },
+  "&.cm-merge-a .cm-changedText": { background: tint("destructive", 12) },
+  "&.cm-merge-b .cm-changedLine": { backgroundColor: tint("success", 12) },
+  "&.cm-merge-b .cm-changedText": { background: tint("success", 12) },
+})
+
+/** Unchanged stretches of 4 lines or more collapse, keeping 3 lines each side. */
+const COLLAPSE = { margin: 3, minSize: 4 }
+
+/** A read-only extension set: the code view's shared set (its nonce included) with `name` and `text`'s separator. */
+const readOnlySet = (text: string, language: CodeLanguage, name: string): Extension[] => [
+  ...sharedExtensions({ language, name, separator: lineSeparatorOf(text) }),
+  EditorState.readOnly.of(true),
+  DIFF_THEME,
+]
+
+/**
+ * The difference from `original` (a version) to `text` (the file as saved), read-only: one editor with the deleted
+ * chunks inline (`unified`), or the two side by side, the version at the left (`split`).
+ */
+export function DiffView({
+  original,
+  text,
+  layout,
+  language,
+  names,
+}: {
+  original: string
+  text: string
+  layout: "unified" | "split"
+  language: CodeLanguage
+  names: { original: string; text: string }
+}) {
+  const host = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (host.current === null) return
+    if (layout === "unified") {
+      const v = new EditorView({
+        state: EditorState.create({
+          doc: text,
+          extensions: [
+            ...readOnlySet(text, language, names.text),
+            unifiedMergeView({ original, mergeControls: false, collapseUnchanged: COLLAPSE }),
+          ],
+        }),
+        parent: host.current,
+      })
+      return () => v.destroy()
+    }
+    const m = new MergeView({
+      a: { doc: original, extensions: [...readOnlySet(original, language, names.original), SPLIT_THEME] },
+      b: { doc: text, extensions: [...readOnlySet(text, language, names.text), SPLIT_THEME] },
+      parent: host.current,
+      collapseUnchanged: COLLAPSE,
+    })
+    return () => m.destroy()
+  }, [original, text, layout, language, names.original, names.text])
+
+  return <div ref={host} className="h-full min-h-0 [&_.cm-mergeView]:h-full [&_.cm-mergeView]:overflow-y-auto [&_.cm-mergeViewEditor+.cm-mergeViewEditor]:border-l" />
 }

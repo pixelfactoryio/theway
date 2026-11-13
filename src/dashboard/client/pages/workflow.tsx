@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
+import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
@@ -200,6 +201,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const yamlTab = tab === "yaml"
   const history = tab === "history"
   const base = filePath("workflows", project, name)
+  const historyTab = useHistoryTab({ draft, kind: "workflows", project, name, language: "yaml", active: history })
 
   const data = file.data
   const text = draft.text
@@ -303,7 +305,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           name={history ? "Versions" : step !== null ? `Step ${step.index + 1}` : "Workflow"}
           open={open}
           onOpenChange={setOpen}
-          panel={panel}
+          panel={history ? historyTab.panel : panel}
         >
           <RecordTabs
             column={false}
@@ -312,6 +314,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             tabs={[
               { value: "editor", label: "Editor", href: `${base}?` },
               { value: "yaml", label: "YAML", href: `${base}/yaml?` },
+              { value: "history", label: "History", href: `${base}/history?` },
             ]}
             right={
               <>
@@ -323,7 +326,9 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             }
           />
           <DraftNotices draft={draft} lines={lines} history={history} />
-          {yamlTab ? (
+          {history ? (
+            historyTab.main
+          ) : yamlTab ? (
             <div className="min-h-0 flex-1">
               <EditableCodeView ref={code} draft={draft.store} errors={errors} />
             </div>

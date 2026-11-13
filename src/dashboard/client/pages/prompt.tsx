@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, type HeaderFields, useFileDraft } from "@/components/draft"
+import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
@@ -84,6 +85,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const [pending, setPending] = useState<number | null>(null)
   const view = tab === "preview" || tab === "history" ? tab : "prompt"
   const base = filePath("prompts", project, name)
+  const historyTab = useHistoryTab({ draft, kind: "prompts", project, name, language: "prompt", active: view === "history" })
 
   // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there.
   useEffect(() => {
@@ -183,7 +185,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           name={history ? "Versions" : "Details"}
           open={open}
           onOpenChange={setOpen}
-          panel={<DetailsPanel file={data} row={shownRow} fields={fields} />}
+          panel={history ? historyTab.panel : <DetailsPanel file={data} row={shownRow} fields={fields} />}
         >
           <RecordTabs
             column={false}
@@ -192,6 +194,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             tabs={[
               { value: "prompt", label: "Prompt", href: `${base}?` },
               { value: "preview", label: "Preview", href: `${base}/preview?` },
+              { value: "history", label: "History", href: `${base}/history?` },
             ]}
             right={
               <>
@@ -202,7 +205,9 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             }
           />
           <DraftNotices draft={draft} lines={lines} history={history} />
-          {view === "preview" ? (
+          {history ? (
+            historyTab.main
+          ) : view === "preview" ? (
             <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
               <MarkdownView text={previewText(draft.text, fields.header)} />
             </div>
