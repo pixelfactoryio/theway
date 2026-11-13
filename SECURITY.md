@@ -36,6 +36,12 @@ Only the latest release is supported.
 - `document`: writes and overwrites `docs/architecture/*` in the repository.
 - `list`: reads only; runs `theway path`, `theway project` and `theway list`.
 
+### Dashboard
+
+- `theway dashboard` binds `127.0.0.1` only and refuses a request whose `Host` is not its own loopback address and port.
+- It takes a write only with its own `Origin` and the token it makes at start and puts in its page.
+- It writes only `<home>/workflows/`, `<home>/prompts/`, a project's two same folders, and `<home>/history/`. Those files are instructions to every command, as "Untrusted content" says.
+
 ### Input checks
 
 - Project keys given with `--project` must match `^[A-Za-z0-9-]{1,200}$` (a derived key longer than 200 characters is refused), and change IDs `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
