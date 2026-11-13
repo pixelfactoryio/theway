@@ -16,7 +16,7 @@ import { CopyField } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { StepPicker } from "@/components/step-picker"
-import { type CanvasEdits, WorkflowCanvas } from "@/components/workflow-canvas"
+import { type CanvasEdits, toneTile, WorkflowCanvas } from "@/components/workflow-canvas"
 import { applyEdit, type HistoryMode, StepEditPanel, WorkflowEditPanel, type Write } from "@/components/workflow-forms"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
 import { type Drawing, drawWorkflow, findPrompt, isDefaultWorkflow, type Selection, selectionOf, type Shown, type StepCard } from "@/lib/workflow"
@@ -62,7 +62,7 @@ function WorkflowPanel({ file, drawing }: { file: FileBody; drawing: Drawing | n
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex items-center gap-3">
-        <IconTile variant="outline" size="sm">
+        <IconTile size="sm" {...toneTile("inputs")}>
           <TextCursorInputIcon aria-hidden="true" />
         </IconTile>
         <h2 className="text-sm font-medium">Workflow</h2>
@@ -137,7 +137,7 @@ function StepPanel({
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex items-start gap-3">
-        <IconTile variant="outline" size="sm">
+        <IconTile size="sm" {...toneTile(card !== null ? "on-fail" : step.target)}>
           {card !== null ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
         </IconTile>
         <div className="flex min-w-0 flex-col">
@@ -397,6 +397,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         project={project}
         workflowRunsOn={drawing.runsOn}
         onFailCard={kept?.kind === "on-fail"}
+        tone={kept?.kind === "on-fail" ? "on-fail" : step.target}
         write={write}
         onChange={() => openPicker({ mode: "change", index: step.index })}
         onRemove={() => removeSelected(step.index)}

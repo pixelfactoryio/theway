@@ -40,6 +40,21 @@ const REM = 16
 /** Room kept around a card panned into view: 16px from the top, left and right, 72px from the bottom (the toolbar). */
 const KEEP = { top: 16, left: 16, right: 16, bottom: 72 }
 
+/** A block's kind, which tints its icon tile; `null` (a step with no valid target) leaves the tile untinted. */
+export type Tone = "inputs" | "session" | "agents" | "on-fail" | null
+
+/** Each kind's tint: identity, not state, from the `--tone-*` tokens (palette hues paired for dark), none of them amber. */
+const TONES: Record<Exclude<Tone, null>, string> = {
+  inputs: "text-tone-inputs",
+  session: "text-tone-session",
+  agents: "text-tone-agents",
+  "on-fail": "text-tone-on-fail",
+}
+
+/** The icon tile's variant and classes for a tone, for the cards and the panel headers. */
+export const toneTile = (tone: Tone): { variant: "soft" | "outline"; className?: string } =>
+  tone === null ? { variant: "outline" } : { variant: "soft", className: TONES[tone] }
+
 const same = (a: Selection | null, b: Selection): boolean =>
   a !== null && a.kind === b.kind && (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index))
 
@@ -78,6 +93,7 @@ function CardErrors({ count }: { count: number }) {
 function Card({
   label,
   icon,
+  tone,
   name,
   code,
   badge,
@@ -92,6 +108,7 @@ function Card({
 }: {
   label: string
   icon: ReactNode
+  tone: Tone
   name: string
   code: boolean
   badge: string | null
@@ -119,7 +136,7 @@ function Card({
         )}
       >
         <span className={cn("flex min-w-0 items-center gap-2", menu !== null && "pe-7")}>
-          <IconTile variant="outline" size="xs">
+          <IconTile size="xs" {...toneTile(tone)}>
             {icon}
           </IconTile>
           <OneLine text={name} tooltipClassName="max-w-sm" className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")} />
@@ -404,7 +421,8 @@ export function WorkflowCanvas({
   return (
     <div
       ref={surface}
-      className="relative min-h-0 flex-1 overflow-hidden bg-muted"
+      // The dot grid is painted by the surface, not by the transformed inner node: it stays put and keeps its 16px while the cards pan and zoom.
+      className="relative min-h-0 flex-1 overflow-hidden bg-canvas bg-[image:radial-gradient(var(--canvas-dot)_1px,transparent_1px)] bg-size-[16px_16px]"
       // Capture phase: Panzoom's own pointerdown on this surface stops the event before it bubbles to React.
       onPointerDownCapture={(e) => {
         down.current = { x: e.clientX, y: e.clientY }
@@ -429,6 +447,7 @@ export function WorkflowCanvas({
             <Card
               label="Inputs"
               icon={<TextCursorInputIcon aria-hidden="true" />}
+              tone="inputs"
               name="Inputs"
               code={false}
               badge={null}
@@ -451,6 +470,7 @@ export function WorkflowCanvas({
                   <Card
                     label={`Step ${n}: ${step.name}`}
                     icon={<FileTextIcon aria-hidden="true" />}
+                    tone={step.target}
                     name={step.name}
                     code={step.code}
                     badge={step.badge}
@@ -485,6 +505,7 @@ export function WorkflowCanvas({
                       <Card
                         label={`On fail of step ${n}: ${step.onFail.name}`}
                         icon={<RotateCcwIcon aria-hidden="true" />}
+                        tone="on-fail"
                         name={step.onFail.name}
                         code={step.onFail.code}
                         badge={step.onFail.badge}

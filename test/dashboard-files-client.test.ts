@@ -97,10 +97,10 @@ test("a workflow with comments is drawn: Inputs, steps with their badges, matrix
     { name: "mode", type: "text", required: false, default: "fast", description: "How" },
   ]);
   expect([d.description, d.runsOn, d.default]).toEqual(["Implement and review", "agents", false]);
-  expect(d.steps.map((s) => [s.name, s.description, s.badge, s.matrix, s.tries])).toEqual([
-    ["implement", "Implement it", "agents · opus", null, null],
-    ["review", "Review it", "session", "matrix · 3", "2"],
-    ["review", "Review it", "agents · opus", null, null],
+  expect(d.steps.map((s) => [s.name, s.description, s.badge, s.target, s.matrix, s.tries])).toEqual([
+    ["implement", "Implement it", "agents · opus", "agents", null, null],
+    ["review", "Review it", "session", "session", "matrix · 3", "2"],
+    ["review", "Review it", "agents · opus", "agents", null, null],
   ]);
   const onFail = d.steps[1]?.onFail;
   expect(onFail).toMatchObject({ name: "fix", code: false, description: "Fix it", badge: "session", uses: { prompt: "fix" } });
@@ -153,12 +153,12 @@ test("a workflow that does not resolve is still drawn, malformed shapes as the s
   if (!("drawing" in r)) throw new Error(r.reason);
   const [invalid, odd, missing, two] = r.drawing.steps;
   expect(r.drawing.inputs).toEqual([]);
-  expect(invalid).toMatchObject({ valid: false, name: "Step 1", badge: null, matrix: null, onFail: null });
-  expect(odd).toMatchObject({ name: "{x: 1}", code: true, description: null, badge: null, matrix: "matrix" });
+  expect(invalid).toMatchObject({ valid: false, name: "Step 1", badge: null, target: null, matrix: null, onFail: null });
+  expect(odd).toMatchObject({ name: "{x: 1}", code: true, description: null, badge: null, target: null, matrix: "matrix" });
   expect(odd?.fields.with).toEqual({ source: "[a]" });
   expect(odd?.fields.matrix).toEqual({ source: "nope" });
   expect(odd?.onFail).toMatchObject({ name: "7", code: true });
-  expect(missing).toMatchObject({ name: "No prompt", code: false, badge: "agents" });
+  expect(missing).toMatchObject({ name: "No prompt", code: false, badge: "agents", target: "agents" });
   expect(two).toMatchObject({ matrix: "matrix", badge: null });
   expect(two?.onFail).toMatchObject({ name: "{model: opus}", code: true });
   // steps missing or empty: the Inputs card alone.
