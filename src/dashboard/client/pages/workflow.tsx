@@ -417,8 +417,26 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle x={history ? "versions" : "details"} open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />} />
       <PageBody>
+        <RecordTabs
+          column={false}
+          label="Workflow views"
+          value={history ? "history" : yamlTab ? "yaml" : "editor"}
+          tabs={[
+            { value: "editor", label: "Editor", href: `${base}?` },
+            { value: "yaml", label: "YAML", href: `${base}/yaml?` },
+            { value: "history", label: "History", href: `${base}/history?` },
+          ]}
+          right={
+            <>
+              <SavedStatus saved={draft.saved} />
+              {isDefault ? <Badge variant="outline">default</Badge> : null}
+              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
+              <ErrorsBadge errors={errors.map((e) => e.text)} />
+            </>
+          }
+        />
         <RecordBody
           name={
             history
@@ -435,24 +453,6 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           onOpenChange={setOpen}
           panel={history ? historyTab.panel : panel}
         >
-          <RecordTabs
-            column={false}
-            label="Workflow views"
-            value={history ? "history" : yamlTab ? "yaml" : "editor"}
-            tabs={[
-              { value: "editor", label: "Editor", href: `${base}?` },
-              { value: "yaml", label: "YAML", href: `${base}/yaml?` },
-              { value: "history", label: "History", href: `${base}/history?` },
-            ]}
-            right={
-              <>
-                <SavedStatus saved={draft.saved} />
-                {isDefault ? <Badge variant="outline">default</Badge> : null}
-                <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-                <ErrorsBadge errors={errors.map((e) => e.text)} />
-              </>
-            }
-          />
           <DraftNotices draft={draft} lines={lines} history={history} />
           {!history && !yamlTab && drawing !== null && anchors ? (
             <Alert className={STRIP}>

@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { parse } from "yaml";
 import type { Warn } from "./config";
 import { escaped, type Overlay } from "./io";
 import {
@@ -24,6 +23,7 @@ import {
 } from "./language-schema";
 import { changeIdReason } from "./path";
 import { dirsOf, fileOf, namesIn, searched } from "./step-files";
+import { parseYaml } from "./text";
 
 /** The version of the language this one replaces. */
 const V1 = "theway.workflow/v1";
@@ -70,18 +70,7 @@ function readText(path: string, overlay?: Overlay): string | null {
   }
 }
 
-/** The YAML root of `text`, maps as `Map`, or the first line of the parser's error. */
-export function parseYaml(text: string): { root: unknown } | { reason: string } {
-  try {
-    return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
-  } catch (e) {
-    const first = (e instanceof Error ? e.message : String(e)).split("\n")[0] ?? "";
-    const line = (e as { linePos?: { line: number }[] }).linePos?.[0]?.line;
-    const failing = line === undefined ? "" : (text.split("\n")[line - 1] ?? "");
-    const hint = failing.includes("${{") ? "; quote a ${{ … }} reference written inside {…}" : "";
-    return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` };
-  }
-}
+export { parseYaml };
 
 /** Replaces each reference in `text` in one pass: `f` gives its value, or `undefined` to keep it as written. */
 function substitute(text: string, f: (kind: string, name: string) => string | undefined): string {

@@ -536,7 +536,10 @@ export type StepForm =
       with: WithForm;
       matrix: MatrixForm;
       onFail: OnFailForm | null;
-      /** `tries`: the integer, `null` when absent, `"bad"` for a value its control cannot show. */
+      /**
+       * `tries`: the number as written, in range or not (the field shows it, its error marks it); `null` when absent;
+       * `"bad"` for a value that is not a finite number, which its control cannot show.
+       */
       tries: number | null | "bad";
     };
 
@@ -582,7 +585,7 @@ export function stepForm(text: string, index: number, prompts: readonly PromptRo
   }
   const triesNode = node(step, "tries");
   const t = isScalar(triesNode) ? triesNode.value : undefined;
-  const tries = !step.has("tries") ? null : typeof t === "number" && Number.isInteger(t) && t >= 1 && t <= 10 ? t : "bad";
+  const tries = !step.has("tries") ? null : typeof t === "number" && Number.isFinite(t) ? t : "bad";
   return {
     valid: true,
     uses,

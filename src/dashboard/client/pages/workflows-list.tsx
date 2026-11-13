@@ -10,7 +10,7 @@ import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { appliesTo, byFile, compareText, fileCountText, fileMatches, filePath, rowId, type WorkflowRow } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
 import { NewFileButton } from "@/components/new-file"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, StatusCell, useFilesQuery } from "@/pages/files-table"
+import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
 import { useLabel, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -89,7 +89,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
       },
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 130,
         enableSorting: false,

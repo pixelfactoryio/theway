@@ -35,7 +35,7 @@ export function applyStoredTheme(): void {
 
 const ICONS = { system: MonitorIcon, light: SunIcon, dark: MoonIcon } as const
 
-/** The sidebar footer's Theme menu: System, Light or Dark, applied at once and kept in this browser. */
+/** The sidebar footer's Theme menu: System, Light or Dark, applied at once, kept in this browser; a choice closes it. */
 export function ThemeMenu() {
   const [theme, setTheme] = useState<Theme>(readTheme)
   const Icon = ICONS[theme]
@@ -70,9 +70,9 @@ export function ThemeMenu() {
           <DropdownMenuGroup>
             <DropdownMenuLabel>Theme</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={theme} onValueChange={choose}>
-              <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="system" closeOnClick>System</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="light" closeOnClick>Light</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark" closeOnClick>Dark</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
         </DropdownMenuContent>

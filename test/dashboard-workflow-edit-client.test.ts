@@ -286,6 +286,23 @@ test("tries: an integer from 1 to 10 keeps its node; null removes it", () => {
   expect(setTries(SOURCE, 1, 11)).toBe(SOURCE);
 });
 
+test("tries: any number shows as written; a value of another kind cannot be shown", () => {
+  const triesOf = (raw: string) => {
+    const f = stepForm(`version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: ${raw}\n`, 0, [PLAIN], null);
+    if (f === null || !f.valid) throw new Error("no form");
+    return f.tries;
+  };
+  expect([triesOf("12"), triesOf("0"), triesOf("-3"), triesOf("2.5")]).toEqual([12, 0, -3, 2.5]);
+  expect([triesOf('"x"'), triesOf("soon"), triesOf("[1]"), triesOf("{a: 1}"), triesOf("true")]).toEqual(["bad", "bad", "bad", "bad", "bad"]);
+});
+
+test("tries: a whole number from 1 to 10 replaces an out-of-range one; others write nothing", () => {
+  const over = "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: 12 # many\n";
+  expect(setTries(over, 0, 3)).toBe("version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: 3 # many\n");
+  expect(setTries(over, 0, 11)).toBe(over);
+  expect(setTries(over, 0, 2.5)).toBe(over);
+});
+
 test("workflow keys: description always written, its >- style kept; default false removed; runs-on set", () => {
   const out = setWorkflowKey(SOURCE, "description", "Short");
   expect(out).toContain("description: >-\n  Short\n");
@@ -365,7 +382,7 @@ test("the step form reads each key, and marks what its controls cannot show", ()
   expect(stepForm(odd, 0, prompts, null)).toEqual({ valid: false });
   const g = stepForm(odd, 1, prompts, null);
   if (g === null || !g.valid) throw new Error("no form");
-  expect([g.uses, g.prompt, g.runsOn, g.matrix, g.tries]).toEqual(["{a: 1}", null, "nowhere", { state: "other" }, "bad"]);
+  expect([g.uses, g.prompt, g.runsOn, g.matrix, g.tries]).toEqual(["{a: 1}", null, "nowhere", { state: "other" }, 0]);
   expect(g.with).toEqual({ editable: true, values: new Map([["a", null], ["n", "3"]]) });
   expect(stepForm(odd, 5, prompts, null)).toBeNull();
   const w = workflowForm("description: [x]\ndefault: maybe\ninputs:\n  a:\n  b: 1\n  c:\n    required: yes\n    type: other\n");

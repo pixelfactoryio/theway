@@ -7,6 +7,7 @@ import {
   changeTabs,
   countText,
   inlineCode,
+  keepSeriesOpen,
   isLinkTarget,
   localDate,
   nextTask,
@@ -14,9 +15,11 @@ import {
   queryString,
   rowFraction,
   runCommand,
+  SERIES_CLOSED,
   seriesProgress,
   seriesStatus,
   shownPage,
+  shownSeriesOpen,
   shownTab,
   sortRows,
   statusCounts,
@@ -72,6 +75,22 @@ test("the search and the filter keep changes; a narrowed series lists the kept m
   expect(activeRows(ACTIVE, "", ["ready"]).map((r) => r.id)).toEqual(["add-s", "add-b"]);
   expect(activeRows(ACTIVE, "zzz", [])).toEqual([]);
   expect(activeRows(ACTIVE, "ay", ["not-started"]).map((r) => r.id)).toEqual(["add-a"]);
+});
+
+test("a narrowing opens every series it keeps, whenever it applies; cleared, the series are as they were", () => {
+  const whole = activeRows(ACTIVE, "", []);
+  const narrowed = activeRows(ACTIVE, "", ["not-started"]);
+  expect(shownSeriesOpen(SERIES_CLOSED, "", whole)).toEqual({});
+  let state = keepSeriesOpen(SERIES_CLOSED, "", { "add-s": true });
+  // A filter applied after the table loaded.
+  expect(shownSeriesOpen(state, "|not-started", narrowed)).toEqual({ "add-s": true });
+  state = keepSeriesOpen(state, "|not-started", { "add-s": false });
+  expect(shownSeriesOpen(state, "|not-started", narrowed)).toEqual({ "add-s": false });
+  // Another narrowing opens them again.
+  expect(shownSeriesOpen(state, "sec|not-started", narrowed)).toEqual({ "add-s": true });
+  // Cleared: the state of the whole view, untouched by the narrowing's.
+  expect(shownSeriesOpen(state, "", whole)).toEqual({ "add-s": true });
+  expect(shownSeriesOpen(keepSeriesOpen(SERIES_CLOSED, "q|", true), "", whole)).toEqual({});
 });
 
 test("the Status filter counts the active changes of each status among those the search keeps", () => {
