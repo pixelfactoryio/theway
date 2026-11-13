@@ -1,6 +1,5 @@
 import { useState } from "react"
 import { Redirect, Route, Router, Switch } from "wouter"
-import { useHashLocation } from "wouter/use-hash-location"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -10,6 +9,7 @@ import { PromptsPage } from "@/pages/prompts-list"
 import { WorkflowPage } from "@/pages/workflow"
 import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
+import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 
 /** The `localStorage` key of the sidebar's state: `open` or `closed`; closed (the icon rail) when absent. */
@@ -103,10 +103,10 @@ function Shell() {
   )
 }
 
-/** The dashboard: hash routes, the tooltip provider and the shell. */
+/** The dashboard: hash routes through the guarded location hook, the tooltip provider and the shell. */
 export function App() {
   return (
-    <Router hook={useHashLocation}>
+    <Router hook={useGuardedLocation}>
       <TooltipProvider>
         <Shell />
       </TooltipProvider>

@@ -2,8 +2,9 @@ import { FileTextIcon, RotateCcwIcon, TextCursorInputIcon } from "lucide-react"
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
-import { CodeView, type CodeViewHandle } from "@/components/code-view"
-import { type AlertLine, Dash, ErrorStrip, InputsList, LinesAlert, PanelRow, UnknownFile } from "@/components/file-page"
+import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
+import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
 import { Badge } from "@/components/reui/badge"
@@ -174,37 +175,50 @@ function CannotDraw({ reason, openYaml }: { reason: string; openYaml: () => void
 }
 
 /**
- * `#/workflows/global/<name>[/yaml]` and `#/workflows/projects/<key>/<name>[/yaml]`: the Editor tab's canvas and the
- * YAML tab's code view, read-only, and the panel of the workflow or of the selected step.
+ * `#/workflows/global/<name>[/yaml|/history]` and `#/workflows/projects/<key>/<name>[/yaml|/history]`: the Editor
+ * tab's canvas drawn from the draft, the YAML tab's editable code view, the history, and the panel of the workflow or
+ * of the selected step.
  */
 export function WorkflowPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
   const projects = useProjects()
   const prompts = usePrompts()
   const file = useFile("workflows", project, name)
+  const draft = useFileDraft({
+    kind: "workflows",
+    project,
+    name,
+    file: file.data,
+    fetching: file.isFetching,
+    language: "yaml",
+    docName: `${name}.yaml`,
+  })
   const label = useLabel()
   const [open, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const [selection, setSelection] = useState<Selection | null>(null)
   const code = useRef<CodeViewHandle>(null)
   const yamlTab = tab === "yaml"
+  const history = tab === "history"
   const base = filePath("workflows", project, name)
 
   const data = file.data
+  const text = draft.text
+  const errors = draft.errors
   const drawn = useMemo(
     () =>
-      data === undefined || prompts.data === undefined
+      text === null || prompts.data === undefined
         ? null
         : drawWorkflow(
-            data.text,
-            data.errors.map((e) => e.text),
+            text,
+            errors.map((e) => e.text),
             prompts.data.prompts,
             project
           ),
-    [data, prompts.data, project]
+    [text, errors, prompts.data, project]
   )
   const drawing = drawn !== null && "drawing" in drawn ? drawn.drawing : null
   // From the text, not the drawing: a default file that cannot be drawn still carries its badge.
-  const isDefault = useMemo(() => data !== undefined && isDefaultWorkflow(data.text), [data])
+  const isDefault = useMemo(() => text !== null && isDefaultWorkflow(text), [text])
 
   const select = useCallback(
     (next: Selection | null) => {
@@ -216,7 +230,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   const lines = useMemo<AlertLine[]>(
     () =>
-      (data?.errors ?? []).map((e) => {
+      errors.map((e) => {
         const line = e.line
         if (yamlTab) {
           return line === null
@@ -226,12 +240,13 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         const target = drawing === null ? null : selectionOf(e, drawing)
         return { text: e.text, onClick: target === null ? null : () => select(target) }
       }),
-    [data, yamlTab, drawing, select]
+    [errors, yamlTab, drawing, select]
   )
 
   const crumbs = [{ label: "Workflows", href: "/workflows?" }, { label: name }]
   const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
-  if (unknownKey || (file.isError && UNKNOWN_FILE.includes(file.error.message))) {
+  const fileFailed = file.isError && draft.store === null
+  if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -241,15 +256,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       </>
     )
   }
-  if (projects.isError || file.isError || prompts.isError) {
+  if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
         <TopBar items={crumbs} />
         <PageBody>
           {projects.isError ? (
             <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
-          ) : file.isError ? (
-            <LoadError what="this workflow" error={file.error} retry={() => void file.refetch()} className="m-4 w-auto" />
+          ) : fileFailed ? (
+            <LoadError what="this workflow" error={file.error as Error} retry={() => void file.refetch()} className="m-4 w-auto" />
           ) : (
             <LoadError what="the prompts" error={prompts.error as Error} retry={() => void prompts.refetch()} className="m-4 w-auto" />
           )}
@@ -257,7 +272,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       </>
     )
   }
-  if (data === undefined || prompts.data === undefined || projects.data === undefined || drawn === null) {
+  if (data === undefined || prompts.data === undefined || projects.data === undefined || drawn === null || draft.store === null) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -282,29 +297,35 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle x="details" open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} actions={<PanelToggle x={history ? "versions" : "details"} open={open} onOpenChange={setOpen} />} />
       <PageBody>
-        <RecordBody name={step !== null ? `Step ${step.index + 1}` : "Workflow"} open={open} onOpenChange={setOpen} panel={panel}>
+        <RecordBody
+          name={history ? "Versions" : step !== null ? `Step ${step.index + 1}` : "Workflow"}
+          open={open}
+          onOpenChange={setOpen}
+          panel={panel}
+        >
           <RecordTabs
             column={false}
             label="Workflow views"
-            value={yamlTab ? "yaml" : "editor"}
+            value={history ? "history" : yamlTab ? "yaml" : "editor"}
             tabs={[
               { value: "editor", label: "Editor", href: `${base}?` },
               { value: "yaml", label: "YAML", href: `${base}/yaml?` },
             ]}
             right={
               <>
+                <SavedStatus saved={draft.saved} />
                 {isDefault ? <Badge variant="outline">default</Badge> : null}
                 <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-                <ErrorsBadge errors={data.errors.map((e) => e.text)} />
+                <ErrorsBadge errors={errors.map((e) => e.text)} />
               </>
             }
           />
-          <ErrorStrip lines={lines} />
+          <DraftNotices draft={draft} lines={lines} history={history} />
           {yamlTab ? (
             <div className="min-h-0 flex-1">
-              <CodeView ref={code} text={data.text} language="yaml" name={`${name}.yaml`} errors={data.errors} />
+              <EditableCodeView ref={code} draft={draft.store} errors={errors} />
             </div>
           ) : "reason" in drawn ? (
             <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
@@ -313,6 +334,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           )}
         </RecordBody>
       </PageBody>
+      <DraftDialogs draft={draft} />
     </>
   )
 }

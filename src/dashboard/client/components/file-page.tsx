@@ -129,3 +129,12 @@ export function UnknownFile({ noun, name, back, href }: { noun: string; name: st
     </Empty>
   )
 }
+
+/** "Saved" after a save, as a status message, until the next edit. */
+export function SavedStatus({ saved }: { saved: boolean }) {
+  return saved ? (
+    <span role="status" className="text-sm text-muted-foreground">
+      Saved
+    </span>
+  ) : null
+}
