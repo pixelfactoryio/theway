@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { byLabel, changesPath, currentKey, type Project } from "../src/dashboard/client/lib/projects";
+import { locationAction } from "../src/dashboard/client/lib/location";
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll";
 import { dataTheme, themeOf } from "../src/dashboard/client/lib/theme";
 
@@ -160,7 +161,7 @@ test("the theme is light or dark when stored, else System with no data-theme", (
   expect([dataTheme("light"), dataTheme("dark"), dataTheme("system")]).toEqual(["light", "dark", null]);
 });
 
-test("scroll offsets are kept per address and restored only from popstate", () => {
+test("scroll offsets are kept per address and restored only on Back and Forward", () => {
   const memory = new ScrollMemory();
   const a = addressOf("?q=foo", "#/k/changes");
   memory.save(a, 120);
@@ -172,6 +173,25 @@ test("scroll offsets are kept per address and restored only from popstate", () =
   expect(memory.pending).toBeNull();
   memory.navigate(addressOf("", "#/unseen"), true);
   expect(memory.pending).toEqual({ address: "#/unseen", top: 0 });
+});
+
+test("the router takes its own navigation, each Back or Forward once, with or without a search part, and asks before leaving unsaved changes", () => {
+  const at = "http://h/?view=archived#/k/changes";
+  const row = "http://h/#/k/changes/archive/2026-01-01-a";
+  // A search part differs: Back fires popstate alone, which renders the address.
+  expect(locationAction({ own: false, href: at, acceptedHref: row, blocked: false })).toBe("accept");
+  // The fragment alone differs: popstate, then hashchange on the address already taken.
+  expect(locationAction({ own: false, href: "http://h/#/k/changes", acceptedHref: row, blocked: false })).toBe("accept");
+  expect(locationAction({ own: false, href: "http://h/#/k/changes", acceptedHref: "http://h/#/k/changes", blocked: false })).toBe("seen");
+  expect(locationAction({ own: true, href: row, acceptedHref: at, blocked: true })).toBe("own");
+  expect(locationAction({ own: false, href: at, acceptedHref: row, blocked: true })).toBe("ask");
+  // Undone to the accepted address, the traversal's later hashchange finds nothing to do.
+  expect(locationAction({ own: false, href: row, acceptedHref: row, blocked: false })).toBe("seen");
+  const guard = readFileSync(join(CLIENT, "shell", "guard.ts"), "utf-8");
+  expect(guard).toContain('addEventListener("popstate", onLocationEvent)');
+  expect(guard).toContain('addEventListener("hashchange", onLocationEvent)');
+  const scroll = readFileSync(join(CLIENT, "shell", "scroll.tsx"), "utf-8");
+  expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/);
 });
 
 test("the code view holds its own extension set, read-only through EditorState.readOnly, with the page's nonce", () => {

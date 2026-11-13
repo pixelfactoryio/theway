@@ -5,7 +5,7 @@ export const addressOf = (search: string, hash: string): string => `${search}${h
 
 /**
  * The offsets kept per address, and the restore Back or Forward leaves pending. `navigate` records a navigation:
- * from `popstate` it makes the pending restore the offset kept for the new address (0 when none), otherwise it drops
+ * from Back or Forward (`traversal`) it makes the pending restore the offset kept for the new address (0 when none), otherwise it drops
  * any pending restore.
  */
 export class ScrollMemory {
@@ -20,7 +20,7 @@ export class ScrollMemory {
     return this.offsets.get(address);
   }
 
-  navigate(address: string, fromPopstate: boolean): void {
-    this.pending = fromPopstate ? { address, top: this.offsets.get(address) ?? 0 } : null;
+  navigate(address: string, traversal: boolean): void {
+    this.pending = traversal ? { address, top: this.offsets.get(address) ?? 0 } : null;
   }
 }
