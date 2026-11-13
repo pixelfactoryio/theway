@@ -97,7 +97,7 @@ function Card({
           <IconTile variant="outline" size="xs">
             {icon}
           </IconTile>
-          <OneLine text={name} className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")} />
+          <OneLine text={name} tooltipClassName="max-w-sm" className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")} />
           {badge !== null ? (
             <span className="flex shrink-0 items-center gap-1">
               <Badge variant="outline">{badge}</Badge>
@@ -230,7 +230,8 @@ export function WorkflowCanvas({
     <div
       ref={surface}
       className="relative min-h-0 flex-1 overflow-hidden bg-muted"
-      onPointerDown={(e) => {
+      // Capture phase: Panzoom's own pointerdown on this surface stops the event before it bubbles to React.
+      onPointerDownCapture={(e) => {
         down.current = { x: e.clientX, y: e.clientY }
       }}
       onPointerUp={(e) => {
