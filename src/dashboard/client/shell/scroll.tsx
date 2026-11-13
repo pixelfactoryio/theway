@@ -24,6 +24,10 @@ export function useScrollMemory(): void {
   useEffect(() => {
     let frame = 0
     let reset = false
+    let hash = location.hash
+    // The router re-renders on `hashchange`, which the browser queues after `popstate`: until it fires, the mounted
+    // scroll root is still the previous page's.
+    let awaitingHashchange = false
 
     const settle = () => {
       frame = 0
@@ -35,7 +39,7 @@ export function useScrollMemory(): void {
         return
       }
       const pending = memory.pending
-      if (pending === null || pending.address !== address()) return
+      if (pending === null || awaitingHashchange || pending.address !== address()) return
       if (root === null || queryClient.isFetching() > 0) return
       root.scrollTop = pending.top
       memory.pending = null
@@ -52,11 +56,19 @@ export function useScrollMemory(): void {
     const onPopstate = () => {
       memory.navigate(address(), true)
       reset = false
+      awaitingHashchange = location.hash !== hash
+      hash = location.hash
       schedule()
     }
     const onHashchange = () => {
-      // Back and Forward fire `popstate` first; its restore is already pending for this address.
-      if (memory.pending !== null && memory.pending.address === address()) return
+      hash = location.hash
+      // Back and Forward fire `popstate` first; its restore is pending for this address and waits for this event.
+      if (memory.pending !== null && memory.pending.address === address()) {
+        awaitingHashchange = false
+        schedule()
+        return
+      }
+      awaitingHashchange = false
       memory.navigate(address(), false)
       reset = true
       schedule()
