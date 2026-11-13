@@ -21,17 +21,12 @@ export function OneLine({ text, className }: { text: string; className?: string 
     return () => observer.disconnect()
   }, [text])
 
-  const classes = cn("block min-w-0 truncate", className)
-  if (!cut) {
-    return (
-      <span ref={ref} className={classes}>
-        {text}
-      </span>
-    )
-  }
+  // One stable span for the observer: the tooltip is turned off, not unmounted, while the text fits.
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span ref={ref} className={classes} />}>{text}</TooltipTrigger>
+    <Tooltip disabled={!cut}>
+      <TooltipTrigger render={<span ref={ref} className={cn("block min-w-0 truncate", className)} />}>
+        {text}
+      </TooltipTrigger>
       <TooltipContent className="max-w-md">{text}</TooltipContent>
     </Tooltip>
   )
