@@ -118,7 +118,13 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
         </Field>
         <FieldSet>
           <FieldLegend variant="label">Applies to</FieldLegend>
-          <RadioGroup value={scope} onValueChange={(v) => setScope(v as "all" | "one")}>
+          <RadioGroup
+            value={scope}
+            onValueChange={(v) => {
+              setScope(v as "all" | "one")
+              setConflict(false)
+            }}
+          >
             <Field orientation="horizontal">
               <RadioGroupItem value="all" id="new-file-all" />
               <FieldLabel htmlFor="new-file-all" className="font-normal">
@@ -133,7 +139,11 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
             </Field>
           </RadioGroup>
           {scope === "one" ? (
-            <Select items={projectItems} value={target} onValueChange={(v) => setProject(v as string)}>
+            <Select items={projectItems} value={target} onValueChange={(v) => {
+                setProject(v as string)
+                setConflict(false)
+              }}
+            >
               <SelectTrigger className="w-full" aria-label="Project">
                 <SelectValue />
               </SelectTrigger>

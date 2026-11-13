@@ -84,6 +84,7 @@ export function useFileDraft({
   const [details, setDetails] = useState<HeaderFields | null>(null)
   const [savedDoc, setSavedDoc] = useState<unknown>(null)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
+  const [saving, setSaving] = useState(false)
 
   // The page owns what it loaded: the first answer of the file's route once no refetch is running; a later refetch
   // changes nothing here.
@@ -104,6 +105,8 @@ export function useFileDraft({
   refs.current = { store, loaded, result, checkFailure, dirty }
   const inFlight = useRef(new Map<string, Promise<Outcome>>())
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // One save at a time: a second one would send the same base and be refused as a change on disk.
+  const savingNow = useRef(false)
   const mounted = useRef(true)
   useEffect(() => {
     mounted.current = true
@@ -170,15 +173,17 @@ export function useFileDraft({
    * Writes the draft. With `ask`, it first waits for the check of the current draft and asks before saving one with
    * errors; a check that cannot run asks nothing. True once written.
    */
-  const save = useCallback(
+  const write = useCallback(
     async (ask: boolean): Promise<boolean> => {
       const { store: s, loaded: l } = refs.current
       if (s === null || l === null) return false
       const savedState = s.state
       const draft = savedState.sliceDoc()
-      clearTimeout(timer.current)
       let outcome: Outcome | null = null
       if (ask) {
+        // The check awaited here stands for the pending one. Without `ask` the pending check still runs, so a failed
+        // save leaves the current draft's lines shown.
+        clearTimeout(timer.current)
         const r = refs.current.result
         outcome =
           r !== null && r.text === draft && refs.current.checkFailure === null
@@ -211,6 +216,22 @@ export function useFileDraft({
       return false
     },
     [api, runCheck, invalidate]
+  )
+
+  /** `write`, one at a time: a save asked while one runs does nothing and gives false. */
+  const save = useCallback(
+    async (ask: boolean): Promise<boolean> => {
+      if (savingNow.current) return false
+      savingNow.current = true
+      setSaving(true)
+      try {
+        return await write(ask)
+      } finally {
+        savingNow.current = false
+        if (mounted.current) setSaving(false)
+      }
+    },
+    [write]
   )
 
   /** A new state from the file's text, with an empty undo history. */
@@ -298,6 +319,8 @@ export function useFileDraft({
     saved: savedDoc !== null && doc === savedDoc,
     confirm,
     setConfirm,
+    /** A save is running. */
+    saving,
     save,
     discard: () => setConfirm({ kind: "discard" }),
     doDiscard,
@@ -345,7 +368,9 @@ export function DraftNotices({ draft, lines, history }: { draft: FileDraft; line
             <Button variant="outline" onClick={draft.discard}>
               Discard
             </Button>
-            <Button onClick={() => void draft.save(true)}>Save</Button>
+            <Button disabled={draft.saving} onClick={() => void draft.save(true)}>
+              Save
+            </Button>
           </AlertAction>
         </Alert>
       ) : null}
