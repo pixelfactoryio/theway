@@ -1,9 +1,9 @@
 ---
 title: CLI
-description: The theway command line and its fifteen subcommands.
+description: The theway command line and its sixteen subcommands.
 ---
 
-The `theway` program has fifteen subcommands: `install`, `uninstall`, `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
+The `theway` program has sixteen subcommands: `install`, `uninstall`, `list`, `archive`, `change`, `task done`, `path`, `project`, `config`, `standards`, `context`, `workflow`, `dashboard`, `authority`, `validate-id` and `next-id`. Install writes it to `~/.local/bin/theway` (or `$THEWAY_INSTALL_DIR/theway`), and the slash commands call it as plain `theway`, so its folder must be on your `PATH`. See [Installation](./installation.mdx#requirements).
 
 ```text
 theway install [--home <path>] [--standards <keys>]
@@ -18,6 +18,7 @@ theway config [--project <key>]
 theway standards <engineering|develop|document> [--project <key>]
 theway context <engineering|develop|document> [<change-id>] [--project <key>]
 theway workflow [<name>] [--input <name>=<value>]... [--compact] [--project <key>]
+theway dashboard [--port <n>]
 theway authority
 theway validate-id <id> [--series]
 theway next-id <series-id> [--count <n>] [--project <key>]
@@ -547,6 +548,30 @@ theway: --input change: required input is not given
 ```
 
 [Validation](./concepts/workflows.mdx#validation) describes every rule. It also exits 1 with the line of [`project`](#project) for an invalid key.
+
+## dashboard
+
+```bash
+theway dashboard [--port <n>]
+```
+
+Serves a local web view of the data home with three sections, Changes, Workflows and Prompts. It prints one line with the address on stdout and runs until you stop it:
+
+```text
+theway dashboard: http://127.0.0.1:4870/
+```
+
+- It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
+- The page, its script, its stylesheet and its two fonts are built into the CLI: nothing is loaded from another host. It reads the home on every request.
+- It answers `403 {"error":"forbidden host"}` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>`, so a web page cannot reach it through another host name, and `404 {"error":"not found"}` to an unknown path. Every response carries a Content-Security-Policy that allows scripts, fonts, images and connections from the server itself only, and styles from it plus a nonce made for that response.
+- Changes are per project: the project selector in the breadcrumb of the Changes page lists every project of the home with its number of active changes. The page opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name. Workflows and Prompts are the home's own and have no project.
+- A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1 with one line on stderr:
+
+  ```text
+  theway: port 4870 is in use; pass --port <n>
+  ```
+
+  Any other error starting the server exits 1 with a `theway: <message>` line on stderr. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
 
 ## authority
 
