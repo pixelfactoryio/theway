@@ -32,7 +32,7 @@ export function RecordTabs({
         const tab = tabs.find((t) => t.value === next)
         if (tab !== undefined) navigate(tab.href)
       }}
-      className="shrink-0 gap-0 overflow-x-auto overflow-y-hidden border-b"
+      className={cn("shrink-0 gap-0 overflow-x-auto overflow-y-hidden border-b", column && "[scrollbar-gutter:stable_both-edges]")}
     >
       <div className={cn("flex w-full items-center gap-4 pe-4", column && "mx-auto max-w-4xl")}>
         <TabsList variant="line" aria-label={label} className="flex h-10 justify-start px-2">

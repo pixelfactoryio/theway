@@ -1,11 +1,11 @@
 import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
 import { FileTextIcon, PlusIcon, TextCursorInputIcon, Trash2Icon, XIcon } from "lucide-react"
-import { useEffect, useId, useRef, useState, type ReactNode } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "wouter"
 
 import type { DraftStore } from "@/components/code-view"
-import { LinesAlert, PanelRow } from "@/components/file-page"
+import { KeyLabelText, LinesAlert, PanelRow } from "@/components/file-page"
 import { IconTile } from "@/components/reui/icon-tile"
 import { NumberField, NumberFieldDecrement, NumberFieldGroup, NumberFieldIncrement, NumberFieldInput } from "@/components/reui/number-field"
 import { CopyField } from "@/components/text"
@@ -214,11 +214,11 @@ function ChoiceSelect({
   )
 }
 
-/** A field label that is a YAML key: in the code font. */
-function KeyLabel({ htmlFor, children }: { htmlFor?: string; children: ReactNode }) {
+/** A field label that is a YAML key, as `KeyLabelText` writes it. */
+function KeyLabel({ htmlFor, yamlKey }: { htmlFor?: string; yamlKey: string }) {
   return (
-    <FieldLabel htmlFor={htmlFor} className="font-mono">
-      {children}
+    <FieldLabel htmlFor={htmlFor}>
+      <KeyLabelText yamlKey={yamlKey} />
     </FieldLabel>
   )
 }
@@ -377,12 +377,12 @@ export function StepEditPanel({
       <LinesAlert lines={alert} />
       <div className="flex flex-col gap-4">
         <Field>
-          <KeyLabel>uses</KeyLabel>
+          <KeyLabel yamlKey="uses" />
           <UsesValue uses={form.uses} prompt={prompt} />
           <Errors lines={fields.get("uses")} />
         </Field>
         <Field>
-          <KeyLabel htmlFor={id("runs-on")}>runs-on</KeyLabel>
+          <KeyLabel htmlFor={id("runs-on")} yamlKey="runs-on" />
           <ChoiceSelect
             id={id("runs-on")}
             value={form.runsOn}
@@ -394,7 +394,7 @@ export function StepEditPanel({
         </Field>
         {showModel ? (
           <Field>
-            <KeyLabel htmlFor={id("model")}>model</KeyLabel>
+            <KeyLabel htmlFor={id("model")} yamlKey="model" />
             <ChoiceSelect
               id={id("model")}
               value={form.model}
@@ -408,8 +408,8 @@ export function StepEditPanel({
       </div>
       {withPrompt !== null ? (
         <FieldSet className="gap-4">
-          <FieldLegend variant="label" className="mb-0 font-mono">
-            with
+          <FieldLegend variant="label" className="mb-0">
+            <KeyLabelText yamlKey="with" />
           </FieldLegend>
           <WithFields
             idPrefix={id("with")}
@@ -424,7 +424,7 @@ export function StepEditPanel({
       <MatrixGroup id={id("matrix")} index={index} matrix={form.matrix} lines={fields.get("matrix")} write={write} />
       <div ref={onFailRef} className="flex scroll-mt-4 flex-col gap-4">
         <Field>
-          <KeyLabel htmlFor={id("on-fail")}>on-fail</KeyLabel>
+          <KeyLabel htmlFor={id("on-fail")} yamlKey="on-fail" />
           <ChoiceSelect
             id={id("on-fail")}
             value={onFail === null ? null : onFail.value}
@@ -452,7 +452,7 @@ export function StepEditPanel({
           : null}
         {showOnFailModel ? (
           <Field>
-            <KeyLabel htmlFor={id("on-fail-model")}>on-fail.model</KeyLabel>
+            <KeyLabel htmlFor={id("on-fail-model")} yamlKey="on-fail.model" />
             <ChoiceSelect
               id={id("on-fail-model")}
               value={onFail?.model ?? null}
@@ -465,7 +465,7 @@ export function StepEditPanel({
         ) : null}
         {showTries ? (
           <Field>
-            <KeyLabel htmlFor={id("tries")}>tries</KeyLabel>
+            <KeyLabel htmlFor={id("tries")} yamlKey="tries" />
             <NumberField
               id={id("tries")}
               min={1}
@@ -566,7 +566,7 @@ function MatrixGroup({
     <div className="flex flex-col gap-4">
       <Field orientation="horizontal">
         <Switch id={`${id}-on`} checked={on} onCheckedChange={(v) => write((t) => setMatrix(t, index, v))} />
-        <KeyLabel htmlFor={`${id}-on`}>matrix</KeyLabel>
+        <KeyLabel htmlFor={`${id}-on`} yamlKey="matrix" />
       </Field>
       {on ? (
         <>
@@ -719,7 +719,7 @@ function InputBox({
         <Errors lines={lines.get(`inputs.${input.name}`)} />
       </Field>
       <Field>
-        <KeyLabel htmlFor={id("type")}>type</KeyLabel>
+        <KeyLabel htmlFor={id("type")} yamlKey="type" />
         <ChoiceSelect
           id={id("type")}
           value={input.type}
@@ -730,7 +730,7 @@ function InputBox({
         <Errors lines={at("type")} />
       </Field>
       <Field>
-        <KeyLabel htmlFor={id("description")}>description</KeyLabel>
+        <KeyLabel htmlFor={id("description")} yamlKey="description" />
         <DraftText
           id={id("description")}
           value={editable ? input.description : null}
@@ -746,12 +746,12 @@ function InputBox({
           disabled={!editable || input.required === null}
           onCheckedChange={(v) => field("required", v)}
         />
-        <KeyLabel htmlFor={id("required")}>required</KeyLabel>
+        <KeyLabel htmlFor={id("required")} yamlKey="required" />
       </Field>
       {input.editable && input.required === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
       <Errors lines={at("required")} />
       <Field>
-        <KeyLabel htmlFor={id("default")}>default</KeyLabel>
+        <KeyLabel htmlFor={id("default")} yamlKey="default" />
         <DraftText
           id={id("default")}
           value={editable ? input.default : null}
@@ -799,7 +799,7 @@ export function WorkflowEditPanel({ file, text, lines, write }: { file: FileBody
       <LinesAlert lines={alert} />
       <div className="flex flex-col gap-4">
         <Field>
-          <KeyLabel htmlFor={id("description")}>description</KeyLabel>
+          <KeyLabel htmlFor={id("description")} yamlKey="description" />
           <DraftText
             id={id("description")}
             multiline
@@ -812,7 +812,7 @@ export function WorkflowEditPanel({ file, text, lines, write }: { file: FileBody
           <Errors lines={fields.get("description")} />
         </Field>
         <Field>
-          <KeyLabel htmlFor={id("runs-on")}>runs-on</KeyLabel>
+          <KeyLabel htmlFor={id("runs-on")} yamlKey="runs-on" />
           <ChoiceSelect
             id={id("runs-on")}
             value={form.runsOn}
@@ -829,14 +829,14 @@ export function WorkflowEditPanel({ file, text, lines, write }: { file: FileBody
             disabled={form.default === null}
             onCheckedChange={(v) => write((t) => setDefault(t, v))}
           />
-          <KeyLabel htmlFor={id("default")}>default</KeyLabel>
+          <KeyLabel htmlFor={id("default")} yamlKey="default" />
         </Field>
         {form.default === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
         <Errors lines={fields.get("default")} />
       </div>
       <FieldSet className="gap-4">
-        <FieldLegend variant="label" className="mb-0 font-mono">
-          inputs
+        <FieldLegend variant="label" className="mb-0">
+          <KeyLabelText yamlKey="inputs" />
         </FieldLegend>
         {form.inputs.length > 0 ? (
           <div className="flex flex-col gap-4">

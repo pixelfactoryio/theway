@@ -358,3 +358,9 @@ export const zoomStep = (scale: number, delta: number): number => Math.min(2, Ma
 
 /** The toolbar's percentage: `Math.round(scale * 100)` followed by `%`. */
 export const percent = (scale: number): string => `${Math.round(scale * 100)}%`;
+
+/** The label of a YAML key: every `-` and `.` becomes a space and the first letter is upper-cased (`runs-on` → `Runs on`). */
+export function keyLabel(key: string): string {
+  const words = key.replace(/[-.]/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
