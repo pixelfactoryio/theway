@@ -1862,3 +1862,37 @@ test("v1beta: listPromptFiles marks exactly the prompts the workflows use as ste
   expect(items.filter((p) => p.step).map((p) => p.name)).toEqual(steps);
   for (const p of items) expect([p.name, p.scope, p.description === null]).toEqual([p.name, "global", !steps.includes(p.name)]);
 });
+
+test("v1beta: the null key reads the global folders only; a key reads as before", async () => {
+  const { dirsOf, fileOf, searched } = await import("../src/core/step-files");
+  const { listPromptFiles, listWorkflowFiles, resolveWorkflowFile } = await import("../src/core/language");
+  const { markedPath } = await import("../src/core/workflow");
+  const dir = fixtureHome();
+  expect(dirsOf(dir, null, "workflows")).toEqual([join(dir, "workflows")]);
+  expect(dirsOf(dir, "p", "prompts")).toEqual([join(dir, "projects", "p", "prompts"), join(dir, "prompts")]);
+  expect(searched(dir, null, "prompts")).toBe(join(dir, "prompts"));
+  const own = join(dir, "projects", "p", "workflows", "agents.yaml");
+  put(own, readFileSync(join(dir, "workflows", "agents.yaml"), "utf-8").replace(/^description: .*$/m, "description: Own"));
+  put(join(dir, "projects", "p", "prompts", "own-only.md"), "# Own\n");
+  expect(fileOf(dir, null, "workflows", "agents")).toBe(join(dir, "workflows", "agents.yaml"));
+  expect(fileOf(dir, "p", "workflows", "agents")).toBe(own);
+
+  const global = listWorkflowFiles(dir, null, () => undefined);
+  expect(global.map((w) => [w.name, w.scope, w.description === "Own"])).toEqual([
+    ["agents", "global", false],
+    ["develop", "global", false],
+    ["engineering", "global", false],
+    ["engineering-light", "global", false],
+  ]);
+  expect(global[0]?.doc?.file).toBe(join(dir, "workflows", "agents.yaml"));
+  const mine = listWorkflowFiles(dir, "p", () => undefined);
+  expect(mine.find((w) => w.name === "agents")).toMatchObject({ scope: "project", description: "Own" });
+  expect(listPromptFiles(dir, null).every((p) => p.scope === "global")).toBe(true);
+  expect(listPromptFiles(dir, null).some((p) => p.name === "own-only")).toBe(false);
+  expect(listPromptFiles(dir, "p").find((p) => p.name === "own-only")?.scope).toBe("project");
+
+  expect(resolveWorkflowFile(dir, null, "nope", {})).toEqual({ errors: [`workflows/nope.yaml: not found in ${join(dir, "workflows")}`] });
+  expect(markedPath(null, { name: "agents", scope: "global" })).toBe("workflows/agents.yaml");
+  expect(markedPath("p", { name: "agents", scope: "global" })).toBe("workflows/agents.yaml");
+  expect(markedPath("p", { name: "agents", scope: "project" })).toBe("projects/p/workflows/agents.yaml");
+});

@@ -7,17 +7,18 @@ import { projectDir } from "./project";
 export type Kind = "workflows" | "prompts";
 const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" };
 
-/** The project folder and the global folder of `kind`. */
-export const dirsOf = (home: string, key: string, kind: Kind): [string, string] => [join(projectDir(home, key), kind), join(home, kind)];
+/** The project folder and the global folder of `kind`; the global folder alone for the `null` key (the global context). */
+export const dirsOf = (home: string, key: string | null, kind: Kind): string[] =>
+  key === null ? [join(home, kind)] : [join(projectDir(home, key), kind), join(home, kind)];
 
-/** The folders searched for `kind`, for an error line: `<project dir> or <global dir>`. */
-export const searched = (home: string, key: string, kind: Kind): string => dirsOf(home, key, kind).join(" or ");
+/** The folders searched for `kind`, for an error line: `<project dir> or <global dir>`, or `<global dir>` for `null`. */
+export const searched = (home: string, key: string | null, kind: Kind): string => dirsOf(home, key, kind).join(" or ");
 
 /**
- * The file of `name` of `kind`: the project one if it is a file, else the global one, else `null`; a path the overlay
- * holds is a file when its value is a string.
+ * The file of `name` of `kind`: the project one if it is a file, else the global one, else `null` (the global one only
+ * for the `null` key); a path the overlay holds is a file when its value is a string.
  */
-export function fileOf(home: string, key: string, kind: Kind, name: string, overlay?: Overlay): string | null {
+export function fileOf(home: string, key: string | null, kind: Kind, name: string, overlay?: Overlay): string | null {
   for (const dir of dirsOf(home, key, kind)) {
     const path = join(dir, `${name}${EXT[kind]}`);
     if (isFileIn(path, overlay)) return path;

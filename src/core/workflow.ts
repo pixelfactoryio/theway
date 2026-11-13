@@ -24,9 +24,12 @@ function parseInputs(given: string[]): Record<string, string> | { error: string 
 export const joinAnd = (items: string[]) =>
   items.length === 1 ? (items[0] as string) : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
-/** The home-relative path of a workflow file of the project `key`'s context: `workflows/<name>.yaml` or `projects/<key>/workflows/<name>.yaml`. */
-export const markedPath = (key: string, w: { name: string; scope: "project" | "global" }): string =>
-  w.scope === "project" ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`;
+/**
+ * The home-relative path of a workflow file of the project `key`'s context: `workflows/<name>.yaml` for a global row
+ * (whatever the key, `null` included), or `projects/<key>/workflows/<name>.yaml`.
+ */
+export const markedPath = (key: string | null, w: { name: string; scope: "project" | "global" }): string =>
+  w.scope === "project" && key !== null ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`;
 
 /**
  * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta` file of the project and the
