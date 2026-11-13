@@ -108,6 +108,7 @@ const ADDED: Record<string, string> = {
   "@codemirror/lint": "6.9.7",
   "@lezer/highlight": "1.2.5",
   "@panzoom/panzoom": "4.6.2",
+  diff: "9.0.0",
 };
 
 test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {
