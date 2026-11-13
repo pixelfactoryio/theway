@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ExpandedState, PaginationState, SortingState, Updater } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
-import { FunnelIcon, SearchIcon, XIcon } from "lucide-react"
+import { cn } from "cn"
+import { FunnelIcon, ListChecksIcon, SearchIcon, XIcon } from "lucide-react"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useLocation, useSearch } from "wouter"
 
@@ -15,7 +16,7 @@ import { StatusBadge } from "@/components/status"
 import { OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -178,7 +179,16 @@ function ProgressCell({ progress }: { progress: { done: number; total: number } 
   const { done, total } = progress
   return (
     <div className="flex items-center gap-2">
-      <Progress value={total === 0 ? 0 : (done / total) * 100} className="w-24" aria-label={`${done} of ${total} tasks done`} />
+      <Progress
+        value={total === 0 ? 0 : (done / total) * 100}
+        className={cn(
+          "w-24",
+          total > 0 && done === total
+            ? "[&_[data-slot=progress-indicator]]:bg-success"
+            : "[&_[data-slot=progress-indicator]]:bg-info",
+        )}
+        aria-label={`${done} of ${total} tasks done`}
+      />
       <span className="text-muted-foreground tabular-nums">
         {done}/{total}
       </span>
@@ -429,6 +439,9 @@ function NoMatch({ description, clear }: { description: string; clear: () => voi
   return (
     <Empty className="py-12">
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <SearchIcon />
+        </EmptyMedia>
         <EmptyTitle>No change matches</EmptyTitle>
         <EmptyDescription>{description}</EmptyDescription>
       </EmptyHeader>
@@ -445,6 +458,9 @@ function NoChange({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Empty className="py-12">
       <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <ListChecksIcon />
+        </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
         <EmptyDescription>{children}</EmptyDescription>
       </EmptyHeader>
