@@ -1,3 +1,4 @@
+import { CircleCheckIcon } from "lucide-react"
 import { useMemo, type ReactNode } from "react"
 import { Link, useLocation, useSearch } from "wouter"
 
@@ -57,9 +58,16 @@ export function NameCell({
 /** The Status column's header: it does not sort, and reads as the sortable headers' buttons do. */
 export const STATUS_HEADER = "text-sm font-medium text-foreground"
 
-/** The Status cell: "Valid", or the series' `N errors` badge. */
+/** The Status cell: the `Valid` badge, or the series' `N errors` badge. */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
-  if (errors.length === 0) return <span className="text-muted-foreground">Valid</span>
+  if (errors.length === 0) {
+    return (
+      <Badge variant="success-light">
+        <CircleCheckIcon aria-hidden="true" />
+        Valid
+      </Badge>
+    )
+  }
   return <ErrorsBadge errors={errors} />
 }
 
