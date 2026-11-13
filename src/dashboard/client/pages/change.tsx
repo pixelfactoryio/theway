@@ -83,7 +83,7 @@ function Header({ change, column, edit }: { change: ChangeDetail; column: boolea
     <div className={column ? "mx-auto w-full max-w-4xl shrink-0" : "w-full shrink-0"}>
       <div className="flex w-full flex-col gap-1 px-4 pt-6 pb-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h1 className="truncate text-lg font-semibold">{change.id}</h1>
+          <h1 className="truncate text-lg font-semibold tracking-tight">{change.id}</h1>
           <StatusBadge status={change.status} />
         </div>
         {invalid ? (
