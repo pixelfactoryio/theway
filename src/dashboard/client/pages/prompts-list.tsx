@@ -34,7 +34,8 @@ import {
   useText,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, StatusCell, useFilesQuery } from "@/pages/files-table"
+import { NewFileButton } from "@/components/new-file"
+import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
 import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -217,7 +218,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
       },
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 120,
         enableSorting: false,
@@ -274,7 +275,7 @@ export function PromptsPage() {
     [list, query.q, query.kind]
   )
   const counts = useMemo(() => kindCounts(list?.prompts ?? [], query.q), [list, query.q])
-  const top = <TopBar items={[{ label: "Prompts" }]} />
+  const top = <TopBar items={[{ label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
 
   if (prompts.isError || projects.isError) {
     return (
@@ -297,7 +298,7 @@ export function PromptsPage() {
       <>
         {top}
         <PageBody>
-          <NoFile title="No prompt yet" kind="Markdown" folder={list.folder} />
+          <NoFile title="No prompt yet" kind="Markdown" folder={list.folder} action={<NewFileButton kind="prompts" variant="outline" />} />
         </PageBody>
       </>
     )

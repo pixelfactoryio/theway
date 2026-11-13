@@ -1,12 +1,35 @@
+import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands"
 import Panzoom, { type PanzoomObject } from "@panzoom/panzoom"
 import { cn } from "cn"
-import { CircleAlertIcon, FileTextIcon, MinusIcon, PlusIcon, RotateCcwIcon, TextCursorInputIcon } from "lucide-react"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  CircleAlertIcon,
+  FileTextIcon,
+  MinusIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  Redo2Icon,
+  RotateCcwIcon,
+  TextCursorInputIcon,
+  Trash2Icon,
+  Undo2Icon,
+} from "lucide-react"
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from "react"
 
+import type { DraftStore } from "@/components/code-view"
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
 import { OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { errorCount } from "@/lib/files"
 import { type Drawing, hasOnFail, percent, type Selection, zoomStep } from "@/lib/workflow"
@@ -51,7 +74,7 @@ function CardErrors({ count }: { count: number }) {
   )
 }
 
-/** One card: a `relative` wrapper holding the card button (member 05 adds its menu as a sibling of the button). */
+/** One card: a `relative` wrapper holding the card button and, after it, its menu. */
 function Card({
   label,
   icon,
@@ -63,6 +86,7 @@ function Card({
   errors,
   selected,
   port,
+  menu = null,
   onSelect,
   onFocusCard,
 }: {
@@ -76,6 +100,7 @@ function Card({
   errors: number
   selected: boolean
   port: boolean
+  menu?: ReactNode
   onSelect: () => void
   onFocusCard: (node: HTMLElement) => void
 }) {
@@ -93,7 +118,7 @@ function Card({
           selected && "border-primary ring-1 ring-primary"
         )}
       >
-        <span className="flex min-w-0 items-center gap-2">
+        <span className={cn("flex min-w-0 items-center gap-2", menu !== null && "pe-7")}>
           <IconTile variant="outline" size="xs">
             {icon}
           </IconTile>
@@ -112,6 +137,7 @@ function Card({
           </span>
         ) : null}
       </button>
+      {menu}
       {port ? (
         <span
           aria-hidden="true"
@@ -131,28 +157,151 @@ function ArrowHead({ right = false }: { right?: boolean }) {
   )
 }
 
-/** The connector between two cards of the column: 3rem high, a 1px line ending in an arrow head. */
-function Connector() {
+/**
+ * The connector between two cards of the column: 3rem high, a 1px line ending in an arrow head (`arrow`), with the
+ * round "Add a step here" button centred on it when `onAdd` is given.
+ */
+function Connector({
+  arrow = true,
+  onAdd = null,
+  onFocusButton,
+}: {
+  arrow?: boolean
+  onAdd?: (() => void) | null
+  onFocusButton?: (node: HTMLElement) => void
+}) {
   return (
-    <div aria-hidden="true" className="flex h-12 flex-col items-center">
-      <span className="w-px flex-1 bg-muted-foreground/40" />
-      <ArrowHead />
+    <div className="relative flex h-12 flex-col items-center">
+      <span aria-hidden="true" className="w-px flex-1 bg-muted-foreground/40" />
+      {arrow ? <ArrowHead /> : null}
+      {onAdd !== null ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-xs"
+                aria-label="Add a step here"
+                className="panzoom-exclude absolute top-1/2 left-1/2 -translate-1/2 rounded-full"
+                onClick={onAdd}
+                onFocus={(e) => onFocusButton?.(e.currentTarget)}
+              />
+            }
+          >
+            <PlusIcon aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent>Add a step here</TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   )
 }
 
+/** A step card's menu: Move up, Move down, Remove step. */
+function StepMenu({
+  first,
+  last,
+  onMove,
+  onRemove,
+  onFocusButton,
+}: {
+  first: boolean
+  last: boolean
+  onMove: (delta: -1 | 1) => void
+  onRemove: () => void
+  onFocusButton: (node: HTMLElement) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="Step actions"
+            className="absolute top-3 right-2"
+            onFocus={(e) => onFocusButton(e.currentTarget)}
+          />
+        }
+      >
+        <MoreHorizontalIcon aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto">
+        <DropdownMenuItem disabled={first} onClick={() => onMove(-1)}>
+          <ArrowUpIcon aria-hidden="true" />
+          Move up
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={last} onClick={() => onMove(1)}>
+          <ArrowDownIcon aria-hidden="true" />
+          Move down
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={onRemove}>
+          <Trash2Icon aria-hidden="true" />
+          Remove step
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The empty outlined card where a step is being added. */
+function Placeholder({ ref }: { ref: Ref<HTMLDivElement> }) {
+  return (
+    <div
+      ref={ref}
+      role="img"
+      aria-label="New step: choose a prompt in the panel"
+      className="flex h-20 w-80 items-center justify-center rounded-lg border border-dashed border-primary"
+    >
+      <PlusIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+    </div>
+  )
+}
+
+/** The Undo and Redo buttons: they act on the draft's state through its dispatch, and update on every transaction. */
+function HistoryButtons({ store }: { store: DraftStore }) {
+  const state = useSyncExternalStore(store.subscribe, store.getState)
+  const target = () => ({ state: store.state, dispatch: store.dispatch })
+  return (
+    <>
+      <ToolbarButton tip="Undo" label="Undo" disabled={undoDepth(state) === 0} onClick={() => undo(target())}>
+        <Undo2Icon aria-hidden="true" />
+      </ToolbarButton>
+      <ToolbarButton tip="Redo" label="Redo" disabled={redoDepth(state) === 0} onClick={() => redo(target())}>
+        <Redo2Icon aria-hidden="true" />
+      </ToolbarButton>
+      <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-center" />
+    </>
+  )
+}
+
+/** What the canvas offers to edit: `null` for a read-only canvas. */
+export type CanvasEdits = {
+  /** Where the placeholder card stands (the index a new step takes), `null` for none. */
+  placeholder: number | null
+  onAdd: (at: number) => void
+  onMove: (index: number, delta: -1 | 1) => void
+  onRemove: (index: number) => void
+}
+
 /**
  * The Editor tab's canvas: one column of cards (Inputs, then each step with its on-fail at its right) on a `muted`
- * surface, panned and zoomed with Panzoom, and a floating zoom toolbar.
+ * surface, panned and zoomed with Panzoom, and a floating toolbar with Undo, Redo and the zoom. With `edits`, a "+" on
+ * each vertical connector and under the last card, and a menu on each step card.
  */
 export function WorkflowCanvas({
   drawing,
   selection,
   onSelect,
+  store,
+  edits,
 }: {
   drawing: Drawing
   selection: Selection | null
   onSelect: (selection: Selection | null) => void
+  store: DraftStore
+  edits: CanvasEdits | null
 }) {
   const surface = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
@@ -226,6 +375,32 @@ export function WorkflowCanvas({
 
   const zoomTo = (next: number) => panzoom.current?.zoom(next, { animate: false })
 
+  // A placeholder card that appears out of view is panned in: 96px above the bottom edge, or 16px under the top edge.
+  const placeholderRef = useRef<HTMLDivElement>(null)
+  const placeholderAt = edits?.placeholder ?? null
+  useEffect(() => {
+    const node = placeholderRef.current
+    const pz = panzoom.current
+    const box = surface.current?.getBoundingClientRect()
+    if (placeholderAt === null || node === null || pz === null || box === undefined) return
+    const r = node.getBoundingClientRect()
+    let dy = 0
+    if (r.bottom > box.bottom) dy = box.bottom - 96 - r.bottom
+    else if (r.top < box.top) dy = box.top + 16 - r.top
+    if (dy === 0) return
+    pz.pan(0, dy / pz.getScale(), { relative: true, force: true })
+  }, [placeholderAt])
+
+  const total = drawing.steps.length
+  const add = (at: number) => (edits === null ? null : () => edits.onAdd(at))
+  const placeholder = (at: number) =>
+    placeholderAt === at ? (
+      <>
+        <Placeholder ref={placeholderRef} />
+        {at < total ? <Connector /> : null}
+      </>
+    ) : null
+
   return (
     <div
       ref={surface}
@@ -238,11 +413,13 @@ export function WorkflowCanvas({
         const start = down.current
         down.current = null
         if (start === null || start.x !== e.clientX || start.y !== e.clientY) return
+        // A menu's content is portalled: its events reach this surface through React, not through the DOM.
+        if (!(surface.current?.contains(e.target as Node) ?? false)) return
         if ((e.target as HTMLElement).closest(".panzoom-exclude") !== null) return
         onSelect(null)
       }}
       onKeyDown={(e) => {
-        if (e.key === "Escape") onSelect(null)
+        if (e.key === "Escape" && (surface.current?.contains(e.target as Node) ?? false)) onSelect(null)
       }}
     >
       <div ref={inner} className={cn("flex w-max flex-col px-12 pt-12 pb-40", !narrow && "mx-auto")}>
@@ -268,7 +445,8 @@ export function WorkflowCanvas({
             const n = step.index + 1
             return (
               <div key={step.index} className="flex flex-col">
-                <Connector />
+                <Connector onAdd={add(step.index)} onFocusButton={reveal} />
+                {placeholder(step.index)}
                 <div className="relative">
                   <Card
                     label={`Step ${n}: ${step.name}`}
@@ -281,6 +459,17 @@ export function WorkflowCanvas({
                     errors={step.errors.length}
                     selected={same(selection, { kind: "step", index: step.index })}
                     port
+                    menu={
+                      edits === null ? null : (
+                        <StepMenu
+                          first={step.index === 0}
+                          last={step.index === total - 1}
+                          onMove={(delta) => edits.onMove(step.index, delta)}
+                          onRemove={() => edits.onRemove(step.index)}
+                          onFocusButton={reveal}
+                        />
+                      )
+                    }
                     onSelect={() => onSelect({ kind: "step", index: step.index })}
                     onFocusCard={reveal}
                   />
@@ -313,6 +502,12 @@ export function WorkflowCanvas({
               </div>
             )
           })}
+          {edits !== null ? (
+            <>
+              <Connector arrow={placeholderAt === total} onAdd={add(total)} onFocusButton={reveal} />
+              {placeholder(total)}
+            </>
+          ) : null}
         </div>
       </div>
       <div
@@ -320,6 +515,7 @@ export function WorkflowCanvas({
         aria-label="Canvas"
         className="panzoom-exclude absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
       >
+        <HistoryButtons store={store} />
         <ToolbarButton tip="Zoom out" label="Zoom out" disabled={scale <= 0.5} onClick={() => zoomTo(zoomStep(scale, -0.1))}>
           <MinusIcon aria-hidden="true" />
         </ToolbarButton>

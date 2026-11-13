@@ -7,11 +7,12 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parse, parseDocument } from "yaml";
-import { isFile } from "../core/io";
+import { isFile, type Overlay } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
-import { NAME, VERSION } from "../core/language-schema";
+import { NAME, VERSION, type WorkflowFileItem } from "../core/language-schema";
 import { projectDir } from "../core/project";
 import type { Kind } from "../core/step-files";
+import { joinAnd, markedPath } from "../core/workflow";
 import { tildePath } from "./changes";
 import { projectKeys } from "./projects";
 
@@ -80,7 +81,7 @@ const byFile = (a: { name: string; project: string | null }, b: { name: string; 
 export const relPath = (kind: Kind, project: string | null, name: string): string =>
   project === null ? `${kind}/${name}${EXT[kind]}` : `projects/${project}/${kind}/${name}${EXT[kind]}`;
 
-const absPath = (home: string, kind: Kind, project: string | null, name: string): string =>
+export const absPath = (home: string, kind: Kind, project: string | null, name: string): string =>
   project === null ? join(home, kind, `${name}${EXT[kind]}`) : join(projectDir(home, project), kind, `${name}${EXT[kind]}`);
 
 /** The bytes of a file, `null` when it cannot be read. */
@@ -98,15 +99,32 @@ const own = (line: string, prefix: string): string => (line.startsWith(prefix) ?
 /** `items` without repeats, the first occurrence's order kept. */
 const unique = (items: string[]): string[] => [...new Set(items)];
 
+/** A workflow file of the home with its check lines, and the workflows of its own context (see `secondDefault`). */
+type ListedWorkflow = { name: string; project: string | null; item: WorkflowFileItem; context: WorkflowFileItem[] };
+
 /** Every workflow file of the home: the global ones, then each project's own, each with its check lines. */
-function workflowFiles(home: string): { name: string; project: string | null; item: ReturnType<typeof listWorkflowFiles>[number] }[] {
-  const out = listWorkflowFiles(home, null, noWarn).map((item) => ({ name: item.name, project: null as string | null, item }));
+function workflowFiles(home: string): ListedWorkflow[] {
+  const global = listWorkflowFiles(home, null, noWarn);
+  const out: ListedWorkflow[] = global.map((item) => ({ name: item.name, project: null, item, context: global }));
   for (const key of projectKeys(home)) {
-    for (const item of listWorkflowFiles(home, key, noWarn)) {
-      if (item.scope === "project") out.push({ name: item.name, project: key, item });
+    const listed = listWorkflowFiles(home, key, noWarn);
+    for (const item of listed) {
+      if (item.scope === "project") out.push({ name: item.name, project: key, item, context: listed });
     }
   }
   return out.sort(byFile);
+}
+
+/**
+ * The line `theway workflow` prints when the file `name` of `project` (`null`: a global file) sets `default: true` and
+ * so does another workflow of its own context (`context`: the global files for a global file, its project's files and
+ * the global ones they leave for a project's), without its `theway: ` prefix; `null` otherwise.
+ */
+export function secondDefault(context: readonly WorkflowFileItem[], project: string | null, name: string): string | null {
+  const marked = context.filter((w) => w.default);
+  const scope = project === null ? "global" : "project";
+  if (marked.length < 2 || !marked.some((w) => w.name === name && w.scope === scope)) return null;
+  return `${joinAnd(marked.map((w) => markedPath(project, w)))} both set default: true`;
 }
 
 /** `agents` or `session` when every step runs there, else `mixed`. */
@@ -117,15 +135,18 @@ function runsOnOf(steps: { runs_on: "agents" | "session" }[]): WorkflowRow["runs
 
 /** The body of `GET /api/workflows`. */
 export function listWorkflows(home: string, userHome: string = homedir()): { folder: string; workflows: WorkflowRow[] } {
-  const workflows = workflowFiles(home).map(({ name, project, item }): WorkflowRow => ({
-    name,
-    project,
-    description: item.description,
-    default: item.default,
-    steps: item.doc === null ? null : item.doc.steps.length,
-    runsOn: item.doc === null ? null : runsOnOf(item.doc.steps),
-    errors: item.errors.map((l) => own(l, `workflows/${name}.yaml: `)),
-  }));
+  const workflows = workflowFiles(home).map(({ name, project, item, context }): WorkflowRow => {
+    const second = secondDefault(context, project, name);
+    return {
+      name,
+      project,
+      description: item.description,
+      default: item.default,
+      steps: item.doc === null ? null : item.doc.steps.length,
+      runsOn: item.doc === null ? null : runsOnOf(item.doc.steps),
+      errors: [...item.errors.map((l) => own(l, `workflows/${name}.yaml: `)), ...(second === null ? [] : [second])],
+    };
+  });
   return { folder: tildePath(join(home, "workflows"), userHome), workflows };
 }
 
@@ -209,8 +230,10 @@ function usesByPrompt(home: string, prompts: { name: string; project: string | n
 }
 
 /** The workflows whose lines count for a prompt: the global ones for a global prompt, the project's own for a project's. */
-function contextWorkflows(home: string, project: string | null) {
-  return project === null ? listWorkflowFiles(home, null, noWarn) : listWorkflowFiles(home, project, noWarn).filter((w) => w.scope === "project");
+function contextWorkflows(home: string, project: string | null, overlay?: Overlay) {
+  return project === null
+    ? listWorkflowFiles(home, null, noWarn, overlay)
+    : listWorkflowFiles(home, project, noWarn, overlay).filter((w) => w.scope === "project");
 }
 
 /** A prompt's check lines: its header errors, then every line of `workflows` about it, its own prefix removed, deduplicated. */
@@ -245,20 +268,8 @@ export function listPrompts(home: string, userHome: string = homedir()): { folde
       return { name, project, description: null, model: null, header: false, inputs: [], errors: ["cannot be read"], usedBy };
     }
     const text = bytes.toString("utf-8");
-    const { header } = parsePromptFile(text);
-    return {
-      name,
-      project,
-      description: header !== null && header.description !== "" ? header.description : null,
-      model: header?.model ?? null,
-      header: header !== null,
-      inputs:
-        header === null
-          ? []
-          : Object.entries(header.inputs).map(([n, d]) => ({ name: n, required: d.required, default: d.default, description: d.description })),
-      errors: promptLines(name, text, workflowsOf(project)),
-      usedBy,
-    };
+    const { header, description, model, inputs } = promptHeader(text);
+    return { name, project, description, model, header, inputs, errors: promptLines(name, text, workflowsOf(project)), usedBy };
   });
   return { folder: tildePath(join(home, "prompts"), userHome), prompts };
 }
@@ -363,15 +374,46 @@ function readListed(home: string, kind: Kind, project: string | null, name: stri
   return { bytes };
 }
 
-const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
+export const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * The check lines of the workflow `name` of `project` (`null`: global) if it held `text`, each on its line: the lines of
+ * `resolveWorkflowFile` without the file's own prefix, then the second-default line on the `default` key's line. With
+ * `overlay`, the files it holds are read from it.
+ */
+export function workflowErrors(home: string, project: string | null, name: string, text: string, overlay?: Overlay): FileError[] {
+  const result = resolveWorkflowFile(home, project, name, {}, overlay);
+  const lines = "errors" in result ? result.errors.map((l) => own(l, `workflows/${name}.yaml: `)) : [];
+  const out = lines.map((l) => ({ text: l, line: workflowLine(text, l) }));
+  const second = secondDefault(listWorkflowFiles(home, project, noWarn, overlay), project, name);
+  if (second !== null) out.push({ text: second, line: lineOfPath(text, ["default"]) });
+  return out;
+}
+
+/** The check lines of the prompt `name` of `project` if it held `text`, each on its line; `overlay` as in `workflowErrors`. */
+export function promptErrors(home: string, project: string | null, name: string, text: string, overlay?: Overlay): FileError[] {
+  return promptLines(name, text, contextWorkflows(home, project, overlay)).map((l) => ({ text: l, line: promptLine(text, l) }));
+}
+
+/** The header fields a row of `GET /api/prompts` gives for a prompt holding `text`. */
+export function promptHeader(text: string): Pick<PromptRow, "header" | "description" | "model" | "inputs"> {
+  const { header } = parsePromptFile(text);
+  return {
+    header: header !== null,
+    description: header !== null && header.description !== "" ? header.description : null,
+    model: header?.model ?? null,
+    inputs:
+      header === null
+        ? []
+        : Object.entries(header.inputs).map(([n, d]) => ({ name: n, required: d.required, default: d.default, description: d.description })),
+  };
+}
 
 /** `GET /api/workflows/global/:name` and `…/projects/:key/:name`. */
 export function workflowFile(home: string, project: string | null, name: string): FileAnswer {
   const read = readListed(home, "workflows", project, name);
   if ("status" in read) return read;
   const text = read.bytes.toString("utf-8");
-  const result = resolveWorkflowFile(home, project, name, {});
-  const lines = "errors" in result ? result.errors.map((l) => own(l, `workflows/${name}.yaml: `)) : [];
   return {
     status: 200,
     body: {
@@ -380,7 +422,7 @@ export function workflowFile(home: string, project: string | null, name: string)
       path: relPath("workflows", project, name),
       text,
       version: sha256(read.bytes),
-      errors: lines.map((l) => ({ text: l, line: workflowLine(text, l) })),
+      errors: workflowErrors(home, project, name, text),
     },
   };
 }
@@ -390,7 +432,6 @@ export function promptFile(home: string, project: string | null, name: string): 
   const read = readListed(home, "prompts", project, name);
   if ("status" in read) return read;
   const text = read.bytes.toString("utf-8");
-  const lines = promptLines(name, text, contextWorkflows(home, project));
   const usedBy = usesByPrompt(home, promptFiles(home)).get(`${project ?? ""}/${name}`) ?? [];
   return {
     status: 200,
@@ -400,8 +441,29 @@ export function promptFile(home: string, project: string | null, name: string): 
       path: relPath("prompts", project, name),
       text,
       version: sha256(read.bytes),
-      errors: lines.map((l) => ({ text: l, line: promptLine(text, l) })),
+      errors: promptErrors(home, project, name, text),
       usedBy,
     },
   };
+}
+
+/** The body of `POST /api/check`: the draft's lines, and for a prompt its header fields. */
+export type CheckBody = { errors: FileError[] } & Partial<Pick<PromptRow, "header" | "description" | "model" | "inputs">>;
+
+/**
+ * `POST /api/check`: the lines the file route would give if the file `name` of `kind` held `text`, read through an
+ * overlay that holds it at the file's path; nothing is written.
+ */
+export function checkDraft(
+  home: string,
+  kind: Kind,
+  project: string | null,
+  name: string,
+  text: string,
+): { status: 200; body: CheckBody } | { status: 404; body: { error: string } } {
+  if (project !== null && !projectKeys(home).includes(project)) return { status: 404, body: { error: "unknown project" } };
+  if (!NAME.test(name)) return { status: 404, body: { error: "unknown file" } };
+  const overlay: Overlay = new Map([[absPath(home, kind, project, name), text]]);
+  if (kind === "workflows") return { status: 200, body: { errors: workflowErrors(home, project, name, text, overlay) } };
+  return { status: 200, body: { errors: promptErrors(home, project, name, text, overlay), ...promptHeader(text) } };
 }

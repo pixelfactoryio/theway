@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { byLabel, changesPath, currentKey, type Project } from "../src/dashboard/client/lib/projects";
+import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "../src/dashboard/client/lib/location";
+import { panelToggleLabel } from "../src/dashboard/client/lib/panel";
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll";
 import { dataTheme, themeOf } from "../src/dashboard/client/lib/theme";
 
@@ -108,12 +110,19 @@ const ADDED: Record<string, string> = {
   "@codemirror/lint": "6.9.7",
   "@lezer/highlight": "1.2.5",
   "@panzoom/panzoom": "4.6.2",
+  diff: "9.0.0",
+  "@codemirror/merge": "6.12.3",
+  "@dnd-kit/core": "6.3.1",
+  "@dnd-kit/sortable": "10.0.0",
+  "@dnd-kit/utilities": "3.2.2",
 };
 
 test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {
   expect(Object.keys(pkg.dependencies ?? {})).toEqual([]);
   // The code view builds its own extension set: no `codemirror` package, so no `basicSetup`.
   expect(pkg.devDependencies.codemirror).toBeUndefined();
+  // `sortable` imports no modifiers.
+  expect(pkg.devDependencies["@dnd-kit/modifiers"]).toBeUndefined();
   for (const [name, version] of Object.entries(ADDED)) expect([name, pkg.devDependencies[name]]).toEqual([name, version]);
   // Every other devDependency predates the dashboard.
   const others = Object.keys(pkg.devDependencies).filter((n) => !(n in ADDED));
@@ -125,7 +134,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
     .filter((f) => /\.(tsx?|css)$/.test(f))
     .map((f) => readFileSync(f, "utf-8"))
     .join("\n");
-  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography", "@codemirror/state", "@codemirror/view", "@codemirror/language", "@codemirror/commands", "@codemirror/search", "@codemirror/lang-yaml", "@codemirror/lang-markdown", "@codemirror/lint", "@lezer/highlight", "@panzoom/panzoom"]) {
+  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography", "@codemirror/state", "@codemirror/view", "@codemirror/language", "@codemirror/commands", "@codemirror/search", "@codemirror/lang-yaml", "@codemirror/lang-markdown", "@codemirror/lint", "@lezer/highlight", "@panzoom/panzoom", "@codemirror/merge", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"]) {
     expect([name, new RegExp(`["']${name.replace("/", "\\/")}(?:/[^"']*)?["']`).test(sources)]).toEqual([name, true]);
   }
 });
@@ -153,7 +162,7 @@ test("the theme is light or dark when stored, else System with no data-theme", (
   expect([dataTheme("light"), dataTheme("dark"), dataTheme("system")]).toEqual(["light", "dark", null]);
 });
 
-test("scroll offsets are kept per address and restored only from popstate", () => {
+test("scroll offsets are kept per address and restored only on Back and Forward", () => {
   const memory = new ScrollMemory();
   const a = addressOf("?q=foo", "#/k/changes");
   memory.save(a, 120);
@@ -165,6 +174,83 @@ test("scroll offsets are kept per address and restored only from popstate", () =
   expect(memory.pending).toBeNull();
   memory.navigate(addressOf("", "#/unseen"), true);
   expect(memory.pending).toEqual({ address: "#/unseen", top: 0 });
+});
+
+test("each history entry holds its position: a push adds 1, a replace keeps it, an unmarked entry is the one after", () => {
+  expect(positionOf(positionState(3))).toBe(3);
+  expect([positionOf(null), positionOf({}), positionOf({ position: "2" }), positionOf({ position: 1.5 })]).toEqual([null, null, null, null]);
+  expect([pushedPosition(2, false), pushedPosition(2, true)]).toEqual([3, 2]);
+  // A typed address adds an unmarked entry right after the current one.
+  expect(reachedPosition(null, 4)).toBe(5);
+  expect(reachedPosition(positionState(1), 4)).toBe(1);
+});
+
+/** The router's event at `href`, entry `position`, the accepted entry being `#/k/changes/a` at 2. */
+const at = (href: string, position: number, rest: { own?: boolean; moving?: Moving; blocked?: boolean } = {}) =>
+  locationAction({
+    own: rest.own ?? false,
+    href,
+    position,
+    acceptedHref: "http://h/#/k/changes/a",
+    acceptedPosition: 2,
+    moving: rest.moving ?? null,
+    blocked: rest.blocked ?? false,
+  });
+
+test("unguarded, the router takes its own navigation and each Back, Forward or typed address once, with or without a search part", () => {
+  expect(at("http://h/#/k/changes/b", 3, { own: true, blocked: true })).toBe("own");
+  // A search part differs: Back fires popstate alone, which renders the address.
+  expect(at("http://h/?view=archived#/k/changes", 1)).toBe("accept");
+  // The fragment alone differs: popstate, then hashchange on the address already taken.
+  expect(at("http://h/#/k/changes", 1)).toBe("accept");
+  expect(at("http://h/#/k/changes/a", 2)).toBe("seen");
+  // Forward, and a typed address (the entry after the accepted one).
+  expect(at("http://h/#/workflows", 3)).toBe("accept");
+  // The same address at another entry is another page of the history.
+  expect(at("http://h/#/k/changes/a", 0)).toBe("accept");
+});
+
+test("guarded, a Back, Forward or typed address is undone by history.go and asked; leaving goes forth to its entry", () => {
+  // Back from 2 to 1: asked, undone by history.go(2 - 1).
+  expect(at("http://h/?q=x#/k/changes", 1, { blocked: true })).toBe("ask");
+  // While the undo travels, the move's own later event (its hashchange) does nothing.
+  expect(at("http://h/?q=x#/k/changes", 1, { moving: { kind: "undo" }, blocked: true })).toBe("seen");
+  // The undo arrives at the accepted entry: the page stays, Back again asks again.
+  expect(at("http://h/#/k/changes/a", 2, { moving: { kind: "undo" } })).toBe("returned");
+  expect(at("http://h/#/k/changes/a", 2)).toBe("seen");
+  expect(at("http://h/?q=x#/k/changes", 1, { blocked: true })).toBe("ask");
+  // Leaving: history.go(1 - 2) arrives at the entry asked for and is taken, the page still dirty.
+  expect(at("http://h/#/k/changes/a", 2, { moving: { kind: "pass", to: 1 }, blocked: true })).toBe("seen");
+  expect(at("http://h/?q=x#/k/changes", 1, { moving: { kind: "pass", to: 1 }, blocked: true })).toBe("accept");
+  // Forward and a typed address the same way, from the other side.
+  expect(at("http://h/#/workflows", 3, { blocked: true })).toBe("ask");
+  expect(at("http://h/#/workflows", 3, { moving: { kind: "pass", to: 3 }, blocked: true })).toBe("accept");
+});
+
+test("the guard undoes a held move with history.go, never by rewriting an entry's address", () => {
+  const guard = readFileSync(join(CLIENT, "shell", "guard.ts"), "utf-8");
+  expect(guard).toContain('addEventListener("popstate", onLocationEvent)');
+  expect(guard).toContain('addEventListener("hashchange", onLocationEvent)');
+  expect(guard).toContain("history.go(from - position)");
+  expect(guard).toContain("history.go(position - from)");
+  // replaceState only ever marks the current entry with its position, at its own address.
+  const marks = guard.match(/history\.replaceState\([^)]*\)[^)]*\)/g) ?? [];
+  expect(marks).toHaveLength(2);
+  for (const call of marks) expect(call).toMatch(/, "", location\.href\)$/);
+  const scroll = readFileSync(join(CLIENT, "shell", "scroll.tsx"), "utf-8");
+  expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/);
+});
+
+test("the panel toggle names each page's panel by the design's word", () => {
+  expect([panelToggleLabel("change", true), panelToggleLabel("prompt", false)]).toEqual(["Hide details", "Show details"]);
+  expect([panelToggleLabel("workflow", true), panelToggleLabel("workflow", false)]).toEqual(["Hide settings", "Show settings"]);
+  expect([panelToggleLabel("history", true), panelToggleLabel("history", false)]).toEqual(["Hide versions", "Show versions"]);
+});
+
+test("the lint gutter's error mark is a destructive dot drawn in CSS, with no image", () => {
+  const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8");
+  expect(text).toContain('".cm-lint-marker-error": { content: "normal", borderRadius: "50%", backgroundColor: "var(--destructive)" }');
+  expect(text).not.toMatch(/data:image|url\(/);
 });
 
 test("the code view holds its own extension set, read-only through EditorState.readOnly, with the page's nonce", () => {

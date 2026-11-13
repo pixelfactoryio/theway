@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkChangeText } from "../src/core/change-text";
 import { removeIfEmpty } from "../src/core/io";
 import { changeIdReason } from "../src/core/path";
 import { projectReason } from "../src/core/project";
@@ -105,6 +106,16 @@ test("change prints one error line per broken rule and exits 1 with nothing on s
   }
 });
 
+/** The comments of a YAML text, in order: each `#` that starts a line or follows a blank, to its line's end. */
+const commentsOf = (text: string): string[] => [...text.matchAll(/(?:^|[ \t])(#[^\r\n]*)/gm)].map((m) => (m[1] as string).trimEnd());
+
+/** The tasks a `change.yaml` text holds, as `checkChangeText` reads them. */
+function tasksOf(text: string): { text: string; done: boolean }[] {
+  const c = checkChangeText(text);
+  if ("issues" in c) throw new Error(c.issues.join("; "));
+  return c.change.tasks;
+}
+
 test("task done ticks the named tasks, keeps the rest of the file's text and refuses an unknown number without writing", () => {
   const dir = home();
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
@@ -127,13 +138,16 @@ tasks:
 
   const res = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, "2/3 tasks done\n", ""]);
-  expect(readFileSync(file, "utf-8")).toBe(
-    text
-      .replace("header\n", "header\n    done: true\n")
-      .replace('"Keep the bucket in memory"\n', '"Keep the bucket in memory"\n    done: true\n'),
-  );
+  const after = readFileSync(file, "utf-8");
+  expect(tasksOf(after)).toEqual([
+    { text: long, done: false },
+    { text: "Answer 429 with a `Retry-After` header", done: true },
+    { text: "Keep the bucket in memory", done: true },
+  ]);
+  expect(commentsOf(after)).toEqual(commentsOf(text));
   const again = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
   expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"]);
+  expect(readFileSync(file, "utf-8")).toBe(after);
 
   const styles = `version: theway.change/v1beta
 description: Limit requests per API key
@@ -155,14 +169,11 @@ tasks:
   put(file, styles);
   const ticked = run(dir, "task", "done", "--project", "p", "add-x", "1", "4", "5", "6", "7");
   expect([ticked.status, ticked.stdout, ticked.stderr]).toEqual([0, "5/7 tasks done\n", ""]);
-  expect(readFileSync(file, "utf-8")).toBe(
-    styles
-      .replace("second line here\n", "second line here\n    done: true\n")
-      .replace("b   # trailing\n", "b   # trailing\n    done: true\n")
-      .replace("done: false   # not yet", "done: true   # not yet")
-      .replace("{text: d}", "{text: d, done: true}")
-      .replace("at the end of the file", "at the end of the file\n    done: true"),
-  );
+  const styled = readFileSync(file, "utf-8");
+  expect(tasksOf(styled)).toEqual(tasksOf(styles).map((t, i) => ({ ...t, done: [0, 3, 4, 5, 6].includes(i) })));
+  expect(commentsOf(styled)).toEqual(commentsOf(styles));
+  expect(styled).not.toContain("done: false");
+  expect(styled).toContain("{text: d, done: true}");
 
   put(file, "version: x\n");
   const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1");
@@ -222,12 +233,21 @@ test("task done refuses an argument that is not a task number, one line per argu
 test("task done ends the inserted line as the line it follows", () => {
   const dir = home();
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
-  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n  - text: two\r\n");
+  const text = "version: theway.change/v1beta\r\n# why\r\ndescription: x\r\ntasks:\r\n  # first\r\n  - text: one # one\r\n  - text: two\r\n";
+  put(file, text);
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
-  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true\r\n  - text: two\r\n");
+  const after = readFileSync(file, "utf-8");
+  expect(tasksOf(after)).toEqual([
+    { text: "one", done: true },
+    { text: "two", done: false },
+  ]);
+  expect(commentsOf(after)).toEqual(commentsOf(text));
+  expect(after.split("\r\n").every((l) => !l.includes("\n"))).toBe(true);
   put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one");
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
-  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true");
+  const last = readFileSync(file, "utf-8");
+  expect(tasksOf(last)).toEqual([{ text: "one", done: true }]);
+  expect(last.split("\r\n").every((l) => !l.includes("\n"))).toBe(true);
 });
 
 test("task done keeps the file's mode", () => {

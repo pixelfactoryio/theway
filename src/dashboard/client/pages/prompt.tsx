@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation } from "wouter"
 
-import { CodeView, type CodeViewHandle } from "@/components/code-view"
-import { type AlertLine, Dash, ErrorStrip, InputsList, PanelRow, UnknownFile } from "@/components/file-page"
+import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { DraftDialogs, DraftNotices, type HeaderFields, useFileDraft } from "@/components/draft"
+import { useHistoryTab } from "@/components/history"
+import { type AlertLine, Dash, InputsList, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
@@ -17,8 +19,8 @@ import { PageBody, TopBar } from "@/shell/top-bar"
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
 
-/** The prompt page's Details panel. */
-function DetailsPanel({ file, row }: { file: FileBody; row: PromptRow }) {
+/** The prompt page's Details panel: `row`'s header fields, or the draft's (`fields`) while it differs from the file. */
+function DetailsPanel({ file, row, fields }: { file: FileBody; row: PromptRow; fields: HeaderFields }) {
   const label = useLabel()
   const usedBy = file.usedBy ?? []
   return (
@@ -26,14 +28,14 @@ function DetailsPanel({ file, row }: { file: FileBody; row: PromptRow }) {
       <h2 className="text-sm font-medium">Details</h2>
       <dl className="flex flex-col gap-4">
         <PanelRow label="description" code>
-          {row.header && row.description !== null ? row.description : <Dash />}
+          {fields.header && fields.description !== null ? fields.description : <Dash />}
         </PanelRow>
-        <PanelRow label="Kind">{KIND_LABEL[kindOf(row)]}</PanelRow>
+        <PanelRow label="Kind">{KIND_LABEL[kindOf(fields)]}</PanelRow>
         <PanelRow label="model" code>
-          {row.model ?? <Dash />}
+          {fields.model ?? <Dash />}
         </PanelRow>
         <PanelRow label="inputs" code>
-          <InputsList inputs={row.inputs} />
+          <InputsList inputs={fields.inputs} />
         </PanelRow>
         <PanelRow label="Used by">
           {usedBy.length === 0 ? (
@@ -60,34 +62,45 @@ function DetailsPanel({ file, row }: { file: FileBody; row: PromptRow }) {
 }
 
 /**
- * `#/prompts/global/<name>[/preview]` and `#/prompts/projects/<key>/<name>[/preview]`: a prompt's text in the code
- * view, its rendered preview, and its Details panel.
+ * `#/prompts/global/<name>[/preview|/history]` and `#/prompts/projects/<key>/<name>[/preview|/history]`: a prompt's text
+ * in the editable code view, its rendered preview, its history, and its Details panel, all from the draft.
  */
 export function PromptPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
   const projects = useProjects()
   const prompts = usePrompts()
   const file = useFile("prompts", project, name)
+  const draft = useFileDraft({
+    kind: "prompts",
+    project,
+    name,
+    file: file.data,
+    fetching: file.isFetching,
+    language: "prompt",
+    docName: `${name}.md`,
+  })
   const label = useLabel()
   const [open, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const code = useRef<CodeViewHandle>(null)
   const [pending, setPending] = useState<number | null>(null)
-  const preview = tab === "preview"
+  const view = tab === "preview" || tab === "history" ? tab : "prompt"
   const base = filePath("prompts", project, name)
+  const historyTab = useHistoryTab({ draft, kind: "prompts", project, name, language: "prompt", active: view === "history" })
 
   // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there.
   useEffect(() => {
-    if (preview || pending === null) return
+    if (view !== "prompt" || pending === null) return
     code.current?.goToLine(pending)
     setPending(null)
-  }, [preview, pending])
+  }, [view, pending])
 
+  const errors = draft.errors
   const lines = useMemo<AlertLine[]>(
     () =>
-      (file.data?.errors ?? []).map((e) => {
+      errors.map((e) => {
         const line = e.line
         if (line === null) return { text: e.text, onClick: null }
-        if (preview) {
+        if (view !== "prompt") {
           return {
             text: e.text,
             onClick: () => {
@@ -98,12 +111,13 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         }
         return { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
       }),
-    [file.data, preview, base, navigate]
+    [errors, view, base, navigate]
   )
 
   const crumbs = [{ label: "Prompts", href: "/prompts?" }, { label: name }]
   const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
-  const unknown = unknownKey || (file.isError && UNKNOWN_FILE.includes(file.error.message))
+  const fileFailed = file.isError && draft.store === null
+  const unknown = unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))
   if (unknown) {
     return (
       <>
@@ -114,7 +128,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       </>
     )
   }
-  if (projects.isError || file.isError || prompts.isError) {
+  if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -138,7 +152,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   }
   const data = file.data
   const row = prompts.data?.prompts.find((p) => p.name === name && p.project === project)
-  if (data === undefined || projects.data === undefined || prompts.data === undefined) {
+  if (data === undefined || projects.data === undefined || prompts.data === undefined || draft.store === null || draft.text === null) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -156,39 +170,55 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     errors: data.errors.map((e) => e.text),
     usedBy: data.usedBy ?? [],
   }
+  // While the draft differs from the file, the header fields of its last applied check; else the prompt's row.
+  const fields: HeaderFields = draft.dirty && draft.details !== null ? draft.details : shownRow
+  const history = view === "history"
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle x="details" open={open} onOpenChange={setOpen} />} />
+      <TopBar
+        items={crumbs}
+        actions={<PanelToggle page={history ? "history" : "prompt"} open={open} onOpenChange={setOpen} />}
+      />
       <PageBody>
-        <RecordBody name="Details" open={open} onOpenChange={setOpen} panel={<DetailsPanel file={data} row={shownRow} />}>
-          <RecordTabs
-            column={false}
-            label="Prompt views"
-            value={preview ? "preview" : "prompt"}
-            tabs={[
-              { value: "prompt", label: "Prompt", href: `${base}?` },
-              { value: "preview", label: "Preview", href: `${base}/preview?` },
-            ]}
-            right={
-              <>
-                <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-                <ErrorsBadge errors={data.errors.map((e) => e.text)} />
-              </>
-            }
-          />
-          <ErrorStrip lines={lines} />
-          {preview ? (
+        <RecordTabs
+          column={false}
+          label="Prompt views"
+          value={view}
+          tabs={[
+            { value: "prompt", label: "Prompt", href: `${base}?` },
+            { value: "preview", label: "Preview", href: `${base}/preview?` },
+            { value: "history", label: "History", href: `${base}/history?` },
+          ]}
+          right={
+            <>
+              <SavedStatus saved={draft.saved} />
+              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
+              <ErrorsBadge errors={errors.map((e) => e.text)} />
+            </>
+          }
+        />
+        <RecordBody
+          name={history ? "Versions" : "Details"}
+          open={open}
+          onOpenChange={setOpen}
+          panel={history ? historyTab.panel : <DetailsPanel file={data} row={shownRow} fields={fields} />}
+        >
+          <DraftNotices draft={draft} lines={lines} history={history} />
+          {history ? (
+            historyTab.main
+          ) : view === "preview" ? (
             <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-              <MarkdownView text={previewText(data.text, shownRow.header)} />
+              <MarkdownView text={previewText(draft.text, fields.header)} />
             </div>
           ) : (
             <div className="min-h-0 flex-1">
-              <CodeView ref={code} text={data.text} language="prompt" name={`${name}.md`} errors={data.errors} />
+              <EditableCodeView ref={code} draft={draft.store} errors={errors} />
             </div>
           )}
         </RecordBody>
       </PageBody>
+      <DraftDialogs draft={draft} />
     </>
   )
 }

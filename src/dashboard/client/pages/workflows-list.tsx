@@ -9,7 +9,8 @@ import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { appliesTo, byFile, compareText, fileCountText, fileMatches, filePath, rowId, type WorkflowRow } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, StatusCell, useFilesQuery } from "@/pages/files-table"
+import { NewFileButton } from "@/components/new-file"
+import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
 import { useLabel, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -88,7 +89,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
       },
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 130,
         enableSorting: false,
@@ -135,7 +136,7 @@ export function WorkflowsPage() {
   const [query, setQuery] = useFilesQuery("workflows")
   const list = workflows.data
   const rows = useMemo(() => (list === undefined ? [] : list.workflows.filter((w) => fileMatches(w, query.q))), [list, query.q])
-  const top = <TopBar items={[{ label: "Workflows" }]} />
+  const top = <TopBar items={[{ label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
 
   if (workflows.isError || projects.isError) {
     return (
@@ -158,7 +159,7 @@ export function WorkflowsPage() {
       <>
         {top}
         <PageBody>
-          <NoFile title="No workflow yet" kind="YAML" folder={list.folder} />
+          <NoFile title="No workflow yet" kind="YAML" folder={list.folder} action={<NewFileButton kind="workflows" variant="outline" />} />
         </PageBody>
       </>
     )

@@ -1,20 +1,26 @@
-import { FileTextIcon, RotateCcwIcon, TextCursorInputIcon } from "lucide-react"
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
+import { FileTextIcon, InfoIcon, RotateCcwIcon, TextCursorInputIcon } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
-import { CodeView, type CodeViewHandle } from "@/components/code-view"
-import { type AlertLine, Dash, ErrorStrip, InputsList, LinesAlert, PanelRow, UnknownFile } from "@/components/file-page"
+import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
+import { useHistoryTab } from "@/components/history"
+import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
+import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
 import { ErrorsBadge } from "@/components/status"
 import { CopyField } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { WorkflowCanvas } from "@/components/workflow-canvas"
+import { StepPicker } from "@/components/step-picker"
+import { type CanvasEdits, WorkflowCanvas } from "@/components/workflow-canvas"
+import { applyEdit, type HistoryMode, StepEditPanel, WorkflowEditPanel, type Write } from "@/components/workflow-forms"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
 import { type Drawing, drawWorkflow, findPrompt, isDefaultWorkflow, type Selection, selectionOf, type Shown, type StepCard } from "@/lib/workflow"
+import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
@@ -156,6 +162,24 @@ function StepPanel({
   )
 }
 
+/** The step picker open in the panel: adding a step at `at`, or changing the prompt of step `index`. */
+type Picker = { mode: "add"; at: number } | { mode: "change"; index: number }
+
+/** The selection kept after the draft changed: a step that no longer exists is cleared, a gone on-fail card selects its step. */
+function keptSelection(selection: Selection | null, drawing: Drawing | null): Selection | null {
+  if (selection === null || selection.kind === "inputs" || drawing === null) return selection
+  const step = drawing.steps[selection.index]
+  if (step === undefined) return null
+  if (selection.kind === "on-fail" && step.onFail === null) return { kind: "step", index: selection.index }
+  return selection
+}
+
+const sameSelection = (a: Selection | null, b: Selection | null): boolean =>
+  a === b || (a !== null && b !== null && a.kind === b.kind && (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
+
+/** A full-width strip under the tabs: no rounding, the bottom border only. */
+const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
+
 /** In place of the canvas when the file cannot be drawn. */
 function CannotDraw({ reason, openYaml }: { reason: string; openYaml: () => void }) {
   return (
@@ -174,49 +198,99 @@ function CannotDraw({ reason, openYaml }: { reason: string; openYaml: () => void
 }
 
 /**
- * `#/workflows/global/<name>[/yaml]` and `#/workflows/projects/<key>/<name>[/yaml]`: the Editor tab's canvas and the
- * YAML tab's code view, read-only, and the panel of the workflow or of the selected step.
+ * `#/workflows/global/<name>[/yaml|/history]` and `#/workflows/projects/<key>/<name>[/yaml|/history]`: the Editor
+ * tab's canvas drawn from the draft, the YAML tab's editable code view, the history, and the panel of the workflow or
+ * of the selected step.
  */
 export function WorkflowPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
   const projects = useProjects()
   const prompts = usePrompts()
   const file = useFile("workflows", project, name)
+  const draft = useFileDraft({
+    kind: "workflows",
+    project,
+    name,
+    file: file.data,
+    fetching: file.isFetching,
+    language: "yaml",
+    docName: `${name}.yaml`,
+  })
   const label = useLabel()
   const [open, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const [selection, setSelection] = useState<Selection | null>(null)
   const code = useRef<CodeViewHandle>(null)
   const yamlTab = tab === "yaml"
+  const history = tab === "history"
   const base = filePath("workflows", project, name)
+  const historyTab = useHistoryTab({ draft, kind: "workflows", project, name, language: "yaml", active: history })
 
   const data = file.data
+  const text = draft.text
+  const errors = draft.errors
   const drawn = useMemo(
     () =>
-      data === undefined || prompts.data === undefined
+      text === null || prompts.data === undefined
         ? null
         : drawWorkflow(
-            data.text,
-            data.errors.map((e) => e.text),
+            text,
+            errors.map((e) => e.text),
             prompts.data.prompts,
             project
           ),
-    [data, prompts.data, project]
+    [text, errors, prompts.data, project]
   )
   const drawing = drawn !== null && "drawing" in drawn ? drawn.drawing : null
   // From the text, not the drawing: a default file that cannot be drawn still carries its badge.
-  const isDefault = useMemo(() => data !== undefined && isDefaultWorkflow(data.text), [data])
+  const isDefault = useMemo(() => text !== null && isDefaultWorkflow(text), [text])
+
+  const [picker, setPicker] = useState<Picker | null>(null)
+  const anchors = useMemo(() => text !== null && hasAnchors(text), [text])
+  // Only the Editor tab edits: the YAML tab keeps the read-only panel.
+  const editable = drawing !== null && !anchors && !yamlTab && !history
 
   const select = useCallback(
     (next: Selection | null) => {
+      setPicker(null)
       setSelection(next)
       if (next !== null) setOpen(true)
     },
     [setOpen]
   )
 
+  // After Undo, Redo, a YAML tab edit or any edit: a selected step that no longer exists is cleared, a gone on-fail
+  // card selects its step.
+  const kept = keptSelection(selection, drawing)
+  useEffect(() => {
+    if (!sameSelection(kept, selection)) setSelection(kept)
+  }, [kept, selection])
+
+  // Any change of the draft other than the picker's own choice, and leaving the Editor tab, close the picker.
+  const pickerText = useRef<string | null>(null)
+  useEffect(() => {
+    if (picker !== null && text !== pickerText.current) setPicker(null)
+  }, [text, picker])
+  useEffect(() => {
+    if (tab !== undefined) setPicker(null)
+  }, [tab])
+  const openPicker = useCallback(
+    (next: Picker) => {
+      pickerText.current = text
+      setPicker(next)
+      setOpen(true)
+    },
+    [text, setOpen]
+  )
+
+  const store = draft.store
+  const write: Write = useCallback(
+    (edit: (text: string) => string, mode: HistoryMode = "full") => (store === null ? false : applyEdit(store, edit, mode)),
+    [store]
+  )
+
   const lines = useMemo<AlertLine[]>(
     () =>
-      (data?.errors ?? []).map((e) => {
+      errors.map((e) => {
         const line = e.line
         if (yamlTab) {
           return line === null
@@ -226,12 +300,13 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         const target = drawing === null ? null : selectionOf(e, drawing)
         return { text: e.text, onClick: target === null ? null : () => select(target) }
       }),
-    [data, yamlTab, drawing, select]
+    [errors, yamlTab, drawing, select]
   )
 
   const crumbs = [{ label: "Workflows", href: "/workflows?" }, { label: name }]
   const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
-  if (unknownKey || (file.isError && UNKNOWN_FILE.includes(file.error.message))) {
+  const fileFailed = file.isError && draft.store === null
+  if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -241,15 +316,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       </>
     )
   }
-  if (projects.isError || file.isError || prompts.isError) {
+  if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
         <TopBar items={crumbs} />
         <PageBody>
           {projects.isError ? (
             <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
-          ) : file.isError ? (
-            <LoadError what="this workflow" error={file.error} retry={() => void file.refetch()} className="m-4 w-auto" />
+          ) : fileFailed ? (
+            <LoadError what="this workflow" error={file.error as Error} retry={() => void file.refetch()} className="m-4 w-auto" />
           ) : (
             <LoadError what="the prompts" error={prompts.error as Error} retry={() => void prompts.refetch()} className="m-4 w-auto" />
           )}
@@ -257,7 +332,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       </>
     )
   }
-  if (data === undefined || prompts.data === undefined || projects.data === undefined || drawn === null) {
+  if (data === undefined || prompts.data === undefined || projects.data === undefined || drawn === null || draft.store === null) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -266,9 +341,69 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     )
   }
 
-  const step = selection !== null && selection.kind !== "inputs" ? (drawing?.steps[selection.index] ?? null) : null
+  const step = kept !== null && kept.kind !== "inputs" ? (drawing?.steps[kept.index] ?? null) : null
+  const promptRows = prompts.data.prompts
+  const lineTexts = errors.map((e) => e.text)
+  const choose = (prompt: PromptRow) => {
+    const p = picker
+    if (p === null || text === null) return
+    setPicker(null)
+    if (p.mode === "add") {
+      if (write((t) => addStep(t, p.at, prompt))) {
+        setSelection({ kind: "step", index: p.at })
+        setOpen(true)
+      }
+    } else write((t) => changeStepPrompt(t, p.index, prompt))
+  }
+  const edits: CanvasEdits | null = editable
+    ? {
+        placeholder: picker?.mode === "add" ? picker.at : null,
+        onAdd: (at) => {
+          setSelection(null)
+          openPicker({ mode: "add", at })
+        },
+        onMove: (index, delta) => {
+          if (write((t) => moveStep(t, index, delta))) select({ kind: "step", index: index + delta })
+        },
+        onRemove: (index) => {
+          if (!write((t) => removeStep(t, index))) return
+          setSelection((s) => {
+            if (s === null || s.kind === "inputs") return s
+            if (s.index === index) return null
+            return s.index > index ? { ...s, index: s.index - 1 } : s
+          })
+        },
+      }
+    : null
+  const removeSelected = (index: number) => edits?.onRemove(index)
+
   const panel =
-    step !== null && drawing !== null ? (
+    editable && picker !== null ? (
+      <StepPicker
+        title={picker.mode === "add" ? "Add a step" : "Change the prompt"}
+        prompts={promptRows}
+        project={project}
+        onChoose={choose}
+        onClose={() => setPicker(null)}
+      />
+    ) : editable && step !== null && drawing !== null && text !== null ? (
+      <StepEditPanel
+        key={step.index}
+        text={text}
+        index={step.index}
+        total={drawing.steps.length}
+        lines={lineTexts}
+        prompts={promptRows}
+        project={project}
+        workflowRunsOn={drawing.runsOn}
+        onFailCard={kept?.kind === "on-fail"}
+        write={write}
+        onChange={() => openPicker({ mode: "change", index: step.index })}
+        onRemove={() => removeSelected(step.index)}
+      />
+    ) : editable && text !== null ? (
+      <WorkflowEditPanel file={data} text={text} lines={lineTexts} write={write} />
+    ) : step !== null && drawing !== null ? (
       <StepPanel
         step={step}
         total={drawing.steps.length}
@@ -282,37 +417,63 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle x="details" open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />} />
       <PageBody>
-        <RecordBody name={step !== null ? `Step ${step.index + 1}` : "Workflow"} open={open} onOpenChange={setOpen} panel={panel}>
-          <RecordTabs
-            column={false}
-            label="Workflow views"
-            value={yamlTab ? "yaml" : "editor"}
-            tabs={[
-              { value: "editor", label: "Editor", href: `${base}?` },
-              { value: "yaml", label: "YAML", href: `${base}/yaml?` },
-            ]}
-            right={
-              <>
-                {isDefault ? <Badge variant="outline">default</Badge> : null}
-                <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-                <ErrorsBadge errors={data.errors.map((e) => e.text)} />
-              </>
-            }
-          />
-          <ErrorStrip lines={lines} />
-          {yamlTab ? (
+        <RecordTabs
+          column={false}
+          label="Workflow views"
+          value={history ? "history" : yamlTab ? "yaml" : "editor"}
+          tabs={[
+            { value: "editor", label: "Editor", href: `${base}?` },
+            { value: "yaml", label: "YAML", href: `${base}/yaml?` },
+            { value: "history", label: "History", href: `${base}/history?` },
+          ]}
+          right={
+            <>
+              <SavedStatus saved={draft.saved} />
+              {isDefault ? <Badge variant="outline">default</Badge> : null}
+              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
+              <ErrorsBadge errors={errors.map((e) => e.text)} />
+            </>
+          }
+        />
+        <RecordBody
+          name={
+            history
+              ? "Versions"
+              : editable && picker !== null
+                ? picker.mode === "add"
+                  ? "Add a step"
+                  : "Change the prompt"
+                : step !== null
+                  ? `Step ${step.index + 1}`
+                  : "Workflow"
+          }
+          open={open}
+          onOpenChange={setOpen}
+          panel={history ? historyTab.panel : panel}
+        >
+          <DraftNotices draft={draft} lines={lines} history={history} />
+          {!history && !yamlTab && drawing !== null && anchors ? (
+            <Alert className={STRIP}>
+              <InfoIcon aria-hidden="true" />
+              <AlertTitle>This file uses YAML anchors. Edit it on the YAML tab.</AlertTitle>
+            </Alert>
+          ) : null}
+          {history ? (
+            historyTab.main
+          ) : yamlTab ? (
             <div className="min-h-0 flex-1">
-              <CodeView ref={code} text={data.text} language="yaml" name={`${name}.yaml`} errors={data.errors} />
+              <EditableCodeView ref={code} draft={draft.store} errors={errors} />
             </div>
           ) : "reason" in drawn ? (
             <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
           ) : (
-            <WorkflowCanvas drawing={drawn.drawing} selection={selection} onSelect={select} />
+            <WorkflowCanvas drawing={drawn.drawing} selection={kept} onSelect={select} store={draft.store} edits={edits} />
           )}
         </RecordBody>
       </PageBody>
+      <DraftDialogs draft={draft} />
     </>
   )
 }
