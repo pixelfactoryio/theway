@@ -1,6 +1,7 @@
 /**
  * The dashboard's HTTP app: the Content-Security-Policy with a style nonce, the Host guard, the write guard, the page
- * and its embedded assets, the read API over the home, and the check and write routes of workflow and prompt files.
+ * and its embedded assets, the read API over the home, the check and write routes of workflow and prompt files, and the
+ * save route of a change's files.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { type Context, Hono } from "hono";
@@ -15,7 +16,7 @@ import { projectDir } from "../core/project";
 import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
 import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
 import { projectKeys, projects } from "./projects";
-import { type Answer, listVersions, readVersion, restoreVersion, writeFile } from "./write";
+import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write";
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
 type Env = { Variables: { secureHeadersNonce?: string } };
@@ -221,6 +222,12 @@ export function createApp(home: string, port: () => number, startKey: string, to
       });
     }
   }
+
+  app.put("/api/projects/:key/changes/:id/files/:name", async (c) => {
+    const f = fields(await body(c), { text: "string", base: "string" });
+    if (f === null) return invalid();
+    return reply(writeChangeFile(home, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base));
+  });
 
   app.notFound(() => json(404, { error: "not found" }));
   return app;
