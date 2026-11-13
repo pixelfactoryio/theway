@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
 import { navigate as hashNavigate, useHashLocation } from "wouter/use-hash-location"
 
-import { locationAction } from "@/lib/location"
+import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "@/lib/location"
 
 /**
  * The page holding unsaved changes: whether an address path leaves it, whether it has unsaved changes now, and how it
@@ -22,10 +22,16 @@ export function setLeaveGuard(next: LeaveGuard): () => void {
 /** The address path of the hash, as `useHashLocation` reads it. */
 const hashPath = (): string => "/" + location.hash.replace(/^#?\/?/, "")
 
-/** The location the app shows, and the full address it was accepted at. */
+// The first entry the app sees keeps its position (a reload) or takes 0, set in place: its address stays.
+if (positionOf(history.state) === null) history.replaceState(positionState(0), "", location.href)
+
+/** The location the app shows, the full address it was accepted at, and that entry's position in the history. */
 let accepted = hashPath()
 let acceptedHref = location.href
+let acceptedPosition = positionOf(history.state) ?? 0
 let starting = false
+/** The `history.go` the router has started and not yet seen arrive. */
+let moving: Moving = null
 const listeners = new Set<() => void>()
 const acceptListeners = new Set<(traversal: boolean) => void>()
 
@@ -33,6 +39,7 @@ const acceptListeners = new Set<(traversal: boolean) => void>()
 function accept(traversal: boolean): void {
   accepted = hashPath()
   acceptedHref = location.href
+  acceptedPosition = positionOf(history.state) ?? acceptedPosition
   for (const l of listeners) l()
   for (const l of acceptListeners) l(traversal)
 }
@@ -48,11 +55,12 @@ export function onAccept(l: (traversal: boolean) => void): () => void {
 
 const blocks = (target: string): boolean => guard !== null && guard.isDirty() && guard.leaves(target)
 
-/** wouter's hash navigation, its `hashchange` taken as this hook's own. */
+/** wouter's hash navigation, its entry marked with its position, its `hashchange` taken as this hook's own. */
 function go(to: string, options?: { replace?: boolean; state?: unknown }): void {
+  const replace = options?.replace === true
   starting = true
   try {
-    hashNavigate(to, options)
+    hashNavigate(to, { replace, state: positionState(pushedPosition(acceptedPosition, replace)) })
   } finally {
     starting = false
   }
@@ -60,21 +68,38 @@ function go(to: string, options?: { replace?: boolean; state?: unknown }): void 
 
 /**
  * Back, Forward and a typed address fire `popstate`, and `hashchange` only when the fragment alone differs (not when
- * the search part does too), so both are heard. One that leaves a page with unsaved changes is undone to the accepted
- * address, then asked; wouter dispatches `replaceState` (not `popstate` nor `hashchange`) for that call.
+ * the search part does too), so both are heard. An entry reached without a position (a typed address) is marked with
+ * it in place. One that leaves a page with unsaved changes is undone by `history.go` back to the accepted entry, then
+ * asked; leaving goes forth to it again. Neither rewrites an entry: the history stays as the browser left it.
  */
 function onLocationEvent(): void {
-  const action = locationAction({ own: starting, href: location.href, acceptedHref, blocked: blocks(hashPath()) })
+  const position = reachedPosition(history.state, acceptedPosition)
+  if (positionOf(history.state) === null) history.replaceState(positionState(position), "", location.href)
+  const action = locationAction({
+    own: starting,
+    href: location.href,
+    position,
+    acceptedHref,
+    acceptedPosition,
+    moving,
+    blocked: blocks(hashPath()),
+  })
   if (action === "seen") return
+  if (action === "returned") {
+    moving = null
+    return
+  }
   if (action !== "ask") {
+    moving = null
     accept(action === "accept")
     return
   }
-  const targetHref = location.href
-  history.replaceState(history.state, "", acceptedHref)
+  const from = acceptedPosition
+  moving = { kind: "undo" }
+  history.go(from - position)
   guard?.ask(() => {
-    history.replaceState(history.state, "", targetHref)
-    accept(true)
+    moving = { kind: "pass", to: position }
+    history.go(position - from)
   })
 }
 addEventListener("popstate", onLocationEvent)

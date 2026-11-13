@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { byLabel, changesPath, currentKey, type Project } from "../src/dashboard/client/lib/projects";
-import { locationAction } from "../src/dashboard/client/lib/location";
+import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "../src/dashboard/client/lib/location";
 import { panelToggleLabel } from "../src/dashboard/client/lib/panel";
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll";
 import { dataTheme, themeOf } from "../src/dashboard/client/lib/theme";
@@ -176,21 +176,67 @@ test("scroll offsets are kept per address and restored only on Back and Forward"
   expect(memory.pending).toEqual({ address: "#/unseen", top: 0 });
 });
 
-test("the router takes its own navigation, each Back or Forward once, with or without a search part, and asks before leaving unsaved changes", () => {
-  const at = "http://h/?view=archived#/k/changes";
-  const row = "http://h/#/k/changes/archive/2026-01-01-a";
+test("each history entry holds its position: a push adds 1, a replace keeps it, an unmarked entry is the one after", () => {
+  expect(positionOf(positionState(3))).toBe(3);
+  expect([positionOf(null), positionOf({}), positionOf({ position: "2" }), positionOf({ position: 1.5 })]).toEqual([null, null, null, null]);
+  expect([pushedPosition(2, false), pushedPosition(2, true)]).toEqual([3, 2]);
+  // A typed address adds an unmarked entry right after the current one.
+  expect(reachedPosition(null, 4)).toBe(5);
+  expect(reachedPosition(positionState(1), 4)).toBe(1);
+});
+
+/** The router's event at `href`, entry `position`, the accepted entry being `#/k/changes/a` at 2. */
+const at = (href: string, position: number, rest: { own?: boolean; moving?: Moving; blocked?: boolean } = {}) =>
+  locationAction({
+    own: rest.own ?? false,
+    href,
+    position,
+    acceptedHref: "http://h/#/k/changes/a",
+    acceptedPosition: 2,
+    moving: rest.moving ?? null,
+    blocked: rest.blocked ?? false,
+  });
+
+test("unguarded, the router takes its own navigation and each Back, Forward or typed address once, with or without a search part", () => {
+  expect(at("http://h/#/k/changes/b", 3, { own: true, blocked: true })).toBe("own");
   // A search part differs: Back fires popstate alone, which renders the address.
-  expect(locationAction({ own: false, href: at, acceptedHref: row, blocked: false })).toBe("accept");
+  expect(at("http://h/?view=archived#/k/changes", 1)).toBe("accept");
   // The fragment alone differs: popstate, then hashchange on the address already taken.
-  expect(locationAction({ own: false, href: "http://h/#/k/changes", acceptedHref: row, blocked: false })).toBe("accept");
-  expect(locationAction({ own: false, href: "http://h/#/k/changes", acceptedHref: "http://h/#/k/changes", blocked: false })).toBe("seen");
-  expect(locationAction({ own: true, href: row, acceptedHref: at, blocked: true })).toBe("own");
-  expect(locationAction({ own: false, href: at, acceptedHref: row, blocked: true })).toBe("ask");
-  // Undone to the accepted address, the traversal's later hashchange finds nothing to do.
-  expect(locationAction({ own: false, href: row, acceptedHref: row, blocked: false })).toBe("seen");
+  expect(at("http://h/#/k/changes", 1)).toBe("accept");
+  expect(at("http://h/#/k/changes/a", 2)).toBe("seen");
+  // Forward, and a typed address (the entry after the accepted one).
+  expect(at("http://h/#/workflows", 3)).toBe("accept");
+  // The same address at another entry is another page of the history.
+  expect(at("http://h/#/k/changes/a", 0)).toBe("accept");
+});
+
+test("guarded, a Back, Forward or typed address is undone by history.go and asked; leaving goes forth to its entry", () => {
+  // Back from 2 to 1: asked, undone by history.go(2 - 1).
+  expect(at("http://h/?q=x#/k/changes", 1, { blocked: true })).toBe("ask");
+  // While the undo travels, the move's own later event (its hashchange) does nothing.
+  expect(at("http://h/?q=x#/k/changes", 1, { moving: { kind: "undo" }, blocked: true })).toBe("seen");
+  // The undo arrives at the accepted entry: the page stays, Back again asks again.
+  expect(at("http://h/#/k/changes/a", 2, { moving: { kind: "undo" } })).toBe("returned");
+  expect(at("http://h/#/k/changes/a", 2)).toBe("seen");
+  expect(at("http://h/?q=x#/k/changes", 1, { blocked: true })).toBe("ask");
+  // Leaving: history.go(1 - 2) arrives at the entry asked for and is taken, the page still dirty.
+  expect(at("http://h/#/k/changes/a", 2, { moving: { kind: "pass", to: 1 }, blocked: true })).toBe("seen");
+  expect(at("http://h/?q=x#/k/changes", 1, { moving: { kind: "pass", to: 1 }, blocked: true })).toBe("accept");
+  // Forward and a typed address the same way, from the other side.
+  expect(at("http://h/#/workflows", 3, { blocked: true })).toBe("ask");
+  expect(at("http://h/#/workflows", 3, { moving: { kind: "pass", to: 3 }, blocked: true })).toBe("accept");
+});
+
+test("the guard undoes a held move with history.go, never by rewriting an entry's address", () => {
   const guard = readFileSync(join(CLIENT, "shell", "guard.ts"), "utf-8");
   expect(guard).toContain('addEventListener("popstate", onLocationEvent)');
   expect(guard).toContain('addEventListener("hashchange", onLocationEvent)');
+  expect(guard).toContain("history.go(from - position)");
+  expect(guard).toContain("history.go(position - from)");
+  // replaceState only ever marks the current entry with its position, at its own address.
+  const marks = guard.match(/history\.replaceState\([^)]*\)[^)]*\)/g) ?? [];
+  expect(marks).toHaveLength(2);
+  for (const call of marks) expect(call).toMatch(/, "", location\.href\)$/);
   const scroll = readFileSync(join(CLIENT, "shell", "scroll.tsx"), "utf-8");
   expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/);
 });
