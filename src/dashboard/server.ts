@@ -11,6 +11,7 @@ import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "t
 import { activeIds } from "../core/list";
 import { projectDir } from "../core/project";
 import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
+import { type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
 import { projectKeys, projects } from "./projects";
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
@@ -124,6 +125,15 @@ export function createApp(home: string, port: () => number, startKey: string, to
     if (!activeIds(dir).includes(id)) return json(404, { error: "unknown change" });
     return json(200, changeDetail(dir, id));
   });
+
+  app.get("/api/workflows", () => json(200, listWorkflows(home)));
+  app.get("/api/prompts", () => json(200, listPrompts(home)));
+  // Each file route serves only the file in its own folder: the global one, or the project's own (never the global one).
+  const answer = (a: FileAnswer): Response => json(a.status, a.body);
+  app.get("/api/workflows/global/:name", (c) => answer(workflowFile(home, null, c.req.param("name"))));
+  app.get("/api/workflows/projects/:key/:name", (c) => answer(workflowFile(home, c.req.param("key"), c.req.param("name"))));
+  app.get("/api/prompts/global/:name", (c) => answer(promptFile(home, null, c.req.param("name"))));
+  app.get("/api/prompts/projects/:key/:name", (c) => answer(promptFile(home, c.req.param("key"), c.req.param("name"))));
 
   app.notFound(() => json(404, { error: "not found" }));
   return app;
