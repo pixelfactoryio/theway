@@ -40,7 +40,7 @@ Only the latest release is supported.
 
 - `theway dashboard` binds `127.0.0.1` only and refuses a request whose `Host` is not its own loopback address and port.
 - It takes a write only with its own `Origin` and the token it makes at start and puts in its page.
-- It writes only `<home>/workflows/`, `<home>/prompts/`, a project's two same folders, and `<home>/history/`. Those files are instructions to every command, as "Untrusted content" says.
+- It writes only `<home>/workflows/`, `<home>/prompts/`, a project's two same folders, `<home>/history/`, and the `change.yaml` and Markdown files of a project's active change folders (`<home>/projects/<key>/changes/<id>/`). Those files are instructions to every command, as "Untrusted content" says.
 
 ### Input checks
 
