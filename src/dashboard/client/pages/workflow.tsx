@@ -71,16 +71,16 @@ function WorkflowPanel({ file, drawing }: { file: FileBody; drawing: Drawing | n
       <dl className="flex flex-col gap-4">
         {drawing !== null ? (
           <>
-            <PanelRow label="description" code>
+            <PanelRow yamlKey="description">
               {drawing.description ?? <Dash />}
             </PanelRow>
-            <PanelRow label="runs-on" code>
+            <PanelRow yamlKey="runs-on">
               {drawing.runsOn ?? <Dash />}
             </PanelRow>
-            <PanelRow label="default" code>
+            <PanelRow yamlKey="default">
               {drawing.default ? "Yes" : "No"}
             </PanelRow>
-            <PanelRow label="inputs" code>
+            <PanelRow yamlKey="inputs">
               <InputsList inputs={drawing.inputFields} />
             </PanelRow>
           </>
@@ -152,7 +152,7 @@ function StepPanel({
       {rows.length > 0 ? (
         <dl className="flex flex-col gap-4">
           {rows.map((r) => (
-            <PanelRow key={r.label} label={r.label} code>
+            <PanelRow key={r.label} yamlKey={r.label}>
               {r.value}
             </PanelRow>
           ))}
