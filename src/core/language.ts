@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { parse } from "yaml";
 import type { Warn } from "./config";
 import { escaped, type Overlay } from "./io";
 import {
@@ -24,6 +23,7 @@ import {
 } from "./language-schema";
 import { changeIdReason } from "./path";
 import { dirsOf, fileOf, namesIn, searched } from "./step-files";
+import { parseYaml } from "./text";
 
 /** The version of the language this one replaces. */
 const V1 = "theway.workflow/v1";
@@ -70,18 +70,7 @@ function readText(path: string, overlay?: Overlay): string | null {
   }
 }
 
-/** The YAML root of `text`, maps as `Map`, or the first line of the parser's error. */
-export function parseYaml(text: string): { root: unknown } | { reason: string } {
-  try {
-    return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
-  } catch (e) {
-    const first = (e instanceof Error ? e.message : String(e)).split("\n")[0] ?? "";
-    const line = (e as { linePos?: { line: number }[] }).linePos?.[0]?.line;
-    const failing = line === undefined ? "" : (text.split("\n")[line - 1] ?? "");
-    const hint = failing.includes("${{") ? "; quote a ${{ … }} reference written inside {…}" : "";
-    return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` };
-  }
-}
+export { parseYaml };
 
 /** Replaces each reference in `text` in one pass: `f` gives its value, or `undefined` to keep it as written. */
 function substitute(text: string, f: (kind: string, name: string) => string | undefined): string {
@@ -201,7 +190,8 @@ type Prompt = { uses: string; name: string; file: string; header: PromptHeader; 
 /** What a workflow's check needs: where to look, the file's relative path, its inputs, and the prompts read so far. */
 type Ctx = {
   home: string;
-  key: string;
+  /** The project, or `null` for the global context (the global folders only). */
+  key: string | null;
   overlay?: Overlay;
   rel: string;
   inputs: Map<string, Decl>;
@@ -430,11 +420,11 @@ function run(prompt: Prompt, set: Map<string, string>, value: (kind: string, nam
 /**
  * The workflow `name` of a project, checked and resolved: found in the project folder, then the home (the overlay
  * first), every rule checked and every error collected in file order as `<rel>: <where>: <message>`. `inputs` holds the
- * `--input` values; `{}` means none given.
+ * `--input` values; `{}` means none given. The `null` key reads the home's global folders only.
  */
 export function resolveWorkflowFile(
   home: string,
-  key: string,
+  key: string | null,
   name: string,
   inputs: Record<string, string>,
   overlay?: Overlay,
@@ -552,19 +542,24 @@ export function resolveWorkflowFile(
   return { doc };
 }
 
-/** The names of `kind` files in the project folder and the home, a project file hiding the global one, sorted. */
+/**
+ * The names of `kind` files in the project folder and the home, a project file hiding the global one, sorted; the
+ * `null` key lists the home's global folder only, every row with scope `global`.
+ */
 function scopedNames(
   home: string,
-  key: string,
+  key: string | null,
   kind: "workflows" | "prompts",
   overlay?: Overlay,
   rejected?: (path: string) => void,
 ): { name: string; scope: "project" | "global"; path: string }[] {
   const ext = kind === "workflows" ? ".yaml" : ".md";
-  const [ownDir, globalDir] = dirsOf(home, key, kind);
-  const own = namesIn(ownDir, kind, rejected, overlay);
+  const dirs = dirsOf(home, key, kind);
+  const globalDir = dirs[dirs.length - 1] as string;
+  const ownDir = dirs.length > 1 ? (dirs[0] as string) : null;
+  const own = ownDir === null ? [] : namesIn(ownDir, kind, rejected, overlay);
   return [
-    ...own.map((name) => ({ name, scope: "project" as const, path: join(ownDir, `${name}${ext}`) })),
+    ...own.map((name) => ({ name, scope: "project" as const, path: join(ownDir as string, `${name}${ext}`) })),
     ...namesIn(globalDir, kind, rejected, overlay)
       .filter((n) => !own.includes(n))
       .map((name) => ({ name, scope: "global" as const, path: join(globalDir, `${name}${ext}`) })),
@@ -580,8 +575,9 @@ function isDefaultRoot(root: unknown): boolean {
  * Every workflow file of a project and of the home, a project file hiding the global one of the same name, sorted by
  * name: its description (`null` when unreadable), its `default` (false for a file of another version), every error line of `resolveWorkflowFile`
  * (the first also as `error`) and its resolved document (`null` when it does not resolve). A `.yaml` file whose stem is not a valid name is warned about and left out.
+ * The `null` key lists and checks the home's global files with the global folders only.
  */
-export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay?: Overlay): WorkflowFileItem[] {
+export function listWorkflowFiles(home: string, key: string | null, warn: Warn, overlay?: Overlay): WorkflowFileItem[] {
   const found = scopedNames(home, key, "workflows", overlay, (path) => warn(relative(home, path), "not a valid workflow name"));
   return found.map(({ name, scope, path }): WorkflowFileItem => {
     const text = readText(path, overlay);
@@ -602,7 +598,7 @@ export function listWorkflowFiles(home: string, key: string, warn: Warn, overlay
  * hiding the global one, sorted by name: its header's description (else `null`), `step`: whether it has a header
  * that passes the header rules, and `error`: the first header rule error (`<where>: <message>`), `null` for none.
  */
-export function listPromptFiles(home: string, key: string, overlay?: Overlay): PromptFileItem[] {
+export function listPromptFiles(home: string, key: string | null, overlay?: Overlay): PromptFileItem[] {
   return scopedNames(home, key, "prompts", overlay).map(({ name, scope, path }): PromptFileItem => {
     const text = readText(path, overlay);
     const { header, headerErrors } = text === null ? { header: null, headerErrors: [] } : parsePromptFile(text);

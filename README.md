@@ -8,6 +8,8 @@ The steps are yours: a workflow is a YAML file listing steps, each using a Markd
 
 *Real Claude Code session on Sonnet, sped up. Idle waits shortened.*
 
+`theway dashboard` serves a local web view of your changes, workflows and prompts at `http://127.0.0.1:4870/`: a single page built into the CLI, reachable from this machine only, that reads the theway home as it is on every request.
+
 ## Install
 
 ```bash
