@@ -39,7 +39,8 @@ function Results({ close }: { close: () => void }) {
   const list = useRef<HTMLDivElement>(null)
 
   return (
-    <Command>
+    // Without vim bindings: cmdk's Ctrl+K (previous entry) would prevent the default, and Ctrl+K could not close it.
+    <Command vimBindings={false}>
       {/*
         Each keystroke selects the first match, but cmdk can leave the list scrolled to an earlier keystroke's match, the
         first one above the view: back to the top once cmdk has sorted and selected.
