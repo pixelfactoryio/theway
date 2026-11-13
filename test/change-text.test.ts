@@ -246,6 +246,13 @@ test("a one-line text set on a plain node stays plain when that reads back equal
   expect(edited(BLOCK, { kind: "text", index: 2, text: "Read the burst" })).toContain("\n  - text: Read the burst\n");
   expect(edited(BLOCK, { kind: "text", index: 2, text: "Read: the burst" })).toContain('\n  - text: "Read: the burst"\n');
   expect(edited(BLOCK, { kind: "text", index: 2, text: "- a list" })).toContain('\n  - text: "- a list"\n');
+  expect(edited(BLOCK, { kind: "text", index: 2, text: 'say "hi": now' })).toContain('\n  - text: "say \\"hi\\": now"\n');
+  expect(edited(BLOCK, { kind: "text", index: 2, text: 'say "hi" now' })).toContain('\n  - text: say "hi" now\n');
+  expect(edited(FLOW, { kind: "text", index: 2, text: "a, b" })).toContain('{text: "a, b", done: false}');
+  expect(edited(FLOW, { kind: "text", index: 3, text: 'a "b"' })).toContain("{text: a \"b\"}");
+  const plainDescription = `${v}${d}tasks:\n  - text: a\n`;
+  expect(edited(plainDescription, { kind: "description", text: 'a: "b"' })).toContain('\ndescription: "a: \\"b\\""\n');
+  expect(edited(plainDescription, { kind: "description", text: "Do it now" })).toContain("\ndescription: Do it now\n");
   // A quoted node keeps its quotes.
   expect(edited(BLOCK, { kind: "text", index: 1, text: "Answer 503" })).toContain("\n  - text: 'Answer 503'\n");
   expect(edited(BLOCK, { kind: "text", index: 0, text: "Add one" })).toContain('\n  - text: "Add one" # first\n');

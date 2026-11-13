@@ -2,7 +2,7 @@
  * The text of a `change.yaml`: its check, the lines of its issues, the status of a change, and the edits the dashboard
  * and `theway task done` make to it. No module this one imports reads the disk, so the client bundle imports it too.
  */
-import { isAlias, isCollection, isMap as isYamlMap, isPair, isScalar, isSeq, LineCounter, type Node, parse, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
+import { Document, isAlias, isCollection, isMap as isYamlMap, isPair, isScalar, isSeq, LineCounter, type Node, parse, parseDocument, Scalar, type YAMLMap, type YAMLSeq } from "yaml";
 import { escaped, parseYaml } from "./text";
 
 export const CHANGE_VERSION = "theway.change/v1beta";
@@ -237,6 +237,18 @@ const crlf = (text: string): boolean => {
  * break `\r\n` when the source's first one is. An edit that changes no node returns the source text unprinted; a printed
  * text equal to the source returns the source. The source and the result must pass the check.
  */
+/**
+ * Double-quotes a plain one-line scalar whose new value cannot stay plain, in a block (or, with `inFlow`, a flow)
+ * mapping: left plain, the `yaml` package would fall back to single quotes for a value holding `"`.
+ */
+function quoteUnlessPlain(node: unknown, value: string, inFlow: boolean): void {
+  if (!isScalar(node) || node.type !== Scalar.PLAIN || /[\r\n]/.test(value)) return;
+  const probe = new Document({ k: value });
+  (probe.contents as YAMLMap).flow = inFlow;
+  const read = parseDocument(probe.toString({ lineWidth: 0, singleQuote: false })).get("k", true);
+  if (!isScalar(read) || read.type !== Scalar.PLAIN || read.value !== value) node.type = Scalar.QUOTE_DOUBLE;
+}
+
 export function editedChangeText(text: string, edit: ChangeEdit): { text: string } | { reason: string } {
   if ("issues" in checkChangeText(text)) return { reason: REFUSAL.check };
   const doc = parseDocument(text);
@@ -268,6 +280,7 @@ export function editedChangeText(text: string, edit: ChangeEdit): { text: string
       const current = t.get("text", true);
       if (isScalar(current) && current.value === value) return { text };
       t.set("text", value);
+      quoteUnlessPlain(t.get("text", true), value, seq.flow === true || t.flow === true);
       break;
     }
     case "description": {
@@ -276,6 +289,7 @@ export function editedChangeText(text: string, edit: ChangeEdit): { text: string
       const current = doc.get("description", true);
       if (isScalar(current) && current.value === edit.text) return { text };
       doc.set("description", edit.text);
+      quoteUnlessPlain(doc.get("description", true), edit.text, (doc.contents as YAMLMap).flow === true);
       break;
     }
     case "add": {
