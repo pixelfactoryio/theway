@@ -9,12 +9,13 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { changesPath } from "@/lib/projects"
-import { useCurrentKey } from "@/shell/projects"
+import { useCurrentKey, useProjects } from "@/shell/projects"
 import { ThemeMenu } from "@/shell/theme"
 
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
@@ -22,14 +23,16 @@ const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
 /** The flat sidebar, an icon rail until expanded: the mark, the three sections, then Theme and Documentation. */
 export function AppSidebar() {
   const current = useCurrentKey()
+  const projects = useProjects()
+  const active = projects.data?.projects.find((p) => p.key === current)?.active
   const changes = current === null ? "/?" : changesPath(current)
   const [onChanges] = useRoute("/:key/changes/*?")
   const [onWorkflows] = useRoute("/workflows/*?")
   const [onPrompts] = useRoute("/prompts/*?")
   const rows = [
-    { label: "Changes", href: changes, icon: <ListChecksIcon className="size-4" aria-hidden="true" />, active: onChanges },
-    { label: "Workflows", href: "/workflows?", icon: <WorkflowIcon className="size-4" aria-hidden="true" />, active: onWorkflows },
-    { label: "Prompts", href: "/prompts?", icon: <FileTextIcon className="size-4" aria-hidden="true" />, active: onPrompts },
+    { label: "Changes", href: changes, icon: <ListChecksIcon className="size-4" aria-hidden="true" />, active: onChanges, count: active },
+    { label: "Workflows", href: "/workflows?", icon: <WorkflowIcon className="size-4" aria-hidden="true" />, active: onWorkflows, count: undefined },
+    { label: "Prompts", href: "/prompts?", icon: <FileTextIcon className="size-4" aria-hidden="true" />, active: onPrompts, count: undefined },
   ]
 
   return (
@@ -61,6 +64,7 @@ export function AppSidebar() {
                   {row.icon}
                   <span>{row.label}</span>
                 </SidebarMenuButton>
+                {row.count !== undefined ? <SidebarMenuBadge className="tabular-nums">{row.count}</SidebarMenuBadge> : null}
               </SidebarMenuItem>
             ))}
           </SidebarMenu>

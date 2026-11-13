@@ -1,8 +1,10 @@
 import { useEffect } from "react"
-import { Redirect } from "wouter"
+import { Redirect, useRoute } from "wouter"
 
 import { changesPath } from "@/lib/projects"
-import { NoProjectPage, SectionPage } from "@/pages/section"
+import { ChangePage } from "@/pages/change"
+import { ChangesPage } from "@/pages/changes-list"
+import { NoProjectPage } from "@/pages/section"
 import { LoadError } from "@/shell/load-error"
 import { storeProject, useCurrentKey, useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
@@ -44,9 +46,14 @@ export function HomeRoute() {
   return <Redirect to={changesPath(current)} replace />
 }
 
-/** `#/<key>/changes…`: a listed key's changes; an unknown key goes to `#/` with `replace`. */
+/**
+ * `#/<key>/changes…`: a listed key's changes, or one change (`…/archive/<dir>[/<tab>]` matched before
+ * `…/<id>[/<tab>]`); an unknown key goes to `#/` with `replace`.
+ */
 export function ChangesRoute({ routeKey }: { routeKey: string }) {
   const projects = useProjects()
+  const [archived, a] = useRoute<{ dir: string; tab?: string }>("/:key/changes/archive/:dir/:tab?")
+  const [active, c] = useRoute<{ id: string; tab?: string }>("/:key/changes/:id/:tab?")
   const listed = projects.data?.projects.some((p) => p.key === routeKey) === true
 
   useEffect(() => {
@@ -56,5 +63,7 @@ export function ChangesRoute({ routeKey }: { routeKey: string }) {
   if (projects.data === undefined) return <ProjectsGate />
   if (projects.data.projects.length === 0) return <NoProjectPage />
   if (!listed) return <Redirect to="/?" replace />
-  return <SectionPage title="Changes" items={[{ label: "Changes" }, { selector: true }]} />
+  if (archived) return <ChangePage projectKey={routeKey} dir={a.dir} tab={a.tab} />
+  if (active) return <ChangePage projectKey={routeKey} id={c.id} tab={c.tab} />
+  return <ChangesPage projectKey={routeKey} />
 }
