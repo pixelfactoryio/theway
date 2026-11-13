@@ -1,7 +1,16 @@
 import { cn } from "cn"
-import { BookOpenIcon, FileTextIcon, LayoutDashboardIcon, ListChecksIcon, type LucideIcon, WorkflowIcon } from "lucide-react"
+import {
+  BookOpenIcon,
+  FileTextIcon,
+  LayoutDashboardIcon,
+  ListChecksIcon,
+  type LucideIcon,
+  SearchIcon,
+  WorkflowIcon,
+} from "lucide-react"
 import { Link, useRoute } from "wouter"
 
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +27,7 @@ import { changesPath, overviewPath } from "@/lib/projects"
 import { version } from "@/shell/api"
 import { usePrompts, useWorkflows } from "@/shell/files"
 import { useCurrentKey, useProjects } from "@/shell/projects"
+import { MAC, useSearchOpen } from "@/shell/search"
 import { ThemeMenu } from "@/shell/theme"
 
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
@@ -29,7 +39,8 @@ type Row = { label: string; href: string; Icon: LucideIcon; active: boolean; cou
 function Group({ label, rows }: { label: string; rows: Row[] }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      {/* Collapsed, the label slides up over the entry above it, invisible: it must not take that entry's pointer. */}
+      <SidebarGroupLabel className="group-data-[collapsible=icon]:pointer-events-none">{label}</SidebarGroupLabel>
       <SidebarMenu>
         {rows.map((row) => (
           <SidebarMenuItem key={row.label}>
@@ -50,8 +61,33 @@ function Group({ label, rows }: { label: string; rows: Row[] }) {
   )
 }
 
+/** The Search entry: opens the ⌘K search, with its key hint while expanded (the tooltip names it when collapsed). */
+function SearchEntry() {
+  const { setOpen } = useSearchOpen()
+  return (
+    <SidebarGroup>
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton tooltip="Search" onClick={() => setOpen(true)}>
+            <SearchIcon className="size-4" aria-hidden="true" />
+            <span>Search</span>
+            {MAC ? (
+              <Kbd className="ml-auto group-data-[collapsible=icon]:hidden">⌘K</Kbd>
+            ) : (
+              <KbdGroup className="ml-auto group-data-[collapsible=icon]:hidden">
+                <Kbd>Ctrl</Kbd>
+                <Kbd>K</Kbd>
+              </KbdGroup>
+            )}
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroup>
+  )
+}
+
 /**
- * The sidebar below the site header, expanded until collapsed to icons: the Project group (Overview, Changes) when there
+ * The sidebar below the site header, expanded until collapsed to icons: the Search entry, the Project group (Overview, Changes) when there
  * is a current project, the Library group (Workflows, Prompts), then Documentation, Theme and theway's version.
  */
 export function AppSidebar() {
@@ -69,6 +105,7 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="top-(--header-height) h-[calc(100svh-var(--header-height))]!">
       <SidebarContent role="navigation" aria-label="Sections">
+        <SearchEntry />
         {current !== null ? (
           <Group
             label="Project"
