@@ -627,6 +627,19 @@ A prompt's Prompt tab and a workflow's YAML tab are editable. What you type is a
 
 Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, and `~/.theway/history/`.
 
+### Editing a workflow
+
+A workflow's Editor tab edits the file too. Every edit changes the same draft as the YAML tab, so the unsaved bar, the check, Save, Discard and History work the same way, and the YAML tab always shows the text the canvas made:
+
+- **Add a step**: the round "+" on each connector of the column, and under the last card, opens a step picker in the panel. Search by name or description, move with the arrow keys and press Enter, or click a prompt: the step goes in at that place with `uses: prompts/<name>.md` and, under `with`, each input the prompt requires (`${{ inputs.<name> }}` when the workflow declares an input of that name, else `""`, which the check reports until you set it). Escape or Close leaves the picker. A project's workflow lists that project's prompts first, then the global ones it does not replace.
+- **Move or remove a step**: the "…" menu at the top right of a step card has Move up, Move down and Remove step.
+- **Edit a step**: select its card. The panel shows its keys as fields labelled as in the file: Change (another prompt: the `with` keys it declares are kept, its required inputs added, the others removed), `runs-on`, `model`, one field per input of its prompt under `with`, `matrix` (a key and its values, one per line), `on-fail` with its own inputs, `on-fail.model` and `tries`. Choosing the first option of a select ("Workflow's", "Prompt's", None) removes the key. Selecting an on-fail card opens its step's panel at `on-fail`.
+- **Edit the workflow**: with no card or the Inputs card selected, the panel edits `description`, `runs-on`, `default` and the inputs (Add input, rename, `type`, `description`, `required`, `default`, remove). An empty name, or one another input has, is not written.
+- Each error stands under the field it names, or in the panel's alert.
+- Undo and Redo in the canvas toolbar (or Ctrl or Cmd and Z on the YAML tab) undo the canvas's edits and the YAML tab's alike; the keystrokes typed in one field undo together.
+- Each edit writes the whole file again with the `yaml` package: values and comments are kept (a comment goes with the step or key it belongs to when that is removed), and so are blank lines and the quoting of each value. The layout may change on lines you did not touch, the values staying the same: a `>-` text is written on one line, indentation becomes two spaces, a comment on the line of a key whose value is a block moves to the next line, and a final line break is added.
+- A value a field cannot show (a `tries` out of 1 to 10, a list where text is expected, a matrix that is not one key with a list of strings) leaves that field disabled: edit it on the YAML tab. A file that uses YAML anchors is drawn read-only, and a file that cannot be drawn is fixed on the YAML tab.
+
 ### Creating a file
 
 The Workflows page's "New workflow" button and the Prompts page's "New prompt" open one dialog:
