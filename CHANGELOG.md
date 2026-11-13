@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.18.0](https://github.com/pixelfactoryio/theway/compare/v0.17.0...v0.18.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* keep a change's state in change.yaml and remove the dashboard ([#94](https://github.com/pixelfactoryio/theway/issues/94))
+* add the dashboard and replace the workflow language with theway.workflow/v1beta ([#92](https://github.com/pixelfactoryio/theway/issues/92))
+
+### Features
+
+* add the dashboard and replace the workflow language with theway.workflow/v1beta ([#92](https://github.com/pixelfactoryio/theway/issues/92)) ([4c2045f](https://github.com/pixelfactoryio/theway/commit/4c2045fb57172f41e91689619ef7706b6cd61dd4))
+* **dashboard:** add theway dashboard ([#98](https://github.com/pixelfactoryio/theway/issues/98)) ([4fff300](https://github.com/pixelfactoryio/theway/commit/4fff30088e44578a9b113988ba2ea89e2a28500c))
+* keep a change's state in change.yaml and remove the dashboard ([#94](https://github.com/pixelfactoryio/theway/issues/94)) ([149917b](https://github.com/pixelfactoryio/theway/commit/149917b98ca897e5b6de4f5b30bcbdc43eb6e581))
+
 ## [0.17.0](https://github.com/pixelfactoryio/theway/compare/v0.16.0...v0.17.0) (2026-11-06)
 
 
