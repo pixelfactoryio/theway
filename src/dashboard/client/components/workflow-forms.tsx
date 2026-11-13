@@ -473,9 +473,9 @@ export function StepEditPanel({
                 else if (Number.isInteger(v) && v >= 1 && v <= 10) write((t) => setTries(t, index, v))
               }}
             >
-              <NumberFieldGroup>
+              <NumberFieldGroup aria-invalid={fields.has("tries") || undefined}>
                 <NumberFieldDecrement aria-label="Decrease tries" />
-                <NumberFieldInput />
+                <NumberFieldInput aria-invalid={fields.has("tries") || undefined} />
                 <NumberFieldIncrement aria-label="Increase tries" />
               </NumberFieldGroup>
             </NumberField>
