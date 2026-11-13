@@ -421,11 +421,16 @@ export function WorkflowCanvas({
   }
 
   // Fitted once per mount, once the surface's width has settled the layout (`narrow`); later resizes do not refit.
+  // Panzoom's constructor queues its start pan, an absolute pan to (0, 0), in a `setTimeout`: the fit is queued as a
+  // later timer, which runs after it, so that pan cannot undo the fit.
   const fitted = useRef(false)
   useEffect(() => {
     if (width === null || fitted.current) return
-    fitted.current = true
-    fit()
+    const timer = setTimeout(() => {
+      fitted.current = true
+      fit()
+    })
+    return () => clearTimeout(timer)
   }, [width])
 
   // A placeholder card that appears out of view is panned in: 96px above the bottom edge, or 16px under the top edge.
