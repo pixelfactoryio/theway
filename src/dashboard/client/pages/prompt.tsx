@@ -178,7 +178,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     <>
       <TopBar
         items={crumbs}
-        actions={<PanelToggle x={history ? "versions" : "details"} open={open} onOpenChange={setOpen} />}
+        actions={<PanelToggle page={history ? "history" : "prompt"} open={open} onOpenChange={setOpen} />}
       />
       <PageBody>
         <RecordTabs

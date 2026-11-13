@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { byLabel, changesPath, currentKey, type Project } from "../src/dashboard/client/lib/projects";
 import { locationAction } from "../src/dashboard/client/lib/location";
+import { panelToggleLabel } from "../src/dashboard/client/lib/panel";
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll";
 import { dataTheme, themeOf } from "../src/dashboard/client/lib/theme";
 
@@ -192,6 +193,12 @@ test("the router takes its own navigation, each Back or Forward once, with or wi
   expect(guard).toContain('addEventListener("hashchange", onLocationEvent)');
   const scroll = readFileSync(join(CLIENT, "shell", "scroll.tsx"), "utf-8");
   expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/);
+});
+
+test("the panel toggle names each page's panel by the design's word", () => {
+  expect([panelToggleLabel("change", true), panelToggleLabel("prompt", false)]).toEqual(["Hide details", "Show details"]);
+  expect([panelToggleLabel("workflow", true), panelToggleLabel("workflow", false)]).toEqual(["Hide settings", "Show settings"]);
+  expect([panelToggleLabel("history", true), panelToggleLabel("history", false)]).toEqual(["Hide versions", "Show versions"]);
 });
 
 test("the lint gutter's error mark is a destructive dot drawn in CSS, with no image", () => {

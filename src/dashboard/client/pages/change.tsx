@@ -286,7 +286,7 @@ function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string;
   const file = data.files.find((f) => f.name === current.file)
   return (
     <>
-      <TopBar items={crumbs} heading={false} actions={<PanelToggle x="details" open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} heading={false} actions={<PanelToggle page="change" open={open} onOpenChange={setOpen} />} />
       <PageBody>
         <RecordBody name="Change details" open={open} onOpenChange={setOpen} panel={<ChangePanel projectKey={projectKey} change={data} />}>
           <Header change={data} column edit={null} />
@@ -836,7 +836,7 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
 
   return (
     <>
-      <TopBar items={crumbs} heading={false} actions={editingView ? undefined : <PanelToggle x="details" open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} heading={false} actions={editingView ? undefined : <PanelToggle page="change" open={open} onOpenChange={setOpen} />} />
       <PageBody>
         {editingView ? (
           <div className="flex min-h-0 flex-1 flex-col">{body}</div>

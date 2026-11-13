@@ -417,7 +417,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle x={history ? "versions" : "details"} open={open} onOpenChange={setOpen} />} />
+      <TopBar items={crumbs} actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />} />
       <PageBody>
         <RecordTabs
           column={false}
