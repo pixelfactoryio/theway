@@ -8,7 +8,10 @@ import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/app.js.txt" with { type: "text" };
 import inter from "./generated/inter.woff2.txt" with { type: "text" };
 import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" };
-import { projects } from "./projects";
+import { activeIds } from "../core/list";
+import { projectDir } from "../core/project";
+import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
+import { projectKeys, projects } from "./projects";
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
 type Env = { Variables: { secureHeadersNonce?: string } };
@@ -97,6 +100,29 @@ export function createApp(home: string, port: () => number, startKey: string, to
   app.get("/api/projects", () => {
     const list = projects(home);
     return json(200, { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null });
+  });
+
+  // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names listed on disk before it is
+  // joined into a path.
+  const projectOf = (key: string): string | null => (projectKeys(home).includes(key) ? projectDir(home, key) : null);
+  app.get("/api/projects/:key/changes", (c) => {
+    const dir = projectOf(c.req.param("key"));
+    if (dir === null) return json(404, { error: "unknown project" });
+    return json(200, listChanges(dir));
+  });
+  app.get("/api/projects/:key/changes/archive/:dir", (c) => {
+    const dir = projectOf(c.req.param("key"));
+    if (dir === null) return json(404, { error: "unknown project" });
+    const archive = c.req.param("dir");
+    if (!listedArchiveDirs(dir).includes(archive)) return json(404, { error: "unknown archive folder" });
+    return json(200, changeDetail(dir, archive.slice(11), archive));
+  });
+  app.get("/api/projects/:key/changes/:id", (c) => {
+    const dir = projectOf(c.req.param("key"));
+    if (dir === null) return json(404, { error: "unknown project" });
+    const id = c.req.param("id");
+    if (!activeIds(dir).includes(id)) return json(404, { error: "unknown change" });
+    return json(200, changeDetail(dir, id));
   });
 
   app.notFound(() => json(404, { error: "not found" }));
