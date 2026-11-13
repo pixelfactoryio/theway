@@ -58,3 +58,20 @@ export function StatusIcon({ status }: { status: Status }) {
     </Tooltip>
   )
 }
+
+/** The series' `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`), the first line in its tooltip. */
+export function ErrorsBadge({ errors }: { errors: readonly string[] }) {
+  const badge = (
+    <Badge variant="destructive-light" className="tabular-nums">
+      <CircleAlertIcon aria-hidden="true" />
+      {errors.length === 1 ? "1 error" : `${errors.length} errors`}
+    </Badge>
+  )
+  if (errors.length === 0) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>{badge}</TooltipTrigger>
+      <TooltipContent className="max-w-md">{errors[0]}</TooltipContent>
+    </Tooltip>
+  )
+}

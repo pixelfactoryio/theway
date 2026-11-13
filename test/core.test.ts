@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { checkChangeText } from "../src/core/change-text";
 import { removeIfEmpty } from "../src/core/io";
 import { changeIdReason } from "../src/core/path";
 import { projectReason } from "../src/core/project";
@@ -105,6 +106,16 @@ test("change prints one error line per broken rule and exits 1 with nothing on s
   }
 });
 
+/** The comments of a YAML text, in order: each `#` that starts a line or follows a blank, to its line's end. */
+const commentsOf = (text: string): string[] => [...text.matchAll(/(?:^|[ \t])(#[^\r\n]*)/gm)].map((m) => (m[1] as string).trimEnd());
+
+/** The tasks a `change.yaml` text holds, as `checkChangeText` reads them. */
+function tasksOf(text: string): { text: string; done: boolean }[] {
+  const c = checkChangeText(text);
+  if ("issues" in c) throw new Error(c.issues.join("; "));
+  return c.change.tasks;
+}
+
 test("task done ticks the named tasks, keeps the rest of the file's text and refuses an unknown number without writing", () => {
   const dir = home();
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
@@ -127,13 +138,16 @@ tasks:
 
   const res = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
   expect([res.status, res.stdout, res.stderr]).toEqual([0, "2/3 tasks done\n", ""]);
-  expect(readFileSync(file, "utf-8")).toBe(
-    text
-      .replace("header\n", "header\n    done: true\n")
-      .replace('"Keep the bucket in memory"\n', '"Keep the bucket in memory"\n    done: true\n'),
-  );
+  const after = readFileSync(file, "utf-8");
+  expect(tasksOf(after)).toEqual([
+    { text: long, done: false },
+    { text: "Answer 429 with a `Retry-After` header", done: true },
+    { text: "Keep the bucket in memory", done: true },
+  ]);
+  expect(commentsOf(after)).toEqual(commentsOf(text));
   const again = run(dir, "task", "done", "--project", "p", "add-x", "2", "3");
   expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"]);
+  expect(readFileSync(file, "utf-8")).toBe(after);
 
   const styles = `version: theway.change/v1beta
 description: Limit requests per API key
@@ -155,14 +169,11 @@ tasks:
   put(file, styles);
   const ticked = run(dir, "task", "done", "--project", "p", "add-x", "1", "4", "5", "6", "7");
   expect([ticked.status, ticked.stdout, ticked.stderr]).toEqual([0, "5/7 tasks done\n", ""]);
-  expect(readFileSync(file, "utf-8")).toBe(
-    styles
-      .replace("second line here\n", "second line here\n    done: true\n")
-      .replace("b   # trailing\n", "b   # trailing\n    done: true\n")
-      .replace("done: false   # not yet", "done: true   # not yet")
-      .replace("{text: d}", "{text: d, done: true}")
-      .replace("at the end of the file", "at the end of the file\n    done: true"),
-  );
+  const styled = readFileSync(file, "utf-8");
+  expect(tasksOf(styled)).toEqual(tasksOf(styles).map((t, i) => ({ ...t, done: [0, 3, 4, 5, 6].includes(i) })));
+  expect(commentsOf(styled)).toEqual(commentsOf(styles));
+  expect(styled).not.toContain("done: false");
+  expect(styled).toContain("{text: d, done: true}");
 
   put(file, "version: x\n");
   const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1");
@@ -222,12 +233,21 @@ test("task done refuses an argument that is not a task number, one line per argu
 test("task done ends the inserted line as the line it follows", () => {
   const dir = home();
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml");
-  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n  - text: two\r\n");
+  const text = "version: theway.change/v1beta\r\n# why\r\ndescription: x\r\ntasks:\r\n  # first\r\n  - text: one # one\r\n  - text: two\r\n";
+  put(file, text);
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
-  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true\r\n  - text: two\r\n");
+  const after = readFileSync(file, "utf-8");
+  expect(tasksOf(after)).toEqual([
+    { text: "one", done: true },
+    { text: "two", done: false },
+  ]);
+  expect(commentsOf(after)).toEqual(commentsOf(text));
+  expect(after.split("\r\n").every((l) => !l.includes("\n"))).toBe(true);
   put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one");
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0);
-  expect(readFileSync(file, "utf-8")).toBe("version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one\r\n    done: true");
+  const last = readFileSync(file, "utf-8");
+  expect(tasksOf(last)).toEqual([{ text: "one", done: true }]);
+  expect(last.split("\r\n").every((l) => !l.includes("\n"))).toBe(true);
 });
 
 test("task done keeps the file's mode", () => {
@@ -1861,4 +1881,38 @@ test("v1beta: listPromptFiles marks exactly the prompts the workflows use as ste
   const steps = ["branch", "ci", "fix-ci", "fix-review", "fix-spec", "implement", "open-pr", "review", "scaffold", "scaffold-light", "spec-review", "spec-triage", "triage"];
   expect(items.filter((p) => p.step).map((p) => p.name)).toEqual(steps);
   for (const p of items) expect([p.name, p.scope, p.description === null]).toEqual([p.name, "global", !steps.includes(p.name)]);
+});
+
+test("v1beta: the null key reads the global folders only; a key reads as before", async () => {
+  const { dirsOf, fileOf, searched } = await import("../src/core/step-files");
+  const { listPromptFiles, listWorkflowFiles, resolveWorkflowFile } = await import("../src/core/language");
+  const { markedPath } = await import("../src/core/workflow");
+  const dir = fixtureHome();
+  expect(dirsOf(dir, null, "workflows")).toEqual([join(dir, "workflows")]);
+  expect(dirsOf(dir, "p", "prompts")).toEqual([join(dir, "projects", "p", "prompts"), join(dir, "prompts")]);
+  expect(searched(dir, null, "prompts")).toBe(join(dir, "prompts"));
+  const own = join(dir, "projects", "p", "workflows", "agents.yaml");
+  put(own, readFileSync(join(dir, "workflows", "agents.yaml"), "utf-8").replace(/^description: .*$/m, "description: Own"));
+  put(join(dir, "projects", "p", "prompts", "own-only.md"), "# Own\n");
+  expect(fileOf(dir, null, "workflows", "agents")).toBe(join(dir, "workflows", "agents.yaml"));
+  expect(fileOf(dir, "p", "workflows", "agents")).toBe(own);
+
+  const global = listWorkflowFiles(dir, null, () => undefined);
+  expect(global.map((w) => [w.name, w.scope, w.description === "Own"])).toEqual([
+    ["agents", "global", false],
+    ["develop", "global", false],
+    ["engineering", "global", false],
+    ["engineering-light", "global", false],
+  ]);
+  expect(global[0]?.doc?.file).toBe(join(dir, "workflows", "agents.yaml"));
+  const mine = listWorkflowFiles(dir, "p", () => undefined);
+  expect(mine.find((w) => w.name === "agents")).toMatchObject({ scope: "project", description: "Own" });
+  expect(listPromptFiles(dir, null).every((p) => p.scope === "global")).toBe(true);
+  expect(listPromptFiles(dir, null).some((p) => p.name === "own-only")).toBe(false);
+  expect(listPromptFiles(dir, "p").find((p) => p.name === "own-only")?.scope).toBe("project");
+
+  expect(resolveWorkflowFile(dir, null, "nope", {})).toEqual({ errors: [`workflows/nope.yaml: not found in ${join(dir, "workflows")}`] });
+  expect(markedPath(null, { name: "agents", scope: "global" })).toBe("workflows/agents.yaml");
+  expect(markedPath("p", { name: "agents", scope: "global" })).toBe("workflows/agents.yaml");
+  expect(markedPath("p", { name: "agents", scope: "project" })).toBe("projects/p/workflows/agents.yaml");
 });

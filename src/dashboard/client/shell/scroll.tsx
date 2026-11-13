@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 
 import { addressOf, ScrollMemory } from "@/lib/scroll"
+import { onAccept } from "@/shell/guard"
 
 const memory = new ScrollMemory()
 
@@ -16,7 +17,7 @@ function scrollRoot(): HTMLElement | null {
 
 /**
  * Keeps the scroll root's offset per address as it scrolls, puts it back on Back and Forward once the root exists and
- * no query is fetching, and starts it at 0 on any other navigation.
+ * no query is fetching, and starts it at 0 on any other navigation; both as the router takes the new address.
  */
 export function useScrollMemory(): void {
   const queryClient = useQueryClient()
@@ -24,10 +25,6 @@ export function useScrollMemory(): void {
   useEffect(() => {
     let frame = 0
     let reset = false
-    let hash = location.hash
-    // The router re-renders on `hashchange`, which the browser queues after `popstate`: until it fires, the mounted
-    // scroll root is still the previous page's.
-    let awaitingHashchange = false
 
     const settle = () => {
       frame = 0
@@ -39,7 +36,7 @@ export function useScrollMemory(): void {
         return
       }
       const pending = memory.pending
-      if (pending === null || awaitingHashchange || pending.address !== address()) return
+      if (pending === null || pending.address !== address()) return
       if (root === null || queryClient.isFetching() > 0) return
       root.scrollTop = pending.top
       memory.pending = null
@@ -53,40 +50,25 @@ export function useScrollMemory(): void {
       if (root === null || event.target !== root || memory.pending !== null || reset) return
       memory.save(address(), root.scrollTop)
     }
-    const onPopstate = () => {
-      memory.navigate(address(), true)
-      reset = false
-      awaitingHashchange = location.hash !== hash
-      hash = location.hash
-      schedule()
-    }
-    const onHashchange = () => {
-      hash = location.hash
-      // Back and Forward fire `popstate` first; its restore is pending for this address and waits for this event.
-      if (memory.pending !== null && memory.pending.address === address()) {
-        awaitingHashchange = false
-        schedule()
-        return
-      }
-      awaitingHashchange = false
-      memory.navigate(address(), false)
-      reset = true
+    // The router takes each new address before it renders it: Back and Forward (with or without a search part) make
+    // the restore of that address pending, any other navigation starts at 0.
+    const onAddress = (traversal: boolean) => {
+      memory.navigate(address(), traversal)
+      reset = !traversal
       schedule()
     }
 
     const observer = new MutationObserver(schedule)
     observer.observe(document.body, { childList: true, subtree: true })
     const unsubscribe = queryClient.getQueryCache().subscribe(schedule)
+    const stop = onAccept(onAddress)
     document.addEventListener("scroll", onScroll, true)
-    window.addEventListener("popstate", onPopstate)
-    window.addEventListener("hashchange", onHashchange)
     return () => {
       if (frame !== 0) cancelAnimationFrame(frame)
       observer.disconnect()
       unsubscribe()
+      stop()
       document.removeEventListener("scroll", onScroll, true)
-      window.removeEventListener("popstate", onPopstate)
-      window.removeEventListener("hashchange", onHashchange)
     }
   }, [queryClient])
 }

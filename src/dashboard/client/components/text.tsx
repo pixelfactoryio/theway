@@ -7,7 +7,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { inlineCode } from "@/lib/changes"
 
 /** One line of text, cut with an ellipsis; the full text in a tooltip only while it is cut. */
-export function OneLine({ text, className }: { text: string; className?: string }) {
+export function OneLine({
+  text,
+  className,
+  tooltipClassName = "max-w-md",
+}: {
+  text: string
+  className?: string
+  tooltipClassName?: string
+}) {
   const ref = useRef<HTMLSpanElement>(null)
   const [cut, setCut] = useState(false)
 
@@ -27,7 +35,7 @@ export function OneLine({ text, className }: { text: string; className?: string 
       <TooltipTrigger render={<span ref={ref} className={cn("block min-w-0 truncate", className)} />}>
         {text}
       </TooltipTrigger>
-      <TooltipContent className="max-w-md">{text}</TooltipContent>
+      <TooltipContent className={tooltipClassName}>{text}</TooltipContent>
     </Tooltip>
   )
 }

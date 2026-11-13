@@ -105,8 +105,9 @@ import { MODELS, NAME } from "./schema";
 
 export { MODELS, NAME };
 
-/** `s` with its newlines and carriage returns written as `\n` and `\r`, for an error line. */
-export const escaped = (s: string): string => s.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+import { escaped } from "./text";
+
+export { escaped };
 
 /** Writes `theway: invalid <kind> name '<wanted>'` and returns true when `wanted` is given and not a name. */
 export function invalidName(kind: string, wanted: string | undefined): boolean {

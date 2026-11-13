@@ -1,8 +1,10 @@
 /** The changes of a project as the dashboard reads them: `GET /api/projects/:key/changes` and one change's page. */
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
 import { CHANGE_FILE, type ChangeTask, checkChange } from "../core/change";
+import { changeStatus } from "../core/change-text";
 import { isFile } from "../core/io";
 import { activeIds, archiveDirs } from "../core/list";
 
@@ -44,7 +46,10 @@ export type ChangeDetail = {
   issues: string[];
   tasks: ChangeTask[];
   folder: string;
-  files: { name: string; text: string }[];
+  /** Each file's `version` on an active change only. */
+  files: { name: string; text: string; version?: string }[];
+  /** On an active change only: its `change.yaml`, `null` when it has none. */
+  changeFile?: { text: string; version: string } | null;
   series: { id: string; members: SeriesMember[] } | null;
 };
 
@@ -62,21 +67,24 @@ const changesDir = (projectDir: string): string => join(projectDir, "changes");
 /** The archive folders of a project the list route lists, oldest first. */
 export const listedArchiveDirs = (projectDir: string): string[] => archiveDirs(projectDir).filter((d) => ARCHIVE_DIR.test(d));
 
-/** The state of a change folder read through `checkChange`: its description, tasks, counts and issues. */
-function readState(dir: string): { description: string | null; tasks: ChangeTask[]; done: number; total: number; issues: string[] } {
+/** The state of a change folder read through `checkChange`: its status, description, tasks, counts and issues. */
+function readState(dir: string): {
+  status: ActiveRow["status"];
+  description: string | null;
+  tasks: ChangeTask[];
+  done: number;
+  total: number;
+  issues: string[];
+} {
   const c = checkChange(dir);
-  if ("issues" in c) return { description: null, tasks: [], done: 0, total: 0, issues: c.issues };
+  const status = changeStatus(c);
+  if ("issues" in c) return { status, description: null, tasks: [], done: 0, total: 0, issues: c.issues };
   const done = c.change.tasks.filter((t) => t.done).length;
-  return { description: c.change.description, tasks: c.change.tasks, done, total: c.change.tasks.length, issues: [] };
+  return { status, description: c.change.description, tasks: c.change.tasks, done, total: c.change.tasks.length, issues: [] };
 }
 
-/** The status of an active change from its issues and counts. */
-export function statusOf(issues: string[], done: number, total: number): ActiveRow["status"] {
-  if (issues.length > 0) return "invalid";
-  if (total > 0 && done === total) return "ready";
-  if (done === 0) return "not-started";
-  return "in-progress";
-}
+/** The SHA-256 of a file's bytes, as hex: the version a save is made against. */
+export const versionOf = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
 
 /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
 function updatedOf(dir: string): string {
@@ -95,7 +103,7 @@ export function activeRow(projectDir: string, id: string): ActiveRow {
   return {
     id,
     description: s.description,
-    status: statusOf(s.issues, s.done, s.total),
+    status: s.status,
     done: s.done,
     total: s.total,
     issues: s.issues,
@@ -123,8 +131,8 @@ export function tildePath(path: string, home: string = homedir()): string {
   return path.startsWith(`${base}${sep}`) ? `~${path.slice(base.length)}` : path;
 }
 
-/** The Markdown files directly in `dir`: `spec.md`, `design.md`, `notes.md` when present, then the others by name. */
-function markdownFiles(dir: string): { name: string; text: string }[] {
+/** The names of the Markdown files directly in `dir`: `spec.md`, `design.md`, `notes.md` when present, then the others by name. */
+export function markdownNames(dir: string): string[] {
   let names: string[];
   try {
     names = readdirSync(dir).filter((n) => n.endsWith(".md") && !n.startsWith(".") && isFile(join(dir, n)));
@@ -133,12 +141,24 @@ function markdownFiles(dir: string): { name: string; text: string }[] {
   }
   const first = FIRST.filter((n) => names.includes(n));
   const rest = names.filter((n) => !FIRST.includes(n)).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
-  return [...first, ...rest].flatMap((name) => {
-    try {
-      return [{ name, text: readFileSync(join(dir, name), "utf-8") }];
-    } catch {
-      return [];
-    }
+  return [...first, ...rest];
+}
+
+/** A file's text and version, `null` when it cannot be read. */
+function readVersioned(path: string): { text: string; version: string } | null {
+  try {
+    const bytes = readFileSync(path);
+    return { text: bytes.toString("utf-8"), version: versionOf(bytes) };
+  } catch {
+    return null;
+  }
+}
+
+/** The Markdown files of `markdownNames`, each with its text and version. */
+function markdownFiles(dir: string): { name: string; text: string; version: string }[] {
+  return markdownNames(dir).flatMap((name) => {
+    const read = readVersioned(join(dir, name));
+    return read === null ? [] : [{ name, ...read }];
   });
 }
 
@@ -191,13 +211,14 @@ export function changeDetail(projectDir: string, id: string, archiveDir: string 
     id,
     archived: archiveDir === null ? null : archiveDir.slice(0, 10),
     description: s.description,
-    status: archiveDir === null ? statusOf(s.issues, s.done, s.total) : "archived",
+    status: archiveDir === null ? s.status : "archived",
     done: s.done,
     total: s.total,
     issues: s.issues,
     tasks: s.tasks,
     folder: tildePath(dir, home),
-    files: markdownFiles(dir),
+    files: archiveDir === null ? markdownFiles(dir) : markdownFiles(dir).map(({ name, text }) => ({ name, text })),
+    ...(archiveDir === null ? { changeFile: isFile(join(dir, CHANGE_FILE)) ? readVersioned(join(dir, CHANGE_FILE)) : null } : {}),
     series: seriesOf(projectDir, id),
   };
 }

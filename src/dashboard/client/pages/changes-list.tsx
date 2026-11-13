@@ -34,11 +34,15 @@ import {
   type ChangesQuery,
   countText,
   localDate,
+  keepSeriesOpen,
   PAGE_SIZES,
   parseQuery,
   queryString,
   rowStatus,
+  SERIES_CLOSED,
+  type SeriesExpansion,
   shownPage,
+  shownSeriesOpen,
   type SortColumn,
   sortRows,
   STATUS_LABEL,
@@ -63,16 +67,16 @@ function useChangesQuery(key: string): [ChangesQuery, (next: ChangesQuery, repla
   return [query, set]
 }
 
-const cellSkeleton = (width: string): ReactNode => <Skeleton className={`h-5 ${width}`} />
+export const cellSkeleton = (width: string): ReactNode => <Skeleton className={`h-5 ${width}`} />
 
-const EDGES = { edgeCell: "first:ps-4 last:pe-4" }
+export const EDGES = { edgeCell: "first:ps-4 last:pe-4" }
 const LAYOUT = { headerSticky: true, headerBackground: false }
 
 /**
  * A grid's scroll root: the grid container, its scroll viewport padded by the header row's height. The scroll area's
  * own wrapper is made a flex column so the area takes the height left and its viewport scrolls under the header row.
  */
-function GridFrame({ children }: { children: ReactNode }) {
+export function GridFrame({ children }: { children: ReactNode }) {
   return (
     <div data-scroll-root className="flex min-h-0 flex-1 flex-col [&>div]:flex [&>div]:min-h-0 [&>div]:flex-1 [&>div]:flex-col">
       {children}
@@ -80,17 +84,26 @@ function GridFrame({ children }: { children: ReactNode }) {
   )
 }
 
-const SCROLL_AREA = "min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:scroll-pt-10"
+export const SCROLL_AREA = "min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:scroll-pt-10"
 
-function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+/** A table's search field: `label` is its placeholder and accessible name. */
+export function SearchField({
+  value,
+  onChange,
+  label = "Search changes",
+}: {
+  value: string
+  onChange: (value: string) => void
+  label?: string
+}) {
   return (
     <InputGroup className="w-full sm:w-64">
       <InputGroupAddon align="inline-start">
         <SearchIcon aria-hidden="true" />
       </InputGroupAddon>
       <InputGroupInput
-        placeholder="Search changes"
-        aria-label="Search changes"
+        placeholder={label}
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -191,16 +204,11 @@ function ActiveGrid({
 }) {
   const [, navigate] = useLocation()
   const [sorting, setSorting] = useState<SortingState>([])
-  // Series rows start closed, or open while a search or a filter narrows the view.
-  const [expansion, setExpansion] = useState<{ key: string; expanded: ExpandedState }>({ key: "", expanded: {} })
-  const expanded: ExpandedState =
-    expansion.key === narrowed
-      ? expansion.expanded
-      : narrowed === ""
-        ? {}
-        : Object.fromEntries(rows.filter((r) => r.kind === "series").map((r) => [r.id, true]))
+  // Series rows start closed, or open while a search or a filter narrows the view; clearing it shows them as they were.
+  const [expansion, setExpansion] = useState<SeriesExpansion>(SERIES_CLOSED)
+  const expanded: ExpandedState = shownSeriesOpen(expansion, narrowed, rows)
   const setExpanded = (updater: Updater<ExpandedState>) =>
-    setExpansion({ key: narrowed, expanded: typeof updater === "function" ? updater(expanded) : updater })
+    setExpansion((state) => keepSeriesOpen(state, narrowed, typeof updater === "function" ? updater(expanded) : updater))
 
   const sort = sorting[0]
   const data = useMemo(
@@ -310,6 +318,8 @@ function ActiveGrid({
     manualSorting: true,
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
+    // A new set of rows (a search, a filter) keeps the open series; the table would close them all.
+    autoResetExpanded: false,
   })
 
   return (
