@@ -11,7 +11,7 @@ import {
   type PromptRow,
   useText,
 } from "../src/dashboard/client/lib/files";
-import { drawWorkflow, findPrompt, isDefaultWorkflow, keyLabel, percent, selectionOf, zoomStep } from "../src/dashboard/client/lib/workflow";
+import { drawWorkflow, findPrompt, fitScale, isDefaultWorkflow, keyLabel, percent, selectionOf, zoomStep } from "../src/dashboard/client/lib/workflow";
 
 const prompt = (name: string, project: string | null, description: string | null, model: string | null = null): PromptRow => ({
   name,
@@ -192,6 +192,10 @@ test("the prompt of a step is its project's own, else the global one; zoom steps
   expect(findPrompt(PROMPTS, null, "nope")).toBeNull();
   expect([zoomStep(1, 0.1), zoomStep(0.5, -0.1), zoomStep(1.95, 0.1), zoomStep(0.73, -0.1)]).toEqual([1.1, 0.5, 2, 0.6]);
   expect([percent(1), percent(0.734), percent(2)]).toEqual(["100%", "73%", "200%"]);
+});
+
+test("fitScale fits a drawing between 50% and 100%", () => {
+  expect([fitScale(552, 610), fitScale(934, 610), fitScale(2000, 610), fitScale(100, 70)]).toEqual([1, 0.6, 0.5, 0.7]);
 });
 
 test("a YAML key's label turns every - and . into a space and upper-cases its first letter", () => {

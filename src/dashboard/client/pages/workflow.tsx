@@ -470,7 +470,14 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           ) : "reason" in drawn ? (
             <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
           ) : (
-            <WorkflowCanvas drawing={drawn.drawing} selection={kept} onSelect={select} store={draft.store} edits={edits} />
+            <WorkflowCanvas
+              key={`${project ?? "global"}/${name}`}
+              drawing={drawn.drawing}
+              selection={kept}
+              onSelect={select}
+              store={draft.store}
+              edits={edits}
+            />
           )}
         </RecordBody>
       </PageBody>
