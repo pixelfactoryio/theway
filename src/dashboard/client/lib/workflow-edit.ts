@@ -736,7 +736,8 @@ export function contextPrompts(prompts: readonly PromptRow[], project: string | 
   const byName = (a: PromptRow, b: PromptRow) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   const steps = prompts.filter((p) => p.header);
   const own = project === null ? [] : steps.filter((p) => p.project === project).sort(byName);
-  const hidden = new Set(own.map((p) => p.name));
+  // Every project prompt hides the global one of its name, step prompt or not: `prompts/<name>.md` resolves to it.
+  const hidden = new Set(project === null ? [] : prompts.filter((p) => p.project === project).map((p) => p.name));
   const global = steps.filter((p) => p.project === null && !hidden.has(p.name)).sort(byName);
   return { own, global };
 }

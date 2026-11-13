@@ -436,3 +436,15 @@ test("the picker lists the project's own step prompts then the global ones it do
   expect(pickerGroups(rows, "-p", "REV").own.map((p) => p.description)).toEqual(["Own review"]);
   expect(stepPromptNames(rows, "-p")).toEqual(["alpha", "review", "zeta"]);
 });
+
+test("a project prompt that is not a step prompt hides the global step prompt of its name", () => {
+  const rows: PromptRow[] = [
+    prompt("alpha", [], null, "Global alpha"),
+    prompt("zeta", [], null, "Global zeta"),
+    { ...prompt("alpha", [], "-p", "Own notes"), header: false },
+  ];
+  expect(pickerGroups(rows, "-p", "").own).toEqual([]);
+  expect(pickerGroups(rows, "-p", "").global.map((p) => p.name)).toEqual(["zeta"]);
+  expect(stepPromptNames(rows, "-p")).toEqual(["zeta"]);
+  expect(stepPromptNames(rows, null)).toEqual(["alpha", "zeta"]);
+});

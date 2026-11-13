@@ -258,7 +258,9 @@ function WithFields({
     <>
       {prompt.inputs.map((input) => {
         const id = `${idPrefix}-${input.name}`
-        const v = form.editable ? (form.values.get(input.name) ?? "") : null
+        // A key that is absent is an empty field; a map or a list (null) is disabled.
+        const held = form.editable ? form.values.get(input.name) : null
+        const v = held === undefined ? "" : held
         const errors = lines.get(`${labelPrefix}${input.name}`)
         return (
           <Field key={input.name}>
@@ -425,8 +427,8 @@ export function StepEditPanel({
             first="None"
             options={stepPromptNames(prompts, project).map((p) => ({ value: p, label: p }))}
             onChange={(v) => {
-              const p = v === null ? null : findPrompt(prompts.filter((r) => r.header), project, v)
-              if (v !== null && p === null) return
+              const p = v === null ? null : findPrompt(prompts, project, v)
+              if (v !== null && (p === null || !p.header)) return
               write((t) => setOnFail(t, index, p))
             }}
           />

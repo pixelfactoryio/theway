@@ -246,7 +246,8 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   const [picker, setPicker] = useState<Picker | null>(null)
   const anchors = useMemo(() => text !== null && hasAnchors(text), [text])
-  const editable = drawing !== null && !anchors
+  // Only the Editor tab edits: the YAML tab keeps the read-only panel.
+  const editable = drawing !== null && !anchors && !yamlTab && !history
 
   const select = useCallback(
     (next: Selection | null) => {
