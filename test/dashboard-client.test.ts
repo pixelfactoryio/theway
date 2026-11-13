@@ -110,12 +110,17 @@ const ADDED: Record<string, string> = {
   "@panzoom/panzoom": "4.6.2",
   diff: "9.0.0",
   "@codemirror/merge": "6.12.3",
+  "@dnd-kit/core": "6.3.1",
+  "@dnd-kit/sortable": "10.0.0",
+  "@dnd-kit/utilities": "3.2.2",
 };
 
 test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {
   expect(Object.keys(pkg.dependencies ?? {})).toEqual([]);
   // The code view builds its own extension set: no `codemirror` package, so no `basicSetup`.
   expect(pkg.devDependencies.codemirror).toBeUndefined();
+  // `sortable` imports no modifiers.
+  expect(pkg.devDependencies["@dnd-kit/modifiers"]).toBeUndefined();
   for (const [name, version] of Object.entries(ADDED)) expect([name, pkg.devDependencies[name]]).toEqual([name, version]);
   // Every other devDependency predates the dashboard.
   const others = Object.keys(pkg.devDependencies).filter((n) => !(n in ADDED));
@@ -127,7 +132,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
     .filter((f) => /\.(tsx?|css)$/.test(f))
     .map((f) => readFileSync(f, "utf-8"))
     .join("\n");
-  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography", "@codemirror/state", "@codemirror/view", "@codemirror/language", "@codemirror/commands", "@codemirror/search", "@codemirror/lang-yaml", "@codemirror/lang-markdown", "@codemirror/lint", "@lezer/highlight", "@panzoom/panzoom", "@codemirror/merge"]) {
+  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography", "@codemirror/state", "@codemirror/view", "@codemirror/language", "@codemirror/commands", "@codemirror/search", "@codemirror/lang-yaml", "@codemirror/lang-markdown", "@codemirror/lint", "@lezer/highlight", "@panzoom/panzoom", "@codemirror/merge", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"]) {
     expect([name, new RegExp(`["']${name.replace("/", "\\/")}(?:/[^"']*)?["']`).test(sources)]).toEqual([name, true]);
   }
 });

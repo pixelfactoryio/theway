@@ -1,13 +1,11 @@
 import { useSyncExternalStore } from "react"
 import { navigate as hashNavigate, useHashLocation } from "wouter/use-hash-location"
 
-import { type FilePageId, leavesPage } from "@/lib/edit"
-
 /**
- * The page holding unsaved changes: its file, whether it has unsaved changes now, and how it asks before leaving
- * (`proceed` leaves).
+ * The page holding unsaved changes: whether an address path leaves it, whether it has unsaved changes now, and how it
+ * asks before leaving (`proceed` leaves).
  */
-export type LeaveGuard = { page: FilePageId; isDirty: () => boolean; ask: (proceed: () => void) => void }
+export type LeaveGuard = { leaves: (target: string) => boolean; isDirty: () => boolean; ask: (proceed: () => void) => void }
 
 let guard: LeaveGuard | null = null
 
@@ -34,7 +32,7 @@ function accept(): void {
   for (const l of listeners) l()
 }
 
-const blocks = (target: string): boolean => guard !== null && guard.isDirty() && leavesPage(guard.page, target)
+const blocks = (target: string): boolean => guard !== null && guard.isDirty() && guard.leaves(target)
 
 /** wouter's hash navigation, its `hashchange` taken as this hook's own. */
 function go(to: string, options?: { replace?: boolean; state?: unknown }): void {

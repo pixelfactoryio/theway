@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ComponentProps, type ReactNode } from "react"
+import { Children, createContext, isValidElement, useContext, type ComponentProps, type ReactElement, type ReactNode } from "react"
 import Markdown, { type Components, type ExtraProps } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -8,15 +8,28 @@ import { headingTag, isLinkTarget } from "@/lib/changes"
 /** The first source line of a block, from react-markdown's node position. */
 const line = (props: ExtraProps): number | undefined => props.node?.position?.start.line
 
-/** A GFM task item's box: the shipped checkbox, read-only. */
-function TaskBox({ checked }: ComponentProps<"input">) {
+/** What ticking a task item's box does: edit the source line `line` (from 1); `null` keeps the boxes read-only. */
+const ToggleContext = createContext<((line: number, checked: boolean) => void) | null>(null)
+
+/** A GFM task item's box: the shipped checkbox, enabled when the view takes `onToggle` and the item's line is known. */
+function TaskBox({ checked, line: at }: { checked?: boolean; line?: number }) {
+  const onToggle = useContext(ToggleContext)
   const done = checked === true
-  return <Checkbox checked={done} disabled aria-label={done ? "Done" : "Not done"} className="mt-1 shrink-0" />
+  const enabled = onToggle !== null && at !== undefined
+  return (
+    <Checkbox
+      checked={done}
+      disabled={!enabled}
+      onCheckedChange={enabled ? (next) => onToggle(at, next === true) : undefined}
+      aria-label={done ? "Done" : "Not done"}
+      className="mt-1 shrink-0"
+    />
+  )
 }
 
 /** An `input` of the Markdown: GFM's task boxes only. */
 function TaskInput({ node: _node, ...props }: ComponentProps<"input"> & ExtraProps) {
-  return props.type === "checkbox" ? <TaskBox {...props} /> : <input {...props} />
+  return props.type === "checkbox" ? <TaskBox checked={props.checked} /> : <input {...props} />
 }
 
 function heading(depth: number) {
@@ -43,9 +56,10 @@ function ListItem({ node, children, className, ...props }: ComponentProps<"li"> 
   const items = Children.toArray(children)
   const box = items.findIndex((c) => isValidElement(c) && c.type === TaskInput)
   const content: ReactNode[] = box === -1 ? items : items.filter((_, i) => i !== box)
+  const boxElement = items[box] as ReactElement<{ checked?: boolean }> | undefined
   return (
     <li {...props} className="flex list-none items-start gap-2" data-line={line({ node })}>
-      {box === -1 ? null : items[box]}
+      {boxElement === undefined ? null : <TaskBox checked={boxElement.props.checked} line={line({ node })} />}
       <div className="min-w-0 flex-1">{content}</div>
     </li>
   )
@@ -83,13 +97,18 @@ const PROSE = [
   "prose-code:before:content-none prose-code:after:content-none",
 ].join(" ")
 
-/** A Markdown file, rendered read-only: GFM tables and task lists, raw HTML dropped, headings one level down. */
-export function MarkdownView({ text }: { text: string }) {
+/**
+ * A Markdown file, rendered read-only: GFM tables and task lists, raw HTML dropped, headings one level down. With
+ * `onToggle`, a task item's box can be ticked, and gives the item's first source line.
+ */
+export function MarkdownView({ text, onToggle = null }: { text: string; onToggle?: ((line: number, checked: boolean) => void) | null }) {
   return (
-    <div className={PROSE}>
-      <Markdown remarkPlugins={[remarkGfm]} skipHtml components={COMPONENTS}>
-        {text}
-      </Markdown>
-    </div>
+    <ToggleContext.Provider value={onToggle}>
+      <div className={PROSE}>
+        <Markdown remarkPlugins={[remarkGfm]} skipHtml components={COMPONENTS}>
+          {text}
+        </Markdown>
+      </div>
+    </ToggleContext.Provider>
   )
 }

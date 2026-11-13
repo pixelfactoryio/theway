@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { saveWithErrors } from "@/lib/edit"
+import { leavesPage, saveWithErrors } from "@/lib/edit"
 import { type FileBody, type FileError, fileApi, type PromptRow } from "@/lib/files"
 import { sendJson } from "@/shell/api"
 import { setLeaveGuard } from "@/shell/guard"
@@ -289,7 +289,7 @@ export function useFileDraft({
   useEffect(
     () =>
       setLeaveGuard({
-        page: { kind, project, name },
+        leaves: (target) => leavesPage({ kind, project, name }, target),
         isDirty: () => refs.current.dirty,
         ask: (proceed) => setConfirm({ kind: "leave", proceed }),
       }),

@@ -54,7 +54,10 @@ export type ChangeDetail = {
   issues: string[];
   tasks: ChangeTask[];
   folder: string;
-  files: { name: string; text: string }[];
+  /** Each file's `version` (the SHA-256 of its bytes) on an active change only. */
+  files: { name: string; text: string; version?: string }[];
+  /** On an active change only: its `change.yaml`, `null` when it has none. */
+  changeFile?: { text: string; version: string } | null;
   series: { id: string; members: SeriesMember[] } | null;
 };
 
