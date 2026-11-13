@@ -70,10 +70,13 @@ export function createApp(home: string, port: () => number, startKey: string, to
       strictTransportSecurity: false,
     }),
   );
-  // DNS-rebinding defence: only the loopback names of this server's own port.
+  // DNS-rebinding defence: only the loopback names of this server's own port. On port 80 a browser omits the port
+  // from the Host header (RFC 9110, 7.2), so the bare loopback names pass there, and only there.
   app.use("*", async (c, next) => {
     const host = (c.req.header("host") ?? "").toLowerCase();
-    if (host !== `127.0.0.1:${port()}` && host !== `localhost:${port()}`) {
+    const p = port();
+    const allowed = [`127.0.0.1:${p}`, `localhost:${p}`, ...(p === 80 ? ["127.0.0.1", "localhost"] : [])];
+    if (!allowed.includes(host)) {
       c.res = json(403, { error: "forbidden host" });
       return;
     }

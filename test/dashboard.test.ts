@@ -45,6 +45,18 @@ test("a Host other than 127.0.0.1:<port> or localhost:<port> gets 403 with the p
   expect((await get(home, "/", "localhost:4870")).status).toBe(200);
 });
 
+test("on port 80 a loopback Host with no port is served, a foreign host still gets 403", async () => {
+  const on80 = createApp(temp(), () => 80, "", TOKEN);
+  const at = (host: string) => on80.request(`http://${host}/api/projects`, { headers: { Host: host } });
+  for (const host of ["127.0.0.1", "localhost", "127.0.0.1:80", "localhost:80"]) expect((await at(host)).status).toBe(200);
+  for (const host of ["example.com", "example.com:80"]) {
+    const res = await at(host);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "forbidden host" });
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+  }
+});
+
 test("an unknown path gets 404 not found", async () => {
   const res = await get(temp(), "/nope");
   expect(res.status).toBe(404);
