@@ -589,6 +589,29 @@ A click on a row opens the change's own page:
 - The panel at the right gives the next task, the command to run next (`/theway:workflow <id>`, or `/theway:archive <id>` once all tasks are done), the other members of its series, and its folder. The command and the folder each have a Copy button. From 1024px wide it sits beside the page, can be resized, and the toggle at the top right hides it; the browser remembers its width and whether it is hidden. On a narrower window the toggle opens it over the page.
 - The page is read-only.
 
+### Workflows
+
+The Workflows page lists every workflow file of the home in one table: the global ones (`~/.theway/workflows/`, which apply to all projects) and each project's own (`projects/<key>/workflows/`). The project selector does not change it.
+
+- Each row gives the workflow's name (with a `default` badge for the default one) and description, what it applies to (All projects, or `<project> only`), its number of steps, where its steps run (`agents`, `session` or `mixed`), and its status: Valid, or `N errors` with the first error in a tooltip. A global file is checked with the global folders only; a project's file as that project resolves it.
+- The search keeps the files whose name or description holds the text, and is kept in the address.
+
+A click on a row opens the workflow's page, read-only:
+
+- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; the percentage button returns to 100%. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta` map, cannot be drawn: the tab says why and links to YAML.
+- **YAML** shows the file in a code editor, each error marked on its line. Ctrl or Cmd and F searches.
+- The errors stand in a strip under the tabs; a click on one selects its card on Editor, or puts the cursor on its line on YAML.
+- The panel at the right gives the workflow's description, `runs-on`, `default`, inputs, what it applies to and its file path, or the selected step's keys.
+
+### Prompts
+
+The Prompts page lists every prompt file of the home the same way, with a Kind filter: a Step prompt has a header (even one with errors), a Reference file has none.
+
+- Each row gives the prompt's name and description, what it applies to, its kind, its model, the workflows that use it (as a step, an on-fail, or a value), and its status. A prompt's errors are its header's and those the workflows that use it report about it.
+- The search and the Kind filter are kept in the address.
+
+A click on a row opens the prompt's page, read-only: **Prompt** shows the whole file in the code editor, its header coloured as YAML and its body as Markdown, each error marked on its line; **Preview** renders the body. The panel gives its description, kind, model, inputs, the workflows that use it, what it applies to and its file path.
+
 ## authority
 
 ```bash
