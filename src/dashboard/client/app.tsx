@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChangesRoute, HomeRoute } from "@/pages/changes"
 import { PromptPage } from "@/pages/prompt"
 import { PromptsPage } from "@/pages/prompts-list"
+import { WorkflowPage } from "@/pages/workflow"
 import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
 import { useScrollMemory } from "@/shell/scroll"
@@ -57,6 +58,12 @@ function Routes() {
       </Route>
       <Route path="/workflows">
         <WorkflowsPage />
+      </Route>
+      <Route<{ name: string; tab?: string }> path="/workflows/global/:name/:tab?">
+        {(params) => <WorkflowPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
+      </Route>
+      <Route<{ key: string; name: string; tab?: string }> path="/workflows/projects/:key/:name/:tab?">
+        {(params) => <WorkflowPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
       </Route>
       <Route path="/prompts">
         <PromptsPage />
