@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { WorkflowCanvas } from "@/components/workflow-canvas"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
-import { type Drawing, drawWorkflow, findPrompt, type Selection, selectionOf, type Shown, type StepCard } from "@/lib/workflow"
+import { type Drawing, drawWorkflow, findPrompt, isDefaultWorkflow, type Selection, selectionOf, type Shown, type StepCard } from "@/lib/workflow"
 import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
@@ -203,6 +203,8 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     [data, prompts.data, project]
   )
   const drawing = drawn !== null && "drawing" in drawn ? drawn.drawing : null
+  // From the text, not the drawing: a default file that cannot be drawn still carries its badge.
+  const isDefault = useMemo(() => data !== undefined && isDefaultWorkflow(data.text), [data])
 
   const select = useCallback(
     (next: Selection | null) => {
@@ -293,7 +295,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             ]}
             right={
               <>
-                {drawing?.default === true ? <Badge variant="outline">default</Badge> : null}
+                {isDefault ? <Badge variant="outline">default</Badge> : null}
                 <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
                 <ErrorsBadge errors={data.errors.map((e) => e.text)} />
               </>

@@ -11,7 +11,7 @@ import {
   type PromptRow,
   useText,
 } from "../src/dashboard/client/lib/files";
-import { drawWorkflow, findPrompt, percent, selectionOf, zoomStep } from "../src/dashboard/client/lib/workflow";
+import { drawWorkflow, findPrompt, isDefaultWorkflow, percent, selectionOf, zoomStep } from "../src/dashboard/client/lib/workflow";
 
 const prompt = (name: string, project: string | null, description: string | null, model: string | null = null): PromptRow => ({
   name,
@@ -164,6 +164,19 @@ test("a workflow that does not resolve is still drawn, malformed shapes as the s
   // steps missing or empty: the Inputs card alone.
   const bare = drawWorkflow("version: theway.workflow/v1beta\nsteps: []\n", [], PROMPTS, null);
   expect("drawing" in bare && bare.drawing.steps).toEqual([]);
+  // `steps:` with no value parses as a null scalar: the Inputs card alone too.
+  for (const empty of ["steps:\n", "steps: ~\n", "steps: null\n"]) {
+    const r = drawWorkflow(`version: theway.workflow/v1beta\n${empty}`, ["steps: must be a non-empty list"], PROMPTS, null);
+    expect("drawing" in r && r.drawing.steps).toEqual([]);
+  }
+});
+
+test("a file is the default from its text, whatever its steps", () => {
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: true\nsteps: 5\n")).toBe(true);
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: false\nsteps: []\n")).toBe(false);
+  expect(isDefaultWorkflow("version: theway.workflow/v1\ndefault: true\n")).toBe(false);
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: true\nsteps: [\n")).toBe(false);
+  expect(isDefaultWorkflow("- a\n")).toBe(false);
 });
 
 test("a file that cannot be drawn gives its first line as the reason", () => {

@@ -163,6 +163,16 @@ function splitLines(lines: readonly string[]): { workflow: string[]; step: Map<n
 }
 
 /**
+ * Whether a workflow's text sets the default, as the Workflows table reads it: its YAML parses, its root is a map, its
+ * `version` is `theway.workflow/v1beta` and its `default` is `true`, whatever its `steps`.
+ */
+export function isDefaultWorkflow(text: string): boolean {
+  const doc = parseDocument(text, { logLevel: "silent" });
+  const root = doc.contents;
+  return doc.errors.length === 0 && isMap(root) && str(get(root, "version")) === VERSION && scalar(get(root, "default")) === true;
+}
+
+/**
  * The drawing of a workflow's text, or the reason it cannot be drawn: its YAML does not parse
  * (`parseDocument(text).errors` not empty), its root is not a map, its `version` is not `theway.workflow/v1beta`, or its
  * `steps` is present and not a list. `lines` are the file's check lines (each without its own file's prefix); `prompts`
@@ -180,7 +190,9 @@ export function drawWorkflow(
   const root = doc.contents;
   if (!isMap(root) || str(get(root, "version")) !== VERSION) return { reason: first ?? `version: must be ${VERSION}` };
   const stepsNode = get(root, "steps");
-  if (has(root, "steps") && stepsNode !== null && !isSeq(stepsNode)) return { reason: first ?? "steps: must be a non-empty list" };
+  // `steps:` with no value parses as a null scalar, not a missing value: it draws as empty steps.
+  const emptySteps = stepsNode === null || (isScalar(stepsNode) && stepsNode.value === null);
+  if (has(root, "steps") && !emptySteps && !isSeq(stepsNode)) return { reason: first ?? "steps: must be a non-empty list" };
 
   const split = splitLines(lines);
   const workflowRunsOn = validRunsOn(str(get(root, "runs-on")));
