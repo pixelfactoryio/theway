@@ -181,29 +181,29 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         actions={<PanelToggle x={history ? "versions" : "details"} open={open} onOpenChange={setOpen} />}
       />
       <PageBody>
+        <RecordTabs
+          column={false}
+          label="Prompt views"
+          value={view}
+          tabs={[
+            { value: "prompt", label: "Prompt", href: `${base}?` },
+            { value: "preview", label: "Preview", href: `${base}/preview?` },
+            { value: "history", label: "History", href: `${base}/history?` },
+          ]}
+          right={
+            <>
+              <SavedStatus saved={draft.saved} />
+              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
+              <ErrorsBadge errors={errors.map((e) => e.text)} />
+            </>
+          }
+        />
         <RecordBody
           name={history ? "Versions" : "Details"}
           open={open}
           onOpenChange={setOpen}
           panel={history ? historyTab.panel : <DetailsPanel file={data} row={shownRow} fields={fields} />}
         >
-          <RecordTabs
-            column={false}
-            label="Prompt views"
-            value={view}
-            tabs={[
-              { value: "prompt", label: "Prompt", href: `${base}?` },
-              { value: "preview", label: "Preview", href: `${base}/preview?` },
-              { value: "history", label: "History", href: `${base}/history?` },
-            ]}
-            right={
-              <>
-                <SavedStatus saved={draft.saved} />
-                <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-                <ErrorsBadge errors={errors.map((e) => e.text)} />
-              </>
-            }
-          />
           <DraftNotices draft={draft} lines={lines} history={history} />
           {history ? (
             historyTab.main
