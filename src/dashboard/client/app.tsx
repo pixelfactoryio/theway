@@ -5,7 +5,8 @@ import { useHashLocation } from "wouter/use-hash-location"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChangesRoute, HomeRoute } from "@/pages/changes"
-import { SectionPage } from "@/pages/section"
+import { PromptsPage } from "@/pages/prompts-list"
+import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
 import { useScrollMemory } from "@/shell/scroll"
 
@@ -54,10 +55,10 @@ function Routes() {
         {(params) => <ChangesRoute routeKey={params.key} />}
       </Route>
       <Route path="/workflows">
-        <SectionPage title="Workflows" items={[{ label: "Workflows" }]} />
+        <WorkflowsPage />
       </Route>
       <Route path="/prompts">
-        <SectionPage title="Prompts" items={[{ label: "Prompts" }]} />
+        <PromptsPage />
       </Route>
       <Route>
         <Redirect to="/?" replace />

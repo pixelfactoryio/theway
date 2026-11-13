@@ -15,6 +15,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { changesPath } from "@/lib/projects"
+import { usePrompts, useWorkflows } from "@/shell/files"
 import { useCurrentKey, useProjects } from "@/shell/projects"
 import { ThemeMenu } from "@/shell/theme"
 
@@ -25,14 +26,16 @@ export function AppSidebar() {
   const current = useCurrentKey()
   const projects = useProjects()
   const active = projects.data?.projects.find((p) => p.key === current)?.active
+  const workflows = useWorkflows().data?.workflows.length
+  const prompts = usePrompts().data?.prompts.length
   const changes = current === null ? "/?" : changesPath(current)
   const [onChanges] = useRoute("/:key/changes/*?")
   const [onWorkflows] = useRoute("/workflows/*?")
   const [onPrompts] = useRoute("/prompts/*?")
   const rows = [
     { label: "Changes", href: changes, icon: <ListChecksIcon className="size-4" aria-hidden="true" />, active: onChanges, count: active },
-    { label: "Workflows", href: "/workflows?", icon: <WorkflowIcon className="size-4" aria-hidden="true" />, active: onWorkflows, count: undefined },
-    { label: "Prompts", href: "/prompts?", icon: <FileTextIcon className="size-4" aria-hidden="true" />, active: onPrompts, count: undefined },
+    { label: "Workflows", href: "/workflows?", icon: <WorkflowIcon className="size-4" aria-hidden="true" />, active: onWorkflows, count: workflows },
+    { label: "Prompts", href: "/prompts?", icon: <FileTextIcon className="size-4" aria-hidden="true" />, active: onPrompts, count: prompts },
   ]
 
   return (
