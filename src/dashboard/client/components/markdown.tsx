@@ -1,4 +1,4 @@
-import { Children, createContext, isValidElement, useContext, type ComponentProps, type ReactElement, type ReactNode } from "react"
+import { Children, cloneElement, createContext, isValidElement, useContext, type ComponentProps, type ReactElement, type ReactNode } from "react"
 import Markdown, { type Components, type ExtraProps } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -43,6 +43,26 @@ function heading(depth: number) {
   }
 }
 
+const isBox = (c: ReactNode): c is ReactElement<{ checked?: boolean }> => isValidElement(c) && c.type === TaskInput
+
+/**
+ * A task item's box and the rest of its content. A tight list puts the box among the item's children; a loose one (items
+ * separated by blank lines) puts it first in the item's first paragraph, from which it is taken out.
+ */
+function takeBox(children: ReactNode): { box: ReactElement<{ checked?: boolean }> | undefined; content: ReactNode[] } {
+  const items = Children.toArray(children)
+  const at = items.findIndex(isBox)
+  if (at !== -1) return { box: items[at] as ReactElement<{ checked?: boolean }>, content: items.filter((_, i) => i !== at) }
+  const first = items.findIndex(isValidElement)
+  const paragraph = items[first] as ReactElement<{ children?: ReactNode }> | undefined
+  if (paragraph === undefined) return { box: undefined, content: items }
+  const inner = Children.toArray(paragraph.props.children)
+  const inside = inner.findIndex(isBox)
+  if (inside === -1) return { box: undefined, content: items }
+  const rest = cloneElement(paragraph, undefined, ...inner.filter((_, i) => i !== inside))
+  return { box: inner[inside] as ReactElement<{ checked?: boolean }>, content: items.map((c, i) => (i === first ? rest : c)) }
+}
+
 /** A list item; a GFM task item puts its box before its content, with no bullet. */
 function ListItem({ node, children, className, ...props }: ComponentProps<"li"> & ExtraProps) {
   const task = typeof className === "string" && className.split(" ").includes("task-list-item")
@@ -53,10 +73,7 @@ function ListItem({ node, children, className, ...props }: ComponentProps<"li"> 
       </li>
     )
   }
-  const items = Children.toArray(children)
-  const box = items.findIndex((c) => isValidElement(c) && c.type === TaskInput)
-  const content: ReactNode[] = box === -1 ? items : items.filter((_, i) => i !== box)
-  const boxElement = items[box] as ReactElement<{ checked?: boolean }> | undefined
+  const { box: boxElement, content } = takeBox(children)
   return (
     <li {...props} className="flex list-none items-start gap-2" data-line={line({ node })}>
       {boxElement === undefined ? null : <TaskBox checked={boxElement.props.checked} line={line({ node })} />}
