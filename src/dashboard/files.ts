@@ -300,13 +300,21 @@ export function lineOfPath(text: string, segments: (string | number)[]): number 
   return line;
 }
 
-/** The line of a list item's `-`: the first `-` found going back from the item's start. */
+/** The line of a list item's `-`: the first `-` found going back from the item's start, over whitespace and comments. */
 function dashLine(text: string, counter: LineCounter, item: Node | null, list: Node): number | null {
   const start = item?.range?.[0] ?? list.range?.[0];
   if (start === undefined) return null;
   let i = start - 1;
-  while (i >= 0 && /\s/.test(text[i] as string)) i -= 1;
-  return counter.linePos(text[i] === "-" ? i : start).line;
+  for (;;) {
+    while (i >= 0 && /\s/.test(text[i] as string)) i -= 1;
+    if (i < 0 || text[i] === "-") break;
+    // On a comment's text: go back to before its `#` (at the line's start or after whitespace).
+    const lineStart = text.lastIndexOf("\n", i) + 1;
+    const hash = text.slice(lineStart, i + 1).search(/(?:^|\s)#/);
+    if (hash === -1) break;
+    i = lineStart + hash + (text[lineStart + hash] === "#" ? 0 : 1) - 1;
+  }
+  return counter.linePos(i >= 0 && text[i] === "-" ? i : start).line;
 }
 
 /** The line of the YAML parser's error in `text`, `null` when it parses. */

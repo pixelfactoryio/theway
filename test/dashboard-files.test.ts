@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { lineOfPath } from "../src/dashboard/files";
 import { createApp } from "../src/dashboard/server";
 
 const TOKEN = "ab".repeat(32);
@@ -155,6 +156,12 @@ test("a workflow's lines take their path's line, the nearest present ancestor's,
   put(join(h, "workflows", "bare.yaml"), "version: theway.workflow/v1beta\nruns-on: agents\nsteps:\n  - uses: prompts/review.md\n    model: opus\n");
   const bare = await get(h, "/api/workflows/global/bare");
   expect(bare.body.errors).toEqual([{ text: "description: must be a non-empty string", line: null }]);
+});
+
+test("a list item's line is its `-`, past comments between the `-` and the item", () => {
+  expect(lineOfPath("version: x\nsteps:\n  - # first\n    uses: a\n", ["steps", 0])).toBe(3);
+  expect(lineOfPath("version: x\nsteps:\n  - # one\n    # two\n    uses: a\n", ["steps", 0])).toBe(3);
+  expect(lineOfPath("version: x\nsteps:\n  - uses: a\n  - uses: b\n", ["steps", 1])).toBe(4);
 });
 
 test("GET /api/prompts gives the header, the deduplicated lines and the uses; a reference file has no header", async () => {
