@@ -23,17 +23,36 @@
     "plugin"
   ],
   "scripts": {
-    "build": "bun build src/cli.ts --target=node --outfile dist/theway.js",
-    "typecheck": "tsc --noEmit -p .",
+    "build": "bun scripts/embed-fonts.ts && tailwindcss -i src/dashboard/client/styles/globals.css -o src/dashboard/generated/app.css.txt --minify && bun build src/dashboard/client/main.tsx --target=browser --production --outfile src/dashboard/generated/app.js.txt && bun build src/cli.ts --target=node --outfile dist/theway.js",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p src/dashboard/client",
     "test": "bun test",
     "lint:md": "git ls-files -z '*.md' ':!:CHANGELOG.md' | xargs -0 markdownlint-cli2"
   },
   "devDependencies": {
+    "@base-ui/react": "1.9.0",
     "@clack/prompts": "1.8.1",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "@hono/node-server": "2.1.8",
+    "@tailwindcss/cli": "4.3.5",
+    "@tanstack/react-query": "5.107.1",
     "@types/node": "^22",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "class-variance-authority": "0.7.1",
+    "cmdk": "1.1.1",
+    "cn": "0.5.2",
     "commander": "15.0.0",
+    "hono": "4.13.18",
+    "lucide-react": "1.72.0",
     "markdownlint-cli2": "0.24.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "shadcn": "4.23.0",
+    "tailwindcss": "4.3.5",
+    "tw-animate-css": "1.4.0",
     "typescript": "^5",
+    "wouter": "3.13.0",
     "yaml": "2.9.1"
   }
 }

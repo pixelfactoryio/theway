@@ -23,3 +23,6 @@ node_modules/
 
 # Build
 dist/
+
+# Dashboard assets written by the build
+src/dashboard/generated/
