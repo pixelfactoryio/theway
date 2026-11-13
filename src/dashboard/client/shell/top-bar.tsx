@@ -10,7 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { ProjectSelector } from "@/shell/project-selector"
+import { ProjectSelector, useProjectSelectorEmpty } from "@/shell/project-selector"
 
 /** The site header's slot `TopBar` renders into: `null` until the header is mounted. Provided by the shell. */
 export const TopBarSlot = createContext<HTMLElement | null>(null)
@@ -40,18 +40,21 @@ export function TopBar({
   heading?: boolean
 }) {
   const slot = useContext(TopBarSlot)
+  // An empty selector is left out with its separator, so the breadcrumb never shows a stray "/".
+  const selectorEmpty = useProjectSelectorEmpty()
   if (slot === null) return null
+  const shown = selectorEmpty ? items.filter((item) => !("selector" in item)) : items
 
   return createPortal(
     <>
       <Breadcrumb className="min-w-0">
         <BreadcrumbList className="flex-nowrap">
-          {items.map((item, i) => {
+          {shown.map((item, i) => {
             const hidden = keptOnPhone(item) ? "" : "max-sm:hidden"
             return (
               <Fragment key={i}>
                 {i > 0 ? (
-                  <BreadcrumbSeparator className={keptOnPhone(items[i - 1] as TopBarItem) ? "" : "max-sm:hidden"}>/</BreadcrumbSeparator>
+                  <BreadcrumbSeparator className={keptOnPhone(shown[i - 1] as TopBarItem) ? "" : "max-sm:hidden"}>/</BreadcrumbSeparator>
                 ) : null}
                 <BreadcrumbItem className={`min-w-0 ${hidden}`}>
                   {"selector" in item ? (

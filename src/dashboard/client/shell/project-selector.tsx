@@ -16,6 +16,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { byLabel, changesPath, overviewPath } from "@/lib/projects"
 import { useCurrentKey, useProjects } from "@/shell/projects"
 
+/** Whether the project selector renders nothing: the projects failed to load, or none is the current project. */
+export function useProjectSelectorEmpty(): boolean {
+  const projects = useProjects()
+  const current = useCurrentKey()
+  if (projects.isPending) return false
+  return projects.data?.projects.find((p) => p.key === current) === undefined
+}
+
 /**
  * The breadcrumb's project selector: the current project's label, opening a searchable list of every project by label
  * with its number of active changes. Choosing one opens its Overview from the Overview, else its changes. A skeleton
