@@ -5,6 +5,7 @@ import { useHashLocation } from "wouter/use-hash-location"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChangesRoute, HomeRoute } from "@/pages/changes"
+import { PromptPage } from "@/pages/prompt"
 import { PromptsPage } from "@/pages/prompts-list"
 import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
@@ -59,6 +60,12 @@ function Routes() {
       </Route>
       <Route path="/prompts">
         <PromptsPage />
+      </Route>
+      <Route<{ name: string; tab?: string }> path="/prompts/global/:name/:tab?">
+        {(params) => <PromptPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
+      </Route>
+      <Route<{ key: string; name: string; tab?: string }> path="/prompts/projects/:key/:name/:tab?">
+        {(params) => <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
       </Route>
       <Route>
         <Redirect to="/?" replace />
