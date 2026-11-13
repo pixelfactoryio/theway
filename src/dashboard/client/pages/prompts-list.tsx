@@ -35,7 +35,7 @@ import {
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
 import { NewFileButton } from "@/components/new-file"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, StatusCell, useFilesQuery } from "@/pages/files-table"
+import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
 import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -218,7 +218,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
       },
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 120,
         enableSorting: false,

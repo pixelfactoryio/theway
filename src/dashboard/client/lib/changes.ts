@@ -54,7 +54,10 @@ export type ChangeDetail = {
   issues: string[];
   tasks: ChangeTask[];
   folder: string;
-  files: { name: string; text: string }[];
+  /** Each file's `version` (the SHA-256 of its bytes) on an active change only. */
+  files: { name: string; text: string; version?: string }[];
+  /** On an active change only: its `change.yaml`, `null` when it has none. */
+  changeFile?: { text: string; version: string } | null;
   series: { id: string; members: SeriesMember[] } | null;
 };
 
@@ -156,6 +159,32 @@ export function activeRows(active: readonly ActiveChange[], q: string, statuses:
   }
   return sortRows(rows, null);
 }
+
+/** Which series rows are open: `true` (every row) or one flag per series ID, as the grid's expanded state. */
+export type SeriesOpen = true | Record<string, boolean>;
+
+/**
+ * The series rows' open state, kept apart for the view no search or filter narrows (`whole`) and for the narrowing in
+ * force (`narrowed`, under its key).
+ */
+export type SeriesExpansion = { whole: SeriesOpen; narrowed: { key: string; open: SeriesOpen } | null };
+
+/** Every series row closed. */
+export const SERIES_CLOSED: SeriesExpansion = { whole: {}, narrowed: null };
+
+/**
+ * The open series rows shown for `key` (`""`: not narrowed): the whole view's own state; for a narrowing, its state
+ * once changed, else every series of `rows` opened.
+ */
+export function shownSeriesOpen(state: SeriesExpansion, key: string, rows: readonly ActiveRow[]): SeriesOpen {
+  if (key === "") return state.whole;
+  if (state.narrowed?.key === key) return state.narrowed.open;
+  return Object.fromEntries(rows.filter((r) => r.kind === "series").map((r) => [r.id, true]));
+}
+
+/** `state` with `open` kept for `key`: the whole view's state stays as it was while a narrowing changes its own. */
+export const keepSeriesOpen = (state: SeriesExpansion, key: string, open: SeriesOpen): SeriesExpansion =>
+  key === "" ? { ...state, whole: open } : { ...state, narrowed: { key, open } };
 
 /** A row's status. */
 export const rowStatus = (row: ActiveRow): ActiveStatus => (row.kind === "series" ? row.status : row.change.status);

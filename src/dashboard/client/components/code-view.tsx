@@ -5,7 +5,7 @@ import { HighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/l
 import { type Diagnostic, lintGutter, setDiagnostics } from "@codemirror/lint"
 import { MergeView, unifiedMergeView } from "@codemirror/merge"
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
-import { EditorSelection, EditorState, type Extension, type TransactionSpec } from "@codemirror/state"
+import { EditorSelection, EditorState, type Extension, Transaction, type TransactionSpec } from "@codemirror/state"
 import {
   drawSelection,
   EditorView,
@@ -78,6 +78,8 @@ const THEME = EditorView.theme({
     textDecoration: "underline wavy var(--destructive)",
     textUnderlineOffset: "3px",
   },
+  // The lint gutter's error mark: a dot drawn in CSS, in place of the stock `data:` image the page's policy refuses.
+  ".cm-lint-marker-error": { content: "normal", borderRadius: "50%", backgroundColor: "var(--destructive)" },
   ".cm-tooltip": { backgroundColor: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)" },
   ".cm-tooltip-lint, .cm-diagnostic": { fontFamily: "var(--font-sans)" },
   ".cm-diagnostic-error": { borderLeftColor: "var(--destructive)" },
@@ -151,10 +153,19 @@ export class DraftStore {
 
   getState = (): EditorState => this.state
 
-  /** The one dispatch function: through the mounted view, else on the state. */
-  dispatch = (...specs: TransactionSpec[]): void => {
-    if (this.view !== null) this.view.dispatch(...specs)
-    else this.set(this.state.update(...specs).state)
+  /**
+   * The one dispatch function: through the mounted view, else on the state. It takes transaction specs, or a
+   * transaction made from the current state (as `undo` and `redo` of `@codemirror/commands` give it).
+   */
+  dispatch = (...specs: (TransactionSpec | Transaction)[]): void => {
+    const [first] = specs
+    if (first instanceof Transaction) {
+      if (this.view !== null) this.view.dispatch(first)
+      else this.set(first.state)
+      return
+    }
+    if (this.view !== null) this.view.dispatch(...(specs as TransactionSpec[]))
+    else this.set(this.state.update(...(specs as TransactionSpec[])).state)
   }
 
   /** Takes a new state (Discard, Reload, Restore): an empty undo history. */

@@ -34,11 +34,15 @@ import {
   type ChangesQuery,
   countText,
   localDate,
+  keepSeriesOpen,
   PAGE_SIZES,
   parseQuery,
   queryString,
   rowStatus,
+  SERIES_CLOSED,
+  type SeriesExpansion,
   shownPage,
+  shownSeriesOpen,
   type SortColumn,
   sortRows,
   STATUS_LABEL,
@@ -200,16 +204,11 @@ function ActiveGrid({
 }) {
   const [, navigate] = useLocation()
   const [sorting, setSorting] = useState<SortingState>([])
-  // Series rows start closed, or open while a search or a filter narrows the view.
-  const [expansion, setExpansion] = useState<{ key: string; expanded: ExpandedState }>({ key: "", expanded: {} })
-  const expanded: ExpandedState =
-    expansion.key === narrowed
-      ? expansion.expanded
-      : narrowed === ""
-        ? {}
-        : Object.fromEntries(rows.filter((r) => r.kind === "series").map((r) => [r.id, true]))
+  // Series rows start closed, or open while a search or a filter narrows the view; clearing it shows them as they were.
+  const [expansion, setExpansion] = useState<SeriesExpansion>(SERIES_CLOSED)
+  const expanded: ExpandedState = shownSeriesOpen(expansion, narrowed, rows)
   const setExpanded = (updater: Updater<ExpandedState>) =>
-    setExpansion({ key: narrowed, expanded: typeof updater === "function" ? updater(expanded) : updater })
+    setExpansion((state) => keepSeriesOpen(state, narrowed, typeof updater === "function" ? updater(expanded) : updater))
 
   const sort = sorting[0]
   const data = useMemo(
@@ -319,6 +318,8 @@ function ActiveGrid({
     manualSorting: true,
     onSortingChange: setSorting,
     onExpandedChange: setExpanded,
+    // A new set of rows (a search, a filter) keeps the open series; the table would close them all.
+    autoResetExpanded: false,
   })
 
   return (

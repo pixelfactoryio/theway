@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useCallback } from "react"
 
 import type { FileBody, PromptList, WorkflowList } from "@/lib/files"
 import { fileApi } from "@/lib/files"
@@ -20,8 +21,12 @@ export function useFile(kind: "workflows" | "prompts", project: string | null, n
   return useQuery({ queryKey: ["file", path], queryFn: () => getJson<FileBody>(path) })
 }
 
-/** A project's label from `GET /api/projects`, its key while the list is not there or does not hold it. */
+/**
+ * A project's label from `GET /api/projects`, its key while the list is not there or does not hold it. The function
+ * keeps its identity until the list changes: the tables build their columns from it, and new columns remount every
+ * cell, each of which would mount a new `GET /api/projects` observer and refetch the list.
+ */
 export function useLabel(): (key: string) => string {
-  const projects = useProjects()
-  return (key) => projects.data?.projects.find((p) => p.key === key)?.label ?? key
+  const data = useProjects().data
+  return useCallback((key: string) => data?.projects.find((p) => p.key === key)?.label ?? key, [data])
 }

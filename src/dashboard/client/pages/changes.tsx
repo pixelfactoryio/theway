@@ -63,7 +63,7 @@ export function ChangesRoute({ routeKey }: { routeKey: string }) {
   if (projects.data === undefined) return <ProjectsGate />
   if (projects.data.projects.length === 0) return <NoProjectPage />
   if (!listed) return <Redirect to="/?" replace />
-  if (archived) return <ChangePage projectKey={routeKey} dir={a.dir} tab={a.tab} />
-  if (active) return <ChangePage projectKey={routeKey} id={c.id} tab={c.tab} />
+  if (archived) return <ChangePage key={`${routeKey}/archive/${a.dir}`} projectKey={routeKey} dir={a.dir} tab={a.tab} />
+  if (active) return <ChangePage key={`${routeKey}/${c.id}`} projectKey={routeKey} id={c.id} tab={c.tab} />
   return <ChangesPage projectKey={routeKey} />
 }

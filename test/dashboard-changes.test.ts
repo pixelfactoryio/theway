@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,6 +34,8 @@ function change(h: string, name: string, changeYaml: string | null, files: Recor
   for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
   return dir;
 }
+
+const sha = (text: string): string => createHash("sha256").update(text).digest("hex");
 
 const app = (h: string) => createApp(h, () => 4870, "", TOKEN);
 async function get(h: string, path: string): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -101,7 +104,12 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
       { text: "Task 2", done: false },
     ],
     folder: dir,
-    files: ["spec.md", "design.md", "notes.md", "alpha.md", "Beta.md", "zeta.md"].map((name) => ({ name, text: name[0]?.toUpperCase() })),
+    files: ["spec.md", "design.md", "notes.md", "alpha.md", "Beta.md", "zeta.md"].map((name) => ({
+      name,
+      text: name[0]?.toUpperCase(),
+      version: sha(name[0]?.toUpperCase() as string),
+    })),
+    changeFile: { text: yaml("Third", [true, false]), version: sha(yaml("Third", [true, false])) },
     series: {
       id: "add-x",
       members: [
@@ -113,6 +121,13 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
       ],
     },
   });
+});
+
+test("a change with no change.yaml has a null changeFile", async () => {
+  const h = home();
+  change(h, "add-none", null, { "spec.md": "S" });
+  const { body } = await get(h, `/api/projects/${KEY}/changes/add-none`);
+  expect(body).toMatchObject({ status: "invalid", issues: ["not found"], changeFile: null, files: [{ name: "spec.md", text: "S", version: sha("S") }] });
 });
 
 test("an Invalid change has no description, tasks or counts, and its issues unchanged", async () => {

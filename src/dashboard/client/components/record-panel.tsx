@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { type PanelPage, panelToggleLabel } from "@/lib/panel"
 
 /** The `localStorage` key of the docked panel's hidden state: `hidden`, removed when shown. */
 const PANEL_KEY = "theway-panel"
@@ -48,9 +49,9 @@ export function usePanelOpen(): [boolean, (open: boolean) => void] {
   return useState(() => window.matchMedia(WIDE).matches && !readHidden())
 }
 
-/** The top bar's toggle of a record page's panel: `Hide <x>` or `Show <x>`. */
-export function PanelToggle({ x, open, onOpenChange }: { x: string; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const label = `${open ? "Hide" : "Show"} ${x}`
+/** The top bar's toggle of a record page's panel: `Hide <word>` or `Show <word>`, the word of `page`. */
+export function PanelToggle({ page, open, onOpenChange }: { page: PanelPage; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const label = panelToggleLabel(page, open)
   return (
     <Tooltip>
       <TooltipTrigger
