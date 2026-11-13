@@ -1,12 +1,12 @@
-/** The projects of a home as the dashboard lists them: key, label and number of active changes. */
+/** The projects of a home as the dashboard lists them: key, label, number of active changes and folder. */
 import { readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isDir } from "../core/io";
 import { activeIds } from "../core/list";
 import { keyOf, projectDir, projectReason } from "../core/project";
 
-/** One project of `GET /api/projects`. */
-export type Project = { key: string; label: string; active: number };
+/** One project of `GET /api/projects`; `path` is its folder, `null` when not found. */
+export type Project = { key: string; label: string; active: number; path: string | null };
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -83,9 +83,18 @@ export function labels(keys: string[], find: (key: string) => string | null = fo
   });
 }
 
-/** Every project of a home, sorted by key, with its label and its number of active changes. */
+/** Every project of a home, sorted by key, with its label, its number of active changes and its folder. */
 export function projects(home: string): Project[] {
   const keys = projectKeys(home);
-  const names = labels(keys);
-  return keys.map((key, i) => ({ key, label: names[i] as string, active: activeIds(projectDir(home, key)).length }));
+  const found = new Map(keys.map((key) => [key, folderOf(key)] as const));
+  const names = labels(keys, (k) => found.get(k) ?? null);
+  return keys.map((key, i) => {
+    const folder = found.get(key) ?? null;
+    return {
+      key,
+      label: names[i] as string,
+      active: activeIds(projectDir(home, key)).length,
+      path: folder === "/" ? null : folder,
+    };
+  });
 }

@@ -158,7 +158,7 @@ test("/app.css holds the two @font-face rules of the spec", async () => {
   }
 });
 
-test("GET /api/projects lists the projects by key with their label, active count and start", async () => {
+test("GET /api/projects lists the projects by key with their label, active count, folder and start", async () => {
   const home = temp();
   const work = temp();
   // The folder name is the label.
@@ -177,8 +177,19 @@ test("GET /api/projects lists the projects by key with their label, active count
 
   const res = await get(home, "/api/projects", "127.0.0.1:4870", keyOf(theway));
   expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8");
-  const body = (await res.json()) as { projects: { key: string; label: string; active: number }[]; start: string | null };
+  const body = (await res.json()) as {
+    projects: { key: string; label: string; active: number; path: string | null }[];
+    start: string | null;
+  };
   const prefix = `${keyOf(work)}-`;
+  // The folder of each key; none for the key no folder has.
+  const folders = new Map<string, string | null>([
+    [keyOf(theway), theway],
+    [keyOf(deep), deep],
+    [keyOf(one), one],
+    [keyOf(two), two],
+    [keyOf(`${work}/gone/nowhere`), null],
+  ]);
   expect(body.start).toBe(keyOf(theway));
   expect(body.projects).toEqual(
     keys
@@ -188,6 +199,7 @@ test("GET /api/projects lists the projects by key with their label, active count
         key,
         active,
         label: key === keyOf(theway) ? "theway" : key === keyOf(deep) ? "c-d" : key.slice(prefix.length),
+        path: folders.get(key) ?? null,
       })),
   );
 

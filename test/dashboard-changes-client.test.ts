@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type ActiveChange,
+  actionGroups,
   activeRows,
   archivedRows,
   changeCount,
@@ -10,6 +11,7 @@ import {
   keepSeriesOpen,
   isLinkTarget,
   localDate,
+  nextCommand,
   nextTask,
   parseQuery,
   queryString,
@@ -169,6 +171,35 @@ test("the change page's tabs, its open tab, its next task and its command", () =
   expect(runCommand({ id: "x", status: "ready", done: 2, total: 2 }).command).toBe("/theway:archive x");
   expect(runCommand({ id: "x", status: "in-progress", done: 1, total: 2 }).command).toBe("/theway:workflow x");
   expect(runCommand({ id: "x", status: "invalid", done: 0, total: 0 }).command).toBe("/theway:workflow x");
+});
+
+test("the next command: none for Invalid, the change's own command, a series' first member to archive or run", () => {
+  const rows = activeRows(ACTIVE, "", []);
+  const row = (id: string) => rows.find((r) => r.id === id) as (typeof rows)[number];
+  expect(nextCommand(row("add-z"), ACTIVE)).toBeNull();
+  expect(nextCommand(row("add-b"), ACTIVE)).toBe("/theway:archive add-b");
+  expect(nextCommand(row("add-a"), ACTIVE)).toBe("/theway:workflow add-a");
+  expect(nextCommand(row("add-lone-01"), ACTIVE)).toBe("/theway:workflow add-lone-01");
+  // In progress: the first member that is not Ready.
+  expect(nextCommand(row("add-s"), ACTIVE)).toBe("/theway:workflow add-s-02");
+  // Members sort by ID whatever their order in the list.
+  const ready = [c("r-02", "ready", 1, 1), c("r-01", "ready", 2, 2)];
+  expect(nextCommand(activeRows(ready, "", [])[0] as (typeof rows)[number], ready)).toBe("/theway:archive r-01");
+  const fresh = [c("n-02", "not-started", 0, 1), c("n-01", "not-started", 0, 1)];
+  expect(nextCommand(activeRows(fresh, "", [])[0] as (typeof rows)[number], fresh)).toBe("/theway:workflow n-01");
+  const broken = [c("i-01", "ready", 1, 1), c("i-02", "invalid")];
+  expect(nextCommand(activeRows(broken, "", [])[0] as (typeof rows)[number], broken)).toBeNull();
+});
+
+test("the action groups order Invalid, In progress, Not started, Ready and drop empty groups", () => {
+  expect(actionGroups(ACTIVE).map((g) => [g.status, g.rows.map((r) => r.id)])).toEqual([
+    ["invalid", ["add-z"]],
+    ["in-progress", ["add-lone-01", "add-s"]],
+    ["not-started", ["add-a"]],
+    ["ready", ["add-b"]],
+  ]);
+  expect(actionGroups([c("x", "ready", 1, 1), c("y", "not-started", 0, 1)]).map((g) => g.status)).toEqual(["not-started", "ready"]);
+  expect(actionGroups([])).toEqual([]);
 });
 
 test("inline code and link targets", () => {

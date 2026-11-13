@@ -573,6 +573,17 @@ theway dashboard: http://127.0.0.1:4870/
 
   Any other error starting the server exits 1 with a `theway: <message>` line on stderr. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
 
+### Overview
+
+`#/`, the dashboard's address, opens the current project's Overview (`#/<key>`). It shows what in the project needs an action:
+
+- The header gives the project's name, its folder with a Copy button, and a link to all its changes.
+- The counts give its active changes, then how many are In progress, Not started and Ready to archive (and Invalid, when any is). Each count opens the Changes list filtered to what it counts.
+- **Needs action** groups the active changes by status (Invalid, In progress, Not started, then Ready to archive), a series as one row, with the first three of each group and a link to the rest. Each row gives the command to run next, `/theway:workflow <id>` or `/theway:archive <id>` (for a series, its first member to run or to archive), with a Copy button. An Invalid row asks you to fix its `change.yaml` instead. The dashboard runs nothing: you copy the command and run it in Claude Code.
+- **Recently archived** lists the five newest archived changes and links to all of them.
+
+Switching project from the Overview opens the other project's Overview.
+
 ### Changes
 
 The Changes page shows where every change of the project stands, in one table:

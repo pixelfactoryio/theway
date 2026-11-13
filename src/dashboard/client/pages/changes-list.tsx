@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ExpandedState, PaginationState, SortingState, Updater } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { cn } from "cn"
@@ -31,7 +31,6 @@ import {
   type ActiveRow,
   type ActiveStatus,
   type ArchivedChange,
-  type ChangeList,
   type ChangesQuery,
   countText,
   localDate,
@@ -50,14 +49,9 @@ import {
   statusCounts,
   switchView,
 } from "@/lib/changes"
-import { getJson } from "@/shell/projects"
+import { useChanges } from "@/shell/changes"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, TopBar } from "@/shell/top-bar"
-
-/** `GET /api/projects/:key/changes`. */
-function useChanges(key: string) {
-  return useQuery({ queryKey: ["changes", key], queryFn: () => getJson<ChangeList>(`/api/projects/${key}/changes`) })
-}
 
 /** The Changes page's state in the address, and the navigation that changes it. */
 function useChangesQuery(key: string): [ChangesQuery, (next: ChangesQuery, replace?: boolean) => void] {
@@ -454,7 +448,8 @@ function NoMatch({ description, clear }: { description: string; clear: () => voi
   )
 }
 
-function NoChange({ title, children }: { title: string; children: ReactNode }) {
+/** The Changes list's empty state: the changes icon, `title` and `children` as its description. */
+export function NoChange({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Empty className="py-12">
       <EmptyHeader>
