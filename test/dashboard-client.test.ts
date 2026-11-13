@@ -98,10 +98,21 @@ const ADDED: Record<string, string> = {
   "react-markdown": "10.1.0",
   "remark-gfm": "4.0.1",
   "@tailwindcss/typography": "0.5.20",
+  "@codemirror/state": "6.7.6",
+  "@codemirror/view": "6.43.15",
+  "@codemirror/language": "6.13.1",
+  "@codemirror/commands": "6.11.1",
+  "@codemirror/search": "6.7.2",
+  "@codemirror/lang-yaml": "6.1.3",
+  "@codemirror/lang-markdown": "6.5.2",
+  "@codemirror/lint": "6.9.7",
+  "@lezer/highlight": "1.2.5",
 };
 
 test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {
   expect(Object.keys(pkg.dependencies ?? {})).toEqual([]);
+  // The code view builds its own extension set: no `codemirror` package, so no `basicSetup`.
+  expect(pkg.devDependencies.codemirror).toBeUndefined();
   for (const [name, version] of Object.entries(ADDED)) expect([name, pkg.devDependencies[name]]).toEqual([name, version]);
   // Every other devDependency predates the dashboard.
   const others = Object.keys(pkg.devDependencies).filter((n) => !(n in ADDED));
@@ -113,7 +124,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
     .filter((f) => /\.(tsx?|css)$/.test(f))
     .map((f) => readFileSync(f, "utf-8"))
     .join("\n");
-  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography"]) {
+  for (const name of ["react", "react-dom", "wouter", "@tanstack/react-query", "@base-ui/react", "class-variance-authority", "cn", "lucide-react", "cmdk", "tw-animate-css", "shadcn", "tailwindcss", "@tanstack/react-table", "react-resizable-panels", "react-markdown", "remark-gfm", "@tailwindcss/typography", "@codemirror/state", "@codemirror/view", "@codemirror/language", "@codemirror/commands", "@codemirror/search", "@codemirror/lang-yaml", "@codemirror/lang-markdown", "@codemirror/lint", "@lezer/highlight"]) {
     expect([name, new RegExp(`["']${name.replace("/", "\\/")}(?:/[^"']*)?["']`).test(sources)]).toEqual([name, true]);
   }
 });
@@ -153,4 +164,20 @@ test("scroll offsets are kept per address and restored only from popstate", () =
   expect(memory.pending).toBeNull();
   memory.navigate(addressOf("", "#/unseen"), true);
   expect(memory.pending).toEqual({ address: "#/unseen", top: 0 });
+});
+
+test("the code view holds its own extension set, read-only through EditorState.readOnly, with the page's nonce", () => {
+  const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8");
+  expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/);
+  expect(text).toContain("EditorState.readOnly.of(true)");
+  expect(text).toContain("EditorView.cspNonce.of(nonce())");
+  expect(text).toContain('meta[name="theway-nonce"]');
+});
+
+test("the five syntax colours are defined light and dark", () => {
+  const css = readFileSync(join(CLIENT, "styles", "globals.css"), "utf-8");
+  const light = { keyword: "#cf222e", string: "#0a3069", constant: "#0550ae", property: "#116329", comment: "#6e7781" };
+  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#8b949e" };
+  for (const [k, v] of Object.entries(light)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(1);
+  for (const [k, v] of Object.entries(dark)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(2);
 });

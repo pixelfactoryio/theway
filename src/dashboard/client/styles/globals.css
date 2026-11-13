@@ -131,6 +131,12 @@
   --warning-foreground: var(--color-yellow-900);
   --invert: var(--color-zinc-900);
   --invert-foreground: var(--color-zinc-50);
+  /* Syntax colours of the code view: the only colours this stylesheet defines itself. */
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-constant: #0550ae;
+  --code-property: #116329;
+  --code-comment: #6e7781;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -176,6 +182,11 @@
     --warning-foreground: var(--color-yellow-600);
     --invert: var(--color-zinc-700);
     --invert-foreground: var(--color-zinc-50);
+    --code-keyword: #ff7b72;
+    --code-string: #a5d6ff;
+    --code-constant: #79c0ff;
+    --code-property: #7ee787;
+    --code-comment: #8b949e;
   }
 }
 
@@ -221,6 +232,11 @@
   --warning-foreground: var(--color-yellow-600);
   --invert: var(--color-zinc-700);
   --invert-foreground: var(--color-zinc-50);
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-constant: #79c0ff;
+  --code-property: #7ee787;
+  --code-comment: #8b949e;
 }
 
 @layer base {
