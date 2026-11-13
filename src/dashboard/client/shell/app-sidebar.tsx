@@ -1,3 +1,4 @@
+import { cn } from "cn"
 import { BookOpenIcon, FileTextIcon, ListChecksIcon, RouteIcon, WorkflowIcon } from "lucide-react"
 import { Link, useRoute } from "wouter"
 
@@ -33,9 +34,9 @@ export function AppSidebar() {
   const [onWorkflows] = useRoute("/workflows/*?")
   const [onPrompts] = useRoute("/prompts/*?")
   const rows = [
-    { label: "Changes", href: changes, icon: <ListChecksIcon className="size-4" aria-hidden="true" />, active: onChanges, count: active },
-    { label: "Workflows", href: "/workflows?", icon: <WorkflowIcon className="size-4" aria-hidden="true" />, active: onWorkflows, count: workflows },
-    { label: "Prompts", href: "/prompts?", icon: <FileTextIcon className="size-4" aria-hidden="true" />, active: onPrompts, count: prompts },
+    { label: "Changes", href: changes, Icon: ListChecksIcon, active: onChanges, count: active },
+    { label: "Workflows", href: "/workflows?", Icon: WorkflowIcon, active: onWorkflows, count: workflows },
+    { label: "Prompts", href: "/prompts?", Icon: FileTextIcon, active: onPrompts, count: prompts },
   ]
 
   return (
@@ -44,7 +45,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="theway" render={<Link href={changes} />}>
-              <IconTile variant="outline" size="sm">
+              <IconTile variant="soft" size="sm">
                 <RouteIcon className="size-4" aria-hidden="true" />
               </IconTile>
               <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:sr-only">theway</span>
@@ -64,7 +65,7 @@ export function AppSidebar() {
                   aria-current={row.active ? "page" : undefined}
                   tooltip={row.label}
                 >
-                  {row.icon}
+                  <row.Icon className={cn("size-4", row.active && "text-sidebar-primary")} aria-hidden="true" />
                   <span>{row.label}</span>
                 </SidebarMenuButton>
                 {row.count !== undefined ? <SidebarMenuBadge className="tabular-nums">{row.count}</SidebarMenuBadge> : null}

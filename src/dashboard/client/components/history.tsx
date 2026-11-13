@@ -127,13 +127,13 @@ export function useHistoryTab({
                           : "rounded-sm text-left text-sm text-muted-foreground tabular-nums outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
                       }
                     >
-                      {v === null ? <Badge variant={on ? "primary-light" : "outline"}>Current</Badge> : localTime(v.at)}
+                      {v === null ? <Badge variant={on ? "secondary" : "outline"}>Current</Badge> : localTime(v.at)}
                     </button>
                   </TimelineTitle>
                   <TimelineIndicator
                     className={
                       on
-                        ? "mt-1 size-3 border border-primary bg-primary"
+                        ? "mt-1 size-3 border border-foreground bg-foreground"
                         : "mt-1 size-3 border border-muted-foreground/40 bg-background"
                     }
                   />
