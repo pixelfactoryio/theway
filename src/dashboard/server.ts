@@ -11,6 +11,7 @@ import css from "./generated/app.css.txt" with { type: "text" };
 import js from "./generated/app.js.txt" with { type: "text" };
 import inter from "./generated/inter.woff2.txt" with { type: "text" };
 import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" };
+import { version } from "../../package.json" with { type: "json" };
 import { activeIds } from "../core/list";
 import { projectDir } from "../core/project";
 import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
@@ -53,7 +54,7 @@ function fields<T extends Record<string, "string" | "string?">>(
 
 const escapeAttr = (v: string): string => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
-/** The page: the app's script and stylesheet, the response's style nonce and the write token. */
+/** The page: the app's script and stylesheet, the response's style nonce, the write token and theway's version. */
 function page(nonce: string, token: string): string {
   return `<!doctype html>
 <html lang="en">
@@ -62,6 +63,7 @@ function page(nonce: string, token: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theway-nonce" content="${escapeAttr(nonce)}">
 <meta name="theway-token" content="${escapeAttr(token)}">
+<meta name="theway-version" content="${escapeAttr(version)}">
 <title>theway</title>
 <link rel="stylesheet" href="/app.css">
 <script type="module" src="/app.js"></script>

@@ -136,7 +136,7 @@ export function WorkflowsPage() {
   const [query, setQuery] = useFilesQuery("workflows")
   const list = workflows.data
   const rows = useMemo(() => (list === undefined ? [] : list.workflows.filter((w) => fileMatches(w, query.q))), [list, query.q])
-  const top = <TopBar items={[{ label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
+  const top = <TopBar items={[{ section: "Library" }, { label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
 
   if (workflows.isError || projects.isError) {
     return (

@@ -88,6 +88,8 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
   mkdirSync(join(dir, "folder.md"));
   change(h, "add-x-05", yaml("Fifth", [true]));
   change(h, "archive/2026-01-01-add-x-01", yaml("First", [true]));
+  const when = new Date("2026-11-12T10:00:00.000Z");
+  utimesSync(join(dir, "change.yaml"), when, when);
 
   const { status, body } = await get(h, `/api/projects/${KEY}/changes/add-x-03`);
   expect(status).toBe(200);
@@ -103,6 +105,7 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
       { text: "Task 1", done: true },
       { text: "Task 2", done: false },
     ],
+    updated: when.toISOString(),
     folder: dir,
     files: ["spec.md", "design.md", "notes.md", "alpha.md", "Beta.md", "zeta.md"].map((name) => ({
       name,
@@ -160,6 +163,7 @@ test("GET …/changes/archive/:dir gives an archived change; one with only a tas
     done: 2,
     total: 2,
     issues: [],
+    updated: statSync(join(valid, "change.yaml")).mtime.toISOString(),
     folder: valid,
     files: [{ name: "spec.md", text: "S" }],
     series: {
@@ -181,6 +185,8 @@ test("GET …/changes/archive/:dir gives an archived change; one with only a tas
     total: 0,
     issues: ["not found"],
     tasks: [],
+    // No `change.yaml`: the folder's own modification time.
+    updated: statSync(old).mtime.toISOString(),
     folder: old,
     files: [{ name: "tasks.md", text: "- [x] done\n" }],
     series: null,

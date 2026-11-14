@@ -11,8 +11,8 @@ import { storeProject, useCurrentKey, useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /**
- * What `#/`, the Overview and the Changes pages show until the projects are known: the breadcrumb `label` with the
- * selector's skeleton and an empty content area while they load, `label` alone and the load error after a failure.
+ * What `#/`, the Overview and the Changes pages show until the projects are known: the selector's skeleton then the
+ * breadcrumb `label` and an empty content area while they load, `label` alone and the load error after a failure.
  * `null` once loaded.
  */
 function ProjectsGate({ label }: { label: string }) {
@@ -20,7 +20,7 @@ function ProjectsGate({ label }: { label: string }) {
   if (projects.isPending) {
     return (
       <>
-        <TopBar items={[{ label }, { selector: true }]} />
+        <TopBar items={[{ selector: true }, { label }]} />
         <PageBody>{null}</PageBody>
       </>
     )

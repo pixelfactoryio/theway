@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ExpandedState, PaginationState, SortingState, Updater } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { cn } from "cn"
-import { FunnelIcon, ListChecksIcon, SearchIcon, XIcon } from "lucide-react"
+import { ListChecksIcon, SearchIcon, XIcon } from "lucide-react"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useLocation, useSearch } from "wouter"
 
@@ -12,19 +12,18 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination"
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable, DataGridTableRowExpand } from "@/components/reui/data-grid/data-grid-table"
-import { StatusBadge } from "@/components/status"
-import { OneLine } from "@/components/text"
+import { ICON, StatusBadge } from "@/components/status"
+import { CopyField, OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
-import { Label } from "@/components/ui/label"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   ACTIVE_STATUSES,
+  type ActiveChange,
   activeRows,
   archivedRows,
   changeCount,
@@ -35,6 +34,7 @@ import {
   countText,
   localDate,
   keepSeriesOpen,
+  nextCommand,
   PAGE_SIZES,
   parseQuery,
   queryString,
@@ -51,6 +51,7 @@ import {
 } from "@/lib/changes"
 import { useChanges } from "@/shell/changes"
 import { LoadError } from "@/shell/load-error"
+import { None } from "@/pages/files-table"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** The Changes page's state in the address, and the navigation that changes it. */
@@ -113,47 +114,36 @@ export function SearchField({
   )
 }
 
-function StatusFilter({
-  checked,
+/** The status chips: one toggle per status with changes (or pressed), its icon, label and count; none pressed keeps every status. */
+function StatusChips({
+  pressed,
   counts,
   onChange,
 }: {
-  checked: ActiveStatus[]
+  pressed: ActiveStatus[]
   counts: Record<ActiveStatus, number>
   onChange: (next: ActiveStatus[]) => void
 }) {
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button variant="outline">
-            <FunnelIcon aria-hidden="true" />
-            Status
-            {checked.length > 0 ? <Badge variant="outline">{checked.length}</Badge> : null}
-          </Button>
-        }
-      />
-      <PopoverContent className="w-56" align="start">
-        <div className="flex flex-col gap-3">
-          <div className="text-xs font-medium text-muted-foreground">Status</div>
-          {ACTIVE_STATUSES.map((status) => (
-            <div key={status} className="flex items-center gap-2">
-              <Checkbox
-                id={`status-${status}`}
-                checked={checked.includes(status)}
-                onCheckedChange={(on) =>
-                  onChange(on === true ? [...checked, status] : checked.filter((s) => s !== status))
-                }
-              />
-              <Label htmlFor={`status-${status}`} className="flex grow items-center justify-between gap-2 font-normal">
-                {STATUS_LABEL[status]}
-                <span className="text-muted-foreground tabular-nums">{counts[status]}</span>
-              </Label>
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <ToggleGroup
+      multiple
+      variant="outline"
+      size="sm"
+      aria-label="Status"
+      value={pressed}
+      onValueChange={(next) => onChange(next as ActiveStatus[])}
+    >
+      {ACTIVE_STATUSES.filter((s) => counts[s] > 0 || pressed.includes(s)).map((s) => {
+        const Icon = ICON[s]
+        return (
+          <ToggleGroupItem key={s} value={s}>
+            <Icon aria-hidden="true" />
+            {STATUS_LABEL[s]}
+            <span className="tabular-nums text-muted-foreground">{counts[s]}</span>
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
   )
 }
 
@@ -198,11 +188,14 @@ function changeHref(key: string, id: string): string {
 function ActiveGrid({
   projectKey,
   rows,
+  active,
   isLoading,
   narrowed,
 }: {
   projectKey: string
   rows: ActiveRow[]
+  /** Every active change, for each row's command. */
+  active: readonly ActiveChange[]
   isLoading: boolean
   narrowed: string
 }) {
@@ -260,7 +253,7 @@ function ActiveGrid({
             </div>
           )
         },
-        size: 420,
+        size: 240,
         enableSorting: true,
         meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
       },
@@ -292,6 +285,23 @@ function ActiveGrid({
         meta: { skeleton: cellSkeleton("w-32") },
       },
       {
+        id: "next",
+        header: ({ column }) => <DataGridColumnHeader title="Next" column={column} />,
+        cell: ({ row }) => {
+          const command = nextCommand(row.original, active)
+          if (command === null) return <None />
+          // The row opens the change or toggles the series on click; a Copy click does neither.
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <CopyField value={command} name="the command" />
+            </div>
+          )
+        },
+        size: 200,
+        enableSorting: false,
+        meta: { skeleton: cellSkeleton("w-48") },
+      },
+      {
         id: "updated",
         accessorFn: (row) => (row.kind === "series" ? row.updated : row.change.updated),
         header: ({ column }) => <DataGridColumnHeader title="Updated" column={column} />,
@@ -308,7 +318,7 @@ function ActiveGrid({
         meta: { skeleton: cellSkeleton("w-20") },
       },
     ],
-    [projectKey]
+    [projectKey, active]
   )
 
   const table = useTable({
@@ -486,7 +496,7 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
   const narrowedActive = query.q.trim() !== "" || query.statuses.length > 0
   const narrowedArchived = query.q.trim() !== ""
 
-  const top = <TopBar items={[{ label: "Changes" }, { selector: true }]} />
+  const top = <TopBar items={[{ selector: true }, { label: "Changes" }]} />
 
   if (changes.isError) {
     return (
@@ -515,7 +525,11 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
         <>
           <Toolbar count={list === undefined ? null : countText(shown, list.active.length, narrowedActive)}>
             {search}
-            <StatusFilter checked={query.statuses} counts={counts} onChange={(statuses) => setQuery({ ...query, statuses })} />
+            <StatusChips
+              pressed={query.statuses}
+              counts={counts}
+              onChange={(statuses) => setQuery({ ...query, statuses, page: 1 }, true)}
+            />
           </Toolbar>
           {list !== undefined && rows.length === 0 ? (
             <NoMatch description="Nothing in this project matches the search and the status filter." clear={clear} />
@@ -523,6 +537,7 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
             <ActiveGrid
               projectKey={projectKey}
               rows={rows}
+              active={list?.active ?? []}
               isLoading={list === undefined}
               narrowed={narrowedActive ? `${query.q}|${query.statuses.join(",")}` : ""}
             />
