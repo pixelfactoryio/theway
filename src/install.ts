@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { isCancel, multiselect, text } from "@clack/prompts";
 import { OPT_IN_KEYS } from "./core/config";
 import { init } from "./core/init";
-import { activeIds } from "./core/list";
+import { activeIds } from "./core/store/files";
 import { defaultHome, isDir, isFile, pointerPath, readPointer, removeIfEmpty, resolveHome, writeAtomic } from "./core/io";
 
 const self = fileURLToPath(import.meta.url);

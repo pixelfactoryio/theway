@@ -2,23 +2,15 @@
 import { readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isDir } from "../core/io";
-import { activeIds } from "../core/list";
-import { keyOf, projectDir, projectReason, recordedRoot } from "../core/project";
+import { keyOf, recordedRoot } from "../core/project";
+import type { ChangeStore } from "../core/store";
+import { fileStore } from "../core/store/files";
 import type { Project } from "./contract";
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The project keys of a home, sorted: the non-hidden folders of its `projects/` whose name is a valid key. */
-export function projectKeys(home: string): string[] {
-  const dir = join(home, "projects");
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return [];
-  }
-  return names.filter((n) => !n.startsWith(".") && projectReason(n) === "" && isDir(join(dir, n))).sort(byText);
-}
+export const projectKeys = (home: string): string[] => fileStore(home).projectKeys();
 
 /** The subfolder names of `dir`; none when it cannot be read. */
 function subfolders(dir: string): string[] {
@@ -88,8 +80,8 @@ function folderIn(home: string, key: string): string | null {
 }
 
 /** Every project of a home, sorted by key, with its label, its number of active changes and its folder. */
-export function projects(home: string): Project[] {
-  const keys = projectKeys(home);
+export function projects(home: string, store: ChangeStore): Project[] {
+  const keys = store.projectKeys();
   const found = new Map(keys.map((key) => [key, folderIn(home, key)] as const));
   const names = labels(keys, (k) => found.get(k) ?? null);
   return keys.map((key, i) => {
@@ -97,7 +89,7 @@ export function projects(home: string): Project[] {
     return {
       key,
       label: names[i] as string,
-      active: activeIds(projectDir(home, key)).length,
+      active: store.activeIds(key).length,
       path: folder === "/" ? null : folder,
     };
   });

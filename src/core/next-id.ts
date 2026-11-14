@@ -1,17 +1,7 @@
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
-import { escaped, isDir, thewayHome } from "./io";
-import { projectDir, resolveKey } from "./project";
+import { escaped, thewayHome } from "./io";
+import { resolveKey } from "./project";
+import { fileStore } from "./store/files";
 import { formatReason } from "./validate-id";
-
-/** The names of the directories directly in `dir`; none when it is missing. */
-function dirs(dir: string): string[] {
-  try {
-    return readdirSync(dir).filter((n) => isDir(join(dir, n)));
-  } catch {
-    return [];
-  }
-}
 
 /** The reason a series id (its trailing -NN already removed) is invalid, "" when it fits. */
 function seriesIdReason(id: string): string {
@@ -24,7 +14,7 @@ function seriesIdReason(id: string): string {
 
 /**
  * `theway next-id <series-id> [--count <n>] [--project <key>]`: the next `count` free member ids of a series, one per line,
- * after the highest ordinal among the active (`changes/<series-id>-NN`) and archived (`changes/archive/YYYY-MM-DD-<series-id>-NN`) members.
+ * after the highest ordinal among the active and the dated archived members (`<series-id>-NN`).
  */
 export function cmdNextId(seriesId: string, count: number, override: string | undefined): number {
   const key = resolveKey(override);
@@ -37,18 +27,13 @@ export function cmdNextId(seriesId: string, count: number, override: string | un
     return 1;
   }
 
-  const changes = join(projectDir(thewayHome(), key), "changes");
-  const active = new RegExp(`^${rest}-([0-9]{2})$`);
-  const archived = new RegExp(`^[0-9]{4}-[0-9]{2}-[0-9]{2}-${rest}-([0-9]{2})$`);
+  const store = fileStore(thewayHome());
+  const member = new RegExp(`^${rest}-([0-9]{2})$`);
+  const archived = store.archived(key).flatMap((e) => (e.id === null ? [] : [e.id]));
   let max = 0;
-  for (const [dir, pattern] of [
-    [changes, active],
-    [join(changes, "archive"), archived],
-  ] as const) {
-    for (const name of dirs(dir)) {
-      const m = pattern.exec(name);
-      if (m !== null) max = Math.max(max, Number(m[1]));
-    }
+  for (const id of [...store.activeIds(key), ...archived]) {
+    const m = member.exec(id);
+    if (m !== null) max = Math.max(max, Number(m[1]));
   }
   if (max + count > 99) {
     process.stderr.write(`theway: series ${rest} would go past -99\n`);
