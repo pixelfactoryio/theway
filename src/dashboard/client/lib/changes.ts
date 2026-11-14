@@ -53,6 +53,8 @@ export type ChangeDetail = {
   total: number;
   issues: string[];
   tasks: ChangeTask[];
+  /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
+  updated: string;
   folder: string;
   /** Each file's `version` (the SHA-256 of its bytes) on an active change only. */
   files: { name: string; text: string; version?: string }[];

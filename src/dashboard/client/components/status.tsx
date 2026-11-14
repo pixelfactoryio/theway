@@ -19,7 +19,8 @@ const VARIANT = {
   archived: "secondary",
 } as const
 
-const ICON: Record<Status, LucideIcon> = {
+/** Each status's icon, as its badge, its icon alone and the Changes list's status chips show it. */
+export const ICON: Record<Status, LucideIcon> = {
   invalid: CircleAlertIcon,
   "in-progress": CircleDotIcon,
   "not-started": CircleDashedIcon,
