@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { escaped, pointerPath, readPointer, resolveHome } from "./io";
-import { error, print, warning } from "./output";
+import { error, info, print, warning } from "./output";
 import { projectDir, resolveKey } from "./project";
 
 const CHANGE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -29,8 +29,7 @@ export function cmdPath(changeId: string | undefined, override: string | undefin
   }
 
   const { home, source } = resolveHome();
-  // An informational line with the theway: prefix, written through error() and its exit code ignored.
-  if (verbose) error(`home ${home} (from ${source})`);
+  if (verbose) info(`home ${home} (from ${source})`);
   if (source === "env") {
     const pointer = readPointer();
     if (pointer !== "" && resolve(pointer) !== home) {

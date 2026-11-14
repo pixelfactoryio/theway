@@ -24,6 +24,11 @@ export function detail(line: string): void {
   process.stderr.write(`${line}\n`);
 }
 
+/** Writes `theway: <message>` to stderr: an information line that is neither an error nor a warning. */
+export function info(message: string): void {
+  process.stderr.write(`theway: ${message}\n`);
+}
+
 /** Receives a warning about `file`. */
 export type Warn = (file: string, text: string) => void;
 
