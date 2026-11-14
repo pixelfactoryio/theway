@@ -45,6 +45,8 @@ export type ChangeDetail = {
   total: number;
   issues: string[];
   tasks: ChangeTask[];
+  /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
+  updated: string;
   folder: string;
   /** Each file's `version` on an active change only. */
   files: { name: string; text: string; version?: string }[];
@@ -216,6 +218,7 @@ export function changeDetail(projectDir: string, id: string, archiveDir: string 
     total: s.total,
     issues: s.issues,
     tasks: s.tasks,
+    updated: updatedOf(dir),
     folder: tildePath(dir, home),
     files: archiveDir === null ? markdownFiles(dir) : markdownFiles(dir).map(({ name, text }) => ({ name, text })),
     ...(archiveDir === null ? { changeFile: isFile(join(dir, CHANGE_FILE)) ? readVersioned(join(dir, CHANGE_FILE)) : null } : {}),
