@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.0](https://github.com/pixelfactoryio/theway/compare/v0.19.0...v0.20.0) (2026-11-14)
+
+
+### Features
+
+* **dashboard:** show a page render error in its place instead of a blank dashboard ([#123](https://github.com/pixelfactoryio/theway/issues/123)) ([5946186](https://github.com/pixelfactoryio/theway/commit/59461865f6c5ed8d6965e6b9cc199889305af814))
+
+
+### Bug Fixes
+
+* answer dashboard write failures as json and print uncaught cli errors as one line ([#118](https://github.com/pixelfactoryio/theway/issues/118)) ([0e71c2b](https://github.com/pixelfactoryio/theway/commit/0e71c2bf2328301091b1b160a453cf03ea7ff073))
+* refuse a second repository whose project key is already claimed ([#120](https://github.com/pixelfactoryio/theway/issues/120)) ([633ed39](https://github.com/pixelfactoryio/theway/commit/633ed39b3ac46049226bbd9b03d6d1bda12dbe1e))
+
 ## [0.19.0](https://github.com/pixelfactoryio/theway/compare/v0.18.0...v0.19.0) (2026-11-14)
 
 
