@@ -1,9 +1,9 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Redirect, Route, Router, Switch } from "wouter"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ChangesRoute, HomeRoute } from "@/pages/changes"
+import { ChangesRoute, HomeRoute, OverviewRoute } from "@/pages/changes"
 import { PromptPage } from "@/pages/prompt"
 import { PromptsPage } from "@/pages/prompts-list"
 import { WorkflowPage } from "@/pages/workflow"
@@ -11,15 +11,18 @@ import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
 import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
+import { SearchDialog, SearchOpen } from "@/shell/search"
+import { SiteHeader } from "@/shell/site-header"
+import { TopBarSlot } from "@/shell/top-bar"
 
-/** The `localStorage` key of the sidebar's state: `open` or `closed`; closed (the icon rail) when absent. */
+/** The `localStorage` key of the sidebar's state: `open` or `closed`; open (expanded) when absent. */
 const SIDEBAR_KEY = "theway-sidebar"
 
 function readSidebar(): boolean {
   try {
-    return localStorage.getItem(SIDEBAR_KEY) === "open"
+    return localStorage.getItem(SIDEBAR_KEY) !== "closed"
   } catch {
-    return false
+    return true
   }
 }
 
@@ -40,7 +43,7 @@ function SkipLink() {
         event.preventDefault()
         document.getElementById("content")?.focus()
       }}
-      className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none"
+      className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-60 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-3 focus:ring-ring/50 focus:outline-none"
     >
       Skip to content
     </a>
@@ -74,6 +77,9 @@ function Routes() {
       <Route<{ key: string; name: string; tab?: string }> path="/prompts/projects/:key/:name/:tab?">
         {(params) => <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
       </Route>
+      <Route<{ key: string }> path="/:key">
+        {(params) => <OverviewRoute routeKey={params.key} />}
+      </Route>
       <Route>
         <Redirect to="/?" replace />
       </Route>
@@ -81,25 +87,42 @@ function Routes() {
   )
 }
 
+/**
+ * The shell: the full-width site header, then the sidebar beside the page; pages render their `TopBar` into the header.
+ * It holds the search's open state for the sidebar's Search entry and the Cmd/Ctrl+K shortcut.
+ */
 function Shell() {
   const [open, setOpen] = useState(readSidebar)
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const [searching, setSearching] = useState(false)
+  const search = useMemo(() => ({ open: searching, setOpen: setSearching }), [searching])
   useScrollMemory()
 
   return (
-    <SidebarProvider
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        writeSidebar(next)
-      }}
-      className="h-svh overflow-hidden"
-    >
-      <SkipLink />
-      <AppSidebar />
-      <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
-        <Routes />
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="[--header-height:calc(--spacing(12))]">
+      <SidebarProvider
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          writeSidebar(next)
+        }}
+        className="flex h-svh flex-col overflow-hidden"
+      >
+        <TopBarSlot.Provider value={slot}>
+          <SearchOpen.Provider value={search}>
+            <SkipLink />
+            <SiteHeader setSlot={setSlot} />
+            <div className="flex min-h-0 flex-1">
+              <AppSidebar />
+              <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
+                <Routes />
+              </SidebarInset>
+            </div>
+            <SearchDialog />
+          </SearchOpen.Provider>
+        </TopBarSlot.Provider>
+      </SidebarProvider>
+    </div>
   )
 }
 

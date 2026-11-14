@@ -1,25 +1,26 @@
 import { useEffect } from "react"
 import { Redirect, useRoute } from "wouter"
 
-import { changesPath } from "@/lib/projects"
+import { overviewPath } from "@/lib/projects"
 import { ChangePage } from "@/pages/change"
 import { ChangesPage } from "@/pages/changes-list"
+import { OverviewPage } from "@/pages/overview"
 import { NoProjectPage } from "@/pages/section"
 import { LoadError } from "@/shell/load-error"
 import { storeProject, useCurrentKey, useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /**
- * What `#/` and the Changes pages show until the projects are known: the breadcrumb "Changes" with the selector's
- * skeleton and an empty content area while they load, "Changes" alone and the load error after a failure. `null`
- * once loaded.
+ * What `#/`, the Overview and the Changes pages show until the projects are known: the selector's skeleton then the
+ * breadcrumb `label` and an empty content area while they load, `label` alone and the load error after a failure.
+ * `null` once loaded.
  */
-function ProjectsGate() {
+function ProjectsGate({ label }: { label: string }) {
   const projects = useProjects()
   if (projects.isPending) {
     return (
       <>
-        <TopBar items={[{ label: "Changes" }, { selector: true }]} />
+        <TopBar items={[{ selector: true }, { label }]} />
         <PageBody>{null}</PageBody>
       </>
     )
@@ -27,7 +28,7 @@ function ProjectsGate() {
   if (projects.isError) {
     return (
       <>
-        <TopBar items={[{ label: "Changes" }]} />
+        <TopBar items={[{ label }]} />
         <PageBody>
           <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
         </PageBody>
@@ -37,13 +38,28 @@ function ProjectsGate() {
   return null
 }
 
-/** `#/`: opens the current project's changes, with `replace`. */
+/** `#/`: opens the current project's Overview, with `replace`. */
 export function HomeRoute() {
   const projects = useProjects()
   const current = useCurrentKey()
-  if (projects.data === undefined) return <ProjectsGate />
+  if (projects.data === undefined) return <ProjectsGate label="Overview" />
   if (current === null) return <NoProjectPage />
-  return <Redirect to={changesPath(current)} replace />
+  return <Redirect to={overviewPath(current)} replace />
+}
+
+/** `#/<key>`: a listed key's Overview; an unknown key goes to `#/` with `replace`. */
+export function OverviewRoute({ routeKey }: { routeKey: string }) {
+  const projects = useProjects()
+  const listed = projects.data?.projects.some((p) => p.key === routeKey) === true
+
+  useEffect(() => {
+    if (listed) storeProject(routeKey)
+  }, [listed, routeKey])
+
+  if (projects.data === undefined) return <ProjectsGate label="Overview" />
+  if (projects.data.projects.length === 0) return <NoProjectPage />
+  if (!listed) return <Redirect to="/?" replace />
+  return <OverviewPage projectKey={routeKey} />
 }
 
 /**
@@ -60,7 +76,7 @@ export function ChangesRoute({ routeKey }: { routeKey: string }) {
     if (listed) storeProject(routeKey)
   }, [listed, routeKey])
 
-  if (projects.data === undefined) return <ProjectsGate />
+  if (projects.data === undefined) return <ProjectsGate label="Changes" />
   if (projects.data.projects.length === 0) return <NoProjectPage />
   if (!listed) return <Redirect to="/?" replace />
   if (archived) return <ChangePage key={`${routeKey}/archive/${a.dir}`} projectKey={routeKey} dir={a.dir} tab={a.tab} />

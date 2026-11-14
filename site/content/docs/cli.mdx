@@ -555,7 +555,7 @@ theway: --input change: required input is not given
 theway dashboard [--port <n>]
 ```
 
-Serves a local web view of the data home with three sections, Changes, Workflows and Prompts. It prints one line with the address on stdout and runs until you stop it:
+Serves a local web view of the data home: each project's Overview and Changes, and the home's Workflows and Prompts. It prints one line with the address on stdout and runs until you stop it:
 
 ```text
 theway dashboard: http://127.0.0.1:4870/
@@ -564,7 +564,8 @@ theway dashboard: http://127.0.0.1:4870/
 - It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
 - The page, its script, its stylesheet and its two fonts are built into the CLI: nothing is loaded from another host. It reads the home on every request.
 - It answers `403 {"error":"forbidden host"}` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>` (on port 80, where a browser leaves the port out, `127.0.0.1` and `localhost` pass too), so a web page cannot reach it through another host name, and `404 {"error":"not found"}` to an unknown path. Every response carries a Content-Security-Policy that allows scripts, fonts, images and connections from the server itself only, and styles from it plus a nonce made for that response.
-- Changes are per project: the project selector in the breadcrumb of the Changes page lists every project of the home with its number of active changes. The page opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name. Workflows and Prompts are the home's own and have no project.
+- A header spans the full width above the sidebar: the theway mark, which opens `#/`, then the page's breadcrumb, then the page's actions. On a project's pages (its Overview, its Changes and a change) the breadcrumb starts with the project switcher, which lists every project of the home with its number of active changes. On workflow and prompt pages it starts with "Library". The dashboard opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name.
+- The sidebar below the header has two groups: Project, with the current project's Overview and Changes (with its number of active changes), and Library, with Workflows and Prompts (with their counts), which are the home's own and have no project. It opens expanded; Cmd/Ctrl+B or its edge collapses it to icons, and this browser remembers the choice. Its footer holds Documentation, Theme and the version, `theway <version>`, to quote when you report a problem.
 - A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1 with one line on stderr:
 
   ```text
@@ -573,18 +574,36 @@ theway dashboard: http://127.0.0.1:4870/
 
   Any other error starting the server exits 1 with a `theway: <message>` line on stderr. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
 
+### Overview
+
+`#/`, the dashboard's address, opens the current project's Overview (`#/<key>`). It shows what in the project needs an action:
+
+- The header gives the project's name, its folder with a Copy button, and a link to all its changes.
+- The counts give its active changes, then how many are In progress, Not started and Ready to archive (and Invalid, when any is). Each count opens the Changes list filtered to what it counts.
+- **Needs action** groups the active changes by status (Invalid, In progress, Not started, then Ready to archive), a series as one row, with the first three of each group and a link to the rest. Each row gives the command to run next, `/theway:workflow <id>` or `/theway:archive <id>` (for a series, its first member to run or to archive), with a Copy button. An Invalid row asks you to fix its `change.yaml` instead. The dashboard runs nothing: you copy the command and run it in Claude Code.
+- **Recently archived** lists the five newest archived changes and links to all of them.
+
+Switching project from the Overview opens the other project's Overview.
+
+### Search
+
+Cmd+K (Ctrl+K off macOS), or Search at the top of the sidebar, opens a search that jumps to a page by name. It finds the current project's changes, active and archived, every workflow, every prompt and every project. Type part of a name, then choose an entry to open its page; a project opens its Overview. Cmd/Ctrl+K again closes it. Inside a Markdown editor, Cmd/Ctrl+K inserts a link instead.
+
+The search lists only the current project's changes: to reach another project's change, switch project first, from the search or the breadcrumb.
+
 ### Changes
 
 The Changes page shows where every change of the project stands, in one table:
 
-- **Active** lists the active changes with their status, their progress (`done/total` tasks) and the date their `change.yaml` last changed. What needs attention comes first: Invalid, In progress, Not started, then Ready to archive, each by ID; a column header sorts by that column instead. A change is Invalid when its `change.yaml` does not validate (its first issue shows under its ID), Ready to archive when all its tasks are done, Not started when none is.
+- **Active** lists the active changes with their status, their progress (`done/total` tasks), the command to run next and the date their `change.yaml` last changed. What needs attention comes first: Invalid, In progress, Not started, then Ready to archive, each by ID; a column header sorts by that column instead. A change is Invalid when its `change.yaml` does not validate (its first issue shows under its ID), Ready to archive when all its tasks are done, Not started when none is.
 - Two or more active changes of one series (`<id>-01`, `<id>-02`, …) show as one row you open to see its members, with their summed progress.
+- The Next column gives each active row's command to run next, `/theway:workflow <id>` or `/theway:archive <id>` (for a series, its first member to run or to archive), with a Copy button that copies it without opening the row. An Invalid row shows `–`.
 - **Archived** lists the archived changes, newest first, 25 a page (50 or 100 on request).
-- The search keeps the changes whose ID or description holds the text (the ID only on Archived); the Status filter keeps the statuses you check. The view, the search, the statuses, the page and the page size are kept in the address, so Back and a reload restore them.
+- The search keeps the changes whose ID or description holds the text (the ID only on Archived). On Active, the status chips beside it give each status with its number of changes; pressing chips keeps the statuses pressed, and with none pressed every status shows. The view, the search, the statuses, the page and the page size are kept in the address, so Back and a reload restore them.
 
 A click on a row opens the change's own page:
 
-- Its header gives its ID, its status and its description, or the reasons its `change.yaml` cannot be read.
+- Its header gives its ID and its description, then a status row: its status, its tasks (`done/total`, with a bar) and the date its `change.yaml` last changed, or, for an archived change, the date it was archived. An Invalid change has no tasks in the row and gives the reasons its `change.yaml` cannot be read under it.
 - One tab per Markdown file of its folder (Spec, Design, Notes, then the others by name) shows the file rendered, then the Tasks tab lists its tasks. Raw HTML is not rendered, and only `http:`, `https:` and `mailto:` links are links.
 - The panel at the right gives the next task, the command to run next (`/theway:workflow <id>`, or `/theway:archive <id>` once all tasks are done), the other members of its series, and its folder. The command and the folder each have a Copy button. From 1024px wide it sits beside the page, can be resized, and the toggle at the top right hides it; the browser remembers its width and whether it is hidden. On a narrower window the toggle opens it over the page.
 - An active change is edited in place: see [Editing a change](#editing-a-change). An archived change is read-only.

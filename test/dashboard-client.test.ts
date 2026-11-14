@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { byLabel, changesPath, currentKey, type Project } from "../src/dashboard/client/lib/projects";
+import { byLabel, changesPath, currentKey, overviewPath, type Project } from "../src/dashboard/client/lib/projects";
 import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "../src/dashboard/client/lib/location";
 import { panelToggleLabel } from "../src/dashboard/client/lib/panel";
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll";
@@ -139,7 +139,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
   }
 });
 
-const p = (key: string, label: string, active = 0): Project => ({ key, label, active });
+const p = (key: string, label: string, active = 0): Project => ({ key, label, active, path: null });
 
 test("projects sort by label with localeCompare en base, ties by key", () => {
   const list = [p("-b", "Tower"), p("-z", "theway"), p("-a", "theway"), p("-c", "alpha")];
@@ -155,6 +155,7 @@ test("the current project is the route's, else the stored, else start, else the 
   expect(currentKey({ projects: [p("-t", "Tower"), p("-w", "theway")], start: null }, null, null)).toBe("-w");
   expect(currentKey({ projects: [], start: null }, "-x", "-y")).toBeNull();
   expect(changesPath("-w")).toBe("/-w/changes?");
+  expect(overviewPath("-w")).toBe("/-w?");
 });
 
 test("the theme is light or dark when stored, else System with no data-theme", () => {

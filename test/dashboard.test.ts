@@ -10,6 +10,7 @@ import { createApp } from "../src/dashboard/server";
 const REPO = join(import.meta.dirname, "..");
 const CLI = join(REPO, "dist", "theway.js");
 const TOKEN = "ab".repeat(32);
+const VERSION = (JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")) as { version: string }).version;
 const temps: string[] = [];
 const locked: string[] = [];
 
@@ -63,7 +64,7 @@ test("an unknown path gets 404 not found", async () => {
   expect(await res.json()).toEqual({ error: "not found" });
 });
 
-test("the page carries the policy, its nonce and the token", async () => {
+test("the page carries the policy, its nonce, the token and the version", async () => {
   const res = await get(temp(), "/");
   expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
   const policy = res.headers.get("content-security-policy") ?? "";
@@ -79,6 +80,7 @@ test("the page carries the policy, its nonce and the token", async () => {
   const html = await res.text();
   expect(html).toContain(`<meta name="theway-nonce" content="${nonce}">`);
   expect(html).toContain(`<meta name="theway-token" content="${TOKEN}">`);
+  expect(html).toContain(`<meta name="theway-version" content="${VERSION}">`);
   expect(html).toContain('<script type="module" src="/app.js"></script>');
   expect(html).toContain('<link rel="stylesheet" href="/app.css">');
   const again = (await get(temp(), "/")).headers.get("content-security-policy");
@@ -158,7 +160,7 @@ test("/app.css holds the two @font-face rules of the spec", async () => {
   }
 });
 
-test("GET /api/projects lists the projects by key with their label, active count and start", async () => {
+test("GET /api/projects lists the projects by key with their label, active count, folder and start", async () => {
   const home = temp();
   const work = temp();
   // The folder name is the label.
@@ -177,8 +179,19 @@ test("GET /api/projects lists the projects by key with their label, active count
 
   const res = await get(home, "/api/projects", "127.0.0.1:4870", keyOf(theway));
   expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8");
-  const body = (await res.json()) as { projects: { key: string; label: string; active: number }[]; start: string | null };
+  const body = (await res.json()) as {
+    projects: { key: string; label: string; active: number; path: string | null }[];
+    start: string | null;
+  };
   const prefix = `${keyOf(work)}-`;
+  // The folder of each key; none for the key no folder has.
+  const folders = new Map<string, string | null>([
+    [keyOf(theway), theway],
+    [keyOf(deep), deep],
+    [keyOf(one), one],
+    [keyOf(two), two],
+    [keyOf(`${work}/gone/nowhere`), null],
+  ]);
   expect(body.start).toBe(keyOf(theway));
   expect(body.projects).toEqual(
     keys
@@ -188,6 +201,7 @@ test("GET /api/projects lists the projects by key with their label, active count
         key,
         active,
         label: key === keyOf(theway) ? "theway" : key === keyOf(deep) ? "c-d" : key.slice(prefix.length),
+        path: folders.get(key) ?? null,
       })),
   );
 

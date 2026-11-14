@@ -12,6 +12,7 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from "lucide-react"
+import { cn } from "cn"
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
@@ -42,8 +43,9 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Progress } from "@/components/ui/progress"
 import { keptIds, leavesChange, moved, oneLine, taskBox, taskBoxColumn, unsavedTitle } from "@/lib/change-edit"
-import { type ChangeDetail, type ChangeTab, changeTabs, nextTask, runCommand, type SeriesMember, shownTab } from "@/lib/changes"
+import { type ChangeDetail, type ChangeTab, changeTabs, localDate, nextTask, runCommand, type SeriesMember, shownTab } from "@/lib/changes"
 import { saveWithErrors } from "@/lib/edit"
 import { changesPath } from "@/lib/projects"
 import { setLeaveGuard } from "@/shell/guard"
@@ -74,6 +76,54 @@ function IssuesAlert({ issues, className }: { issues: string[]; className?: stri
   )
 }
 
+/** One item of the status row: its label, then its value. */
+function StatusItem({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="flex items-center gap-2">{children}</dd>
+    </div>
+  )
+}
+
+/** The row under the title: Status, Tasks with its bar (not on an Invalid change), and Updated, or Archived. */
+function StatusRow({ change, invalid }: { change: ChangeDetail; invalid: boolean }) {
+  const { done, total } = change
+  return (
+    <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+      <StatusItem label="Status">
+        <StatusBadge status={change.status} />
+      </StatusItem>
+      {invalid ? null : (
+        <StatusItem label="Tasks">
+          <Progress
+            value={total === 0 ? 0 : (done / total) * 100}
+            className={cn(
+              "w-16",
+              total > 0 && done === total
+                ? "[&_[data-slot=progress-indicator]]:bg-success"
+                : "[&_[data-slot=progress-indicator]]:bg-info",
+            )}
+            aria-label={`${done} of ${total} tasks done`}
+          />
+          <span className="tabular-nums">
+            {done}/{total}
+          </span>
+        </StatusItem>
+      )}
+      {change.archived === null ? (
+        <StatusItem label="Updated">
+          <span className="tabular-nums">{localDate(change.updated)}</span>
+        </StatusItem>
+      ) : (
+        <StatusItem label="Archived">
+          <span className="tabular-nums">{change.archived}</span>
+        </StatusItem>
+      )}
+    </dl>
+  )
+}
+
 /** The description's in-place editing: the open field, or how to open it. */
 type DescriptionEdit = { field: (OpenField & { kind: "description" }) | null; open: () => void; change: (value: string) => void; apply: () => void; cancel: () => void }
 
@@ -82,13 +132,8 @@ function Header({ change, column, edit }: { change: ChangeDetail; column: boolea
   const body = (
     <div className={column ? "mx-auto w-full max-w-4xl" : "w-full shrink-0"}>
       <div className="flex w-full flex-col gap-1 px-4 pt-6 pb-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <h1 className="truncate text-lg font-semibold tracking-tight">{change.id}</h1>
-          <StatusBadge status={change.status} />
-        </div>
-        {invalid ? (
-          <IssuesAlert issues={change.issues} className="mt-2 max-w-[80ch]" />
-        ) : change.description === null ? null : edit === null ? (
+        <h1 className="truncate text-lg font-semibold tracking-tight">{change.id}</h1>
+        {invalid || change.description === null ? null : edit === null ? (
           <OneLine text={change.description} className="max-w-[80ch] text-sm text-muted-foreground" />
         ) : edit.field !== null ? (
           <div className="max-w-[80ch]">
@@ -112,6 +157,8 @@ function Header({ change, column, edit }: { change: ChangeDetail; column: boolea
             <OneLine text={change.description} className="text-sm text-muted-foreground" />
           </button>
         )}
+        <StatusRow change={change} invalid={invalid} />
+        {invalid ? <IssuesAlert issues={change.issues} className="mt-2 max-w-[80ch]" /> : null}
       </div>
     </div>
   )
@@ -988,7 +1035,7 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
   const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson<ChangeDetail>(path) })
 
   const name = dir ?? id ?? ""
-  const crumbs = (label: string): TopBarItem[] => [{ label: "Changes", href: changesPath(projectKey) }, { selector: true }, { label }]
+  const crumbs = (label: string): TopBarItem[] => [{ selector: true }, { label: "Changes", href: changesPath(projectKey) }, { label }]
   const fallback = dir !== undefined && /^\d{4}-\d{2}-\d{2}-.+/.test(dir) ? dir.slice(11) : name
 
   if (change.isPending) {

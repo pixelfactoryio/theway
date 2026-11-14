@@ -53,6 +53,8 @@ export type ChangeDetail = {
   total: number;
   issues: string[];
   tasks: ChangeTask[];
+  /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
+  updated: string;
   folder: string;
   /** Each file's `version` (the SHA-256 of its bytes) on an active change only. */
   files: { name: string; text: string; version?: string }[];
@@ -329,6 +331,28 @@ export function runCommand(change: Pick<ChangeDetail, "id" | "status" | "done" |
     return { command: `/theway:archive ${change.id}`, name: "the archive command" };
   }
   return { command: `/theway:workflow ${change.id}`, name: "the run command" };
+}
+
+/**
+ * The command to copy for an active row, `null` for an Invalid one. A change: the change page's command
+ * (`runCommand`). A series (members sorted by ID): `/theway:archive` of its first member when Ready, else
+ * `/theway:workflow` of its first member that is not Ready.
+ */
+export function nextCommand(row: ActiveRow, active: readonly ActiveChange[]): string | null {
+  if (rowStatus(row) === "invalid") return null;
+  if (row.kind === "change") return runCommand(row.change).command;
+  const members = active.filter((c) => memberOf(c.id)?.series === row.id).sort((a, b) => byId(a.id, b.id));
+  if (row.status === "ready") return `/theway:archive ${(members[0] as ActiveChange).id}`;
+  const next = members.find((m) => m.status !== "ready") ?? (members[0] as ActiveChange);
+  return `/theway:workflow ${next.id}`;
+}
+
+/** The active rows grouped by row status, in the order Invalid, In progress, Not started, Ready; empty groups dropped. */
+export function actionGroups(active: readonly ActiveChange[]): { status: ActiveStatus; rows: ActiveRow[] }[] {
+  const rows = activeRows(active, "", []);
+  return ACTIVE_STATUSES.map((status) => ({ status, rows: rows.filter((r) => rowStatus(r) === status) })).filter(
+    (g) => g.rows.length > 0,
+  );
 }
 
 /** A task's text cut into plain and code parts at its backtick spans; the backticks are dropped. */

@@ -1,6 +1,6 @@
 import { ChevronsUpDownIcon } from "lucide-react"
 import { useState } from "react"
-import { useLocation } from "wouter"
+import { useLocation, useRoute } from "wouter"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,18 +13,29 @@ import {
 } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
-import { byLabel, changesPath } from "@/lib/projects"
+import { byLabel, changesPath, overviewPath } from "@/lib/projects"
 import { useCurrentKey, useProjects } from "@/shell/projects"
+
+/** Whether the project selector renders nothing: the projects failed to load, or none is the current project. */
+export function useProjectSelectorEmpty(): boolean {
+  const projects = useProjects()
+  const current = useCurrentKey()
+  if (projects.isPending) return false
+  return projects.data?.projects.find((p) => p.key === current) === undefined
+}
 
 /**
  * The breadcrumb's project selector: the current project's label, opening a searchable list of every project by label
- * with its number of active changes. A skeleton while the projects load, nothing after a failure or with no project.
+ * with its number of active changes. Choosing one opens its Overview from the Overview, else its changes. A skeleton
+ * while the projects load, nothing after a failure or with no project.
  */
 export function ProjectSelector() {
   const projects = useProjects()
   const current = useCurrentKey()
   const [open, setOpen] = useState(false)
   const [, navigate] = useLocation()
+  const [overview, route] = useRoute<{ key: string }>("/:key")
+  const onOverview = overview && route.key === current
 
   if (projects.isPending) return <Skeleton className="h-5 w-24" />
   const project = projects.data?.projects.find((p) => p.key === current)
@@ -61,7 +72,7 @@ export function ProjectSelector() {
                   data-checked={p.key === project.key ? "true" : undefined}
                   onSelect={() => {
                     setOpen(false)
-                    navigate(changesPath(p.key))
+                    navigate(onOverview ? overviewPath(p.key) : changesPath(p.key))
                   }}
                 >
                   <span className="min-w-0 flex-1 truncate">{p.label}</span>

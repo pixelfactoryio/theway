@@ -1,7 +1,7 @@
 /** The projects `GET /api/projects` lists, and the choice of the current one. Pure: no React, no DOM. */
 
-/** One project: its key, its label and its number of active changes. */
-export type Project = { key: string; label: string; active: number };
+/** One project: its key, its label, its number of active changes and its folder (`null` when not found). */
+export type Project = { key: string; label: string; active: number; path: string | null };
 
 /** The body of `GET /api/projects`. */
 export type ProjectList = { projects: Project[]; start: string | null };
@@ -27,3 +27,6 @@ export function currentKey(list: ProjectList, routeKey: string | null, stored: s
 
 /** The address of a project's changes: `/<key>/changes?`, its `?` clearing the search part. */
 export const changesPath = (key: string): string => `/${key}/changes?`;
+
+/** The address of a project's Overview: `/<key>?`, its `?` clearing the search part. */
+export const overviewPath = (key: string): string => `/${key}?`;

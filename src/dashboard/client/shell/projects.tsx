@@ -38,10 +38,12 @@ export function storeProject(key: string): void {
   }
 }
 
-/** The key of the `#/<key>/changes…` route, `null` on any other route. */
+/** The key of the `#/<key>/changes…` and `#/<key>` routes, `null` on any other route. */
 export function useRouteKey(): string | null {
-  const [match, params] = useRoute<{ key: string }>("/:key/changes/*?")
-  return match ? params.key : null
+  const [changes, c] = useRoute<{ key: string }>("/:key/changes/*?")
+  const [overview, o] = useRoute<{ key: string }>("/:key")
+  if (changes) return c.key
+  return overview ? o.key : null
 }
 
 /** The current project's key once `GET /api/projects` has loaded, `null` while loading, after a failure or with no project. */
