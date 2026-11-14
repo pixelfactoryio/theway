@@ -25,8 +25,9 @@ export class ErrorBoundary extends Component<BoundaryProps, { error: Error | nul
     return { error: error instanceof Error ? error : new Error(String(error)) }
   }
 
-  componentDidUpdate(prev: BoundaryProps): void {
-    if (resetOnKeyChange(prev.resetKey, this.props.resetKey, this.state.error !== null)) this.setState({ error: null })
+  /** Clears only an error shown before the key changed: one caught in the update that changed the key stays. */
+  componentDidUpdate(prev: BoundaryProps, prevState: { error: Error | null }): void {
+    if (resetOnKeyChange(prev.resetKey, this.props.resetKey, prevState.error !== null)) this.setState({ error: null })
   }
 
   reset = (): void => {

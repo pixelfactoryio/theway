@@ -12,6 +12,23 @@ test("a boundary clears its error only when its key changes", () => {
   expect(resetOnKeyChange(undefined, "/a", true)).toBe(true);
 });
 
+test("a boundary keeps an error caught in the update that changed its key, and clears one shown before it", () => {
+  const fallback = () => null;
+  const error = new Error("x");
+  const boundary = new ErrorBoundary({ children: null, resetKey: "/b", fallback });
+  boundary.state = { error };
+  const cleared: unknown[] = [];
+  boundary.setState = ((next: unknown) => cleared.push(next)) as typeof boundary.setState;
+
+  // Navigating from /a to a page that throws: the error was caught in this update, so it stays.
+  boundary.componentDidUpdate({ children: null, resetKey: "/a", fallback }, { error: null });
+  expect(cleared).toEqual([]);
+
+  // Navigating from /a, where the error showed, to /b: it clears.
+  boundary.componentDidUpdate({ children: null, resetKey: "/a", fallback }, { error });
+  expect(cleared).toEqual([{ error: null }]);
+});
+
 test("a caught error becomes the boundary's state, a thrown non-Error as an Error", () => {
   const error = new Error("x");
   expect(ErrorBoundary.getDerivedStateFromError(error)).toEqual({ error });
