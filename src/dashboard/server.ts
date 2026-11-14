@@ -14,6 +14,7 @@ import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "t
 import { version } from "../../package.json" with { type: "json" };
 import { activeIds } from "../core/list";
 import { projectDir } from "../core/project";
+import { escaped } from "../core/text";
 import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
 import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
 import { projectKeys, projects } from "./projects";
@@ -232,5 +233,11 @@ export function createApp(home: string, port: () => number, startKey: string, to
   });
 
   app.notFound(() => json(404, { error: "not found" }));
+  // An error that escaped its route: Hono's own answer for an HTTPException, else one stderr line and a JSON 500.
+  app.onError((err, c) => {
+    if ("getResponse" in err) return err.getResponse();
+    process.stderr.write(`theway: ${c.req.method} ${c.req.path}: ${escaped(err.message)}\n`);
+    return json(500, { error: err.message });
+  });
   return app;
 }

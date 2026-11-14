@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createApp, MAX_BODY } from "../src/dashboard/server";
@@ -360,4 +360,46 @@ test("restore writes the version's text, keeps the replaced text as a version, a
     body: { error: "changed on disk", version: null },
   });
   expect(await call(h, "POST", `/api/workflows/global/agents/history/${id}/restore`, {})).toEqual({ status: 400, body: { error: "invalid body" } });
+});
+
+test.skipIf(process.getuid?.() === 0)("a workflow save that cannot write answers a JSON 500 and keeps no version", async () => {
+  const h = home();
+  const dir = history(h, null, "workflows", "agents");
+  const seeded = Array.from({ length: 20 }, (_, i) => `20260101T000000${String(i).padStart(3, "0")}Z-000000000000`);
+  for (const id of seeded) put(join(dir, id), "old\n");
+  const folder = join(h, "workflows");
+  chmodSync(folder, 0o555);
+  try {
+    const res = await call(h, "PUT", "/api/workflows/global/agents", { text: flow("Changed"), base: sha(flow("Agents")) });
+    expect(res.status).toBe(500);
+    expect(res.body.error as string).toStartWith("cannot write: EACCES");
+  } finally {
+    chmodSync(folder, 0o755);
+  }
+  expect(readFileSync(join(folder, "agents.yaml"), "utf-8")).toBe(flow("Agents"));
+  expect(readdirSync(dir).sort()).toEqual(seeded);
+});
+
+test("an error thrown past a route answers a JSON 500 and one escaped theway line", async () => {
+  const app = createApp(home(), () => PORT, "", TOKEN);
+  app.get("/api/boom", () => {
+    throw new Error("first\nsecond");
+  });
+  const chunks: string[] = [];
+  const write = process.stderr.write;
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"));
+    return true;
+  }) as typeof process.stderr.write;
+  let res: Response;
+  try {
+    res = await app.request(`${ORIGIN}/api/boom`, { headers: { Host: `127.0.0.1:${PORT}` } });
+  } finally {
+    process.stderr.write = write;
+  }
+  expect(res.status).toBe(500);
+  expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8");
+  expect(res.headers.get("cache-control")).toBe("no-store");
+  expect(await res.json()).toEqual({ error: "first\nsecond" });
+  expect(chunks.join("")).toBe("theway: GET /api/boom: first\\nsecond\n");
 });
