@@ -76,15 +76,21 @@ function dateOf(id: string): Date {
 }
 
 /**
- * Keeps `text` as the newest version of the file, then drops all but the `KEPT` newest. The time is now, or 1ms after
- * the newest version when that is not earlier, so the names keep the order of the saves.
+ * Keeps `text` as the newest version of the file and returns its path. The time is now, or 1ms after the newest version
+ * when that is not earlier, so the names keep the order of the saves.
  */
-function keepVersion(dir: string, text: Buffer): void {
+function keepVersion(dir: string, text: Buffer): string {
   mkdirSync(dir, { recursive: true });
   const newest = versionIds(dir)[0];
   let at = new Date();
   if (newest !== undefined && dateOf(newest).getTime() >= at.getTime()) at = new Date(dateOf(newest).getTime() + 1);
-  writeAtomic(join(dir, `${stampOf(at)}-${sha256(text).slice(0, 12)}`), text);
+  const path = join(dir, `${stampOf(at)}-${sha256(text).slice(0, 12)}`);
+  writeAtomic(path, text);
+  return path;
+}
+
+/** Drops all but the `KEPT` newest versions of a history folder. */
+function pruneVersions(dir: string): void {
   for (const old of versionIds(dir).slice(KEPT)) rmSync(join(dir, old), { force: true });
 }
 
@@ -92,7 +98,8 @@ function keepVersion(dir: string, text: Buffer): void {
  * Writes `text` to the file `name` of `kind` in the global folder (`project` `null`) or the project's own, when its
  * current version is `base` (`null`: the file is absent). The `base` check comes first; the same text writes nothing
  * and keeps no version; otherwise the replaced text is kept as a version and the file written atomically, its folder
- * created when missing.
+ * created when missing. Old versions are pruned only after the write lands; a failed write removes the version it kept
+ * and answers 500.
  */
 export function writeFile(home: string, kind: Kind, project: string | null, name: string, text: string, base: string | null): Answer {
   const refusal = refused(home, project, name);
@@ -106,9 +113,17 @@ export function writeFile(home: string, kind: Kind, project: string | null, name
   if (version !== base) return { status: 409, body: { error: "changed on disk", version } };
   const bytes = Buffer.from(text, "utf-8");
   if (current !== null && current.equals(bytes)) return { status: 200, body: { version } };
-  if (current !== null) keepVersion(historyDir(home, kind, project, name), current);
-  mkdirSync(dirname(path), { recursive: true });
-  writeAtomic(path, bytes);
+  const dir = historyDir(home, kind, project, name);
+  let kept: string | null = null;
+  try {
+    if (current !== null) kept = keepVersion(dir, current);
+    mkdirSync(dirname(path), { recursive: true });
+    writeAtomic(path, bytes);
+  } catch (e) {
+    if (kept !== null) rmSync(kept, { force: true });
+    return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } };
+  }
+  if (kept !== null) pruneVersions(dir);
   return { status: 200, body: { version: sha256(bytes) } };
 }
 

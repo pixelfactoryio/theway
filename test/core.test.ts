@@ -287,6 +287,20 @@ test.skipIf(process.getuid?.() === 0)("task done reports a file or folder it can
   }
 });
 
+test.skipIf(process.getuid?.() === 0)("a command run from a removed directory prints one theway line and exits 1", () => {
+  const dir = home();
+  const gone = mkdtempSync(join(tmpdir(), "theway-gone-"));
+  homes.push(gone);
+  const res = spawnSync("sh", ["-c", 'cd "$1" && rmdir "$1" && exec node "$2" task done c1 1', "sh", gone, CLI], {
+    encoding: "utf-8",
+    env: { ...process.env, THEWAY_HOME: dir },
+  });
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toStartWith("theway: ENOENT:");
+  expect(res.stderr.split("\n")).toHaveLength(2);
+  expect(res.stderr.split("\n").some((line) => /^\s+at/.test(line))).toBe(false);
+});
+
 test("change and task done validate the project and the change id", () => {
   const dir = home();
   for (const args of [["change"], ["task", "done"]]) {
