@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -39,8 +42,8 @@ jobs:
 
       - name: Install Claude Code CLI
         run: |
-          bun install -g @anthropic-ai/claude-code
-          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun install -g @anthropic-ai/claude-code@2.1.325
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
       - name: Validate plugin
         run: claude plugin validate plugin --strict

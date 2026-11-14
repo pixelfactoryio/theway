@@ -23,7 +23,7 @@
     "plugin"
   ],
   "scripts": {
-    "build": "bun scripts/embed-fonts.ts && tailwindcss -i src/dashboard/client/styles/globals.css -o src/dashboard/generated/app.css.txt --minify && bun build src/dashboard/client/main.tsx --target=browser --production --outfile src/dashboard/generated/app.js.txt && bun build src/cli.ts --target=node --outfile dist/theway.js",
+    "build": "bun scripts/embed-fonts.ts && tailwindcss -i src/dashboard/client/styles/globals.css -o src/dashboard/generated/app.css.txt --minify && bun build src/dashboard/client/main.tsx --target=browser --production --outfile src/dashboard/generated/app.js.txt --metafile=src/dashboard/generated/app.meta.json && bun build src/cli.ts --target=node --outfile dist/theway.js --metafile=src/dashboard/generated/cli.meta.json && bun scripts/third-party-notices.ts",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p src/dashboard/client",
     "test": "bun test",
     "lint:md": "git ls-files -z '*.md' ':!:CHANGELOG.md' | xargs -0 markdownlint-cli2"

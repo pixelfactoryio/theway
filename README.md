@@ -38,4 +38,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). The npm package ships the licences of the third-party code it bundles in dist/licenses/THIRD-PARTY-NOTICES.txt.
