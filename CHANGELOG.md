@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/pixelfactoryio/theway/compare/v0.18.0...v0.19.0) (2026-11-14)
+
+
+### Features
+
+* **dashboard:** add a project overview, a site header with a sectioned sidebar and a cmd+k search ([#113](https://github.com/pixelfactoryio/theway/issues/113)) ([9a7dbaf](https://github.com/pixelfactoryio/theway/commit/9a7dbaf032e3f975556f8272cccfe200b4665831))
+* **dashboard:** colour progress bars by state and give the changes empty states an icon ([#106](https://github.com/pixelfactoryio/theway/issues/106)) ([84026a4](https://github.com/pixelfactoryio/theway/commit/84026a485221bb6cad0aef97977ef3e1afdf308d))
+* **dashboard:** fit the workflow canvas on open and show the retry icon on on-fail panels ([#112](https://github.com/pixelfactoryio/theway/issues/112)) ([4729fda](https://github.com/pixelfactoryio/theway/commit/4729fdad7728f8380b8a19918bb9282b23467814))
+* **dashboard:** give the dashboard an amber accent and tinted neutrals ([#105](https://github.com/pixelfactoryio/theway/issues/105)) ([531299e](https://github.com/pixelfactoryio/theway/commit/531299e7fbde1c5cdb62b28e82780b17ce2186d6))
+* **dashboard:** line the change page body up with its title and give the side panels one label style ([#111](https://github.com/pixelfactoryio/theway/issues/111)) ([79c31d0](https://github.com/pixelfactoryio/theway/commit/79c31d007a11d069d8df8d5d7860def0257af01a))
+* **dashboard:** put the workflow canvas on a dot grid, tint its tiles by kind and badge valid files ([#110](https://github.com/pixelfactoryio/theway/issues/110)) ([7078577](https://github.com/pixelfactoryio/theway/commit/70785771b54c889b0f27a51734537ffed5a70080))
+
 ## [0.18.0](https://github.com/pixelfactoryio/theway/compare/v0.17.0...v0.18.0) (2026-11-13)
 
 
