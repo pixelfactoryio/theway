@@ -65,7 +65,19 @@ It exits 1 and changes nothing when:
 - `--standards` names an unknown key: `theway: unknown standard '<element>' in --standards; valid: core_principles, sre, web_development, quality, or none`;
 - `--standards` combines `none` with a key: `theway: --standards none cannot be combined with other standards`;
 - `--standards` is given and the data home already has a `config.yaml`: `theway: --standards applies only to a first install; <home>/config.yaml exists, so set standards.<key>.enabled there instead; nothing was changed`;
-- you cancel a question: `theway: install cancelled; nothing was changed`.
+- you cancel a question: `theway: install cancelled; nothing was changed`;
+- `~/.claude/settings.json` is a symlink loop or its folder is not writable: `theway: cannot write <path>: <reason>; nothing was changed`;
+- `~/.claude/settings.json` cannot be read: `theway: cannot read <path>: <reason>; nothing was changed`;
+- `~/.claude/settings.json` is not valid settings JSON: `theway: <path> is not valid settings JSON; nothing was changed`;
+- a target it writes into is not writable: `~/.claude`, `~/.claude/skills`, `~/.claude/skills/theway` and every folder below it, the install folder, the data home with its folders and `config.default.yaml`, the `bin/` folders of the 0.2.0 launcher, the pointer file and its folder, or for a target that does not exist yet the nearest existing folder above it: `theway: cannot write <path>: <reason>; nothing was changed`.
+
+Install checks all of this before its first write. A failure while it writes (a full disk, a file where the data home needs a folder) stops it without undoing anything, with one line that names what it already wrote:
+
+```text
+theway: install stopped: <reason>; already written: the plugin in <path>, the theway binary at <path>
+```
+
+It ends with `; nothing was written` when it wrote nothing, and with `; the previous plugin is in <path>` when the previous plugin folder was moved aside and not removed. When the data home is the step that failed, its own `theway: <message>` line comes first and `<reason>` is `the data home could not be written`.
 
 With no terminal and no `--standards`, a first install leaves the opt-in standards off and prints the line that says how to enable one.
 
@@ -76,6 +88,14 @@ npx --yes @pixelfactoryio/theway@latest uninstall
 ```
 
 Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary, the pointer file and the permission rules of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`. The data home is kept.
+
+Before it removes anything, it checks `~/.claude/settings.json` and that it can write the folders it removes from. It exits 1 and changes nothing when the settings file is not writable (`theway: cannot write <path>: <reason>; nothing was changed`), cannot be read (`theway: cannot read <path>: <reason>; nothing was changed`) or is not valid settings JSON (`theway: <path> is not valid settings JSON; nothing was changed`), and when `~/.claude/skills`, the plugin folder or a folder below it, the binary folder or the pointer folder is not writable (`theway: cannot write <path>: <reason>; nothing was changed`). A failure while it removes stops it without restoring anything, with one line that names what it already removed:
+
+```text
+theway: uninstall stopped: <reason>; already removed: the plugin in <path>, the theway binary at <path>
+```
+
+It ends with `; nothing was removed` when it removed nothing.
 
 ## list
 
