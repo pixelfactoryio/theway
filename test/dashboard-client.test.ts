@@ -69,6 +69,16 @@ test("the client's helpers import neither React, the DOM nor the @/ alias", () =
   }
 });
 
+test("the API contract imports only types from core/change-text, nothing from node:", () => {
+  const text = readFileSync(join(REPO, "src", "dashboard", "contract.ts"), "utf-8");
+  const specifiers = [...new Set([...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1] as string))];
+  expect(specifiers).toEqual(["../core/change-text"]);
+  const naming = text.split("\n").filter((l) => l.includes('"../core/change-text"'));
+  expect(naming.length).toBeGreaterThan(0);
+  for (const l of naming) expect([l, /^(?:import|export) type\b/.test(l)]).toEqual([l, true]);
+  expect(specifiers.filter((s) => s.startsWith("node:"))).toEqual([]);
+});
+
 const pkg = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8")) as {
   dependencies?: Record<string, string>;
   devDependencies: Record<string, string>;

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { parse } from "yaml";
 import { effectiveConfig, enabled, type Loaded, warnQuiet } from "./config";
 import { escaped, thewayHome } from "./io";
 import { resolveKey } from "./project";
+import { parseYaml } from "./text";
 
 const PHASES = ["engineering", "develop", "document"] as const;
 export type Phase = (typeof PHASES)[number];
@@ -27,12 +27,9 @@ function phasesOf(path: string): readonly Phase[] {
     process.stderr.write(`theway: warning: ${path}: applies_to must list engineering, develop and/or document; skipped\n`);
     return [];
   };
-  let parsed: unknown;
-  try {
-    parsed = parse(front.join("\n"), { mapAsMap: true, logLevel: "error" });
-  } catch {
-    return front.some((l) => /^applies_to:/.test(l)) ? invalid() : PHASES;
-  }
+  const read = parseYaml(front.join("\n"));
+  if ("reason" in read) return front.some((l) => /^applies_to:/.test(l)) ? invalid() : PHASES;
+  const parsed = read.root;
   if (parsed === null) return PHASES;
   if (!(parsed instanceof Map)) return invalid();
   if (!parsed.has("applies_to")) return PHASES;

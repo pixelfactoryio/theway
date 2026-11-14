@@ -1,9 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parse, stringify } from "yaml";
+import { stringify } from "yaml";
 import { readManifest } from "./init";
 import { isFile, thewayHome } from "./io";
 import { projectDir, resolveKey } from "./project";
+import { parseYaml } from "./text";
 
 /** A leaf's type: the rule its value must follow. */
 type Rule = "boolean";
@@ -159,12 +160,8 @@ function load(home: string, file: string): { root: unknown } | { error: string }
   } catch {
     return { error: `theway: ${file}: cannot be read` };
   }
-  try {
-    return { root: parse(text, { mapAsMap: true, logLevel: "error" }) };
-  } catch (e) {
-    const first = (e instanceof Error ? e.message : String(e)).split("\n")[0] ?? "";
-    return { error: `theway: ${file}: invalid YAML: ${first.replace(/:$/, "")}` };
-  }
+  const parsed = parseYaml(text);
+  return "reason" in parsed ? { error: `theway: ${file}: ${parsed.reason}` } : { root: parsed.root };
 }
 
 /** A project's effective config and its standards before any phase filter. */

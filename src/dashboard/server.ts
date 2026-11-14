@@ -16,6 +16,7 @@ import { activeIds } from "../core/list";
 import { projectDir } from "../core/project";
 import { escaped } from "../core/text";
 import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
+import type { ProjectList } from "./contract";
 import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
 import { projectKeys, projects } from "./projects";
 import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write";
@@ -146,7 +147,8 @@ export function createApp(home: string, port: () => number, startKey: string, to
 
   app.get("/api/projects", () => {
     const list = projects(home);
-    return json(200, { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null });
+    const body: ProjectList = { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null };
+    return json(200, body);
   });
 
   // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names listed on disk before it is

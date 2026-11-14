@@ -4,9 +4,7 @@ import { basename, join } from "node:path";
 import { isDir } from "../core/io";
 import { activeIds } from "../core/list";
 import { keyOf, projectDir, projectReason, recordedRoot } from "../core/project";
-
-/** One project of `GET /api/projects`; `path` is its folder, `null` when not found. */
-export type Project = { key: string; label: string; active: number; path: string | null };
+import type { Project } from "./contract";
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 

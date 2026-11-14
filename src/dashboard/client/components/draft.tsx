@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { leavesPage, saveWithErrors } from "@/lib/edit"
-import { type FileBody, type FileError, fileApi, type PromptRow } from "@/lib/files"
+import { type CheckBody, type FileBody, type FileError, fileApi, type PromptRow } from "@/lib/files"
 import { sendJson } from "@/shell/api"
 import { setLeaveGuard } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
@@ -137,7 +137,7 @@ export function useFileDraft({
       const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }).then(
         (r): Outcome =>
           r.status === 200 && Array.isArray(r.body.errors)
-            ? { ok: true, errors: r.body.errors as FileError[], header: kind === "prompts" ? headerOf(r.body) : null }
+            ? { ok: true, errors: (r.body as CheckBody).errors, header: kind === "prompts" ? headerOf(r.body) : null }
             : { ok: false, error: r.error !== "" ? r.error : `${r.status}` }
       )
       inFlight.current.set(checked, p)
