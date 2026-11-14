@@ -38,6 +38,7 @@ Every project has a key, and its files live in `<home>/projects/<key>/`. The CLI
 - **Physical path:** symlinks in the root are resolved first, so a repository reached through a symlink has the key of its real path.
 - **Moving or re-cloning** a repository changes its path, so it starts a new, empty project. Two clones of the same repository are two projects.
 - **`--project <key>`** replaces the derived key on every subcommand that uses a project: letters, digits and `-`, at most 200 characters. A derived key longer than 200 characters is an error that asks for `--project`.
+- **One repository per folder:** different paths can give the same key (`/x/a-b`, `/x/a/b` and `/x/a.b` all give `-x-a-b`). The first command run with a derived key whose folder exists records the root's physical path in `<home>/projects/<key>/root`, which claims the folder for that root. A command in another root whose derived key names that folder exits 1 with `theway: project key <key> is used by <recorded root>; pass --project <key> to use another key for <root>`: pass `--project` with another key for it. `--project` neither reads nor writes the record. Only editing or deleting the `root` file releases a claim or moves it to another root, for example after moving a repository.
 
 [`theway project`](../cli.mdx#project) prints the key and the folder; the commands run it and never compute the key themselves.
 

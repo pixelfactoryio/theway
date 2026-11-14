@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { escaped, thewayHome } from "./io";
+import { escaped, isDir, thewayHome, writeAtomic } from "./io";
 
 const KEY = /^[A-Za-z0-9-]{1,200}$/;
 
@@ -51,8 +51,47 @@ export const keyOf = (root: string): string => root.replace(/[^A-Za-z0-9]/g, "-"
 export const projectDir = (home: string, key: string): string => join(home, "projects", key);
 
 /**
+ * The root recorded in `<home>/projects/<key>/root`, without its one trailing newline. `null` when the file is absent,
+ * cannot be read or is empty.
+ */
+export function recordedRoot(home: string, key: string): string | null {
+  let text: string;
+  try {
+    text = readFileSync(join(projectDir(home, key), "root"), "utf-8");
+  } catch {
+    return null;
+  }
+  const root = text.endsWith("\n") ? text.slice(0, -1) : text;
+  return root === "" ? null : root;
+}
+
+/** The outcome of claiming a project folder for a root; `warning` when the claim could not be recorded. */
+export type Claim = { ok: true } | { ok: true; warning: string } | { ok: false; recorded: string };
+
+/**
+ * Claims the folder of `key` for `root`: records `root` in its `root` file when the folder exists and has no record;
+ * refuses when it records another root. Nothing is written when the folder does not exist. Writes nothing to stderr.
+ */
+export function claimKey(home: string, key: string, root: string): Claim {
+  const dir = projectDir(home, key);
+  if (!isDir(dir)) return { ok: true };
+  const recorded = recordedRoot(home, key);
+  if (recorded === null) {
+    const file = join(dir, "root");
+    try {
+      writeAtomic(file, `${root}\n`);
+    } catch (e) {
+      return { ok: true, warning: `cannot record ${file}: ${(e as Error).message}` };
+    }
+    return { ok: true };
+  }
+  return recorded === root ? { ok: true } : { ok: false, recorded };
+}
+
+/**
  * The project key: `override` once validated, else the key derived from the current directory. Writes the error line
- * and returns `null` when the override is invalid or the derived key is longer than 200 characters.
+ * and returns `null` when the override is invalid, the derived key is longer than 200 characters or its folder is
+ * claimed by another root. A derived key claims its folder (`claimKey`).
  */
 export function resolveKey(override: string | undefined): string | null {
   if (override !== undefined) {
@@ -68,6 +107,14 @@ export function resolveKey(override: string | undefined): string | null {
     process.stderr.write(`theway: project key for ${root} is longer than 200 characters; pass --project <key>\n`);
     return null;
   }
+  const claim = claimKey(thewayHome(), key, root);
+  if (!claim.ok) {
+    process.stderr.write(
+      `theway: project key ${key} is used by ${claim.recorded}; pass --project <key> to use another key for ${root}\n`,
+    );
+    return null;
+  }
+  if ("warning" in claim) process.stderr.write(`theway: warning: ${claim.warning}\n`);
   return key;
 }
 

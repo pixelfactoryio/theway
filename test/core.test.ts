@@ -1377,7 +1377,7 @@ function runIn(cwd: string, dir: string, ...args: string[]) {
 }
 
 function git(cwd: string, ...args: string[]): void {
-  const res = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, encoding: "utf-8", env: gitFreeEnv("") });
+  const res = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf-8", env: gitFreeEnv("") });
   if (res.status !== 0) throw new Error(res.stderr);
 }
 
@@ -1444,6 +1444,35 @@ test("list, path and archive without --project use the derived key's folder unde
   const res = runIn(cwd, dir, "archive", "add-x");
   expect(res.status).toBe(0);
   expect(res.stdout).toStartWith(`Archived: ${join(dir, "projects", key, "changes", "archive")}/`);
+});
+
+test("a second repository whose key is already claimed is refused", () => {
+  const tmp = realpathSync(home());
+  const first = join(tmp, "x", "a-b");
+  const second = join(tmp, "x", "a", "b");
+  for (const repo of [first, second]) {
+    mkdirSync(repo, { recursive: true });
+    git(repo, "init", "-q");
+    git(repo, "commit", "-q", "--allow-empty", "-m", "init");
+  }
+  const dir = home();
+  const key = keyFor(first);
+  const folder = join(dir, "projects", key);
+  for (const args of [["project"], ["list"], ["context", "engineering"]]) runIn(first, dir, ...args);
+  expect(existsSync(folder)).toBe(false);
+  mkdirSync(join(folder, "changes"), { recursive: true });
+  expect(runIn(first, dir, "list").status).toBe(0);
+  expect(readFileSync(join(folder, "root"), "utf-8")).toBe(`${first}\n`);
+  const refused = runIn(second, dir, "list");
+  expect([refused.status, refused.stdout, refused.stderr]).toEqual([
+    1,
+    "",
+    `theway: project key ${key} is used by ${first}; pass --project <key> to use another key for ${second}\n`,
+  ]);
+  expect(runIn(second, dir, "list", "--project", key).status).toBe(0);
+  mkdirSync(join(dir, "projects", "other", "changes"), { recursive: true });
+  expect(runIn(second, dir, "list", "--project", "other").status).toBe(0);
+  expect(existsSync(join(dir, "projects", "other", "root"))).toBe(false);
 });
 
 test("removeIfEmpty removes only an empty folder and never follows a symlink", () => {
