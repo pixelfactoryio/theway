@@ -7,12 +7,14 @@
 
 ## Development setup
 
-Install Node.js 22.12 or later and bun 1.3.14, then run:
+Install Node.js 22.13 or later and bun 1.3.14, then run:
 
 ```bash
 bun install
 bun run build
 bun run typecheck
+bun run lint
+bun run format:check
 bun test
 claude plugin validate plugin --strict
 ```

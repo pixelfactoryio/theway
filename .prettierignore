@@ -1,0 +1,7 @@
+dist/
+src/dashboard/generated/
+site/
+src/dashboard/client/components/ui/
+src/dashboard/client/components/reui/
+src/dashboard/client/hooks/
+plugin/workflows/run-pipeline.js

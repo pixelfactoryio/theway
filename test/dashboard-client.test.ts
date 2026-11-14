@@ -134,9 +134,22 @@ test("every package the dashboard adds is a devDependency at its exact version, 
   // `sortable` imports no modifiers.
   expect(pkg.devDependencies["@dnd-kit/modifiers"]).toBeUndefined();
   for (const [name, version] of Object.entries(ADDED)) expect([name, pkg.devDependencies[name]]).toEqual([name, version]);
-  // Every other devDependency predates the dashboard.
+  // Every other devDependency predates the dashboard or lints and formats the code.
   const others = Object.keys(pkg.devDependencies).filter((n) => !(n in ADDED));
-  expect(others.sort()).toEqual(["@clack/prompts", "@types/node", "commander", "markdownlint-cli2", "typescript", "yaml"]);
+  expect(others.sort()).toEqual([
+    "@clack/prompts",
+    "@eslint/js",
+    "@types/node",
+    "commander",
+    "eslint",
+    "eslint-config-prettier",
+    "eslint-plugin-react-hooks",
+    "markdownlint-cli2",
+    "prettier",
+    "typescript",
+    "typescript-eslint",
+    "yaml",
+  ]);
 });
 
 test("every runtime package the client adds is imported by a kept file", () => {
