@@ -1688,3 +1688,104 @@ test("dist/theway.js bundles @clack/prompts instead of importing it", () => {
   expect(pkg.devDependencies["@clack/prompts"]).toBe("1.8.1");
   expect(pkg.dependencies).toBeUndefined();
 });
+
+test.skipIf(process.getuid?.() === 0)("install refuses a plugin folder it cannot move and changes nothing", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const plugin = join(env.claude, "skills", "theway");
+  const defaults = join(env.theway, "config.default.yaml");
+  const binTime = statSync(bin(env)).mtimeMs;
+  const defaultsTime = statSync(defaults).mtimeMs;
+  chmodSync(plugin, 0o555);
+  try {
+    const res = run(env, "install");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toStartWith(`theway: cannot write ${plugin}: EACCES`);
+    expect(res.stderr).toEndWith("; nothing was changed\n");
+    expect(res.stderr.split("\n").length).toBe(2);
+    expect(statSync(bin(env)).mtimeMs).toBe(binTime);
+    expect(statSync(defaults).mtimeMs).toBe(defaultsTime);
+    expect(existsSync(plugin)).toBe(true);
+    expect(readdirSync(env.claude).filter((n) => n.startsWith(".theway-old-") || n.startsWith(".theway-install-"))).toEqual([]);
+  } finally {
+    chmodSync(plugin, 0o755);
+  }
+});
+
+test("install reports what it wrote when the data home cannot be written", () => {
+  const env = setup();
+  // A file where a shipped folder goes: not a directory, so the checks before the writes do not look at it.
+  put(join(env.theway, "prompts"), "not a folder\n");
+  const res = run(env, "install");
+  expect(res.status).toBe(1);
+  const plugin = join(env.claude, "skills", "theway");
+  const lines = res.stderr.trimEnd().split("\n");
+  const last = lines[lines.length - 1];
+  expect(last).toStartWith("theway: install stopped: the data home could not be written; already written: ");
+  expect(last).toContain(`the plugin in ${plugin}`);
+  expect(last).toContain(`the theway binary at ${bin(env)}`);
+  expect(lines.length).toBe(2);
+  expect(lines[0]).toStartWith("theway: ");
+  expect(existsSync(join(plugin, ".claude-plugin", "plugin.json"))).toBe(true);
+  expect(existsSync(bin(env))).toBe(true);
+});
+
+test("uninstall refuses invalid settings and removes nothing", () => {
+  const env = setup();
+  expect(run(env, "install").status).toBe(0);
+  const settings = join(env.claude, "settings.json");
+  writeFileSync(settings, "{");
+  const res = run(env, "uninstall");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(`theway: ${settings} is not valid settings JSON; nothing was changed\n`);
+  expect(existsSync(join(env.claude, "skills", "theway"))).toBe(true);
+  expect(existsSync(bin(env))).toBe(true);
+  expect(existsSync(pointer(env))).toBe(true);
+});
+
+test.skipIf(process.getuid?.() === 0)("install refuses an unreadable settings file", () => {
+  const env = setup();
+  const settings = join(env.claude, "settings.json");
+  put(settings, "{}\n");
+  chmodSync(settings, 0o000);
+  try {
+    const res = run(env, "install");
+    expect(res.status).toBe(1);
+    expect(res.stderr).toStartWith(`theway: cannot read ${settings}: EACCES`);
+    expect(res.stderr).toEndWith("; nothing was changed\n");
+    expect(res.stderr.split("\n").length).toBe(2);
+    nothingWritten(env);
+  } finally {
+    chmodSync(settings, 0o644);
+  }
+});
+
+test("uninstall reports what it removed when a later step fails", () => {
+  const env = setup({ defaultHome: true });
+  const data = join(env.root, "data");
+  expect(run(env, "install", "--home", data).status).toBe(0);
+  // A folder where the pointer file is: the checks pass (its folder is writable), the delete fails.
+  rmSync(pointer(env));
+  mkdirSync(pointer(env));
+  const plugin = join(env.claude, "skills", "theway");
+  const res = run(env, "uninstall");
+  expect(res.status).toBe(1);
+  expect(res.stderr).toBe(
+    `theway: uninstall stopped: Path is a directory: rm returned EISDIR (is a directory) ${pointer(env)}; already removed: the plugin in ${plugin}, the theway binary at ${bin(env)}\n`,
+  );
+  expect(existsSync(plugin)).toBe(false);
+  expect(existsSync(bin(env))).toBe(false);
+});
+
+test("install writes a custom home's pointer through a dangling link", () => {
+  const env = setup({ defaultHome: true });
+  const data = join(env.root, "data");
+  expect(run(env, "install", "--home", data).status).toBe(0);
+  const target = join(env.root, "pointer-target");
+  rmSync(pointer(env));
+  symlinkSync(target, pointer(env));
+  const res = run(env, "install", "--home", data);
+  expect(res.stderr).toBe("");
+  expect(res.status).toBe(0);
+  expect(readFileSync(target, "utf-8")).toBe(`${data}\n`);
+});

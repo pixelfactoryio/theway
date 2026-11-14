@@ -66,6 +66,8 @@ npx --yes @pixelfactoryio/theway@latest uninstall
 
 Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the one install wrote, the pointer file and the permission rules: those of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`, and the rules of 0.2.0. The data home (`~/.theway`, or your custom home) is kept, with your changes and your config.
 
+Uninstall first checks `~/.claude/settings.json` and that it can write the folders it removes from: when the settings file cannot be read or is not valid settings JSON, or one of those folders is not writable, it stops and changes nothing. A failure while it removes stops it without restoring anything, with one line that names what it already removed (`theway: uninstall stopped: <reason>; already removed: …`); see [uninstall](./cli.mdx#uninstall).
+
 ## What install writes
 
 - **`~/.claude/skills/theway`:** the plugin, with its commands and the `run-pipeline` workflow that `/theway:workflow` calls. Claude Code loads it as `theway@skills-dir`. Each install replaces this folder.
@@ -94,7 +96,7 @@ Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the 
 
   Writing change files (`spec.md`, `change.yaml`, `notes.md`) goes through Claude Code's normal permission prompt; ticking a task with `theway task done` runs under `Bash(theway:*)`. Earlier versions also added `Edit(~/.theway/*/changes/**)`; install and uninstall remove it.
 
-If `~/.claude/settings.json` is not valid settings JSON, install stops and changes nothing.
+If `~/.claude/settings.json` cannot be read or is not valid settings JSON, install stops and changes nothing. Install also checks, before its first write, that it can write the folders and files it writes into directly, and stops and changes nothing when one is not writable. Writes deeper inside the data home are not checked. A failure while it writes stops it without undoing anything, with one line that names what it already wrote (`theway: install stopped: <reason>; already written: …`); see [install](./cli.mdx#install).
 
 `Bash(theway:*)` approves whichever `theway` comes first on your `PATH`, not only the copy install wrote. Install lists every `theway` on `PATH` and warns, naming it, when the first one is not its copy:
 
