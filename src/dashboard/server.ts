@@ -12,13 +12,12 @@ import js from "./generated/app.js.txt" with { type: "text" };
 import inter from "./generated/inter.woff2.txt" with { type: "text" };
 import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" };
 import { version } from "../../package.json" with { type: "json" };
-import { activeIds } from "../core/list";
-import { projectDir } from "../core/project";
+import { fileStore } from "../core/store/files";
 import { escaped } from "../core/text";
-import { changeDetail, listChanges, listedArchiveDirs } from "./changes";
+import { changeDetail, datedArchives, listChanges } from "./changes";
 import type { ProjectList } from "./contract";
 import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
-import { projectKeys, projects } from "./projects";
+import { projects } from "./projects";
 import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write";
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
@@ -83,6 +82,7 @@ function page(nonce: string, token: string): string {
  */
 export function createApp(home: string, port: () => number, startKey: string, token: string): Hono<Env> {
   const app = new Hono<Env>();
+  const store = fileStore(home);
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } });
 
@@ -146,32 +146,33 @@ export function createApp(home: string, port: () => number, startKey: string, to
   for (const [path, bytes] of Object.entries(FONTS)) app.get(path, (c) => c.body(bytes, 200, { "Content-Type": "font/woff2" }));
 
   app.get("/api/projects", () => {
-    const list = projects(home);
+    const list = projects(home, store);
     const body: ProjectList = { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null };
     return json(200, body);
   });
 
-  // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names listed on disk before it is
-  // joined into a path.
-  const projectOf = (key: string): string | null => (projectKeys(home).includes(key) ? projectDir(home, key) : null);
+  // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names the store lists before it is
+  // passed to the store.
+  const known = (key: string): boolean => store.projectKeys().includes(key);
   app.get("/api/projects/:key/changes", (c) => {
-    const dir = projectOf(c.req.param("key"));
-    if (dir === null) return json(404, { error: "unknown project" });
-    return json(200, listChanges(dir));
+    const key = c.req.param("key");
+    if (!known(key)) return json(404, { error: "unknown project" });
+    return json(200, listChanges(store, key));
   });
   app.get("/api/projects/:key/changes/archive/:dir", (c) => {
-    const dir = projectOf(c.req.param("key"));
-    if (dir === null) return json(404, { error: "unknown project" });
-    const archive = c.req.param("dir");
-    if (!listedArchiveDirs(dir).includes(archive)) return json(404, { error: "unknown archive folder" });
-    return json(200, changeDetail(dir, archive.slice(11), archive));
+    const key = c.req.param("key");
+    if (!known(key)) return json(404, { error: "unknown project" });
+    const ref = c.req.param("dir");
+    const archive = datedArchives(store, key).find((e) => e.ref === ref);
+    if (archive === undefined) return json(404, { error: "unknown archive folder" });
+    return json(200, changeDetail(store, key, archive.id, archive));
   });
   app.get("/api/projects/:key/changes/:id", (c) => {
-    const dir = projectOf(c.req.param("key"));
-    if (dir === null) return json(404, { error: "unknown project" });
+    const key = c.req.param("key");
+    if (!known(key)) return json(404, { error: "unknown project" });
     const id = c.req.param("id");
-    if (!activeIds(dir).includes(id)) return json(404, { error: "unknown change" });
-    return json(200, changeDetail(dir, id));
+    if (!store.activeIds(key).includes(id)) return json(404, { error: "unknown change" });
+    return json(200, changeDetail(store, key, id));
   });
 
   app.get("/api/workflows", () => json(200, listWorkflows(home)));
@@ -231,7 +232,7 @@ export function createApp(home: string, port: () => number, startKey: string, to
   app.put("/api/projects/:key/changes/:id/files/:name", async (c) => {
     const f = fields(await body(c), { text: "string", base: "string" });
     if (f === null) return invalid();
-    return reply(writeChangeFile(home, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base));
+    return reply(writeChangeFile(store, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base));
   });
 
   app.notFound(() => json(404, { error: "not found" }));

@@ -206,11 +206,12 @@ function SeriesRow({ projectKey, member, current }: { projectKey: string; member
     current !== null
       ? {
           ordinal: member.ordinal,
-          active: current.archived === null ? current.id : null,
-          archived: current.archived === null ? null : `${current.archived}-${current.id}`,
+          id: current.id,
+          active: current.ref === null ? current.id : null,
+          archived: current.ref,
           status: current.status,
-          done: current.archived === null ? current.done : null,
-          total: current.archived === null ? current.total : null,
+          done: current.ref === null ? current.done : null,
+          total: current.ref === null ? current.total : null,
         }
       : member
   const classes = "flex h-8 min-w-0 items-center gap-2 rounded-md px-2"
@@ -221,14 +222,13 @@ function SeriesRow({ projectKey, member, current }: { projectKey: string; member
       </li>
     )
   }
-  const id = shown.active ?? (shown.archived as string).slice(11)
   const right =
     shown.status === "archived" ? "Archived" : shown.status === "invalid" ? "–" : `${shown.done ?? 0}/${shown.total ?? 0}`
   return (
     <li className={current !== null ? `${classes} bg-muted` : classes} aria-current={current !== null ? "true" : undefined}>
       <StatusIcon status={shown.status} />
       <Link href={memberHref(projectKey, shown)} className="min-w-0 flex-1 underline-offset-4 hover:underline">
-        <OneLine text={id} />
+        <OneLine text={shown.id} />
       </Link>
       <span className="shrink-0 text-muted-foreground tabular-nums">{right}</span>
     </li>
@@ -328,7 +328,7 @@ function TaskCount({ change }: { change: ChangeDetail }) {
 /** The page of an archived change: member 02's read-only page. */
 function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string; data: ChangeDetail; tab?: string; crumbs: TopBarItem[] }) {
   const [open, setOpen] = usePanelOpen()
-  const base = `/${projectKey}/changes/archive/${data.archived}-${data.id}`
+  const base = `/${projectKey}/changes/archive/${data.ref}`
   const tabs = changeTabs(data.files)
   const current = shownTab(tabs, tab)
   const file = data.files.find((f) => f.name === current.file)
@@ -1036,12 +1036,11 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
 
   const name = dir ?? id ?? ""
   const crumbs = (label: string): TopBarItem[] => [{ selector: true }, { label: "Changes", href: changesPath(projectKey) }, { label }]
-  const fallback = dir !== undefined && /^\d{4}-\d{2}-\d{2}-.+/.test(dir) ? dir.slice(11) : name
 
   if (change.isPending) {
     return (
       <>
-        <TopBar items={crumbs(fallback)} heading={false} />
+        <TopBar items={crumbs(name)} heading={false} />
         <PageBody>{null}</PageBody>
       </>
     )
@@ -1050,7 +1049,7 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
     const unknown = UNKNOWN.includes(change.error.message)
     return (
       <>
-        <TopBar items={crumbs(unknown ? name : fallback)} heading={false} />
+        <TopBar items={crumbs(name)} heading={false} />
         <PageBody>
           {unknown ? (
             <Unknown projectKey={projectKey} name={name} />

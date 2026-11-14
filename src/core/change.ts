@@ -1,10 +1,12 @@
 /** A change's `change.yaml`: its description and ordered tasks, validated on every read; `theway change` and `theway task done`. */
-import { accessSync, constants, readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CHANGE_FILE, type Change, type ChangeTask, checkChangeText, editedChangeText } from "./change-text";
-import { escaped, isFile, thewayHome, writeAtomic } from "./io";
+import { CHANGE_FILE, type Change, type ChangeCheck, type ChangeTask, checkChangeText, editedChangeText } from "./change-text";
+import { escaped, isFile, thewayHome } from "./io";
 import { invalidChangeId } from "./path";
-import { projectDir, resolveKey } from "./project";
+import { resolveKey } from "./project";
+import type { ChangeStore, FileRead } from "./store";
+import { fileStore } from "./store/files";
 
 export { CHANGE_FILE, CHANGE_VERSION, type Change, type ChangeTask } from "./change-text";
 
@@ -27,28 +29,23 @@ export function checkChange(dir: string): { change: Change } | { issues: string[
   return checkChangeText(text);
 }
 
+/** The check of a `change.yaml` read through the store: `not found` when it is `null`. */
+export const checkRead = (read: FileRead | null): ChangeCheck =>
+  read === null ? { issues: ["not found"] } : checkChangeText(read.bytes.toString("utf-8"));
+
 /** The error lines of `issues` for the change `id`: `changes/<id>/change.yaml: <issue>`. */
 export const issueLines = (id: string, issues: string[]): string[] => issues.map((issue) => `${changeRel(id)}: ${issue}`);
 
-/** The number of regular, non-hidden files directly in a change folder: `<files>` of `theway list`. */
-export function changeFileCount(dir: string): number {
-  let names: string[];
-  try {
-    names = readdirSync(dir);
-  } catch {
-    return 0;
-  }
-  return names.filter((n) => !n.startsWith(".") && isFile(join(dir, n))).length;
-}
-
 /**
- * Sets `done: true` on the tasks numbered `numbers` (from 1) of the change `id` in `dir` through `editedChangeText`, one
- * task after the other, and writes the last text once, keeping the file's mode; writes nothing when the file is invalid,
- * an argument is not a task number or names no task, an edit is refused, or the file cannot be written. Returns the error
- * lines, or the counts after.
+ * Sets `done: true` on the tasks numbered `numbers` (from 1) of the active change `id` through `editedChangeText`, one
+ * task after the other, and writes the last text once, keeping the file's mode, against the version it read; writes
+ * nothing when the file is invalid, an argument is not a task number or names no task, an edit is refused, the file
+ * changed since it was read, or it cannot be written. Returns the error lines, or the counts after.
  */
-export function tickTasks(dir: string, id: string, numbers: string[]): { errors: string[] } | { done: number; total: number } {
-  const c = checkChange(dir);
+export function tickTasks(store: ChangeStore, key: string, id: string, numbers: string[]): { errors: string[] } | { done: number; total: number } {
+  const read = store.readFile(key, { kind: "active", id }, CHANGE_FILE);
+  if (read === null) return { errors: issueLines(id, ["not found"]) };
+  const c = checkRead(read);
   if ("issues" in c) return { errors: issueLines(id, c.issues) };
   const total = c.change.tasks.length;
   const errors = numbers.flatMap((n) => {
@@ -59,16 +56,15 @@ export function tickTasks(dir: string, id: string, numbers: string[]): { errors:
 
   const todo = [...new Set(numbers.map(Number))].filter((n) => !(c.change.tasks[n - 1] as ChangeTask).done);
   if (todo.length > 0) {
-    const path = join(dir, CHANGE_FILE);
-    let text = readFileSync(path, "utf-8");
+    let text = read.bytes.toString("utf-8");
     for (const n of todo) {
       const edited = editedChangeText(text, { kind: "done", index: n - 1, done: true });
       if ("reason" in edited) return { errors: [`${changeRel(id)}: ${edited.reason}`] };
       text = edited.text;
     }
     try {
-      accessSync(path, constants.W_OK);
-      writeAtomic(path, text, statSync(path).mode & 0o777);
+      const written = store.writeFile(key, id, CHANGE_FILE, Buffer.from(text, "utf-8"), read.version);
+      if (written.status === "conflict") return { errors: [`${changeRel(id)}: changed on disk while ticking; run the command again`] };
     } catch (e) {
       return { errors: [`${changeRel(id)}: cannot write: ${e instanceof Error ? e.message : String(e)}`] };
     }
@@ -77,12 +73,12 @@ export function tickTasks(dir: string, id: string, numbers: string[]): { errors:
   return { done, total };
 }
 
-/** The project's folder of the change `id`, or `null` after writing why the project or the ID is invalid. */
-function changeDir(changeId: string, override: string | undefined): string | null {
+/** The store and the project key of the change `id`, or `null` after writing why the project or the ID is invalid. */
+function changeAt(changeId: string, override: string | undefined): { store: ChangeStore; key: string } | null {
   const key = resolveKey(override);
   if (key === null) return null;
   if (invalidChangeId(changeId)) return null;
-  return join(projectDir(thewayHome(), key), "changes", changeId);
+  return { store: fileStore(thewayHome()), key };
 }
 
 const fail = (lines: string[]): number => {
@@ -92,10 +88,12 @@ const fail = (lines: string[]): number => {
 
 /** `theway change <change-id> [--project <key>]`: validates `change.yaml` and prints the change as JSON. */
 export function cmdChange(changeId: string, override: string | undefined): number {
-  const dir = changeDir(changeId, override);
-  if (dir === null) return 1;
-  const c = checkChange(dir);
+  const at = changeAt(changeId, override);
+  if (at === null) return 1;
+  const change = { kind: "active", id: changeId } as const;
+  const c = checkRead(at.store.readFile(at.key, change, CHANGE_FILE));
   if ("issues" in c) return fail(issueLines(changeId, c.issues));
+  const dir = at.store.dirOf(at.key, change);
   const tasks = c.change.tasks.map((t, i) => ({ n: i + 1, text: t.text, done: t.done }));
   process.stdout.write(`${JSON.stringify({ id: changeId, dir, description: c.change.description, tasks }, null, 2)}\n`);
   return 0;
@@ -103,9 +101,9 @@ export function cmdChange(changeId: string, override: string | undefined): numbe
 
 /** `theway task done <change-id> <n>... [--project <key>]`: ticks the tasks numbered `<n>`. */
 export function cmdTaskDone(changeId: string, numbers: string[], override: string | undefined): number {
-  const dir = changeDir(changeId, override);
-  if (dir === null) return 1;
-  const r = tickTasks(dir, changeId, numbers);
+  const at = changeAt(changeId, override);
+  if (at === null) return 1;
+  const r = tickTasks(at.store, at.key, changeId, numbers);
   if ("errors" in r) return fail(r.errors);
   process.stdout.write(`${r.done}/${r.total} tasks done\n`);
   return 0;

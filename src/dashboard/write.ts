@@ -4,17 +4,14 @@
  * restored; and a file of an active change saved in place. Every path is built from a listed project key, a listed
  * change, a listed file name, a name matching `NAME` and a version id matching its pattern, never taken from the request.
  */
-import { createHash } from "node:crypto";
-import { accessSync, constants, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { diffLines } from "diff";
-import { CHANGE_FILE } from "../core/change-text";
 import { isFile, writeAtomic } from "../core/io";
 import { NAME } from "../core/language-schema";
-import { activeIds } from "../core/list";
-import { projectDir } from "../core/project";
 import type { Kind } from "../core/step-files";
-import { markdownNames } from "./changes";
+import type { ChangeStore } from "../core/store";
+import { sha256 } from "../core/store/files";
 import type { Version, VersionList, VersionText } from "./contract";
 import { absPath } from "./files";
 import { projectKeys } from "./projects";
@@ -27,8 +24,6 @@ export const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-
 
 /** What a write route answers. */
 export type Answer = { status: number; body: unknown };
-
-const sha256 = (data: string | Buffer): string => createHash("sha256").update(data).digest("hex");
 
 /** The bytes of a file, `null` when it cannot be read. */
 function readBytes(path: string): Buffer | null {
@@ -174,27 +169,21 @@ export function restoreVersion(home: string, kind: Kind, project: string | null,
 /**
  * `PUT /api/projects/:key/changes/:id/files/:name`: writes `text` to the file `name` of the active change `id` when its
  * current version is `base`. `name` is `change.yaml` or one of the change's listed Markdown files, and must exist. The
- * `base` check comes first; the same text writes nothing; otherwise the file is written atomically, keeping its mode.
+ * `base` check comes first; the same text writes nothing; otherwise the store writes the file in place, keeping its mode.
  */
-export function writeChangeFile(home: string, key: string, id: string, name: string, text: string, base: string): Answer {
-  if (!projectKeys(home).includes(key)) return { status: 404, body: { error: "unknown project" } };
-  const project = projectDir(home, key);
-  if (!activeIds(project).includes(id)) return { status: 404, body: { error: "unknown change" } };
-  const dir = join(project, "changes", id);
-  const listed = name === CHANGE_FILE ? isFile(join(dir, CHANGE_FILE)) : markdownNames(dir).includes(name);
-  if (!listed) return { status: 404, body: { error: "unknown file" } };
-  const path = join(dir, name);
-  const current = readBytes(path);
+export function writeChangeFile(store: ChangeStore, key: string, id: string, name: string, text: string, base: string): Answer {
+  if (!store.projectKeys().includes(key)) return { status: 404, body: { error: "unknown project" } };
+  if (!store.activeIds(key).includes(id)) return { status: 404, body: { error: "unknown change" } };
+  const change = { kind: "active", id } as const;
+  if (!store.fileNames(key, change).includes(name)) return { status: 404, body: { error: "unknown file" } };
+  const current = store.readFile(key, change, name);
   if (current === null) return { status: 500, body: { error: "cannot be read" } };
-  const version = sha256(current);
-  if (version !== base) return { status: 409, body: { error: "changed on disk", version } };
-  const bytes = Buffer.from(text, "utf-8");
-  if (current.equals(bytes)) return { status: 200, body: { version } };
+  if (current.version !== base) return { status: 409, body: { error: "changed on disk", version: current.version } };
   try {
-    accessSync(path, constants.W_OK);
-    writeAtomic(path, bytes, statSync(path).mode & 0o777);
+    const written = store.writeFile(key, id, name, Buffer.from(text, "utf-8"), base);
+    if (written.status === "conflict") return { status: 409, body: { error: "changed on disk", version: written.version } };
+    return { status: 200, body: { version: written.version } };
   } catch (e) {
     return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } };
   }
-  return { status: 200, body: { version: sha256(bytes) } };
 }

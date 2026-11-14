@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, renameSync } from "node:fs";
-import { checkChange, issueLines } from "./change";
-import { isDir, thewayHome } from "./io";
+import { CHANGE_FILE, checkRead, issueLines } from "./change";
+import { thewayHome } from "./io";
 import { invalidChangeId } from "./path";
-import { projectDir, resolveKey } from "./project";
+import { resolveKey } from "./project";
+import { StoreError } from "./store";
+import { fileStore } from "./store/files";
 
 function localDate(): string {
   const d = new Date();
@@ -15,19 +16,21 @@ export function cmdArchive(changeId: string, override: string | undefined, force
   const key = resolveKey(override);
   if (key === null) return 1;
   if (invalidChangeId(changeId)) return 1;
-  const dir = projectDir(thewayHome(), key);
-  const src = `${dir}/changes/${changeId}`;
-  const dst = `${dir}/changes/archive/${localDate()}-${changeId}`;
-  if (!isDir(src)) {
-    process.stderr.write(`Error: ${src} not found\n`);
+  const store = fileStore(thewayHome());
+  const change = { kind: "active", id: changeId } as const;
+  const date = localDate();
+  const target = { kind: "archived", ref: store.archiveRef(key, changeId, date) } as const;
+  const taken = (): number => {
+    process.stderr.write(`Error: ${store.dirOf(key, target)} already exists — not archiving.\n`);
+    return 1;
+  };
+  if (!store.exists(key, change)) {
+    process.stderr.write(`Error: ${store.dirOf(key, change)} not found\n`);
     return 1;
   }
-  if (existsSync(dst)) {
-    process.stderr.write(`Error: ${dst} already exists — not archiving.\n`);
-    return 1;
-  }
+  if (store.exists(key, target)) return taken();
 
-  const c = checkChange(src);
+  const c = checkRead(store.readFile(key, change, CHANGE_FILE));
   if ("issues" in c) {
     if (force) {
       process.stderr.write("WARNING: archiving with an invalid change.yaml (--force)\n");
@@ -50,13 +53,14 @@ export function cmdArchive(changeId: string, override: string | undefined, force
     }
   }
 
+  let ref: string;
   try {
-    mkdirSync(`${dir}/changes/archive`, { recursive: true });
-    renameSync(src, dst);
+    ref = store.archive(key, changeId, date);
   } catch (e) {
+    if (e instanceof StoreError && e.code === "exists") return taken();
     process.stderr.write(`mv: ${(e as Error).message}\n`);
     return 1;
   }
-  process.stdout.write(`Archived: ${dst}\n`);
+  process.stdout.write(`Archived: ${store.dirOf(key, { kind: "archived", ref })}\n`);
   return 0;
 }
