@@ -113,22 +113,73 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** The parsed settings file, `{}` when absent, `null` when not valid settings JSON. */
-function readSettings(path: string): Settings | null {
-  if (!existsSync(path)) return {};
+type SettingsRead = { settings: Settings } | { invalid: true } | { unreadable: string };
+
+/** The parsed settings file (`{}` when absent), `invalid` when it is not valid settings JSON, or why it cannot be read. */
+function readSettings(path: string): SettingsRead {
+  if (!existsSync(path)) return { settings: {} };
+  let text: string;
+  try {
+    text = readFileSync(path, "utf-8");
+  } catch (e) {
+    return { unreadable: (e as Error).message };
+  }
   let data: unknown;
   try {
-    data = JSON.parse(readFileSync(path, "utf-8"));
+    data = JSON.parse(text);
   } catch {
-    return null;
+    return { invalid: true };
   }
-  if (!isObject(data)) return null;
+  if (!isObject(data)) return { invalid: true };
   const perms = data.permissions;
   if (perms !== undefined) {
-    if (!isObject(perms)) return null;
-    if (perms.allow !== undefined && !Array.isArray(perms.allow)) return null;
+    if (!isObject(perms)) return { invalid: true };
+    if (perms.allow !== undefined && !Array.isArray(perms.allow)) return { invalid: true };
   }
-  return data as Settings;
+  return { settings: data as Settings };
+}
+
+/** Prints why the settings file at `path` cannot be used, before anything was written. */
+function refuseSettings(path: string, read: { invalid: true } | { unreadable: string }): number {
+  if ("unreadable" in read) return fail(`theway: cannot read ${path}: ${read.unreadable}; nothing was changed`);
+  return invalidSettings(path);
+}
+
+/** `path` when it exists, else its closest existing ancestor: the folder a recursive mkdir under `path` writes into. */
+function nearestExisting(path: string): string {
+  let dir = path;
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
+  return dir;
+}
+
+/** `dir` and every folder below it, without following links, `[]` when `dir` is not a folder: removing or moving `dir` writes into each. */
+function foldersIn(dir: string): string[] {
+  try {
+    if (!lstatSync(dir).isDirectory()) return [];
+  } catch {
+    return [];
+  }
+  const found = [dir];
+  try {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) found.push(...foldersIn(join(dir, e.name)));
+    }
+  } catch {
+    // An unreadable folder: the W_OK check on it reports it.
+  }
+  return found;
+}
+
+/** The first of `paths` that cannot be written, with the reason, or `null` when every one can. */
+function writeCheck(paths: readonly string[]): { path: string; reason: string } | null {
+  for (const path of new Set(paths)) {
+    try {
+      accessSync(path, constants.W_OK);
+    } catch (e) {
+      return { path, reason: (e as Error).message };
+    }
+  }
+  return null;
 }
 
 /** Where writing `path` lands: the end of its symlink chain (even a missing file), or why it cannot be written. */
@@ -148,8 +199,7 @@ function settingsTarget(path: string): { target: string } | { error: string } {
     target = resolve(dirname(target), readlinkSync(target));
   }
   // writeSettings creates the missing folders, so the nearest existing one must be writable.
-  let dir = dirname(target);
-  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir);
+  const dir = nearestExisting(dirname(target));
   try {
     accessSync(dir, constants.W_OK);
   } catch {
@@ -158,7 +208,7 @@ function settingsTarget(path: string): { target: string } | { error: string } {
   return { target };
 }
 
-function unwritableSettings(path: string, reason: string): number {
+function cannotWrite(path: string, reason: string): number {
   return fail(`theway: cannot write ${path}: ${reason}; nothing was changed`);
 }
 
@@ -173,9 +223,15 @@ function invalidSettings(path: string): number {
   return fail(`theway: ${path} is not valid settings JSON; nothing was changed`);
 }
 
-function copyPlugin(home: string): string {
+/** Where copyPlugin moves the previous plugin before it puts the new one in place. */
+function oldPlugin(home: string): string {
+  return join(home, `.theway-old-${process.pid}`);
+}
+
+/** Replaces `<home>/skills/theway` with this plugin, adding its label to `written` once the new folder is in place. */
+function copyPlugin(home: string, written: string[]): string {
   const tmp = join(home, `.theway-install-${process.pid}`);
-  const old = join(home, `.theway-old-${process.pid}`);
+  const old = oldPlugin(home);
   const dest = join(home, "skills", "theway");
   rmSync(tmp, { recursive: true, force: true });
   try {
@@ -185,6 +241,7 @@ function copyPlugin(home: string): string {
     mkdirSync(join(home, "skills"), { recursive: true });
     if (existsSync(dest)) renameSync(dest, old);
     renameSync(tmp, dest);
+    written.push(`the plugin in ${dest}`);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -201,18 +258,27 @@ function legacyText(path: string, match: (text: string) => boolean): boolean {
   }
 }
 
-/** Removes the 0.2.0 launcher (`bin/theway`, `bin/theway.js`, then `bin/` when empty) from `~/.theway` and `home`, only the files 0.2.0 wrote. */
-function removeLegacyBin(home: string): void {
+/** The files of the 0.2.0 launcher (`bin/theway`, `bin/theway.js`) in `~/.theway` and `home`, only those 0.2.0 wrote. */
+function legacyBinFiles(home: string): string[] {
+  const files: string[] = [];
   for (const h of new Set([defaultHome(), resolve(home)])) {
     const bin = join(h, "bin");
     if (legacyText(join(bin, "theway"), (t) => t.startsWith('#!/bin/sh\nexec node ') && t.endsWith(`theway.js' "$@"\n`))) {
-      rmSync(join(bin, "theway"), { force: true });
+      files.push(join(bin, "theway"));
     }
     if (legacyText(join(bin, "theway.js"), (t) => t.startsWith("#!/usr/bin/env node\n"))) {
-      rmSync(join(bin, "theway.js"), { force: true });
+      files.push(join(bin, "theway.js"));
     }
-    removeIfEmpty(bin);
   }
+  return files;
+}
+
+/** Removes the 0.2.0 launcher, then each `bin/` left empty, from `~/.theway` and `home`; returns the `bin/` folders it removed files from. */
+function removeLegacyBin(home: string): string[] {
+  const files = legacyBinFiles(home);
+  for (const file of files) rmSync(file, { force: true });
+  for (const h of new Set([defaultHome(), resolve(home)])) removeIfEmpty(join(h, "bin"));
+  return [...new Set(files.map((f) => dirname(f)))];
 }
 
 /** Copies this CLI to `<dir>/theway`, executable, replacing any previous copy in one rename. */
@@ -390,6 +456,41 @@ async function askStandards(): Promise<string[] | null> {
   return isCancel(answer) ? null : answer;
 }
 
+/** The folders and files install writes into directly, each of which must be writable before its first write. */
+function installTargets(cHome: string, tHome: string, dir: string, custom: boolean): string[] {
+  const targets: string[] = [];
+  // copyPlugin writes <cHome>/.theway-install-<pid> and moves the previous plugin out to <cHome>/.theway-old-<pid>.
+  targets.push(nearestExisting(cHome), nearestExisting(join(cHome, "skills")));
+  targets.push(...foldersIn(join(cHome, "skills", "theway")));
+  targets.push(...legacyBinFiles(tHome).map((f) => dirname(f)));
+  // writeBinary creates the folder when missing, else writes and renames in it.
+  targets.push(nearestExisting(dir));
+  const home = resolve(tHome);
+  targets.push(nearestExisting(home));
+  if (isDir(home)) {
+    let names: string[] = [];
+    try {
+      names = readdirSync(home);
+    } catch {
+      // An unreadable home: init's failure is reported once the writes run.
+    }
+    for (const name of names) {
+      if (isDir(join(home, name))) targets.push(join(home, name));
+    }
+    const defaults = join(home, "config.default.yaml");
+    if (existsSync(defaults)) targets.push(defaults);
+  }
+  const pointer = pointerPath();
+  if (custom) {
+    targets.push(nearestExisting(dirname(pointer)));
+    // writePointer overwrites the file in place.
+    if (occupied(pointer)) targets.push(pointer);
+  } else if (occupied(pointer)) {
+    targets.push(dirname(pointer));
+  }
+  return targets;
+}
+
 export async function install(opts: { home?: string; standards?: string }): Promise<number> {
   // An installed copy has no plugin next to it: installs and updates go through npx.
   if (!existsSync(join(plugin, ".claude-plugin"))) {
@@ -438,9 +539,10 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   }
 
   const resolved = settingsTarget(settingsPath);
-  if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
-  const settings = readSettings(resolved.target);
-  if (settings === null) return invalidSettings(settingsPath);
+  if ("error" in resolved) return cannotWrite(settingsPath, resolved.error);
+  const read = readSettings(resolved.target);
+  if (!("settings" in read)) return refuseSettings(settingsPath, read);
+  const settings = read.settings;
 
   // Never replace another program that happens to be called theway: uninstall would not remove it either.
   const target = join(dir, "theway");
@@ -464,45 +566,59 @@ export async function install(opts: { home?: string; standards?: string }): Prom
     enabled = chosen;
   }
 
-  const dest = copyPlugin(cHome);
+  const unwritable = writeCheck(installTargets(cHome, tHome, dir, custom));
+  if (unwritable !== null) return cannotWrite(unwritable.path, unwritable.reason);
 
+  // No rollback: a failure from here on names what was already written.
+  const written: string[] = [];
+  const stopped = (message: string): number => {
+    const done = written.length > 0 ? `already written: ${written.join(", ")}` : "nothing was written";
+    const old = oldPlugin(cHome);
+    const kept = existsSync(old) ? `; the previous plugin is in ${old}` : "";
+    return fail(`theway: install stopped: ${message}; ${done}${kept}`);
+  };
+  let dest: string;
   let binary: string;
   try {
-    removeLegacyBin(tHome);
+    dest = copyPlugin(cHome, written);
+    const cleared = removeLegacyBin(tHome);
+    if (cleared.length > 0) written.push(`removed the old launchers in ${cleared.join(", ")}`);
     binary = writeBinary(dir);
-  } catch (e) {
-    return fail(`theway: ${(e as Error).message}`);
-  }
-  const status = init(join(plugin, "home"), tHome, enabled);
-  if (status !== 0) return status;
-  reportTasksMd(tHome);
-  if (firstInstall && opts.standards === undefined && !asked) {
-    process.stdout.write(
-      `Opt-in standards are off (${OPT_IN_KEYS.join(", ")}): set standards.<key>.enabled: true in ${config} to enable one\n`,
-    );
-  }
-  try {
+    written.push(`the theway binary at ${binary}`);
+    // init prints its own error line first.
+    if (init(join(plugin, "home"), tHome, enabled) !== 0) return stopped("the data home could not be written");
+    written.push(`the data home ${tHome}`);
+    reportTasksMd(tHome);
+    if (firstInstall && opts.standards === undefined && !asked) {
+      process.stdout.write(
+        `Opt-in standards are off (${OPT_IN_KEYS.join(", ")}): set standards.<key>.enabled: true in ${config} to enable one\n`,
+      );
+    }
+    const hadPointer = occupied(pointerPath());
     writePointer(tHome, custom);
-  } catch (e) {
-    return fail(`theway: ${(e as Error).message}`);
-  }
+    if (custom) written.push(`the home pointer ${pointerPath()}`);
+    else if (hadPointer) written.push(`removed the home pointer ${pointerPath()}`);
 
-  const perms = settings.permissions ?? {};
-  const allow = perms.allow ?? [];
-  // The 0.2.0 rules, the Edit rule of earlier versions, and the rules of the previous home when the home changed.
-  const current = rules(tHome);
-  const stale = [
-    ...legacyRules(tHome),
-    editRule(tHome),
-    editRule(previous),
-    ...homeRules(previous).filter((r) => !current.includes(r)),
-  ];
-  const kept = allow.filter((r) => !(typeof r === "string" && stale.includes(r)));
-  const missing = current.filter((r) => !kept.includes(r));
-  if (missing.length > 0 || kept.length !== allow.length) {
-    settings.permissions = { ...perms, allow: [...kept, ...missing] };
-    mkdirSync(cHome, { recursive: true });
-    writeSettings(resolved.target, settings);
+    const perms = settings.permissions ?? {};
+    const allow = perms.allow ?? [];
+    // The 0.2.0 rules, the Edit rule of earlier versions, and the rules of the previous home when the home changed.
+    const current = rules(tHome);
+    const stale = [
+      ...legacyRules(tHome),
+      editRule(tHome),
+      editRule(previous),
+      ...homeRules(previous).filter((r) => !current.includes(r)),
+    ];
+    const kept = allow.filter((r) => !(typeof r === "string" && stale.includes(r)));
+    const missing = current.filter((r) => !kept.includes(r));
+    if (missing.length > 0 || kept.length !== allow.length) {
+      settings.permissions = { ...perms, allow: [...kept, ...missing] };
+      // The last write: it gets no label.
+      mkdirSync(cHome, { recursive: true });
+      writeSettings(resolved.target, settings);
+    }
+  } catch (e) {
+    return stopped((e as Error).message);
   }
 
   checkPath(dir, binary);
@@ -523,31 +639,57 @@ export function uninstall(): number {
   let settingsFile = settingsPath;
   if (occupied(settingsPath)) {
     const resolved = settingsTarget(settingsPath);
-    if ("error" in resolved) return unwritableSettings(settingsPath, resolved.error);
+    if ("error" in resolved) return cannotWrite(settingsPath, resolved.error);
     settingsFile = resolved.target;
   }
+  let settings: Settings | undefined;
+  if (existsSync(settingsPath)) {
+    const read = readSettings(settingsFile);
+    if (!("settings" in read)) return refuseSettings(settingsPath, read);
+    settings = read.settings;
+  }
 
-  rmSync(join(cHome, "skills", "theway"), { recursive: true, force: true });
-
+  const plugin = join(cHome, "skills", "theway");
+  const hadPlugin = occupied(plugin);
   // Only a theway binary is removed, never another program that happens to be called theway.
   const binary = join(installDir(), "theway");
   const removed = isThewayBinary(binary);
-  if (removed) rmSync(binary, { force: true });
-  rmSync(pointerPath(), { force: true });
-  removeIfEmpty(dirname(pointerPath()));
+  const pointer = pointerPath();
+  const hadPointer = occupied(pointer);
+  const targets = [
+    ...(hadPlugin ? [join(cHome, "skills"), ...foldersIn(plugin)] : []),
+    ...(removed ? [installDir()] : []),
+    ...(hadPointer ? [dirname(pointer)] : []),
+  ];
+  const unwritable = writeCheck(targets);
+  if (unwritable !== null) return cannotWrite(unwritable.path, unwritable.reason);
 
-  if (existsSync(settingsPath)) {
-    const settings = readSettings(settingsFile);
-    if (settings === null) return invalidSettings(settingsPath);
-    const allow = settings.permissions?.allow;
-    if (Array.isArray(allow)) {
+  // No rollback: a failure from here on names what was already removed.
+  const gone: string[] = [];
+  try {
+    rmSync(plugin, { recursive: true, force: true });
+    if (hadPlugin) gone.push(`the plugin in ${plugin}`);
+    if (removed) {
+      rmSync(binary, { force: true });
+      gone.push(`the theway binary at ${binary}`);
+    }
+    rmSync(pointer, { force: true });
+    removeIfEmpty(dirname(pointer));
+    if (hadPointer) gone.push(`the home pointer ${pointer}`);
+
+    const allow = settings?.permissions?.allow;
+    if (settings !== undefined && Array.isArray(allow)) {
       const drop = homes.flatMap((h) => [...rules(h), ...legacyRules(h), editRule(h)]);
       const kept = allow.filter((r) => !(typeof r === "string" && drop.includes(r)));
       if (kept.length !== allow.length) {
         settings.permissions = { ...settings.permissions, allow: kept };
+        // The last write: it gets no label.
         writeSettings(settingsFile, settings);
       }
     }
+  } catch (e) {
+    const done = gone.length > 0 ? `already removed: ${gone.join(", ")}` : "nothing was removed";
+    return fail(`theway: uninstall stopped: ${(e as Error).message}; ${done}`);
   }
 
   const bin = removed ? ` and ${binary}` : "";
