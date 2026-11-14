@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { isDir } from "../core/io";
 import { activeIds } from "../core/list";
-import { keyOf, projectDir, projectReason } from "../core/project";
+import { keyOf, projectDir, projectReason, recordedRoot } from "../core/project";
 
 /** One project of `GET /api/projects`; `path` is its folder, `null` when not found. */
 export type Project = { key: string; label: string; active: number; path: string | null };
@@ -83,10 +83,16 @@ export function labels(keys: string[], find: (key: string) => string | null = fo
   });
 }
 
+/** The folder of a project: the root its `root` file records when that is a folder, else the one `folderOf` finds. */
+function folderIn(home: string, key: string): string | null {
+  const recorded = recordedRoot(home, key);
+  return recorded !== null && isDir(recorded) ? recorded : folderOf(key);
+}
+
 /** Every project of a home, sorted by key, with its label, its number of active changes and its folder. */
 export function projects(home: string): Project[] {
   const keys = projectKeys(home);
-  const found = new Map(keys.map((key) => [key, folderOf(key)] as const));
+  const found = new Map(keys.map((key) => [key, folderIn(home, key)] as const));
   const names = labels(keys, (k) => found.get(k) ?? null);
   return keys.map((key, i) => {
     const folder = found.get(key) ?? null;

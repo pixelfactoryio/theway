@@ -267,6 +267,14 @@ The root is resolved to its physical path (symlinks followed) before the key is 
   theway: project key for <root> is longer than 200 characters; pass --project <key>
   ```
 
+- the derived key's folder is claimed by another root, recorded in its `root` file:
+
+  ```text
+  theway: project key <key> is used by <recorded root>; pass --project <key> to use another key for <root>
+  ```
+
+A derived key whose folder exists and has no `root` file claims it: the command writes the root's physical path to `<home>/projects/<key>/root`. When that write fails, the command goes on and writes `theway: warning: cannot record <dir>/root: <message>` to stderr. With no project folder, nothing is written. `--project` never reads or writes the `root` file. See [Project key](./concepts/changes.mdx#project-key).
+
 Every subcommand checks the key first, then its other arguments; an empty `<change-id>` for `archive` and an invalid `--count` for `next-id` are refused by the argument parser before it.
 
 ## config
@@ -564,7 +572,7 @@ theway dashboard: http://127.0.0.1:4870/
 - It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
 - The page, its script, its stylesheet and its two fonts are built into the CLI: nothing is loaded from another host. It reads the home on every request.
 - It answers `403 {"error":"forbidden host"}` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>` (on port 80, where a browser leaves the port out, `127.0.0.1` and `localhost` pass too), so a web page cannot reach it through another host name, and `404 {"error":"not found"}` to an unknown path. Every response carries a Content-Security-Policy that allows scripts, fonts, images and connections from the server itself only, and styles from it plus a nonce made for that response.
-- A header spans the full width above the sidebar: the theway mark, which opens `#/`, then the page's breadcrumb, then the page's actions. On a project's pages (its Overview, its Changes and a change) the breadcrumb starts with the project switcher, which lists every project of the home with its number of active changes. On workflow and prompt pages it starts with "Library". The dashboard opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name.
+- A header spans the full width above the sidebar: the theway mark, which opens `#/`, then the page's breadcrumb, then the page's actions. On a project's pages (its Overview, its Changes and a change) the breadcrumb starts with the project switcher, which lists every project of the home with its number of active changes. On workflow and prompt pages it starts with "Library". The dashboard opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name. When that directory's derived key is longer than 200 characters, or its folder is claimed by another root, the command writes a `theway: warning:` line to stderr before the address line and has no start project: `theway: warning: project key <key> is used by <recorded root>; the dashboard has no start project for <root>`.
 - The sidebar below the header has two groups: Project, with the current project's Overview and Changes (with its number of active changes), and Library, with Workflows and Prompts (with their counts), which are the home's own and have no project. It opens expanded; Cmd/Ctrl+B or its edge collapses it to icons, and this browser remembers the choice. Its footer holds Documentation, Theme and the version, `theway <version>`, to quote when you report a problem.
 - A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1 with one line on stderr:
 
@@ -644,7 +652,7 @@ A prompt's Prompt tab and a workflow's YAML tab are editable. What you type is a
 - Leaving the page with unsaved changes (a link, the sidebar, the project selector, Back) asks first: Keep editing, Discard, or Save then leave. Moving between the tabs of the same file does not ask. Closing or reloading the browser tab gets the browser's own prompt.
 - Writes go through the file's folder with a temporary file and a rename, so an interrupted write never leaves a truncated file.
 
-Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, `~/.theway/history/`, and the `change.yaml` and Markdown files of a project's active change folders.
+Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, `~/.theway/history/`, the `change.yaml` and Markdown files of a project's active change folders, and, when it starts, `projects/<key>/root` of the start project when it claims that folder.
 
 ### Editing a workflow
 

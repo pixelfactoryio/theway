@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -212,6 +212,20 @@ test("GET /api/projects lists the projects by key with their label, active count
   expect(next.projects.map((p) => p.key)).toContain("-added");
 });
 
+test("GET /api/projects returns the recorded root as path when the root file names a folder", async () => {
+  const home = temp();
+  const work = temp();
+  // `a-b` is what the folder walk finds for the key; the record names `a.b`.
+  const walked = join(work, "x", "a-b");
+  const recorded = join(work, "x", "a.b");
+  for (const dir of [walked, recorded]) mkdirSync(dir, { recursive: true });
+  const key = keyOf(recorded);
+  project(home, key, 0);
+  writeFileSync(join(home, "projects", key, "root"), `${recorded}\n`);
+  const body = (await (await get(home, "/api/projects")).json()) as { projects: { key: string; label: string; path: string | null }[] };
+  expect(body.projects).toEqual([{ key, label: "a.b", active: 0, path: recorded }]);
+});
+
 test("one project's fallback label is its key without the leading -", async () => {
   const home = temp();
   project(home, "-no-such-folder-anywhere", 0);
@@ -269,6 +283,41 @@ test("dashboard --port 0 prints the bound address, serves, and exits 0 on SIGTER
   expect(await res.json()).toEqual({ projects: [], start: null });
   run.child.kill("SIGTERM");
   expect(await run.exited).toBe(0);
+});
+
+test("dashboard whose derived key is claimed by another root warns and has no start project", async () => {
+  const work = realpathSync(temp());
+  const first = join(work, "x", "a-b");
+  const second = join(work, "x", "a", "b");
+  for (const dir of [first, second]) mkdirSync(dir, { recursive: true });
+  const home = temp();
+  const key = keyOf(first);
+  mkdirSync(join(home, "projects", key), { recursive: true });
+  writeFileSync(join(home, "projects", key, "root"), `${first}\n`);
+  const env: Record<string, string | undefined> = { ...process.env, THEWAY_HOME: home };
+  for (const k of Object.keys(env)) if (k.startsWith("GIT_")) delete env[k];
+  const child = spawn("node", [CLI, "dashboard", "--port", "0"], { cwd: second, env, stdio: ["ignore", "pipe", "pipe"] });
+  let stdout = "";
+  let stderr = "";
+  child.stderr.on("data", (d) => (stderr += d));
+  const exited = new Promise<number | null>((done) => child.on("exit", (code) => done(code)));
+  await new Promise<void>((done) => {
+    child.stdout.on("data", (d) => {
+      stdout += d;
+      if (stdout.includes("\n")) done();
+    });
+    child.on("exit", () => done());
+  });
+  expect(stderr).toBe(`theway: warning: project key ${key} is used by ${first}; the dashboard has no start project for ${second}\n`);
+  const port = /^theway dashboard: http:\/\/127\.0\.0\.1:(\d+)\/\n$/.exec(stdout)?.[1];
+  const body = (await (await fetch(`http://127.0.0.1:${port}/api/projects`)).json()) as {
+    projects: { key: string }[];
+    start: string | null;
+  };
+  expect(body.start).toBeNull();
+  expect(body.projects.map((p) => p.key)).toEqual([key]);
+  child.kill("SIGTERM");
+  expect(await exited).toBe(0);
 });
 
 test("dashboard listens on 127.0.0.1 by default port 4870 and stops on SIGINT", async () => {

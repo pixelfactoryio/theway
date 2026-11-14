@@ -3,7 +3,31 @@ import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import { createApp } from "../dashboard/server";
 import { thewayHome } from "./io";
-import { keyOf, projectRoot } from "./project";
+import { claimKey, keyOf, projectRoot } from "./project";
+
+/**
+ * The start project's key: the key derived from the current directory once it claims its folder (`claimKey`). `""`,
+ * after a warning line, when that key is longer than 200 characters or its folder is claimed by another root.
+ */
+function startKey(home: string): string {
+  const root = projectRoot();
+  const key = keyOf(root);
+  if (key.length > 200) {
+    process.stderr.write(
+      `theway: warning: project key for ${root} is longer than 200 characters; the dashboard has no start project\n`,
+    );
+    return "";
+  }
+  const claim = claimKey(home, key, root);
+  if (!claim.ok) {
+    process.stderr.write(
+      `theway: warning: project key ${key} is used by ${claim.recorded}; the dashboard has no start project for ${root}\n`,
+    );
+    return "";
+  }
+  if ("warning" in claim) process.stderr.write(`theway: warning: ${claim.warning}\n`);
+  return key;
+}
 
 /**
  * `theway dashboard [--port <n>]`: serves the dashboard on `127.0.0.1` until SIGINT or SIGTERM. Resolves to the exit
@@ -12,7 +36,8 @@ import { keyOf, projectRoot } from "./project";
 export function cmdDashboard(port: number): Promise<number> {
   const token = randomBytes(32).toString("hex");
   let bound = port;
-  const app = createApp(thewayHome(), () => bound, keyOf(projectRoot()), token);
+  const home = thewayHome();
+  const app = createApp(home, () => bound, startKey(home), token);
   return new Promise((done) => {
     let server: Server;
     try {
