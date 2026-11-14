@@ -253,7 +253,7 @@ function ActiveGrid({
             </div>
           )
         },
-        size: 420,
+        size: 240,
         enableSorting: true,
         meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
       },
@@ -297,7 +297,7 @@ function ActiveGrid({
             </div>
           )
         },
-        size: 280,
+        size: 200,
         enableSorting: false,
         meta: { skeleton: cellSkeleton("w-48") },
       },
