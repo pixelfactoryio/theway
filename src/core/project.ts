@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { escaped, isDir, thewayHome, writeAtomic } from "./io";
+import { error, print, warning } from "./output";
 
 const KEY = /^[A-Za-z0-9-]{1,200}$/;
 
@@ -89,39 +90,35 @@ export function claimKey(home: string, key: string, root: string): Claim {
 }
 
 /**
- * The project key: `override` once validated, else the key derived from the current directory. Writes the error line
- * and returns `null` when the override is invalid, the derived key is longer than 200 characters or its folder is
- * claimed by another root. A derived key claims its folder (`claimKey`).
+ * The project key: `override` once validated, else the key derived from the current directory, with the warning of a
+ * claim that could not be recorded. The error message when the override is invalid, the derived key is longer than 200
+ * characters or its folder is claimed by another root. A derived key claims its folder (`claimKey`).
  */
-export function resolveKey(override: string | undefined): string | null {
+export function resolveKey(override: string | undefined): { key: string; warning: string | null } | { error: string } {
   if (override !== undefined) {
     const reason = projectReason(override);
-    if (reason === "") return override;
+    if (reason === "") return { key: override, warning: null };
     const shown = escaped(override);
-    process.stderr.write(`theway: invalid project '${shown}': ${reason}\n`);
-    return null;
+    return { error: `invalid project '${shown}': ${reason}` };
   }
   const root = projectRoot();
   const key = keyOf(root);
   if (key.length > 200) {
-    process.stderr.write(`theway: project key for ${root} is longer than 200 characters; pass --project <key>\n`);
-    return null;
+    return { error: `project key for ${root} is longer than 200 characters; pass --project <key>` };
   }
   const claim = claimKey(thewayHome(), key, root);
   if (!claim.ok) {
-    process.stderr.write(
-      `theway: project key ${key} is used by ${claim.recorded}; pass --project <key> to use another key for ${root}\n`,
-    );
-    return null;
+    return { error: `project key ${key} is used by ${claim.recorded}; pass --project <key> to use another key for ${root}` };
   }
-  if ("warning" in claim) process.stderr.write(`theway: warning: ${claim.warning}\n`);
-  return key;
+  return { key, warning: "warning" in claim ? claim.warning : null };
 }
 
 /** `theway project [--project <key>]`: the project key and folder. */
 export function cmdProject(override: string | undefined): number {
-  const key = resolveKey(override);
-  if (key === null) return 1;
-  process.stdout.write(`key: ${key}\ndir: ${projectDir(thewayHome(), key)}\n`);
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const key = resolved.key;
+  print(`key: ${key}\ndir: ${projectDir(thewayHome(), key)}\n`);
   return 0;
 }

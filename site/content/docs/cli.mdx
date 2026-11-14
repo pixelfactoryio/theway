@@ -123,7 +123,7 @@ It exits 1 and moves nothing when:
 - its `change.yaml` is invalid:
 
   ```text
-  Error: <change-id> has an invalid change.yaml — not archiving.
+  theway: <change-id> has an invalid change.yaml — not archiving.
   changes/<change-id>/change.yaml: <where>: <message>
   Fix it, or re-run with --force.
   ```
@@ -131,12 +131,12 @@ It exits 1 and moves nothing when:
 - a task of its `change.yaml` is open. It prints each one with its number and the first line of its text:
 
   ```text
-  Error: <change-id> has open tasks — not archiving.
+  theway: <change-id> has open tasks — not archiving.
   2. Answer 429 with a `Retry-After` header when the bucket is empty
   Tick them with theway task done, or re-run with --force.
   ```
 
-`--force` archives anyway and prints `WARNING: archiving with an invalid change.yaml (--force)`, or `WARNING: archiving with open tasks (--force):` followed by the open tasks.
+`--force` archives anyway and prints `theway: warning: archiving with an invalid change.yaml (--force)`, or `theway: warning: archiving with open tasks (--force):` followed by the open tasks.
 
 ## change
 
@@ -750,13 +750,13 @@ theway validate-id <id> --series
 Checks a [change ID](./concepts/changes.mdx#change-ids). It exits 0 when the ID is valid. Otherwise it exits 1 and prints one line on stderr:
 
 ```text
-invalid change id '<id>': <reason>
+theway: invalid change id '<id>': <reason>
 ```
 
 Every ID must be lowercase kebab-case (`[a-z0-9]` segments joined by single hyphens) and start with `add-`, `update-`, `refactor-`, `remove-` or `fix-`. An ID with uppercase letters is rejected with `uppercase letters are not allowed; use lowercase kebab-case`, one with underscores with `underscores are not allowed; use kebab-case (-)`; any other start is rejected with:
 
 ```text
-invalid change id '<id>': must start with a verb prefix: add-, update-, refactor-, remove- or fix-
+theway: invalid change id '<id>': must start with a verb prefix: add-, update-, refactor-, remove- or fix-
 ```
 
 - **Without `--series`** (a standalone change): the ID must not end in a one- or two-digit number.
@@ -778,10 +778,10 @@ add-user-auth-04
 add-user-auth-05
 ```
 
-- A trailing `-NN` is removed from `<series-id>` first, so `add-user-auth-07` gives the same IDs as `add-user-auth`. The rest must fit the [`validate-id`](#validate-id) format and must not end in a one- or two-digit number; when it is invalid, it exits 1 with an `invalid change id '<id>': <reason>` line, `<id>` being the series ID without its ordinal, for example:
+- A trailing `-NN` is removed from `<series-id>` first, so `add-user-auth-07` gives the same IDs as `add-user-auth`. The rest must fit the [`validate-id`](#validate-id) format and must not end in a one- or two-digit number; when it is invalid, it exits 1 with a `theway: invalid change id '<id>': <reason>` line, `<id>` being the series ID without its ordinal, for example:
 
   ```text
-  invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number
+  theway: invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number
   ```
 
 - It counts the folders `<home>/projects/<key>/changes/<series-id>-NN` and the archived `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<series-id>-NN`, and continues after the highest `NN`, or from `01` when there is none.

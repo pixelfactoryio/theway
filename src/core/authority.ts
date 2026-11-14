@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readManifest } from "./init";
 import { thewayHome } from "./io";
+import { error, print } from "./output";
 
 /** The text of a file without its trailing blank lines, ending with one newline; `null` when it cannot be read or holds only whitespace. */
 function wholeText(path: string): string | null {
@@ -27,10 +28,7 @@ export function cmdAuthority(): number {
   const listed = "standards/authority.md" in (readManifest(home) ?? {});
   const path = join(dir, listed ? "authority.md" : "authority.default.md");
   const text = (listed ? wholeText(path) : null) ?? wholeText(join(dir, "authority.default.md"));
-  if (text === null) {
-    process.stderr.write(`theway: no ${path}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins\n`);
-    return 1;
-  }
-  process.stdout.write(text);
+  if (text === null) return error(`no ${path}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins`);
+  print(text);
   return 0;
 }

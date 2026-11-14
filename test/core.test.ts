@@ -318,17 +318,17 @@ test("archive refuses open tasks and an invalid change.yaml, and archives either
   put(join(changes, "add-x", "change.yaml"), changeYaml([true, false]).replace("task 2", ">-\n      task 2\n      second line"));
   const res = run(dir, "archive", "--project", "p", "add-x");
   expect([res.status, res.stdout]).toEqual([1, ""]);
-  expect(res.stderr).toBe("Error: add-x has open tasks — not archiving.\n2. task 2 second line\nTick them with theway task done, or re-run with --force.\n");
+  expect(res.stderr).toBe("theway: add-x has open tasks — not archiving.\n2. task 2 second line\nTick them with theway task done, or re-run with --force.\n");
   const forced = run(dir, "archive", "--project", "p", "add-x", "--force");
   expect(forced.status).toBe(0);
-  expect(forced.stderr).toBe("WARNING: archiving with open tasks (--force):\n2. task 2 second line\n");
+  expect(forced.stderr).toBe("theway: warning: archiving with open tasks (--force):\n2. task 2 second line\n");
 
   put(join(changes, "add-y", "spec.md"), "# y\n");
   const invalid = run(dir, "archive", "--project", "p", "add-y");
   expect([invalid.status, invalid.stdout]).toEqual([1, ""]);
-  expect(invalid.stderr).toBe("Error: add-y has an invalid change.yaml — not archiving.\nchanges/add-y/change.yaml: not found\nFix it, or re-run with --force.\n");
+  expect(invalid.stderr).toBe("theway: add-y has an invalid change.yaml — not archiving.\nchanges/add-y/change.yaml: not found\nFix it, or re-run with --force.\n");
   const forcedInvalid = run(dir, "archive", "--project", "p", "add-y", "--force");
-  expect([forcedInvalid.status, forcedInvalid.stderr]).toEqual([0, "WARNING: archiving with an invalid change.yaml (--force)\n"]);
+  expect([forcedInvalid.status, forcedInvalid.stderr]).toEqual([0, "theway: warning: archiving with an invalid change.yaml (--force)\n"]);
   expect(existsSync(join(changes, "add-y"))).toBe(false);
 
   put(join(changes, "add-z", "change.yaml"), changeYaml([true]));
@@ -394,6 +394,12 @@ test("validate-id reasons", () => {
     [seriesReason("refactor-next-cleanup-01"), ""],
   ];
   for (const [actual, expected] of cases) expect(actual).toBe(expected);
+});
+
+test("validate-id prints a theway-prefixed error", () => {
+  const res = run(home(), "validate-id", "Add-x");
+  expect([res.status, res.stdout]).toEqual([1, ""]);
+  expect(res.stderr).toBe("theway: invalid change id 'Add-x': uppercase letters are not allowed; use lowercase kebab-case\n");
 });
 
 /** Runs the CLI with only HOME, PATH, XDG_CONFIG_HOME and the given THEWAY_HOME set. */
@@ -1315,15 +1321,15 @@ test("next-id exits 1 on an invalid series id, a bad --count and past -99", () =
   const bad = run(dir, "next-id", "--project", "p", "Add-thing");
   expect(bad.status).toBe(1);
   expect(bad.stdout).toBe("");
-  expect(bad.stderr).toBe("invalid change id 'Add-thing': uppercase letters are not allowed; use lowercase kebab-case\n");
+  expect(bad.stderr).toBe("theway: invalid change id 'Add-thing': uppercase letters are not allowed; use lowercase kebab-case\n");
   const ordinal = run(dir, "next-id", "--project", "p", "add-thing-01-02");
   expect(ordinal.status).toBe(1);
-  expect(ordinal.stderr).toBe("invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number\n");
+  expect(ordinal.stderr).toBe("theway: invalid change id 'add-thing-01': ends in a number (-01); a series id cannot end in a number\n");
   const number = run(dir, "next-id", "--project", "p", "add-thing-7");
   expect(number.status).toBe(1);
-  expect(number.stderr).toBe("invalid change id 'add-thing-7': ends in a number (-7); a series id cannot end in a number\n");
+  expect(number.stderr).toBe("theway: invalid change id 'add-thing-7': ends in a number (-7); a series id cannot end in a number\n");
   const twoDigits = run(dir, "next-id", "--project", "p", "add-thing-42-05");
-  expect(twoDigits.stderr).toBe("invalid change id 'add-thing-42': ends in a number (-42); a series id cannot end in a number\n");
+  expect(twoDigits.stderr).toBe("theway: invalid change id 'add-thing-42': ends in a number (-42); a series id cannot end in a number\n");
   for (const res of [bad, ordinal, number, twoDigits]) expect(res.stderr).not.toContain("--series");
   expect(run(dir, "next-id", "--project", "Bad/p", "add-thing").stderr).toStartWith("theway: invalid project 'Bad/p': ");
   for (const count of ["0", "-1", "1.5", "x"]) {

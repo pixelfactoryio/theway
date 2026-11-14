@@ -24,6 +24,7 @@ import { OPT_IN_KEYS } from "./core/config";
 import { init } from "./core/init";
 import { activeIds } from "./core/store/files";
 import { defaultHome, isDir, isFile, pointerPath, readPointer, removeIfEmpty, resolveHome, writeAtomic } from "./core/io";
+import { error, print, warning } from "./core/output";
 
 const self = fileURLToPath(import.meta.url);
 const pkgRoot = dirname(dirname(self));
@@ -82,14 +83,14 @@ function legacyRules(home: string): string[] {
 
 const CHANGE_YAML_DOCS = "https://pixelfactoryio.github.io/theway/docs/installation/#changes-written-before-changeyaml";
 
-/** Prints one line when active changes of any project still hold a `tasks.md` and no `change.yaml`. */
-function reportTasksMd(home: string): void {
+/** The line to print when active changes of any project still hold a `tasks.md` and no `change.yaml`, else `null`. */
+function reportTasksMd(home: string): string | null {
   const projects = join(home, "projects");
   let keys: string[];
   try {
     keys = readdirSync(projects).filter((n) => !n.startsWith(".") && isDir(join(projects, n)));
   } catch {
-    return;
+    return null;
   }
   let n = 0;
   for (const key of keys) {
@@ -98,13 +99,9 @@ function reportTasksMd(home: string): void {
       if (isFile(join(dir, "tasks.md")) && !existsSync(join(dir, "change.yaml"))) n++;
     }
   }
-  if (n === 1) process.stdout.write(`1 change still uses tasks.md: it reads as invalid until it has a change.yaml; see ${CHANGE_YAML_DOCS}\n`);
-  else if (n > 1) process.stdout.write(`${n} changes still use tasks.md: they read as invalid until each has a change.yaml; see ${CHANGE_YAML_DOCS}\n`);
-}
-
-function fail(line: string): number {
-  process.stderr.write(`${line}\n`);
-  return 1;
+  if (n === 1) return `1 change still uses tasks.md: it reads as invalid until it has a change.yaml; see ${CHANGE_YAML_DOCS}\n`;
+  if (n > 1) return `${n} changes still use tasks.md: they read as invalid until each has a change.yaml; see ${CHANGE_YAML_DOCS}\n`;
+  return null;
 }
 
 type Settings = { permissions?: { allow?: unknown[] } } & Record<string, unknown>;
@@ -139,9 +136,9 @@ function readSettings(path: string): SettingsRead {
   return { settings: data as Settings };
 }
 
-/** Prints why the settings file at `path` cannot be used, before anything was written. */
-function refuseSettings(path: string, read: { invalid: true } | { unreadable: string }): number {
-  if ("unreadable" in read) return fail(`theway: cannot read ${path}: ${read.unreadable}; nothing was changed`);
+/** Why the settings file at `path` cannot be used, before anything was written. */
+function refuseSettings(path: string, read: { invalid: true } | { unreadable: string }): string {
+  if ("unreadable" in read) return `cannot read ${path}: ${read.unreadable}; nothing was changed`;
   return invalidSettings(path);
 }
 
@@ -208,8 +205,8 @@ function settingsTarget(path: string): { target: string } | { error: string } {
   return { target };
 }
 
-function cannotWrite(path: string, reason: string): number {
-  return fail(`theway: cannot write ${path}: ${reason}; nothing was changed`);
+function cannotWrite(path: string, reason: string): string {
+  return `cannot write ${path}: ${reason}; nothing was changed`;
 }
 
 /** Writes `settings` to `target` (a resolved settingsTarget), keeping its mode, `0600` when new. */
@@ -219,8 +216,8 @@ function writeSettings(target: string, settings: Settings): void {
   writeAtomic(target, `${JSON.stringify(settings, null, 2)}\n`, mode);
 }
 
-function invalidSettings(path: string): number {
-  return fail(`theway: ${path} is not valid settings JSON; nothing was changed`);
+function invalidSettings(path: string): string {
+  return `${path} is not valid settings JSON; nothing was changed`;
 }
 
 /** Where copyPlugin moves the previous plugin before it puts the new one in place. */
@@ -371,18 +368,16 @@ function copiesOnPath(): string[] {
   return copies;
 }
 
-/** Prints how to put `dir` on `PATH` when it is missing, and warns when another `theway` comes first. */
-function checkPath(dir: string, binary: string): void {
+/** How to put `dir` on `PATH` when it is missing, and the warning when another `theway` comes first. */
+function checkPath(dir: string, binary: string): { hint: string | null; warning: string | null } {
   const dirs = (process.env.PATH ?? "").split(delimiter).filter((d) => d !== "");
-  if (!dirs.some((d) => resolve(d) === dir)) {
-    process.stdout.write(`Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`);
-  }
+  const hint = dirs.some((d) => resolve(d) === dir) ? null : `Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`;
   const copies = copiesOnPath();
-  if (copies.length > 0 && realpathOr(copies[0]) !== realpathOr(binary)) {
-    process.stderr.write(
-      `theway: warning: ${copies[0]} comes before ${binary} on PATH, so the commands run it; theway copies on PATH: ${copies.join(", ")}\n`,
-    );
-  }
+  const shadowed = copies.length > 0 && realpathOr(copies[0]) !== realpathOr(binary);
+  return {
+    hint,
+    warning: shadowed ? `${copies[0]} comes before ${binary} on PATH, so the commands run it; theway copies on PATH: ${copies.join(", ")}` : null,
+  };
 }
 
 /** The opt-in standards' descriptions, keyed by opt-in key: the comment above each key in the shipped `config.yaml`. */
@@ -393,7 +388,7 @@ export const OPT_IN_HINTS: Record<string, string> = {
   quality: "Testing, deployment, monitoring and security expectations",
 };
 
-const CANCELLED = "theway: install cancelled; nothing was changed";
+const CANCELLED = "install cancelled; nothing was changed";
 
 /** `value` as an absolute path: `~` and `~/<rest>` under the user's home, an absolute path resolved; anything else is an error. */
 export function expandHome(value: string): string | { error: string } {
@@ -410,13 +405,13 @@ function parseStandards(value: string): string[] | { error: string } {
   if (value === "none") return [];
   const elements = value.split(",");
   const unknownError = (element: string) => ({
-    error: `theway: unknown standard '${element}' in --standards; valid: ${OPT_IN_KEYS.join(", ")}, or none`,
+    error: `unknown standard '${element}' in --standards; valid: ${OPT_IN_KEYS.join(", ")}, or none`,
   });
   const unknown = elements.find((e) => e !== "none" && !OPT_IN_KEYS.includes(e));
   if (unknown !== undefined) return unknownError(unknown);
   if (!elements.includes("none")) return elements;
   if (elements.some((e) => e !== "none")) {
-    return { error: "theway: --standards none cannot be combined with other standards" };
+    return { error: "--standards none cannot be combined with other standards" };
   }
   return unknownError("none");
 }
@@ -494,13 +489,13 @@ function installTargets(cHome: string, tHome: string, dir: string, custom: boole
 export async function install(opts: { home?: string; standards?: string }): Promise<number> {
   // An installed copy has no plugin next to it: installs and updates go through npx.
   if (!existsSync(join(plugin, ".claude-plugin"))) {
-    return fail("theway: run `npx --yes @pixelfactoryio/theway@latest install` to install or update theway");
+    return error("run `npx --yes @pixelfactoryio/theway@latest install` to install or update theway");
   }
 
   let enabled: string[] = [];
   if (opts.standards !== undefined) {
     const parsed = parseStandards(opts.standards);
-    if (!Array.isArray(parsed)) return fail(parsed.error);
+    if (!Array.isArray(parsed)) return error(parsed.error);
     enabled = parsed;
   }
 
@@ -508,11 +503,11 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   let tHome: string;
   if (opts.home !== undefined) {
     const home = expandHome(opts.home);
-    if (typeof home !== "string") return fail(`theway: invalid --home '${opts.home}': ${home.error}; nothing was changed`);
+    if (typeof home !== "string") return error(`invalid --home '${opts.home}': ${home.error}; nothing was changed`);
     const env = process.env.THEWAY_HOME ?? "";
     if (env !== "" && resolve(env) !== home) {
-      return fail(
-        `theway: --home ${home} and THEWAY_HOME ${resolve(env)} differ; unset THEWAY_HOME or drop --home; nothing was changed`,
+      return error(
+        `--home ${home} and THEWAY_HOME ${resolve(env)} differ; unset THEWAY_HOME or drop --home; nothing was changed`,
       );
     }
     tHome = home;
@@ -522,7 +517,7 @@ export async function install(opts: { home?: string; standards?: string }): Prom
     const neverInstalled = found.source === "default" && !existsSync(join(defaultHome(), "config.yaml"));
     if (neverInstalled && interactive()) {
       const home = await askHome();
-      if (home === null) return fail(CANCELLED);
+      if (home === null) return error(CANCELLED);
       tHome = home;
     } else {
       tHome = found.home;
@@ -535,47 +530,47 @@ export async function install(opts: { home?: string; standards?: string }): Prom
 
   const unsafe = unsafeHomeReason(tHome, custom);
   if (unsafe !== "") {
-    return fail(`theway: refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME or --home to a dedicated folder`);
+    return error(`refusing data home ${resolve(tHome)}: ${unsafe}; set THEWAY_HOME or --home to a dedicated folder`);
   }
 
   const resolved = settingsTarget(settingsPath);
-  if ("error" in resolved) return cannotWrite(settingsPath, resolved.error);
+  if ("error" in resolved) return error(cannotWrite(settingsPath, resolved.error));
   const read = readSettings(resolved.target);
-  if (!("settings" in read)) return refuseSettings(settingsPath, read);
+  if (!("settings" in read)) return error(refuseSettings(settingsPath, read));
   const settings = read.settings;
 
   // Never replace another program that happens to be called theway: uninstall would not remove it either.
   const target = join(dir, "theway");
   if (occupied(target) && !isThewayBinary(target)) {
-    return fail(
-      `theway: ${target} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder`,
+    return error(
+      `${target} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder`,
     );
   }
 
   const config = join(resolve(tHome), "config.yaml");
   const firstInstall = !existsSync(config);
   if (opts.standards !== undefined && !firstInstall) {
-    return fail(
-      `theway: --standards applies only to a first install; ${config} exists, so set standards.<key>.enabled there instead; nothing was changed`,
+    return error(
+      `--standards applies only to a first install; ${config} exists, so set standards.<key>.enabled there instead; nothing was changed`,
     );
   }
   const asked = firstInstall && opts.standards === undefined && interactive();
   if (asked) {
     const chosen = await askStandards();
-    if (chosen === null) return fail(CANCELLED);
+    if (chosen === null) return error(CANCELLED);
     enabled = chosen;
   }
 
   const unwritable = writeCheck(installTargets(cHome, tHome, dir, custom));
-  if (unwritable !== null) return cannotWrite(unwritable.path, unwritable.reason);
+  if (unwritable !== null) return error(cannotWrite(unwritable.path, unwritable.reason));
 
   // No rollback: a failure from here on names what was already written.
   const written: string[] = [];
-  const stopped = (message: string): number => {
+  const stopped = (message: string): string => {
     const done = written.length > 0 ? `already written: ${written.join(", ")}` : "nothing was written";
     const old = oldPlugin(cHome);
     const kept = existsSync(old) ? `; the previous plugin is in ${old}` : "";
-    return fail(`theway: install stopped: ${message}; ${done}${kept}`);
+    return `install stopped: ${message}; ${done}${kept}`;
   };
   let dest: string;
   let binary: string;
@@ -585,12 +580,18 @@ export async function install(opts: { home?: string; standards?: string }): Prom
     if (cleared.length > 0) written.push(`removed the old launchers in ${cleared.join(", ")}`);
     binary = writeBinary(dir);
     written.push(`the theway binary at ${binary}`);
-    // init prints its own error line first.
-    if (init(join(plugin, "home"), tHome, enabled) !== 0) return stopped("the data home could not be written");
+    // init's progress lines, then its error, then the stop line.
+    const initialized = init(join(plugin, "home"), tHome, enabled);
+    print(initialized.lines.join(""));
+    if (initialized.error !== null) {
+      error(initialized.error);
+      return error(stopped("the data home could not be written"));
+    }
     written.push(`the data home ${tHome}`);
-    reportTasksMd(tHome);
+    const tasksMd = reportTasksMd(tHome);
+    if (tasksMd !== null) print(tasksMd);
     if (firstInstall && opts.standards === undefined && !asked) {
-      process.stdout.write(
+      print(
         `Opt-in standards are off (${OPT_IN_KEYS.join(", ")}): set standards.<key>.enabled: true in ${config} to enable one\n`,
       );
     }
@@ -618,13 +619,15 @@ export async function install(opts: { home?: string; standards?: string }): Prom
       writeSettings(resolved.target, settings);
     }
   } catch (e) {
-    return stopped((e as Error).message);
+    return error(stopped((e as Error).message));
   }
 
-  checkPath(dir, binary);
+  const onPath = checkPath(dir, binary);
+  if (onPath.hint !== null) print(onPath.hint);
+  if (onPath.warning !== null) warning(onPath.warning);
 
   const version = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf-8")).version;
-  process.stdout.write(
+  print(
     `Installed theway ${version} to ${dest} (theway@skills-dir), ${binary} and ${tHome}. Start a new Claude Code session or run /reload-plugins.\n`,
   );
   return 0;
@@ -639,13 +642,13 @@ export function uninstall(): number {
   let settingsFile = settingsPath;
   if (occupied(settingsPath)) {
     const resolved = settingsTarget(settingsPath);
-    if ("error" in resolved) return cannotWrite(settingsPath, resolved.error);
+    if ("error" in resolved) return error(cannotWrite(settingsPath, resolved.error));
     settingsFile = resolved.target;
   }
   let settings: Settings | undefined;
   if (existsSync(settingsPath)) {
     const read = readSettings(settingsFile);
-    if (!("settings" in read)) return refuseSettings(settingsPath, read);
+    if (!("settings" in read)) return error(refuseSettings(settingsPath, read));
     settings = read.settings;
   }
 
@@ -662,7 +665,7 @@ export function uninstall(): number {
     ...(hadPointer ? [dirname(pointer)] : []),
   ];
   const unwritable = writeCheck(targets);
-  if (unwritable !== null) return cannotWrite(unwritable.path, unwritable.reason);
+  if (unwritable !== null) return error(cannotWrite(unwritable.path, unwritable.reason));
 
   // No rollback: a failure from here on names what was already removed.
   const gone: string[] = [];
@@ -689,10 +692,10 @@ export function uninstall(): number {
     }
   } catch (e) {
     const done = gone.length > 0 ? `already removed: ${gone.join(", ")}` : "nothing was removed";
-    return fail(`theway: uninstall stopped: ${(e as Error).message}; ${done}`);
+    return error(`uninstall stopped: ${(e as Error).message}; ${done}`);
   }
 
   const bin = removed ? ` and ${binary}` : "";
-  process.stdout.write(`Removed theway from ${cHome}${bin}. ${tHome} was kept.\n`);
+  print(`Removed theway from ${cHome}${bin}. ${tHome} was kept.\n`);
   return 0;
 }

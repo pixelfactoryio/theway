@@ -82,7 +82,7 @@ const baseOf = (name: string) => name.slice(0, -".md".length);
  * as they are, and renames their manifest keys. Moves only when the previous manifest has `data/standards/` keys;
  * on every install, removes `data/standards/` and then `data/` when they are empty.
  */
-function migrateDataStandards(src: string, home: string): void {
+function migrateDataStandards(src: string, home: string, out: string[]): void {
   const previous = readManifest(home);
   const prefix = "data/standards/";
   const keys = Object.keys(previous ?? {}).filter((k) => k.startsWith(prefix));
@@ -105,9 +105,9 @@ function migrateDataStandards(src: string, home: string): void {
       } else if (!oldExists) {
         // The user deleted it: drop the key.
       } else if (!existsSync(`${src}/standards/${name}`)) {
-        process.stdout.write(`Left data/standards/${name}: theway no longer ships it\n`);
+        out.push(`Left data/standards/${name}: theway no longer ships it\n`);
       } else if (newExists) {
-        process.stdout.write(`Left data/standards/${name}: standards/${name} already exists\n`);
+        out.push(`Left data/standards/${name}: standards/${name} already exists\n`);
       } else {
         mkdirSync(`${home}/standards`, { recursive: true });
         renameSync(oldPath, newPath);
@@ -118,7 +118,7 @@ function migrateDataStandards(src: string, home: string): void {
     writeManifest(home, manifest);
   }
   const dataGone = removeIfEmpty(`${home}/data/standards`) && removeIfEmpty(`${home}/data`);
-  if (keys.length > 0 && !dataGone) process.stdout.write("Left data/: it still holds files theway does not ship\n");
+  if (keys.length > 0 && !dataGone) out.push("Left data/: it still holds files theway does not ship\n");
 }
 
 /**
@@ -126,7 +126,7 @@ function migrateDataStandards(src: string, home: string): void {
  * unedited and kept with a message when edited, every `.default.md` copy is removed, every other `.md` file (the
  * user's own) is kept with a message, and the folder is removed when it is left empty.
  */
-function retireLenses(home: string, previous: Manifest | undefined): void {
+function retireLenses(home: string, previous: Manifest | undefined, out: string[]): void {
   const dir = `${home}/${LENSES}`;
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
   const move = (name: string) => `theway no longer reads ${LENSES}/; move it to prompts/${name}`;
@@ -139,9 +139,9 @@ function retireLenses(home: string, previous: Manifest | undefined): void {
     if (!existsSync(path)) continue;
     if (sha256(readFileSync(path)) === hash) {
       rmSync(path);
-      process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+      out.push(`Removed ${rel}: theway no longer ships it\n`);
     } else {
-      process.stdout.write(`Kept your edited ${rel}: ${move(name)}\n`);
+      out.push(`Kept your edited ${rel}: ${move(name)}\n`);
     }
   }
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
@@ -151,7 +151,7 @@ function retireLenses(home: string, previous: Manifest | undefined): void {
       rmSync(`${dir}/${name}`, { force: true });
       continue;
     }
-    process.stdout.write(`Kept ${LENSES}/${name}: ${move(name)}\n`);
+    out.push(`Kept ${LENSES}/${name}: ${move(name)}\n`);
   }
   removeIfEmpty(dir);
 }
@@ -164,7 +164,7 @@ const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? 
  * file is kept with the same message; in each `projects/<key>/steps/`, nothing is removed and each `.yaml` file is
  * reported. Each folder is removed when it is left empty.
  */
-function retireSteps(home: string, previous: Manifest | undefined): void {
+function retireSteps(home: string, previous: Manifest | undefined, out: string[]): void {
   const why = "theway no longer reads steps/; write its steps in a workflow file";
   const dir = `${home}/${STEPS}`;
   if (existsSync(dir) && statSync(dir).isDirectory()) {
@@ -176,9 +176,9 @@ function retireSteps(home: string, previous: Manifest | undefined): void {
       if (!existsSync(path)) continue;
       if (sha256(readFileSync(path)) === hash) {
         rmSync(path);
-        process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+        out.push(`Removed ${rel}: theway no longer ships it\n`);
       } else {
-        process.stdout.write(`Kept your edited ${rel}: ${why}\n`);
+        out.push(`Kept your edited ${rel}: ${why}\n`);
       }
     }
     for (const entry of readdirSync(dir, { withFileTypes: true }).sort(byName)) {
@@ -188,7 +188,7 @@ function retireSteps(home: string, previous: Manifest | undefined): void {
         rmSync(`${dir}/${name}`, { force: true });
         continue;
       }
-      process.stdout.write(`Kept ${STEPS}/${name}: ${why}\n`);
+      out.push(`Kept ${STEPS}/${name}: ${why}\n`);
     }
     removeIfEmpty(dir);
   }
@@ -199,7 +199,7 @@ function retireSteps(home: string, previous: Manifest | undefined): void {
     if (!project.isDirectory() || !existsSync(own) || !statSync(own).isDirectory()) continue;
     for (const entry of readdirSync(own, { withFileTypes: true }).sort(byName)) {
       if (entry.isFile() && entry.name.endsWith(".yaml")) {
-        process.stdout.write(`Kept projects/${project.name}/${STEPS}/${entry.name}: ${why}\n`);
+        out.push(`Kept projects/${project.name}/${STEPS}/${entry.name}: ${why}\n`);
       }
     }
     removeIfEmpty(own);
@@ -211,7 +211,7 @@ function retireSteps(home: string, previous: Manifest | undefined): void {
  * kept with a message when edited, every `.default.json` copy is removed, every other file is kept silently, and the
  * folder is removed when it is left empty.
  */
-function retireSchemas(home: string, previous: Manifest | undefined): void {
+function retireSchemas(home: string, previous: Manifest | undefined, out: string[]): void {
   const dir = `${home}/${SCHEMAS}`;
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return;
   for (const [rel, hash] of Object.entries(previous ?? {})) {
@@ -220,9 +220,9 @@ function retireSchemas(home: string, previous: Manifest | undefined): void {
     if (!existsSync(path)) continue;
     if (sha256(readFileSync(path)) === hash) {
       rmSync(path);
-      process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+      out.push(`Removed ${rel}: theway no longer ships it\n`);
     } else {
-      process.stdout.write(`Kept your edited ${rel}: theway no longer ships it\n`);
+      out.push(`Kept your edited ${rel}: theway no longer ships it\n`);
     }
   }
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -236,7 +236,7 @@ function retireSchemas(home: string, previous: Manifest | undefined): void {
  * one is removed, an edited one (or one the manifest does not list) is renamed to its backup path, so that a kept file
  * never becomes a standard every agent gets; their `.default.md` copies are removed and their keys dropped.
  */
-function retireMoved(home: string): void {
+function retireMoved(home: string, out: string[]): void {
   const previous = readManifest(home);
   let changed = false;
   for (const [rel, now] of Object.entries(MOVED)) {
@@ -245,11 +245,11 @@ function retireMoved(home: string): void {
       const current = readFileSync(path);
       if (previous?.[rel] === sha256(current)) {
         rmSync(path);
-        process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+        out.push(`Removed ${rel}: theway no longer ships it\n`);
       } else {
         const bak = backupPath(home, rel, current);
         renameSync(path, `${home}/${bak}`);
-        process.stdout.write(`Moved your edited ${rel} to ${bak}: theway now reads ${now}\n`);
+        out.push(`Moved your edited ${rel} to ${bak}: theway now reads ${now}\n`);
       }
     }
     rmSync(`${home}/${rel.slice(0, -".md".length)}.default.md`, { force: true });
@@ -293,11 +293,11 @@ function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer):
  * `standards/`, `workflows/` and `prompts/` are shared with the user's own files: a user file with a shipped name is
  * kept, a file theway stops shipping is removed when unedited, and an orphan `.default.<ext>` copy is removed.
  */
-function copyShipped(src: string, home: string): void {
+function copyShipped(src: string, home: string, out: string[]): void {
   const previous = readManifest(home);
-  retireLenses(home, previous);
-  retireSteps(home, previous);
-  retireSchemas(home, previous);
+  retireLenses(home, previous, out);
+  retireSteps(home, previous, out);
+  retireSchemas(home, previous, out);
   const manifest: Manifest = {};
   for (const { dir, ext, shared } of SHIPPED_DIRS) {
     const isShared = shared !== undefined;
@@ -327,17 +327,17 @@ function copyShipped(src: string, home: string): void {
             // Without a manifest, an `authority.md` is the user's own: theway first shipped it long after `.shipped.json`.
             removeSibling = false;
             writeAtomic(`${home}/${sibling}`, shipped);
-            process.stdout.write(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
+            out.push(`Kept your edited ${rel} (shipped version: ${sibling})\n`);
             const stale = staleKept(dir, name, current, shipped);
-            if (stale !== null) process.stdout.write(`${stale}\n`);
+            if (stale !== null) out.push(`${stale}\n`);
             if ((dir === "standards" || dir === "prompts") && current.toString("utf-8").includes("tasks.md")) {
-              process.stdout.write(`${rel} still names tasks.md: theway now keeps tasks in change.yaml; compare it with ${sibling}\n`);
+              out.push(`${rel} still names tasks.md: theway now keeps tasks in change.yaml; compare it with ${sibling}\n`);
             }
           } else if (isShared) {
             removeSibling = false;
             record = false;
             writeAtomic(`${home}/${sibling}`, shipped);
-            process.stdout.write(
+            out.push(
               `Kept your ${rel}: theway now ships a file with that name (its version: ${sibling})\n`,
             );
           } else {
@@ -345,7 +345,7 @@ function copyShipped(src: string, home: string): void {
             const bak = backupPath(home, rel, current);
             copyFileSync(dst, `${home}/${bak}`);
             writeAtomic(dst, shipped);
-            process.stdout.write(`Replaced ${rel}; your previous version is in ${bak}\n`);
+            out.push(`Replaced ${rel}; your previous version is in ${bak}\n`);
           }
         }
       }
@@ -359,9 +359,9 @@ function copyShipped(src: string, home: string): void {
         if (!existsSync(path)) continue;
         if (sha256(readFileSync(path)) === hash) {
           rmSync(path);
-          process.stdout.write(`Removed ${rel}: theway no longer ships it\n`);
+          out.push(`Removed ${rel}: theway no longer ships it\n`);
         } else {
-          process.stdout.write(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your ${shared}\n`);
+          out.push(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your ${shared}\n`);
         }
       }
       for (const entry of readdirSync(`${home}/${dir}`, { withFileTypes: true })) {
@@ -385,10 +385,10 @@ function enableStandards(text: string, enabled: readonly string[]): string {
 }
 
 /**
- * Prints one line per retired key a kept global `config.yaml` still has; edits nothing. A file that does not parse, or
- * is not a map, prints nothing.
+ * Adds to `out` one line per retired key a kept global `config.yaml` still has; edits nothing. A file that does not
+ * parse, or is not a map, adds nothing.
  */
-function reportRetiredKeys(file: string): void {
+function reportRetiredKeys(file: string, out: string[]): void {
   let text: string;
   try {
     text = readFileSync(file, "utf-8");
@@ -398,34 +398,38 @@ function reportRetiredKeys(file: string): void {
   const parsed = parseYaml(text);
   if ("reason" in parsed || !(parsed.root instanceof Map)) return;
   const doc = parsed.root;
-  if (doc.has("engineering")) process.stdout.write("Your config.yaml still has engineering: theway ignores it; remove it\n");
+  if (doc.has("engineering")) out.push("Your config.yaml still has engineering: theway ignores it; remove it\n");
   if (doc.has("workflow")) {
-    process.stdout.write(
+    out.push(
       "Your config.yaml still has workflow: theway no longer reads workflow.defaults; set a value in the workflow file or in the prompt's header, and remove the key\n",
     );
   }
 }
 
-/** Copies the shipped config, standards, templates, workflows and prompts into `home`; a new `config.yaml` has the `enabled` standards on. */
-export function init(src: string, home: string, enabled: readonly string[] = []): number {
+/**
+ * Copies the shipped config, standards, templates, workflows and prompts into `home`; a new `config.yaml` has the
+ * `enabled` standards on. Returns the progress lines, each with its newline, and the message of the error that stopped
+ * it, after the lines written before it.
+ */
+export function init(src: string, home: string, enabled: readonly string[] = []): { lines: string[]; error: string | null } {
+  const lines: string[] = [];
   try {
     mkdirSync(home, { recursive: true });
     copyFileSync(`${src}/config.yaml`, `${home}/config.default.yaml`);
     if (existsSync(`${home}/config.yaml`)) {
-      process.stdout.write("Kept existing config.yaml (shipped defaults: config.default.yaml)\n");
-      reportRetiredKeys(`${home}/config.yaml`);
+      lines.push("Kept existing config.yaml (shipped defaults: config.default.yaml)\n");
+      reportRetiredKeys(`${home}/config.yaml`, lines);
     } else if (enabled.length === 0) {
       copyFileSync(`${src}/config.yaml`, `${home}/config.yaml`);
     } else {
       writeFileSync(`${home}/config.yaml`, enableStandards(readFileSync(`${src}/config.yaml`, "utf-8"), enabled));
     }
-    migrateDataStandards(src, home);
-    retireMoved(home);
-    copyShipped(src, home);
+    migrateDataStandards(src, home, lines);
+    retireMoved(home, lines);
+    copyShipped(src, home, lines);
   } catch (e) {
-    process.stderr.write(`theway: ${(e as Error).message}\n`);
-    return 1;
+    return { lines, error: (e as Error).message };
   }
-  process.stdout.write(`Initialized ${home}\n`);
-  return 0;
+  lines.push(`Initialized ${home}\n`);
+  return { lines, error: null };
 }

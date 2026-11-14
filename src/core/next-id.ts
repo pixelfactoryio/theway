@@ -1,4 +1,5 @@
 import { escaped, thewayHome } from "./io";
+import { error, print, warning } from "./output";
 import { resolveKey } from "./project";
 import { fileStore } from "./store/files";
 import { formatReason } from "./validate-id";
@@ -17,14 +18,15 @@ function seriesIdReason(id: string): string {
  * after the highest ordinal among the active and the dated archived members (`<series-id>-NN`).
  */
 export function cmdNextId(seriesId: string, count: number, override: string | undefined): number {
-  const key = resolveKey(override);
-  if (key === null) return 1;
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const key = resolved.key;
   const rest = seriesId.replace(/-[0-9]{2}$/, "");
   const reason = seriesIdReason(rest);
   if (reason !== "") {
     const shown = escaped(rest);
-    process.stderr.write(`invalid change id '${shown}': ${reason}\n`);
-    return 1;
+    return error(`invalid change id '${shown}': ${reason}`);
   }
 
   const store = fileStore(thewayHome());
@@ -35,12 +37,9 @@ export function cmdNextId(seriesId: string, count: number, override: string | un
     const m = member.exec(id);
     if (m !== null) max = Math.max(max, Number(m[1]));
   }
-  if (max + count > 99) {
-    process.stderr.write(`theway: series ${rest} would go past -99\n`);
-    return 1;
-  }
+  if (max + count > 99) return error(`series ${rest} would go past -99`);
   let out = "";
   for (let n = max + 1; n <= max + count; n++) out += `${rest}-${String(n).padStart(2, "0")}\n`;
-  process.stdout.write(out);
+  print(out);
   return 0;
 }

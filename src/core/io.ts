@@ -109,9 +109,8 @@ import { escaped } from "./text";
 
 export { escaped };
 
-/** Writes `theway: invalid <kind> name '<wanted>'` and returns true when `wanted` is given and not a name. */
-export function invalidName(kind: string, wanted: string | undefined): boolean {
-  if (wanted === undefined || NAME.test(wanted)) return false;
-  process.stderr.write(`theway: invalid ${kind} name '${escaped(wanted)}'\n`);
-  return true;
+/** The message `invalid <kind> name '<wanted>'` when `wanted` is given and not a name; `null` otherwise. */
+export function invalidName(kind: string, wanted: string | undefined): string | null {
+  if (wanted === undefined || NAME.test(wanted)) return null;
+  return `invalid ${kind} name '${escaped(wanted)}'`;
 }

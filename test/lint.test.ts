@@ -77,6 +77,15 @@ test("every command that reads theway data has the same Locate the home step", (
   expect(readers.filter((f) => locateStep(read(join(COMMANDS, f))) !== reference)).toEqual([]);
 });
 
+test("only output.ts writes to stdout or stderr in src/core and install.ts", () => {
+  const sources = [...files(join(REPO, "src", "core")).filter((f) => f.endsWith(".ts")), join(REPO, "src", "install.ts")];
+  const writers = sources
+    .filter((f) => f !== join(REPO, "src", "core", "output.ts"))
+    .filter((f) => /process\.stdout\.write|process\.stderr\.write|console\./.test(read(f)))
+    .map((f) => relative(REPO, f));
+  expect(writers).toEqual([]);
+});
+
 test("the scaffolds get the change folder from theway path, the change prompts their context from theway context", () => {
   const missing = [
     ...["scaffold.md", "scaffold-light.md"].filter((f) => !read(join(PROMPTS, f)).includes("`theway path <change-id>`")),

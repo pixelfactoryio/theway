@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { Warn } from "./config";
+import type { Warn } from "./output";
 import { escaped, type Overlay } from "./io";
 import {
   MODELS,
