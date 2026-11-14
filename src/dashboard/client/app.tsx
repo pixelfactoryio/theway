@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Redirect, Route, Router, Switch } from "wouter"
+import { Redirect, Route, Router, Switch, useLocation } from "wouter"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -9,6 +9,7 @@ import { PromptsPage } from "@/pages/prompts-list"
 import { WorkflowPage } from "@/pages/workflow"
 import { WorkflowsPage } from "@/pages/workflows-list"
 import { AppSidebar } from "@/shell/app-sidebar"
+import { ErrorBoundary, PageError, RootError } from "@/shell/error-boundary"
 import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 import { SearchDialog, SearchOpen } from "@/shell/search"
@@ -96,6 +97,7 @@ function Shell() {
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const [searching, setSearching] = useState(false)
   const search = useMemo(() => ({ open: searching, setOpen: setSearching }), [searching])
+  const [location] = useLocation()
   useScrollMemory()
 
   return (
@@ -115,7 +117,9 @@ function Shell() {
             <div className="flex min-h-0 flex-1">
               <AppSidebar />
               <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
-                <Routes />
+                <ErrorBoundary resetKey={location} fallback={(error, reset) => <PageError error={error} reset={reset} />}>
+                  <Routes />
+                </ErrorBoundary>
               </SidebarInset>
             </div>
             <SearchDialog />
@@ -131,7 +135,9 @@ export function App() {
   return (
     <Router hook={useGuardedLocation}>
       <TooltipProvider>
-        <Shell />
+        <ErrorBoundary fallback={(error) => <RootError error={error} />}>
+          <Shell />
+        </ErrorBoundary>
       </TooltipProvider>
     </Router>
   )
