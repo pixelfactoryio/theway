@@ -24,9 +24,9 @@ export function cmdArchive(changeId: string, override: string | undefined, force
   const change = { kind: "active", id: changeId } as const;
   const date = localDate();
   const target = { kind: "archived", ref: store.archiveRef(key, changeId, date) } as const;
-  const taken = (): number => error(`${store.dirOf(key, target)} already exists — not archiving.`);
+  const taken = (): string => `${store.dirOf(key, target)} already exists — not archiving.`;
   if (!store.exists(key, change)) return error(`${store.dirOf(key, change)} not found`);
-  if (store.exists(key, target)) return taken();
+  if (store.exists(key, target)) return error(taken());
 
   const c = checkRead(store.readFile(key, change, CHANGE_FILE));
   if ("issues" in c) {
@@ -57,7 +57,7 @@ export function cmdArchive(changeId: string, override: string | undefined, force
   try {
     ref = store.archive(key, changeId, date);
   } catch (e) {
-    if (e instanceof StoreError && e.code === "exists") return taken();
+    if (e instanceof StoreError && e.code === "exists") return error(taken());
     return error(`cannot move: ${(e as Error).message}`);
   }
   print(`Archived: ${store.dirOf(key, { kind: "archived", ref })}\n`);
