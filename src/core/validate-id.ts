@@ -1,4 +1,5 @@
 import { escaped } from "./io";
+import { error } from "./output";
 
 const VERB = /^(add|update|refactor|remove|fix)-/;
 const KEBAB = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -46,8 +47,7 @@ export function cmdValidateId(id: string, series: boolean): number {
   const reason = series ? seriesReason(id) : standaloneReason(id);
   if (reason !== "") {
     const shown = escaped(id);
-    process.stderr.write(`invalid change id '${shown}': ${reason}\n`);
-    return 1;
+    return error(`invalid change id '${shown}': ${reason}`);
   }
   return 0;
 }

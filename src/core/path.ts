@@ -1,5 +1,6 @@
 import { join, resolve } from "node:path";
 import { escaped, pointerPath, readPointer, resolveHome } from "./io";
+import { error, print, warning } from "./output";
 import { projectDir, resolveKey } from "./project";
 
 const CHANGE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -12,36 +13,32 @@ export function changeIdReason(v: string): string {
   return "";
 }
 
-/** Writes the reason line when `changeId` is given and invalid and returns true; false otherwise. */
-export function invalidChangeId(changeId: string | undefined): boolean {
-  if (changeId === undefined) return false;
-  const reason = changeIdReason(changeId);
-  if (reason === "") return false;
-  const shown = escaped(changeId);
-  process.stderr.write(`theway: invalid change id '${shown}': ${reason}\n`);
-  return true;
-}
-
 /** `theway path [<change-id>] [--project <key>] [--verbose]`: the data home, or a change folder of the project. */
 export function cmdPath(changeId: string | undefined, override: string | undefined, verbose: boolean): number {
   // Without a change id only the home is printed: a given --project is validated, no key is derived.
-  if (changeId === undefined && override !== undefined && resolveKey(override) === null) return 1;
-  const key = changeId === undefined ? null : resolveKey(override);
-  if (changeId !== undefined && key === null) return 1;
-  if (invalidChangeId(changeId)) return 1;
+  let key: string | null = null;
+  if (changeId !== undefined || override !== undefined) {
+    const resolved = resolveKey(override);
+    if ("error" in resolved) return error(resolved.error);
+    if (resolved.warning !== null) warning(resolved.warning);
+    if (changeId !== undefined) key = resolved.key;
+  }
+  if (changeId !== undefined) {
+    const reason = changeIdReason(changeId);
+    if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`);
+  }
 
   const { home, source } = resolveHome();
-  if (verbose) process.stderr.write(`theway: home ${home} (from ${source})\n`);
+  // An informational line with the theway: prefix, written through error() and its exit code ignored.
+  if (verbose) error(`home ${home} (from ${source})`);
   if (source === "env") {
     const pointer = readPointer();
     if (pointer !== "" && resolve(pointer) !== home) {
-      process.stderr.write(
-        `theway: warning: THEWAY_HOME is ${home} (from env) but ${pointerPath()} holds ${resolve(pointer)} (from pointer); using ${home}\n`,
-      );
+      warning(`THEWAY_HOME is ${home} (from env) but ${pointerPath()} holds ${resolve(pointer)} (from pointer); using ${home}`);
     }
   }
 
   const out = changeId !== undefined && key !== null ? join(projectDir(home, key), "changes", changeId) : home;
-  process.stdout.write(`${out}\n`);
+  print(`${out}\n`);
   return 0;
 }

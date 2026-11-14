@@ -1,12 +1,15 @@
 import { CHANGE_FILE, checkRead } from "./change";
 import { thewayHome } from "./io";
+import { error, print, warning } from "./output";
 import { resolveKey } from "./project";
 import { fileStore } from "./store/files";
 
 /** `theway list [--project <key>]`: the active and archived changes of the project. */
 export function cmdList(override: string | undefined): number {
-  const key = resolveKey(override);
-  if (key === null) return 1;
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const key = resolved.key;
   const store = fileStore(thewayHome());
   let text = `theway changes — ${key}\n\nActive changes\n\n`;
 
@@ -29,6 +32,6 @@ export function cmdList(override: string | undefined): number {
     text += "  No archived changes.\n";
   }
   text += `\nSummary: ${active.length} active change(s), ${archived.length} archived.\n`;
-  process.stdout.write(text);
+  print(text);
   return 0;
 }

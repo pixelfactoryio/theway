@@ -1,7 +1,7 @@
-import { warnLoud } from "./config";
 import { escaped, invalidName, thewayHome } from "./io";
 import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language";
 import type { ResolvedWorkflow } from "./language-schema";
+import { error, print, type Warn, warning, warnLoud } from "./output";
 import { resolveKey } from "./project";
 
 /**
@@ -12,9 +12,9 @@ function parseInputs(given: string[]): Record<string, string> | { error: string 
   const out: Record<string, string> = {};
   for (const raw of given) {
     const at = raw.indexOf("=");
-    if (at <= 0) return { error: `theway: --input ${escaped(raw)}: must be <name>=<value>` };
+    if (at <= 0) return { error: `--input ${escaped(raw)}: must be <name>=<value>` };
     const name = raw.slice(0, at);
-    if (Object.hasOwn(out, name)) return { error: `theway: --input ${escaped(name)}: given twice` };
+    if (Object.hasOwn(out, name)) return { error: `--input ${escaped(name)}: given twice` };
     out[name] = raw.slice(at + 1);
   }
   return out;
@@ -36,16 +36,16 @@ export const markedPath = (key: string | null, w: { name: string; scope: "projec
  * home (a project file hiding the global one) that sets `default: true`; or the lines that refuse: the v1 error of each
  * v1 file when none sets it and v1 files are left, else that none sets it, or that several do.
  */
-function defaultName(home: string, key: string): { name: string } | { error: string } {
-  const listed = listWorkflowFiles(home, key, warnLoud);
+function defaultName(home: string, key: string, warn: Warn): { name: string } | { errors: string[] } {
+  const listed = listWorkflowFiles(home, key, warn);
   const marked = listed.filter((w) => w.default);
   if (marked.length === 0) {
     const v1 = listed.filter((w) => w.error === v1Line(`workflows/${w.name}.yaml`));
-    if (v1.length > 0) return { error: v1.map((w) => `theway: ${w.error}`).join("\n") };
-    return { error: "theway: no workflow sets default: true" };
+    if (v1.length > 0) return { errors: v1.map((w) => w.error as string) };
+    return { errors: ["no workflow sets default: true"] };
   }
   if (marked.length > 1) {
-    return { error: `theway: ${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true` };
+    return { errors: [`${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true`] };
   }
   return { name: (marked[0] as { name: string }).name };
 }
@@ -85,29 +85,29 @@ export function compactWorkflow(doc: ResolvedWorkflow) {
  * its prompt text (`compactWorkflow`).
  */
 export function cmdWorkflow(wanted: string | undefined, override: string | undefined, given: string[] = [], compact = false): number {
-  const key = resolveKey(override);
-  if (key === null) return 1;
-  if (invalidName("workflow", wanted)) return 1;
+  const project = resolveKey(override);
+  if ("error" in project) return error(project.error);
+  if (project.warning !== null) warning(project.warning);
+  const key = project.key;
+  const invalid = invalidName("workflow", wanted);
+  if (invalid !== null) return error(invalid);
   const home = thewayHome();
   const inputs = parseInputs(given);
-  if ("error" in inputs) {
-    process.stderr.write(`${inputs.error}\n`);
-    return 1;
-  }
+  if ("error" in inputs) return error(inputs.error);
   let name = wanted;
   if (name === undefined) {
-    const chosen = defaultName(home, key);
-    if ("error" in chosen) {
-      process.stderr.write(`${chosen.error}\n`);
+    const chosen = defaultName(home, key, warnLoud);
+    if ("errors" in chosen) {
+      for (const line of chosen.errors) error(line);
       return 1;
     }
     name = chosen.name;
   }
   const resolved = resolveWorkflowFile(home, key, name, inputs);
   if ("errors" in resolved) {
-    process.stderr.write(resolved.errors.map((e) => `theway: ${e}\n`).join(""));
+    for (const line of resolved.errors) error(line);
     return 1;
   }
-  process.stdout.write(`${JSON.stringify(compact ? compactWorkflow(resolved.doc) : resolved.doc, null, 2)}\n`);
+  print(`${JSON.stringify(compact ? compactWorkflow(resolved.doc) : resolved.doc, null, 2)}\n`);
   return 0;
 }

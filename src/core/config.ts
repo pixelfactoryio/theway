@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { stringify } from "yaml";
 import { readManifest } from "./init";
 import { isFile, thewayHome } from "./io";
+import { error, print, type Warn, warnLoud, warning } from "./output";
 import { projectDir, resolveKey } from "./project";
 import { parseYaml } from "./text";
 
@@ -122,15 +123,6 @@ function defaults(schema: Schema): Config {
   return out;
 }
 
-export type Warn = (file: string, text: string) => void;
-
-/** Writes a warning line, `theway: warning: <file>: <text>; ignored`. */
-export const warnLoud: Warn = (file, text) => {
-  process.stderr.write(`theway: warning: ${file}: ${text}; ignored\n`);
-};
-/** Drops every warning. */
-export const warnQuiet: Warn = () => {};
-
 /** Applies one layer's map onto `into`, warning about every unknown key, invalid value or wrong shape in document order. */
 function apply(file: string, schema: Schema, layer: Map<unknown, unknown>, into: Config, prefix: string, warn: Warn): void {
   for (const [rawKey, value] of layer) {
@@ -152,22 +144,22 @@ function apply(file: string, schema: Schema, layer: Map<unknown, unknown>, into:
   }
 }
 
-/** The parsed root of `<home>/<file>`, or an error line when it cannot be read or is not valid YAML. */
+/** The parsed root of `<home>/<file>`, or the error message when it cannot be read or is not valid YAML. */
 function load(home: string, file: string): { root: unknown } | { error: string } {
   let text: string;
   try {
     text = readFileSync(join(home, file), "utf-8");
   } catch {
-    return { error: `theway: ${file}: cannot be read` };
+    return { error: `${file}: cannot be read` };
   }
   const parsed = parseYaml(text);
-  return "reason" in parsed ? { error: `theway: ${file}: ${parsed.reason}` } : { root: parsed.root };
+  return "reason" in parsed ? { error: `${file}: ${parsed.reason}` } : { root: parsed.root };
 }
 
 /** A project's effective config and its standards before any phase filter. */
 export type Loaded = { config: Config; standards: Standard[] };
 
-/** A project's effective config and standards, or the error line that stops it. */
+/** A project's effective config and standards, or the error message that stops it. */
 export type Effective = Loaded | { error: string };
 
 /**
@@ -205,36 +197,23 @@ export function enabled(config: Config, key: string): boolean {
 }
 
 /**
- * A project's effective config as `theway config` loads it, its warnings sent to `warn`; or the line that stops it (a
+ * A project's effective config as `theway config` loads it, its warnings sent to `warn`; or the message that stops it (a
  * missing global `config.yaml`, an unreadable or invalid file).
  */
 export function loadConfigResult(home: string, key: string, warn: Warn): Effective {
   if (!isFile(join(home, "config.yaml"))) {
-    return { error: `theway: config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` };
+    return { error: `config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` };
   }
   return effectiveConfig(home, key, warn);
 }
 
-/**
- * A project's effective config as `theway config` loads it, its warnings on stderr; `null` once the line that stops it
- * (a missing global `config.yaml`, an unreadable or invalid file) is written.
- */
-export function loadConfig(home: string, key: string): Loaded | null {
-  const result = loadConfigResult(home, key, warnLoud);
-  if ("error" in result) {
-    process.stderr.write(`${result.error}\n`);
-    return null;
-  }
-  return result;
-}
-
 /** `theway config [--project <key>]`: the effective config of the project, as YAML on stdout. */
 export function cmdConfig(override: string | undefined): number {
-  const key = resolveKey(override);
-  if (key === null) return 1;
-  const home = thewayHome();
-  const loaded = loadConfig(home, key);
-  if (loaded === null) return 1;
-  process.stdout.write(stringify(loaded.config));
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const loaded = loadConfigResult(thewayHome(), resolved.key, warnLoud);
+  if ("error" in loaded) return error(loaded.error);
+  print(stringify(loaded.config));
   return 0;
 }

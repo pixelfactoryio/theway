@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CHANGE_FILE, type Change, type ChangeCheck, type ChangeTask, checkChangeText, editedChangeText } from "./change-text";
 import { escaped, isFile, thewayHome } from "./io";
-import { invalidChangeId } from "./path";
+import { error, print, warning } from "./output";
+import { changeIdReason } from "./path";
 import { resolveKey } from "./project";
 import type { ChangeStore, FileRead } from "./store";
 import { fileStore } from "./store/files";
@@ -73,38 +74,40 @@ export function tickTasks(store: ChangeStore, key: string, id: string, numbers: 
   return { done, total };
 }
 
-/** The store and the project key of the change `id`, or `null` after writing why the project or the ID is invalid. */
-function changeAt(changeId: string, override: string | undefined): { store: ChangeStore; key: string } | null {
-  const key = resolveKey(override);
-  if (key === null) return null;
-  if (invalidChangeId(changeId)) return null;
-  return { store: fileStore(thewayHome()), key };
-}
-
-const fail = (lines: string[]): number => {
-  for (const line of lines) process.stderr.write(`theway: ${line}\n`);
-  return 1;
-};
-
 /** `theway change <change-id> [--project <key>]`: validates `change.yaml` and prints the change as JSON. */
 export function cmdChange(changeId: string, override: string | undefined): number {
-  const at = changeAt(changeId, override);
-  if (at === null) return 1;
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const key = resolved.key;
+  const reason = changeIdReason(changeId);
+  if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`);
+  const store = fileStore(thewayHome());
   const change = { kind: "active", id: changeId } as const;
-  const c = checkRead(at.store.readFile(at.key, change, CHANGE_FILE));
-  if ("issues" in c) return fail(issueLines(changeId, c.issues));
-  const dir = at.store.dirOf(at.key, change);
+  const c = checkRead(store.readFile(key, change, CHANGE_FILE));
+  if ("issues" in c) {
+    for (const line of issueLines(changeId, c.issues)) error(line);
+    return 1;
+  }
+  const dir = store.dirOf(key, change);
   const tasks = c.change.tasks.map((t, i) => ({ n: i + 1, text: t.text, done: t.done }));
-  process.stdout.write(`${JSON.stringify({ id: changeId, dir, description: c.change.description, tasks }, null, 2)}\n`);
+  print(`${JSON.stringify({ id: changeId, dir, description: c.change.description, tasks }, null, 2)}\n`);
   return 0;
 }
 
 /** `theway task done <change-id> <n>... [--project <key>]`: ticks the tasks numbered `<n>`. */
 export function cmdTaskDone(changeId: string, numbers: string[], override: string | undefined): number {
-  const at = changeAt(changeId, override);
-  if (at === null) return 1;
-  const r = tickTasks(at.store, at.key, changeId, numbers);
-  if ("errors" in r) return fail(r.errors);
-  process.stdout.write(`${r.done}/${r.total} tasks done\n`);
+  const resolved = resolveKey(override);
+  if ("error" in resolved) return error(resolved.error);
+  if (resolved.warning !== null) warning(resolved.warning);
+  const key = resolved.key;
+  const reason = changeIdReason(changeId);
+  if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`);
+  const r = tickTasks(fileStore(thewayHome()), key, changeId, numbers);
+  if ("errors" in r) {
+    for (const line of r.errors) error(line);
+    return 1;
+  }
+  print(`${r.done}/${r.total} tasks done\n`);
   return 0;
 }

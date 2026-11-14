@@ -10,6 +10,7 @@ import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocum
 import { isFile, type Overlay } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
 import { FILE_PREFIX, NAME, PROMPT_REF, VERSION, type WorkflowFileItem } from "../core/language-schema";
+import { warnQuiet } from "../core/output";
 import { projectDir } from "../core/project";
 import type { Kind } from "../core/step-files";
 import { parseYaml, yamlErrorLine } from "../core/text";
@@ -21,8 +22,6 @@ import { projectKeys } from "./projects";
 const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" };
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"];
-
-const noWarn = (): void => undefined;
 
 const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -57,10 +56,10 @@ type ListedWorkflow = { name: string; project: string | null; item: WorkflowFile
 
 /** Every workflow file of the home: the global ones, then each project's own, each with its check lines. */
 function workflowFiles(home: string): ListedWorkflow[] {
-  const global = listWorkflowFiles(home, null, noWarn);
+  const global = listWorkflowFiles(home, null, warnQuiet);
   const out: ListedWorkflow[] = global.map((item) => ({ name: item.name, project: null, item, context: global }));
   for (const key of projectKeys(home)) {
-    const listed = listWorkflowFiles(home, key, noWarn);
+    const listed = listWorkflowFiles(home, key, warnQuiet);
     for (const item of listed) {
       if (item.scope === "project") out.push({ name: item.name, project: key, item, context: listed });
     }
@@ -182,8 +181,8 @@ function usesByPrompt(home: string, prompts: { name: string; project: string | n
 /** The workflows whose lines count for a prompt: the global ones for a global prompt, the project's own for a project's. */
 function contextWorkflows(home: string, project: string | null, overlay?: Overlay) {
   return project === null
-    ? listWorkflowFiles(home, null, noWarn, overlay)
-    : listWorkflowFiles(home, project, noWarn, overlay).filter((w) => w.scope === "project");
+    ? listWorkflowFiles(home, null, warnQuiet, overlay)
+    : listWorkflowFiles(home, project, warnQuiet, overlay).filter((w) => w.scope === "project");
 }
 
 /** A prompt's check lines: its header errors, then every line of `workflows` about it, its own prefix removed, deduplicated. */
@@ -325,7 +324,7 @@ export function workflowErrors(home: string, project: string | null, name: strin
   const result = resolveWorkflowFile(home, project, name, {}, overlay);
   const lines = "errors" in result ? result.errors.map((l) => own(l, `workflows/${name}.yaml: `)) : [];
   const out = lines.map((l) => ({ text: l, line: workflowLine(text, l) }));
-  const second = secondDefault(listWorkflowFiles(home, project, noWarn, overlay), project, name);
+  const second = secondDefault(listWorkflowFiles(home, project, warnQuiet, overlay), project, name);
   if (second !== null) out.push({ text: second, line: lineOfPath(text, ["default"]) });
   return out;
 }
