@@ -1776,3 +1776,16 @@ test("uninstall reports what it removed when a later step fails", () => {
   expect(existsSync(plugin)).toBe(false);
   expect(existsSync(bin(env))).toBe(false);
 });
+
+test("install writes a custom home's pointer through a dangling link", () => {
+  const env = setup({ defaultHome: true });
+  const data = join(env.root, "data");
+  expect(run(env, "install", "--home", data).status).toBe(0);
+  const target = join(env.root, "pointer-target");
+  rmSync(pointer(env));
+  symlinkSync(target, pointer(env));
+  const res = run(env, "install", "--home", data);
+  expect(res.stderr).toBe("");
+  expect(res.status).toBe(0);
+  expect(readFileSync(target, "utf-8")).toBe(`${data}\n`);
+});

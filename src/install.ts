@@ -483,8 +483,8 @@ function installTargets(cHome: string, tHome: string, dir: string, custom: boole
   const pointer = pointerPath();
   if (custom) {
     targets.push(nearestExisting(dirname(pointer)));
-    // writePointer overwrites the file in place.
-    if (occupied(pointer)) targets.push(pointer);
+    // writePointer overwrites the file in place; a dangling link is not checked, since writing through it creates its target.
+    if (existsSync(pointer)) targets.push(pointer);
   } else if (occupied(pointer)) {
     targets.push(dirname(pointer));
   }

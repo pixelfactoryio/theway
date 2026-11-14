@@ -96,7 +96,7 @@ Uninstall first checks `~/.claude/settings.json` and that it can write the folde
 
   Writing change files (`spec.md`, `change.yaml`, `notes.md`) goes through Claude Code's normal permission prompt; ticking a task with `theway task done` runs under `Bash(theway:*)`. Earlier versions also added `Edit(~/.theway/*/changes/**)`; install and uninstall remove it.
 
-If `~/.claude/settings.json` cannot be read or is not valid settings JSON, install stops and changes nothing. Install also checks, before its first write, that it can write every folder and file it writes into, and stops and changes nothing when one is not writable. A failure while it writes stops it without undoing anything, with one line that names what it already wrote (`theway: install stopped: <reason>; already written: …`); see [install](./cli.mdx#install).
+If `~/.claude/settings.json` cannot be read or is not valid settings JSON, install stops and changes nothing. Install also checks, before its first write, that it can write the folders and files it writes into directly, and stops and changes nothing when one is not writable. Writes deeper inside the data home are not checked. A failure while it writes stops it without undoing anything, with one line that names what it already wrote (`theway: install stopped: <reason>; already written: …`); see [install](./cli.mdx#install).
 
 `Bash(theway:*)` approves whichever `theway` comes first on your `PATH`, not only the copy install wrote. Install lists every `theway` on `PATH` and warns, naming it, when the first one is not its copy:
 
