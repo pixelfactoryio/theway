@@ -96,6 +96,7 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
   expect(body).toEqual({
     id: "add-x-03",
     archived: null,
+    ref: null,
     description: "Third",
     status: "in-progress",
     done: 1,
@@ -116,11 +117,11 @@ test("GET …/changes/:id gives the change, its tasks, its Markdown files in ord
     series: {
       id: "add-x",
       members: [
-        { ordinal: "01", active: null, archived: "2026-01-01-add-x-01", status: "archived", done: null, total: null },
-        { ordinal: "02", active: null, archived: null, status: null, done: null, total: null },
-        { ordinal: "03", active: "add-x-03", archived: null, status: "in-progress", done: 1, total: 2 },
-        { ordinal: "04", active: null, archived: null, status: null, done: null, total: null },
-        { ordinal: "05", active: "add-x-05", archived: null, status: "ready", done: 1, total: 1 },
+        { ordinal: "01", id: "add-x-01", active: null, archived: "2026-01-01-add-x-01", status: "archived", done: null, total: null },
+        { ordinal: "02", id: "add-x-02", active: null, archived: null, status: null, done: null, total: null },
+        { ordinal: "03", id: "add-x-03", active: "add-x-03", archived: null, status: "in-progress", done: 1, total: 2 },
+        { ordinal: "04", id: "add-x-04", active: null, archived: null, status: null, done: null, total: null },
+        { ordinal: "05", id: "add-x-05", active: "add-x-05", archived: null, status: "ready", done: 1, total: 1 },
       ],
     },
   });
@@ -179,6 +180,7 @@ test("GET …/changes/archive/:dir gives an archived change; one with only a tas
   expect(b.body).toEqual({
     id: "add-old",
     archived: "2025-12-01",
+    ref: "2025-12-01-add-old",
     description: null,
     status: "archived",
     done: 0,
@@ -204,10 +206,30 @@ test("a series ordinal is filled by its active folder before archived ones, else
 
   const { body } = await get(h, `/api/projects/${KEY}/changes/add-s-03`);
   expect((body.series as { members: unknown[] }).members).toEqual([
-    { ordinal: "01", active: "add-s-01", archived: null, status: "not-started", done: 0, total: 1 },
-    { ordinal: "02", active: null, archived: "2026-06-01-add-s-02", status: "archived", done: null, total: null },
-    { ordinal: "03", active: "add-s-03", archived: null, status: "not-started", done: 0, total: 1 },
+    { ordinal: "01", id: "add-s-01", active: "add-s-01", archived: null, status: "not-started", done: 0, total: 1 },
+    { ordinal: "02", id: "add-s-02", active: null, archived: "2026-06-01-add-s-02", status: "archived", done: null, total: null },
+    { ordinal: "03", id: "add-s-03", active: "add-s-03", archived: null, status: "not-started", done: 0, total: 1 },
   ]);
+});
+
+test("a change gives its archive reference, null when active, and each series member its change ID", async () => {
+  const h = home();
+  change(h, "archive/2026-02-03-add-z-02", yaml("Zed", [true]));
+  change(h, "archive/2026-04-05-add-z-03", yaml("Zed three", [true]));
+  change(h, "add-z-04", yaml("Four", [false]));
+
+  const archived = await get(h, `/api/projects/${KEY}/changes/archive/2026-02-03-add-z-02`);
+  expect([archived.body.id, archived.body.archived, archived.body.ref]).toEqual(["add-z-02", "2026-02-03", "2026-02-03-add-z-02"]);
+  const members = (archived.body.series as { members: { ordinal: string; id: string; active: string | null; archived: string | null }[] }).members;
+  expect(members.map((m) => [m.ordinal, m.id, m.active, m.archived])).toEqual([
+    ["01", "add-z-01", null, null],
+    ["02", "add-z-02", null, "2026-02-03-add-z-02"],
+    ["03", "add-z-03", null, "2026-04-05-add-z-03"],
+    ["04", "add-z-04", "add-z-04", null],
+  ]);
+
+  const active = await get(h, `/api/projects/${KEY}/changes/add-z-04`);
+  expect([active.body.archived, active.body.ref]).toEqual([null, null]);
 });
 
 test("unknown targets answer 404 with their error, encoded / and .. included", async () => {

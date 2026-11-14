@@ -26,9 +26,11 @@ export type ArchivedChange = { dir: string; id: string; date: string };
 /** The body of `GET /api/projects/:key/changes`: active by ID, archived newest first. */
 export type ChangeList = { active: ActiveChange[]; archived: ArchivedChange[] };
 
-/** One ordinal of a series. */
+/** One ordinal of a series. `archived` is the archive reference of an archived member, opaque to the client. */
 export type SeriesMember = {
   ordinal: string;
+  /** The member's change ID; for an empty ordinal, the ID it would have. */
+  id: string;
   active: string | null;
   archived: string | null;
   status: Status | null;
@@ -39,7 +41,10 @@ export type SeriesMember = {
 /** The body of `GET /api/projects/:key/changes/:id` and `…/changes/archive/:dir`. */
 export type ChangeDetail = {
   id: string;
+  /** The date of an archived change, `null` when active. */
   archived: string | null;
+  /** The archive reference of an archived change (its `…/changes/archive/:dir`), `null` when active. */
+  ref: string | null;
   description: string | null;
   status: Status;
   done: number;

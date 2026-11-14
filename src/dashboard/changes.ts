@@ -107,11 +107,11 @@ export function seriesOf(store: ChangeStore, key: string, id: string): ChangeDet
     const e = archived.get(n);
     if (a !== undefined) {
       const row = activeRow(store, key, a);
-      members.push({ ordinal, active: a, archived: null, status: row.status, done: row.done, total: row.total });
+      members.push({ ordinal, id: a, active: a, archived: null, status: row.status, done: row.done, total: row.total });
     } else if (e !== undefined) {
-      members.push({ ordinal, active: null, archived: e.ref, status: "archived", done: null, total: null });
+      members.push({ ordinal, id: e.id, active: null, archived: e.ref, status: "archived", done: null, total: null });
     } else {
-      members.push({ ordinal, active: null, archived: null, status: null, done: null, total: null });
+      members.push({ ordinal, id: `${seriesId}-${ordinal}`, active: null, archived: null, status: null, done: null, total: null });
     }
   }
   return { id: seriesId, members };
@@ -130,6 +130,7 @@ export function changeDetail(store: ChangeStore, key: string, id: string, archiv
   return {
     id,
     archived: archive === null ? null : archive.date,
+    ref: archive === null ? null : archive.ref,
     description: s.description,
     status: archive === null ? s.status : "archived",
     done: s.done,
