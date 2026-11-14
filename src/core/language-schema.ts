@@ -14,6 +14,12 @@ export const PARAM = /^[a-z][a-z0-9_]*$/;
 /** The `version` of a workflow file in this language. */
 export const VERSION = "theway.workflow/v1beta" as const;
 
+/** A `uses`, `on-fail` or value naming a prompt: `prompts/<name>.md`. */
+export const PROMPT_REF = /^prompts\/([^/]+)\.md$/;
+
+/** A line still starting with a file's prefix: `workflows/<name>.yaml: ` or `prompts/<name>.md: `. */
+export const FILE_PREFIX = /^(?:workflows\/[^/:\s]+\.yaml|prompts\/[^/:\s]+\.md): /;
+
 /** Where a step runs: through an agent, or in the session. */
 export const RUNS_ON = ["agents", "session"] as const;
 export type RunsOn = (typeof RUNS_ON)[number];

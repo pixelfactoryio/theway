@@ -3,63 +3,14 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, sep } from "node:path";
-import { CHANGE_FILE, type ChangeTask, checkChange } from "../core/change";
+import { CHANGE_FILE, checkChange } from "../core/change";
 import { changeStatus } from "../core/change-text";
 import { isFile } from "../core/io";
 import { activeIds, archiveDirs } from "../core/list";
-
-/** The status of an active change, or `archived`. */
-export type Status = "invalid" | "in-progress" | "not-started" | "ready" | "archived";
-
-/** One active change of the list route. */
-export type ActiveRow = {
-  id: string;
-  description: string | null;
-  status: Exclude<Status, "archived">;
-  done: number;
-  total: number;
-  issues: string[];
-  updated: string;
-};
-
-/** One archived change of the list route. */
-export type ArchivedRow = { dir: string; id: string; date: string };
-
-/** One ordinal of a series. */
-export type SeriesMember = {
-  ordinal: string;
-  active: string | null;
-  archived: string | null;
-  status: Status | null;
-  done: number | null;
-  total: number | null;
-};
-
-/** The body of `GET /api/projects/:key/changes/:id` and `…/changes/archive/:dir`. */
-export type ChangeDetail = {
-  id: string;
-  archived: string | null;
-  description: string | null;
-  status: Status;
-  done: number;
-  total: number;
-  issues: string[];
-  tasks: ChangeTask[];
-  /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
-  updated: string;
-  folder: string;
-  /** Each file's `version` on an active change only. */
-  files: { name: string; text: string; version?: string }[];
-  /** On an active change only: its `change.yaml`, `null` when it has none. */
-  changeFile?: { text: string; version: string } | null;
-  series: { id: string; members: SeriesMember[] } | null;
-};
+import { type ActiveChange, type ArchivedChange, type ChangeDetail, type ChangeList, type ChangeTask, MEMBER, type SeriesMember } from "./contract";
 
 /** An archive folder the dashboard lists: a date, `-`, then the change's ID. */
 const ARCHIVE_DIR = /^\d{4}-\d{2}-\d{2}-.+/;
-
-/** A series member's ID: the series ID, `-`, then a two-digit ordinal. */
-const MEMBER = /^(.+)-(\d{2})$/;
 
 /** The Markdown files that come first, in this order. */
 const FIRST = ["spec.md", "design.md", "notes.md"];
@@ -71,7 +22,7 @@ export const listedArchiveDirs = (projectDir: string): string[] => archiveDirs(p
 
 /** The state of a change folder read through `checkChange`: its status, description, tasks, counts and issues. */
 function readState(dir: string): {
-  status: ActiveRow["status"];
+  status: ActiveChange["status"];
   description: string | null;
   tasks: ChangeTask[];
   done: number;
@@ -99,7 +50,7 @@ function updatedOf(dir: string): string {
 }
 
 /** One active change of the project folder `projectDir`, as the list route gives it. */
-export function activeRow(projectDir: string, id: string): ActiveRow {
+export function activeRow(projectDir: string, id: string): ActiveChange {
   const dir = join(changesDir(projectDir), id);
   const s = readState(dir);
   return {
@@ -113,10 +64,10 @@ export function activeRow(projectDir: string, id: string): ActiveRow {
   };
 }
 
-const archivedRow = (dir: string): ArchivedRow => ({ dir, id: dir.slice(11), date: dir.slice(0, 10) });
+const archivedRow = (dir: string): ArchivedChange => ({ dir, id: dir.slice(11), date: dir.slice(0, 10) });
 
 /** The body of `GET /api/projects/:key/changes`: active by ID, archived newest first. */
-export function listChanges(projectDir: string): { active: ActiveRow[]; archived: ArchivedRow[] } {
+export function listChanges(projectDir: string): ChangeList {
   const active = activeIds(projectDir).map((id) => activeRow(projectDir, id));
   const archived = listedArchiveDirs(projectDir)
     .sort()

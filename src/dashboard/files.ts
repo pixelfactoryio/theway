@@ -6,66 +6,19 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parse, parseDocument } from "yaml";
+import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml";
 import { isFile, type Overlay } from "../core/io";
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language";
-import { NAME, VERSION, type WorkflowFileItem } from "../core/language-schema";
+import { FILE_PREFIX, NAME, PROMPT_REF, VERSION, type WorkflowFileItem } from "../core/language-schema";
 import { projectDir } from "../core/project";
 import type { Kind } from "../core/step-files";
+import { parseYaml, yamlErrorLine } from "../core/text";
 import { joinAnd, markedPath } from "../core/workflow";
 import { tildePath } from "./changes";
+import type { CheckBody, FileBody, FileError, PromptList, PromptRow, Use, WorkflowList, WorkflowRow } from "./contract";
 import { projectKeys } from "./projects";
 
-/** One row of `GET /api/workflows`. */
-export type WorkflowRow = {
-  name: string;
-  project: string | null;
-  description: string | null;
-  default: boolean;
-  steps: number | null;
-  runsOn: "agents" | "session" | "mixed" | null;
-  errors: string[];
-};
-
-/** One use of a prompt by a workflow file, as written. */
-export type Use = { workflow: string; project: string | null; step: number; as: "step" | "on-fail" | "value" };
-
-/** One input of a prompt's header, in the header's order. */
-export type PromptInputRow = { name: string; required: boolean; default: string | null; description: string };
-
-/** One row of `GET /api/prompts`. */
-export type PromptRow = {
-  name: string;
-  project: string | null;
-  description: string | null;
-  model: string | null;
-  header: boolean;
-  inputs: PromptInputRow[];
-  errors: string[];
-  usedBy: Use[];
-};
-
-/** A check line of a file, with the line of the file it names (from 1), `null` when it names none. */
-export type FileError = { text: string; line: number | null };
-
-/** The body of a file route. */
-export type FileBody = {
-  name: string;
-  project: string | null;
-  path: string;
-  text: string;
-  version: string;
-  errors: FileError[];
-  usedBy?: Use[];
-};
-
 const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" };
-
-/** A `uses`, `on-fail` or value naming a prompt: `prompts/<name>.md`. */
-const PROMPT_REF = /^prompts\/([^/]+)\.md$/;
-
-/** A line still starting with a file's prefix: `workflows/<name>.yaml: ` or `prompts/<name>.md: `. */
-const FILE_PREFIX = /^(?:workflows\/[^/:\s]+\.yaml|prompts\/[^/:\s]+\.md): /;
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"];
 
@@ -134,7 +87,7 @@ function runsOnOf(steps: { runs_on: "agents" | "session" }[]): WorkflowRow["runs
 }
 
 /** The body of `GET /api/workflows`. */
-export function listWorkflows(home: string, userHome: string = homedir()): { folder: string; workflows: WorkflowRow[] } {
+export function listWorkflows(home: string, userHome: string = homedir()): WorkflowList {
   const workflows = workflowFiles(home).map(({ name, project, item, context }): WorkflowRow => {
     const second = secondDefault(context, project, name);
     return {
@@ -162,12 +115,9 @@ function promptRef(v: unknown): string | null {
  * is not a `theway.workflow/v1beta` map with a `steps` list.
  */
 export function usesOf(text: string): { prompt: string; step: number; as: Use["as"] }[] {
-  let root: unknown;
-  try {
-    root = parse(text, { mapAsMap: true, logLevel: "error" });
-  } catch {
-    return [];
-  }
+  const parsed = parseYaml(text);
+  if ("reason" in parsed) return [];
+  const root = parsed.root;
   if (!(root instanceof Map) || root.get("version") !== VERSION || !Array.isArray(root.get("steps"))) return [];
   const out: { prompt: string; step: number; as: Use["as"] }[] = [];
   (root.get("steps") as unknown[]).forEach((raw, i) => {
@@ -253,7 +203,7 @@ function promptFiles(home: string): { name: string; project: string | null }[] {
 }
 
 /** The body of `GET /api/prompts`. */
-export function listPrompts(home: string, userHome: string = homedir()): { folder: string; prompts: PromptRow[] } {
+export function listPrompts(home: string, userHome: string = homedir()): PromptList {
   const files = promptFiles(home);
   const uses = usesByPrompt(home, files);
   const workflows = new Map<string | null, ReturnType<typeof contextWorkflows>>();
@@ -326,16 +276,6 @@ function dashLine(text: string, counter: LineCounter, item: Node | null, list: N
     i = lineStart + hash + (text[lineStart + hash] === "#" ? 0 : 1) - 1;
   }
   return counter.linePos(i >= 0 && text[i] === "-" ? i : start).line;
-}
-
-/** The line of the YAML parser's error in `text`, `null` when it parses. */
-function yamlErrorLine(text: string): number | null {
-  try {
-    parse(text, { mapAsMap: true, logLevel: "error" });
-    return null;
-  } catch (e) {
-    return (e as { linePos?: { line: number }[] }).linePos?.[0]?.line ?? null;
-  }
 }
 
 /** The line of a workflow's check line, its own prefix already removed. */
@@ -446,9 +386,6 @@ export function promptFile(home: string, project: string | null, name: string): 
     },
   };
 }
-
-/** The body of `POST /api/check`: the draft's lines, and for a prompt its header fields. */
-export type CheckBody = { errors: FileError[] } & Partial<Pick<PromptRow, "header" | "description" | "model" | "inputs">>;
 
 /**
  * `POST /api/check`: the lines the file route would give if the file `name` of `kind` held `text`, read through an

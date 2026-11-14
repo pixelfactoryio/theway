@@ -15,6 +15,7 @@ import { activeIds } from "../core/list";
 import { projectDir } from "../core/project";
 import type { Kind } from "../core/step-files";
 import { markdownNames } from "./changes";
+import type { Version, VersionList, VersionText } from "./contract";
 import { absPath } from "./files";
 import { projectKeys } from "./projects";
 
@@ -26,9 +27,6 @@ export const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-
 
 /** What a write route answers. */
 export type Answer = { status: number; body: unknown };
-
-/** One version of `GET …/history`. */
-export type VersionRow = { id: string; at: string; added: number; removed: number };
 
 const sha256 = (data: string | Buffer): string => createHash("sha256").update(data).digest("hex");
 
@@ -137,7 +135,7 @@ export function listVersions(home: string, kind: Kind, project: string | null, n
   const dir = historyDir(home, kind, project, name);
   const ids = versionIds(dir);
   const texts = ids.map((id) => readBytes(join(dir, id))?.toString("utf-8") ?? "");
-  const versions: VersionRow[] = ids.map((id, i) => {
+  const versions: Version[] = ids.map((id, i) => {
     let added = 0;
     let removed = 0;
     for (const part of diffLines(texts[i + 1] ?? "", texts[i] as string)) {
@@ -146,11 +144,12 @@ export function listVersions(home: string, kind: Kind, project: string | null, n
     }
     return { id, at: dateOf(id).toISOString(), added, removed };
   });
-  return { status: 200, body: { versions } };
+  const body: VersionList = { versions };
+  return { status: 200, body };
 }
 
 /** The text of the version `id`, or the answer refusing it. */
-function versionText(home: string, kind: Kind, project: string | null, name: string, id: string): { text: string } | Answer {
+function versionText(home: string, kind: Kind, project: string | null, name: string, id: string): VersionText | Answer {
   const refusal = refused(home, project, name);
   if (refusal !== null) return refusal;
   const dir = historyDir(home, kind, project, name);

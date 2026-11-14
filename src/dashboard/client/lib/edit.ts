@@ -34,7 +34,7 @@ export function localTime(iso: string): string {
 }
 
 /** A file's name: lowercase letters and digits, in words joined by single hyphens. */
-export const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export { NAME } from "../../../core/language-schema";
 
 /** A text value as the `yaml` package's `stringify` writes it alone with `lineWidth: 0`, without its final line break. */
 export const yamlValue = (value: string): string => stringify(value, { lineWidth: 0 }).replace(/\n$/, "");

@@ -6,6 +6,7 @@ import {
   MODELS,
   NAME,
   PARAM,
+  PROMPT_REF,
   type PromptFileItem,
   type PromptHeader,
   type PromptInput,
@@ -51,9 +52,6 @@ const RULE = {
  * brace pair. Any other `${{ … }}` text is plain text.
  */
 const REF = /\$\{\{ ?(inputs|matrix)\.([^\s}]+) ?\}\}/g;
-
-/** A `uses` or `on-fail` value: `prompts/<name>.md`. */
-const USES = /^prompts\/([^/]+)\.md$/;
 
 const isMap = (v: unknown): v is Map<unknown, unknown> => v instanceof Map;
 const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
@@ -204,7 +202,7 @@ type Ctx = {
  * `prompts/<name>.md`. `null` when the prompt cannot be used.
  */
 function promptOf(ctx: Ctx, v: unknown, where: string, out: string[]): Prompt | null {
-  const m = typeof v === "string" ? USES.exec(v) : null;
+  const m = typeof v === "string" ? PROMPT_REF.exec(v) : null;
   const name = m?.[1];
   if (name === undefined || !NAME.test(name)) {
     out.push(`${ctx.rel}: ${where}: ${RULE.uses}`);

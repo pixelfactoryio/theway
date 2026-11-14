@@ -16,3 +16,13 @@ export function parseYaml(text: string): { root: unknown } | { reason: string } 
     return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` };
   }
 }
+
+/** The line of the YAML parser's error in `text`, `null` when it parses or the error gives none. */
+export function yamlErrorLine(text: string): number | null {
+  try {
+    parse(text, { mapAsMap: true, logLevel: "error" });
+    return null;
+  } catch (e) {
+    return (e as { linePos?: { line: number }[] }).linePos?.[0]?.line ?? null;
+  }
+}

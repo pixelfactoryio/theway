@@ -1,53 +1,20 @@
 /** The home's workflow and prompt files as the Workflows and Prompts pages show them. Pure: no React, no DOM. */
+import type { PromptRow, Use } from "../../contract";
 
-/** One row of `GET /api/workflows`. */
-export type WorkflowRow = {
-  name: string;
-  project: string | null;
-  description: string | null;
-  default: boolean;
-  steps: number | null;
-  runsOn: "agents" | "session" | "mixed" | null;
-  errors: string[];
-};
-
-/** The body of `GET /api/workflows`. */
-export type WorkflowList = { folder: string; workflows: WorkflowRow[] };
-
-/** One use of a prompt by a workflow file. */
-export type Use = { workflow: string; project: string | null; step: number; as: "step" | "on-fail" | "value" };
-
-/** One input of a prompt's header. */
-export type PromptInputRow = { name: string; required: boolean; default: string | null; description: string };
-
-/** One row of `GET /api/prompts`. */
-export type PromptRow = {
-  name: string;
-  project: string | null;
-  description: string | null;
-  model: string | null;
-  header: boolean;
-  inputs: PromptInputRow[];
-  errors: string[];
-  usedBy: Use[];
-};
-
-/** The body of `GET /api/prompts`. */
-export type PromptList = { folder: string; prompts: PromptRow[] };
-
-/** A check line of a file with its line, `null` when it has none. */
-export type FileError = { text: string; line: number | null };
-
-/** The body of a file route. */
-export type FileBody = {
-  name: string;
-  project: string | null;
-  path: string;
-  text: string;
-  version: string;
-  errors: FileError[];
-  usedBy?: Use[];
-};
+export type {
+  CheckBody,
+  FileBody,
+  FileError,
+  PromptInputRow,
+  PromptList,
+  PromptRow,
+  Use,
+  Version,
+  VersionList,
+  VersionText,
+  WorkflowList,
+  WorkflowRow,
+} from "../../contract";
 
 /** The kinds of the Prompts page's Kind filter, in its order. */
 export const KINDS = ["step", "reference"] as const;

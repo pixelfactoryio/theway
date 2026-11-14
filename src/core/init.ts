@@ -10,10 +10,10 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { parse } from "yaml";
 import { removeIfEmpty, writeAtomic } from "./io";
 import { parsePromptFile } from "./language";
 import { VERSION } from "./language-schema";
+import { parseYaml } from "./text";
 
 /**
  * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
@@ -263,12 +263,8 @@ function retireMoved(home: string): void {
 
 /** The `version` of a workflow file's text, or undefined when it does not parse as a map. */
 function versionOf(text: string): unknown {
-  try {
-    const doc: unknown = parse(text);
-    return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>).version : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = parseYaml(text);
+  return "root" in parsed && parsed.root instanceof Map ? parsed.root.get("version") : undefined;
 }
 
 /**
@@ -393,16 +389,17 @@ function enableStandards(text: string, enabled: readonly string[]): string {
  * is not a map, prints nothing.
  */
 function reportRetiredKeys(file: string): void {
-  let doc: unknown;
+  let text: string;
   try {
-    doc = parse(readFileSync(file, "utf-8"));
+    text = readFileSync(file, "utf-8");
   } catch {
     return;
   }
-  const isMap = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
-  if (!isMap(doc)) return;
-  if (Object.hasOwn(doc, "engineering")) process.stdout.write("Your config.yaml still has engineering: theway ignores it; remove it\n");
-  if (Object.hasOwn(doc, "workflow")) {
+  const parsed = parseYaml(text);
+  if ("reason" in parsed || !(parsed.root instanceof Map)) return;
+  const doc = parsed.root;
+  if (doc.has("engineering")) process.stdout.write("Your config.yaml still has engineering: theway ignores it; remove it\n");
+  if (doc.has("workflow")) {
     process.stdout.write(
       "Your config.yaml still has workflow: theway no longer reads workflow.defaults; set a value in the workflow file or in the prompt's header, and remove the key\n",
     );

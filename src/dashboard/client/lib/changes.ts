@@ -1,7 +1,8 @@
 /** The changes of a project as the Changes page and the change page show them. Pure: no React, no DOM. */
+import type { ActiveChange, ArchivedChange, ChangeDetail, ChangeTask, Status } from "../../contract";
+import { MEMBER } from "../../contract";
 
-/** The status of an active change, or `archived`. */
-export type Status = "invalid" | "in-progress" | "not-started" | "ready" | "archived";
+export type { ActiveChange, ArchivedChange, ChangeDetail, ChangeList, ChangeTask, SeriesMember, Status } from "../../contract";
 
 /** The statuses of an active change, in the order the page sorts and filters them. */
 export const ACTIVE_STATUSES = ["invalid", "in-progress", "not-started", "ready"] as const;
@@ -15,57 +16,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   archived: "Archived",
 };
 
-/** One active change of `GET /api/projects/:key/changes`. */
-export type ActiveChange = {
-  id: string;
-  description: string | null;
-  status: ActiveStatus;
-  done: number;
-  total: number;
-  issues: string[];
-  updated: string;
-};
-
-/** One archived change of `GET /api/projects/:key/changes`. */
-export type ArchivedChange = { dir: string; id: string; date: string };
-
-/** The body of `GET /api/projects/:key/changes`. */
-export type ChangeList = { active: ActiveChange[]; archived: ArchivedChange[] };
-
-export type ChangeTask = { text: string; done: boolean };
-
-export type SeriesMember = {
-  ordinal: string;
-  active: string | null;
-  archived: string | null;
-  status: Status | null;
-  done: number | null;
-  total: number | null;
-};
-
-/** The body of `GET /api/projects/:key/changes/:id` and `…/changes/archive/:dir`. */
-export type ChangeDetail = {
-  id: string;
-  archived: string | null;
-  description: string | null;
-  status: Status;
-  done: number;
-  total: number;
-  issues: string[];
-  tasks: ChangeTask[];
-  /** The modification time of `change.yaml`, or of the folder when the file is missing, as an ISO string. */
-  updated: string;
-  folder: string;
-  /** Each file's `version` (the SHA-256 of its bytes) on an active change only. */
-  files: { name: string; text: string; version?: string }[];
-  /** On an active change only: its `change.yaml`, `null` when it has none. */
-  changeFile?: { text: string; version: string } | null;
-  series: { id: string; members: SeriesMember[] } | null;
-};
-
 const byId = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-
-const MEMBER = /^(.+)-(\d{2})$/;
 
 /** The series ID and ordinal of a change ID ending in `-NN`, `null` otherwise. */
 export function memberOf(id: string): { series: string; ordinal: string } | null {

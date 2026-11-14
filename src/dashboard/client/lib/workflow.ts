@@ -3,19 +3,8 @@
  * with the prompts list for each card's description and model. Pure: no React, no DOM.
  */
 import { isMap, isScalar, isSeq, type Node, parseDocument, type YAMLMap } from "yaml";
+import { FILE_PREFIX, NAME, PROMPT_REF, VERSION } from "../../../core/language-schema";
 import type { PromptRow } from "./files";
-
-/** The `version` a workflow file must have to be drawn. */
-const VERSION = "theway.workflow/v1beta";
-
-/** A workflow, step or prompt name. */
-const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** A prompt reference: `prompts/<NAME>.md`. */
-const PROMPT_REF = /^prompts\/([^/]+)\.md$/;
-
-/** A line still starting with a file's prefix: `workflows/<name>.yaml: ` or `prompts/<name>.md: `. */
-const FILE_PREFIX = /^(?:workflows\/[^/:\s]+\.yaml|prompts\/[^/:\s]+\.md): /;
 
 /** A line about step N (0-based), and whether it is about its on-fail. */
 const STEP_LINE = /^steps\[(\d+)\](\.on-fail(?![\w-]))?/;

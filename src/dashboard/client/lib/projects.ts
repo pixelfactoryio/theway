@@ -1,10 +1,7 @@
 /** The projects `GET /api/projects` lists, and the choice of the current one. Pure: no React, no DOM. */
+import type { Project, ProjectList } from "../../contract";
 
-/** One project: its key, its label, its number of active changes and its folder (`null` when not found). */
-export type Project = { key: string; label: string; active: number; path: string | null };
-
-/** The body of `GET /api/projects`. */
-export type ProjectList = { projects: Project[]; start: string | null };
+export type { Project, ProjectList } from "../../contract";
 
 /** Orders projects by label (`localeCompare`, `"en"`, `sensitivity: "base"`), ties broken by key. */
 export function byLabel(projects: readonly Project[]): Project[] {

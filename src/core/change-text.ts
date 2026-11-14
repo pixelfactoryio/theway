@@ -2,8 +2,8 @@
  * The text of a `change.yaml`: its check, the lines of its issues, the status of a change, and the edits the dashboard
  * and `theway task done` make to it. No module this one imports reads the disk, so the client bundle imports it too.
  */
-import { Document, isAlias, isCollection, isMap as isYamlMap, isPair, isScalar, isSeq, LineCounter, type Node, parse, parseDocument, Scalar, type YAMLMap, type YAMLSeq } from "yaml";
-import { escaped, parseYaml } from "./text";
+import { Document, isAlias, isCollection, isMap as isYamlMap, isPair, isScalar, isSeq, LineCounter, type Node, parseDocument, Scalar, type YAMLMap, type YAMLSeq } from "yaml";
+import { escaped, parseYaml, yamlErrorLine } from "./text";
 
 export const CHANGE_VERSION = "theway.change/v1beta";
 export const CHANGE_FILE = "change.yaml";
@@ -166,16 +166,6 @@ function startOf(root: unknown, segments: (string | number)[], map: boolean): nu
   }
   if (map) return isYamlMap(node) ? ((node as Node).range?.[0] ?? null) : null;
   return at;
-}
-
-/** The line of the YAML parser's error in `text`, `null` when it gives none. */
-function yamlErrorLine(text: string): number | null {
-  try {
-    parse(text, { mapAsMap: true, logLevel: "error" });
-    return null;
-  } catch (e) {
-    return (e as { linePos?: { line: number }[] }).linePos?.[0]?.line ?? null;
-  }
 }
 
 /**
