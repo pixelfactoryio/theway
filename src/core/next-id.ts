@@ -1,16 +1,16 @@
-import { escaped, thewayHome } from "./io";
-import { error, print, warning } from "./output";
-import { resolveKey } from "./project";
-import { fileStore } from "./store/files";
-import { formatReason } from "./validate-id";
+import { escaped, thewayHome } from "./io"
+import { error, print, warning } from "./output"
+import { resolveKey } from "./project"
+import { fileStore } from "./store/files"
+import { formatReason } from "./validate-id"
 
 /** The reason a series id (its trailing -NN already removed) is invalid, "" when it fits. */
 function seriesIdReason(id: string): string {
-  const reason = formatReason(id);
-  if (reason !== "") return reason;
-  const tail = id.slice(id.lastIndexOf("-") + 1);
-  if (/^[0-9]{1,2}$/.test(tail)) return `ends in a number (-${tail}); a series id cannot end in a number`;
-  return "";
+  const reason = formatReason(id)
+  if (reason !== "") return reason
+  const tail = id.slice(id.lastIndexOf("-") + 1)
+  if (/^[0-9]{1,2}$/.test(tail)) return `ends in a number (-${tail}); a series id cannot end in a number`
+  return ""
 }
 
 /**
@@ -18,28 +18,28 @@ function seriesIdReason(id: string): string {
  * after the highest ordinal among the active and the dated archived members (`<series-id>-NN`).
  */
 export function cmdNextId(seriesId: string, count: number, override: string | undefined): number {
-  const resolved = resolveKey(override);
-  if ("error" in resolved) return error(resolved.error);
-  if (resolved.warning !== null) warning(resolved.warning);
-  const key = resolved.key;
-  const rest = seriesId.replace(/-[0-9]{2}$/, "");
-  const reason = seriesIdReason(rest);
+  const resolved = resolveKey(override)
+  if ("error" in resolved) return error(resolved.error)
+  if (resolved.warning !== null) warning(resolved.warning)
+  const key = resolved.key
+  const rest = seriesId.replace(/-[0-9]{2}$/, "")
+  const reason = seriesIdReason(rest)
   if (reason !== "") {
-    const shown = escaped(rest);
-    return error(`invalid change id '${shown}': ${reason}`);
+    const shown = escaped(rest)
+    return error(`invalid change id '${shown}': ${reason}`)
   }
 
-  const store = fileStore(thewayHome());
-  const member = new RegExp(`^${rest}-([0-9]{2})$`);
-  const archived = store.archived(key).flatMap((e) => (e.id === null ? [] : [e.id]));
-  let max = 0;
+  const store = fileStore(thewayHome())
+  const member = new RegExp(`^${rest}-([0-9]{2})$`)
+  const archived = store.archived(key).flatMap((e) => (e.id === null ? [] : [e.id]))
+  let max = 0
   for (const id of [...store.activeIds(key), ...archived]) {
-    const m = member.exec(id);
-    if (m !== null) max = Math.max(max, Number(m[1]));
+    const m = member.exec(id)
+    if (m !== null) max = Math.max(max, Number(m[1]))
   }
-  if (max + count > 99) return error(`series ${rest} would go past -99`);
-  let out = "";
-  for (let n = max + 1; n <= max + count; n++) out += `${rest}-${String(n).padStart(2, "0")}\n`;
-  print(out);
-  return 0;
+  if (max + count > 99) return error(`series ${rest} would go past -99`)
+  let out = ""
+  for (let n = max + 1; n <= max + count; n++) out += `${rest}-${String(n).padStart(2, "0")}\n`
+  print(out)
+  return 0
 }

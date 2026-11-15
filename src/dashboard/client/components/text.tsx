@@ -51,7 +51,7 @@ export function TaskText({ text }: { text: string }) {
           </code>
         ) : (
           <span key={i}>{part.text}</span>
-        )
+        ),
       )}
     </>
   )
@@ -70,7 +70,7 @@ export function CopyField({ value, name }: { value: string; name: string }) {
   const copy = () => {
     void navigator.clipboard.writeText(value).then(
       () => setCopied(true),
-      () => setCopied(false)
+      () => setCopied(false),
     )
   }
 

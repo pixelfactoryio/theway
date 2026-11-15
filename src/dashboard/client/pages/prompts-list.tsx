@@ -31,11 +31,20 @@ import {
   type PromptRow,
   rowId,
   type Use,
-  useText,
+  describeUse,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
 import { NewFileButton } from "@/components/new-file"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
+import {
+  FilesToolbar,
+  NameCell,
+  NoFile,
+  NoFileMatch,
+  None,
+  STATUS_HEADER,
+  StatusCell,
+  useFilesQuery,
+} from "@/pages/files-table"
 import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -47,7 +56,11 @@ const PAGE = { pageIndex: 0, pageSize: 1000 }
 type Column = "name" | "applies" | "kind" | "model" | "usedBy"
 
 /** `rows` in the order of `sort`, ties broken by name then project. */
-function sortPrompts(rows: readonly PromptRow[], sort: { id: Column; desc: boolean } | undefined, label: (key: string) => string) {
+function sortPrompts(
+  rows: readonly PromptRow[],
+  sort: { id: Column; desc: boolean } | undefined,
+  label: (key: string) => string,
+) {
   if (sort === undefined) return [...rows].sort(byFile)
   const sign = sort.desc ? -1 : 1
   const compare = (a: PromptRow, b: PromptRow): number => {
@@ -103,7 +116,7 @@ function UsedByCell({ row }: { row: PromptRow }) {
             <ul className="flex flex-col gap-2 text-sm">
               {row.usedBy.map((use, i) => (
                 <li key={i}>
-                  <UseLink use={use}>{useText(use, label)}</UseLink>
+                  <UseLink use={use}>{describeUse(use, label)}</UseLink>
                 </li>
               ))}
             </ul>
@@ -225,7 +238,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         meta: { skeleton: cellSkeleton("w-16") },
       },
     ],
-    [label]
+    [label],
   )
 
   const table = useTable({
@@ -272,10 +285,12 @@ export function PromptsPage() {
       list === undefined
         ? []
         : list.prompts.filter((p) => fileMatches(p, query.q) && (query.kind === null || kindOf(p) === query.kind)),
-    [list, query.q, query.kind]
+    [list, query.q, query.kind],
   )
   const counts = useMemo(() => kindCounts(list?.prompts ?? [], query.q), [list, query.q])
-  const top = <TopBar items={[{ section: "Library" }, { label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
+  const top = (
+    <TopBar items={[{ section: "Library" }, { label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
+  )
 
   if (prompts.isError || projects.isError) {
     return (
@@ -283,9 +298,19 @@ export function PromptsPage() {
         {top}
         <PageBody>
           {prompts.isError ? (
-            <LoadError what="the prompts" error={prompts.error} retry={() => void prompts.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the prompts"
+              error={prompts.error}
+              retry={() => void prompts.refetch()}
+              className="m-4 w-auto"
+            />
           ) : (
-            <LoadError what="the projects" error={projects.error as Error} retry={() => void projects.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the projects"
+              error={projects.error as Error}
+              retry={() => void projects.refetch()}
+              className="m-4 w-auto"
+            />
           )}
         </PageBody>
       </>
@@ -298,7 +323,12 @@ export function PromptsPage() {
       <>
         {top}
         <PageBody>
-          <NoFile title="No prompt yet" kind="Markdown" folder={list.folder} action={<NewFileButton kind="prompts" variant="outline" />} />
+          <NoFile
+            title="No prompt yet"
+            kind="Markdown"
+            folder={list.folder}
+            action={<NewFileButton kind="prompts" variant="outline" />}
+          />
         </PageBody>
       </>
     )

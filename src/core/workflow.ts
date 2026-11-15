@@ -1,35 +1,35 @@
-import { escaped, invalidName, thewayHome } from "./io";
-import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language";
-import type { ResolvedWorkflow } from "./language-schema";
-import { error, print, type Warn, warning, warnLoud } from "./output";
-import { resolveKey } from "./project";
+import { escaped, invalidName, thewayHome } from "./io"
+import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language"
+import type { ResolvedWorkflow } from "./language-schema"
+import { error, print, type Warn, warning, warnLoud } from "./output"
+import { resolveKey } from "./project"
 
 /**
  * The `--input <name>=<value>` options as a record, or the line that refuses one: a value without `=`, an empty name,
  * or a name given twice.
  */
 function parseInputs(given: string[]): Record<string, string> | { error: string } {
-  const out: Record<string, string> = {};
+  const out: Record<string, string> = {}
   for (const raw of given) {
-    const at = raw.indexOf("=");
-    if (at <= 0) return { error: `--input ${escaped(raw)}: must be <name>=<value>` };
-    const name = raw.slice(0, at);
-    if (Object.hasOwn(out, name)) return { error: `--input ${escaped(name)}: given twice` };
-    out[name] = raw.slice(at + 1);
+    const at = raw.indexOf("=")
+    if (at <= 0) return { error: `--input ${escaped(raw)}: must be <name>=<value>` }
+    const name = raw.slice(0, at)
+    if (Object.hasOwn(out, name)) return { error: `--input ${escaped(name)}: given twice` }
+    out[name] = raw.slice(at + 1)
   }
-  return out;
+  return out
 }
 
 /** `a`, `a and b`, `a, b and c`. */
 export const joinAnd = (items: string[]) =>
-  items.length === 1 ? (items[0] as string) : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+  items.length === 1 ? (items[0] as string) : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`
 
 /**
  * The home-relative path of a workflow file of the project `key`'s context: `workflows/<name>.yaml` for a global row
  * (whatever the key, `null` included), or `projects/<key>/workflows/<name>.yaml`.
  */
 export const markedPath = (key: string | null, w: { name: string; scope: "project" | "global" }): string =>
-  w.scope === "project" && key !== null ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`;
+  w.scope === "project" && key !== null ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`
 
 /**
  * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta` file of the project and the
@@ -37,17 +37,17 @@ export const markedPath = (key: string | null, w: { name: string; scope: "projec
  * v1 file when none sets it and v1 files are left, else that none sets it, or that several do.
  */
 function defaultName(home: string, key: string, warn: Warn): { name: string } | { errors: string[] } {
-  const listed = listWorkflowFiles(home, key, warn);
-  const marked = listed.filter((w) => w.default);
+  const listed = listWorkflowFiles(home, key, warn)
+  const marked = listed.filter((w) => w.default)
   if (marked.length === 0) {
-    const v1 = listed.filter((w) => w.error === v1Line(`workflows/${w.name}.yaml`));
-    if (v1.length > 0) return { errors: v1.map((w) => w.error as string) };
-    return { errors: ["no workflow sets default: true"] };
+    const v1 = listed.filter((w) => w.error === v1Line(`workflows/${w.name}.yaml`))
+    if (v1.length > 0) return { errors: v1.map((w) => w.error as string) }
+    return { errors: ["no workflow sets default: true"] }
   }
   if (marked.length > 1) {
-    return { errors: [`${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true`] };
+    return { errors: [`${joinAnd(marked.map((w) => markedPath(key, w)))} both set default: true`] }
   }
-  return { name: (marked[0] as { name: string }).name };
+  return { name: (marked[0] as { name: string }).name }
 }
 
 /**
@@ -73,10 +73,16 @@ export function compactWorkflow(doc: ResolvedWorkflow) {
       on_fail:
         s.on_fail === null
           ? null
-          : { uses: s.on_fail.uses, file: s.on_fail.file, model: s.on_fail.model, label: s.on_fail.label, with: s.on_fail.with },
+          : {
+              uses: s.on_fail.uses,
+              file: s.on_fail.file,
+              model: s.on_fail.model,
+              label: s.on_fail.label,
+              with: s.on_fail.with,
+            },
       tries: s.tries,
     })),
-  };
+  }
 }
 
 /**
@@ -84,30 +90,35 @@ export function compactWorkflow(doc: ResolvedWorkflow) {
  * checked and resolved, as JSON; the one that sets `default: true` when no name is given. `--compact` prints it without
  * its prompt text (`compactWorkflow`).
  */
-export function cmdWorkflow(wanted: string | undefined, override: string | undefined, given: string[] = [], compact = false): number {
-  const project = resolveKey(override);
-  if ("error" in project) return error(project.error);
-  if (project.warning !== null) warning(project.warning);
-  const key = project.key;
-  const invalid = invalidName("workflow", wanted);
-  if (invalid !== null) return error(invalid);
-  const home = thewayHome();
-  const inputs = parseInputs(given);
-  if ("error" in inputs) return error(inputs.error);
-  let name = wanted;
+export function cmdWorkflow(
+  wanted: string | undefined,
+  override: string | undefined,
+  given: string[] = [],
+  compact = false,
+): number {
+  const project = resolveKey(override)
+  if ("error" in project) return error(project.error)
+  if (project.warning !== null) warning(project.warning)
+  const key = project.key
+  const invalid = invalidName("workflow", wanted)
+  if (invalid !== null) return error(invalid)
+  const home = thewayHome()
+  const inputs = parseInputs(given)
+  if ("error" in inputs) return error(inputs.error)
+  let name = wanted
   if (name === undefined) {
-    const chosen = defaultName(home, key, warnLoud);
+    const chosen = defaultName(home, key, warnLoud)
     if ("errors" in chosen) {
-      for (const line of chosen.errors) error(line);
-      return 1;
+      for (const line of chosen.errors) error(line)
+      return 1
     }
-    name = chosen.name;
+    name = chosen.name
   }
-  const resolved = resolveWorkflowFile(home, key, name, inputs);
+  const resolved = resolveWorkflowFile(home, key, name, inputs)
   if ("errors" in resolved) {
-    for (const line of resolved.errors) error(line);
-    return 1;
+    for (const line of resolved.errors) error(line)
+    return 1
   }
-  print(`${JSON.stringify(compact ? compactWorkflow(resolved.doc) : resolved.doc, null, 2)}\n`);
-  return 0;
+  print(`${JSON.stringify(compact ? compactWorkflow(resolved.doc) : resolved.doc, null, 2)}\n`)
+  return 0
 }

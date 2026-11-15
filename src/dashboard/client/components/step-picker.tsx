@@ -9,7 +9,15 @@ import { pickerGroups } from "@/lib/workflow-edit"
 import { useLabel } from "@/shell/files"
 
 /** One prompt of the picker: its icon, its name and its description on one line, the full description in `title`. */
-function PromptItem({ group, prompt, onChoose }: { group: string; prompt: PromptRow; onChoose: (prompt: PromptRow) => void }) {
+function PromptItem({
+  group,
+  prompt,
+  onChoose,
+}: {
+  group: string
+  prompt: PromptRow
+  onChoose: (prompt: PromptRow) => void
+}) {
   const description = prompt.description ?? ""
   return (
     <CommandItem value={`${group}/${prompt.name}`} onSelect={() => onChoose(prompt)} className="gap-3">
@@ -65,7 +73,13 @@ export function StepPicker({
           onClose()
         }}
       >
-        <CommandInput autoFocus placeholder="Search prompts" aria-label="Search prompts" value={q} onValueChange={setQ} />
+        <CommandInput
+          autoFocus
+          placeholder="Search prompts"
+          aria-label="Search prompts"
+          value={q}
+          onValueChange={setQ}
+        />
         <CommandList className="max-h-none">
           <CommandEmpty>No prompt matches</CommandEmpty>
           {project !== null && groups.own.length > 0 ? (

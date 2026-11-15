@@ -70,9 +70,15 @@ export function ThemeMenu() {
           <DropdownMenuGroup>
             <DropdownMenuLabel>Theme</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={theme} onValueChange={choose}>
-              <DropdownMenuRadioItem value="system" closeOnClick>System</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="light" closeOnClick>Light</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="dark" closeOnClick>Dark</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="system" closeOnClick>
+                System
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="light" closeOnClick>
+                Light
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark" closeOnClick>
+                Dark
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
         </DropdownMenuContent>

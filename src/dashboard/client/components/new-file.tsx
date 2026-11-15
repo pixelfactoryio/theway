@@ -5,7 +5,15 @@ import { useLocation } from "wouter"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -114,7 +122,11 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
               setConflict(false)
             }}
           />
-          {showName ? <FieldError>{nameError}</FieldError> : replaces ? <FieldDescription>{REPLACES}</FieldDescription> : null}
+          {showName ? (
+            <FieldError>{nameError}</FieldError>
+          ) : replaces ? (
+            <FieldDescription>{REPLACES}</FieldDescription>
+          ) : null}
         </Field>
         <FieldSet>
           <FieldLegend variant="label">Applies to</FieldLegend>
@@ -139,7 +151,10 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
             </Field>
           </RadioGroup>
           {scope === "one" ? (
-            <Select items={projectItems} value={target} onValueChange={(v) => {
+            <Select
+              items={projectItems}
+              value={target}
+              onValueChange={(v) => {
                 setProject(v as string)
                 setConflict(false)
               }}

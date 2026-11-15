@@ -57,9 +57,7 @@ function Routes() {
       <Route path="/">
         <HomeRoute />
       </Route>
-      <Route<{ key: string }> path="/:key/changes/*?">
-        {(params) => <ChangesRoute routeKey={params.key} />}
-      </Route>
+      <Route<{ key: string }> path="/:key/changes/*?">{(params) => <ChangesRoute routeKey={params.key} />}</Route>
       <Route path="/workflows">
         <WorkflowsPage />
       </Route>
@@ -67,7 +65,9 @@ function Routes() {
         {(params) => <WorkflowPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
       </Route>
       <Route<{ key: string; name: string; tab?: string }> path="/workflows/projects/:key/:name/:tab?">
-        {(params) => <WorkflowPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
+        {(params) => (
+          <WorkflowPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />
+        )}
       </Route>
       <Route path="/prompts">
         <PromptsPage />
@@ -76,11 +76,11 @@ function Routes() {
         {(params) => <PromptPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
       </Route>
       <Route<{ key: string; name: string; tab?: string }> path="/prompts/projects/:key/:name/:tab?">
-        {(params) => <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />}
+        {(params) => (
+          <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />
+        )}
       </Route>
-      <Route<{ key: string }> path="/:key">
-        {(params) => <OverviewRoute routeKey={params.key} />}
-      </Route>
+      <Route<{ key: string }> path="/:key">{(params) => <OverviewRoute routeKey={params.key} />}</Route>
       <Route>
         <Redirect to="/?" replace />
       </Route>
@@ -117,7 +117,10 @@ function Shell() {
             <div className="flex min-h-0 flex-1">
               <AppSidebar />
               <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden outline-none">
-                <ErrorBoundary resetKey={location} fallback={(error, reset) => <PageError error={error} reset={reset} />}>
+                <ErrorBoundary
+                  resetKey={location}
+                  fallback={(error, reset) => <PageError error={error} reset={reset} />}
+                >
                   <Routes />
                 </ErrorBoundary>
               </SidebarInset>

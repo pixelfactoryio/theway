@@ -24,6 +24,6 @@ if (root !== null) {
           <App />
         </QueryClientProvider>
       </CSPProvider>
-    </StrictMode>
+    </StrictMode>,
   )
 }

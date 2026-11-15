@@ -13,7 +13,11 @@ export function SiteHeader({ setSlot }: { setSlot: (slot: HTMLDivElement | null)
     <header className="sticky top-0 z-50 flex w-full items-center border-b bg-background">
       <div className="flex h-(--header-height) w-full items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1 md:hidden" />
-        <Link href="/?" aria-label="theway home" className="flex shrink-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <Link
+          href="/?"
+          aria-label="theway home"
+          className="flex shrink-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
           <IconTile variant="soft" size="sm">
             <RouteIcon className="size-4" aria-hidden="true" />
           </IconTile>

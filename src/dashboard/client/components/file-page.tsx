@@ -125,7 +125,11 @@ export function InputsList({ inputs }: { inputs: readonly (PromptInputRow & { ty
             <span className="font-mono">{input.name}</span>
             {input.type !== undefined ? <span className="text-muted-foreground"> · {input.type}</span> : null}
             <span className="text-muted-foreground">
-              {input.required ? " · required" : input.default !== null ? ` · default ${quoted(input.default)}` : " · optional"}
+              {input.required
+                ? " · required"
+                : input.default !== null
+                  ? ` · default ${quoted(input.default)}`
+                  : " · optional"}
             </span>
           </span>
           {input.description !== "" ? <span className="text-muted-foreground">{input.description}</span> : null}

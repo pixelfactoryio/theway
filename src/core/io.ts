@@ -1,57 +1,67 @@
-import { chmodSync, existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import {
+  chmodSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs"
+import { homedir } from "node:os"
+import { join, resolve } from "node:path"
 
 /** Where the data home came from: `THEWAY_HOME`, the pointer file, or the default `~/.theway`. */
-export type HomeSource = "env" | "pointer" | "default";
+export type HomeSource = "env" | "pointer" | "default"
 
 /** `~/.theway`, the data home when neither `THEWAY_HOME` nor the pointer names one. */
 export function defaultHome(): string {
-  return join(homedir(), ".theway");
+  return join(homedir(), ".theway")
 }
 
 /** `${XDG_CONFIG_HOME:-~/.config}/theway/home`: the data home recorded at install for a custom `THEWAY_HOME`. */
 export function pointerPath(): string {
-  const xdg = process.env.XDG_CONFIG_HOME ?? "";
-  return join(xdg !== "" ? xdg : join(homedir(), ".config"), "theway", "home");
+  const xdg = process.env.XDG_CONFIG_HOME ?? ""
+  return join(xdg !== "" ? xdg : join(homedir(), ".config"), "theway", "home")
 }
 
 /** The trimmed contents of the pointer file, `""` when it is absent, unreadable or empty. */
 export function readPointer(): string {
   try {
-    return readFileSync(pointerPath(), "utf-8").trim();
+    return readFileSync(pointerPath(), "utf-8").trim()
   } catch {
-    return "";
+    return ""
   }
 }
 
 /** The data home and its source: a non-empty `THEWAY_HOME`, else a non-empty pointer, else `~/.theway`. */
 export function resolveHome(): { home: string; source: HomeSource } {
-  const env = process.env.THEWAY_HOME ?? "";
-  if (env !== "") return { home: resolve(env), source: "env" };
-  const pointer = readPointer();
-  if (pointer !== "") return { home: resolve(pointer), source: "pointer" };
-  return { home: defaultHome(), source: "default" };
+  const env = process.env.THEWAY_HOME ?? ""
+  if (env !== "") return { home: resolve(env), source: "env" }
+  const pointer = readPointer()
+  if (pointer !== "") return { home: resolve(pointer), source: "pointer" }
+  return { home: defaultHome(), source: "default" }
 }
 
 /** The resolved data home (see `resolveHome`). */
 export function thewayHome(): string {
-  return resolveHome().home;
+  return resolveHome().home
 }
 
 export function isDir(path: string): boolean {
   try {
-    return statSync(path).isDirectory();
+    return statSync(path).isDirectory()
   } catch {
-    return false;
+    return false
   }
 }
 
 export function isFile(path: string): boolean {
   try {
-    return statSync(path).isFile();
+    return statSync(path).isFile()
   } catch {
-    return false;
+    return false
   }
 }
 
@@ -59,12 +69,12 @@ export function isFile(path: string): boolean {
  * Candidate file texts the resolver reads before the disk, keyed by absolute path: a string is the file's text, `null`
  * a file taken as absent. The CLI never passes one.
  */
-export type Overlay = Map<string, string | null>;
+export type Overlay = Map<string, string | null>
 
 /** Whether `path` is a file: per the overlay when it holds the path, else on disk. */
 export function isFileIn(path: string, overlay?: Overlay): boolean {
-  if (overlay?.has(path) === true) return overlay.get(path) !== null;
-  return isFile(path);
+  if (overlay?.has(path) === true) return overlay.get(path) !== null
+  return isFile(path)
 }
 
 /**
@@ -72,18 +82,18 @@ export function isFileIn(path: string, overlay?: Overlay): boolean {
  * target. With `mode`, the target gets that mode.
  */
 export function writeAtomic(target: string, data: string | Buffer, mode?: number): void {
-  const tmp = `${target}.tmp-${process.pid}`;
+  const tmp = `${target}.tmp-${process.pid}`
   try {
     if (mode === undefined) {
-      writeFileSync(tmp, data);
+      writeFileSync(tmp, data)
     } else {
-      writeFileSync(tmp, data, { mode });
+      writeFileSync(tmp, data, { mode })
       // The umask, or a stale tmp file, may have left another mode.
-      chmodSync(tmp, mode);
+      chmodSync(tmp, mode)
     }
-    renameSync(tmp, target);
+    renameSync(tmp, target)
   } finally {
-    rmSync(tmp, { force: true });
+    rmSync(tmp, { force: true })
   }
 }
 
@@ -93,24 +103,24 @@ export function writeAtomic(target: string, data: string | Buffer, mode?: number
  */
 export function removeIfEmpty(dir: string): boolean {
   try {
-    if (!lstatSync(dir).isDirectory() || readdirSync(dir).length > 0) return false;
-    rmdirSync(dir);
-    return true;
+    if (!lstatSync(dir).isDirectory() || readdirSync(dir).length > 0) return false
+    rmdirSync(dir)
+    return true
   } catch (e) {
-    return (e as NodeJS.ErrnoException).code === "ENOENT";
+    return (e as NodeJS.ErrnoException).code === "ENOENT"
   }
 }
 
-import { MODELS, NAME } from "./schema";
+import { MODELS, NAME } from "./schema"
 
-export { MODELS, NAME };
+export { MODELS, NAME }
 
-import { escaped } from "./text";
+import { escaped } from "./text"
 
-export { escaped };
+export { escaped }
 
 /** The message `invalid <kind> name '<wanted>'` when `wanted` is given and not a name; `null` otherwise. */
 export function invalidName(kind: string, wanted: string | undefined): string | null {
-  if (wanted === undefined || NAME.test(wanted)) return null;
-  return `invalid ${kind} name '${escaped(wanted)}'`;
+  if (wanted === undefined || NAME.test(wanted)) return null
+  return `invalid ${kind} name '${escaped(wanted)}'`
 }

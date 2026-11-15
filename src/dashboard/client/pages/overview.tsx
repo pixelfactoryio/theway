@@ -58,7 +58,17 @@ function Header({ projectKey, label, path }: { projectKey: string; label: string
 }
 
 /** One count tile: its icon and label, then the number; the whole tile links to `href`. */
-function CountTile({ icon, label, count, href }: { icon: ReactNode; label: string; count: number | null; href: string }) {
+function CountTile({
+  icon,
+  label,
+  count,
+  href,
+}: {
+  icon: ReactNode
+  label: string
+  count: number | null
+  href: string
+}) {
   return (
     <FramePanel className="transition-colors hover:bg-muted">
       <Link
@@ -106,13 +116,22 @@ function Counts({ projectKey, active }: { projectKey: string; active: readonly A
 
 /** A row's second line: a change's tasks and update date; a series' size, then its tasks when a member is valid. */
 function rowDetail(row: ActiveRow): string {
-  if (row.kind === "change") return `${row.change.done}/${row.change.total} tasks · updated ${localDate(row.change.updated)}`
+  if (row.kind === "change")
+    return `${row.change.done}/${row.change.total} tasks · updated ${localDate(row.change.updated)}`
   const size = `Series · ${row.count} changes`
   return row.progress === null ? size : `${size} · ${row.progress.done}/${row.progress.total} tasks`
 }
 
 /** One Needs action row: the ID as a link, its detail, and the command to copy (an Invalid row: what to fix). */
-function ActionRow({ projectKey, row, active }: { projectKey: string; row: ActiveRow; active: readonly ActiveChange[] }) {
+function ActionRow({
+  projectKey,
+  row,
+  active,
+}: {
+  projectKey: string
+  row: ActiveRow
+  active: readonly ActiveChange[]
+}) {
   const href = row.kind === "change" ? `/${projectKey}/changes/${row.id}?` : `/${projectKey}/changes?q=${row.id}`
   const command = nextCommand(row, active)
   return (
@@ -223,7 +242,12 @@ export function OverviewPage({ projectKey }: { projectKey: string }) {
       <>
         {top}
         <PageBody>
-          <LoadError what="the changes" error={changes.error} retry={() => void changes.refetch()} className="m-4 w-auto" />
+          <LoadError
+            what="the changes"
+            error={changes.error}
+            retry={() => void changes.refetch()}
+            className="m-4 w-auto"
+          />
         </PageBody>
       </>
     )

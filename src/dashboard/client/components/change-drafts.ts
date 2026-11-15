@@ -40,7 +40,7 @@ export class ChangeDrafts {
     /** `/api/projects/<key>/changes/<id>`. */
     private readonly api: string,
     /** The extensions a file's state holds beside the editable set: the Markdown formatting keys. */
-    private readonly extra: (name: string) => Extension[]
+    private readonly extra: (name: string) => Extension[],
   ) {}
 
   subscribe = (l: () => void): (() => void) => {
@@ -59,7 +59,10 @@ export class ChangeDrafts {
   stateOf(name: string, text: string): EditorState {
     return EditorState.create({
       doc: text,
-      extensions: [...editableExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }), ...this.extra(name)],
+      extensions: [
+        ...editableExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }),
+        ...this.extra(name),
+      ],
     })
   }
 
@@ -127,7 +130,12 @@ export class ChangeDrafts {
     this.update(name, { saving: true, saveFailure: null })
     const res = await sendJson("PUT", `${this.api}/files/${encodeURIComponent(name)}`, { text, base: d.loaded.version })
     if (res.status === 200 && typeof res.body.version === "string") {
-      this.update(name, { saving: false, loaded: { text, version: res.body.version }, conflict: false, savedDoc: state.doc })
+      this.update(name, {
+        saving: false,
+        loaded: { text, version: res.body.version },
+        conflict: false,
+        savedDoc: state.doc,
+      })
       return true
     }
     if (res.status === 409) this.update(name, { saving: false, conflict: true })

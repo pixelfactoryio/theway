@@ -16,7 +16,14 @@ import { cn } from "cn"
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
-import { CHANGE_FILE, type ChangeEdit, changeStatus, changeTextErrors, checkChangeText, editedChangeText } from "../../../core/change-text"
+import {
+  CHANGE_FILE,
+  type ChangeEdit,
+  changeStatus,
+  changeTextErrors,
+  checkChangeText,
+  editedChangeText,
+} from "../../../core/change-text"
 import { DESCRIPTION_EMPTY, type OpenField, TASK_EMPTY, TextField } from "@/components/change-fields"
 import { ChangeDrafts, type Loaded } from "@/components/change-drafts"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
@@ -45,7 +52,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Progress } from "@/components/ui/progress"
 import { keptIds, leavesChange, moved, oneLine, taskBox, taskBoxColumn, unsavedTitle } from "@/lib/change-edit"
-import { type ChangeDetail, type ChangeTab, changeTabs, localDate, nextTask, runCommand, type SeriesMember, shownTab } from "@/lib/changes"
+import {
+  type ChangeDetail,
+  type ChangeTab,
+  changeTabs,
+  localDate,
+  nextTask,
+  runCommand,
+  type SeriesMember,
+  shownTab,
+} from "@/lib/changes"
 import { saveWithErrors } from "@/lib/edit"
 import { changesPath } from "@/lib/projects"
 import { setLeaveGuard } from "@/shell/guard"
@@ -125,7 +141,13 @@ function StatusRow({ change, invalid }: { change: ChangeDetail; invalid: boolean
 }
 
 /** The description's in-place editing: the open field, or how to open it. */
-type DescriptionEdit = { field: (OpenField & { kind: "description" }) | null; open: () => void; change: (value: string) => void; apply: () => void; cancel: () => void }
+type DescriptionEdit = {
+  field: (OpenField & { kind: "description" }) | null
+  open: () => void
+  change: (value: string) => void
+  apply: () => void
+  cancel: () => void
+}
 
 function Header({ change, column, edit }: { change: ChangeDetail; column: boolean; edit: DescriptionEdit | null }) {
   const invalid = change.archived === null && change.issues.length > 0
@@ -162,7 +184,11 @@ function Header({ change, column, edit }: { change: ChangeDetail; column: boolea
       </div>
     </div>
   )
-  return column ? <div className="w-full shrink-0 overflow-hidden [scrollbar-gutter:stable_both-edges]">{body}</div> : body
+  return column ? (
+    <div className="w-full shrink-0 overflow-hidden [scrollbar-gutter:stable_both-edges]">{body}</div>
+  ) : (
+    body
+  )
 }
 
 /** The tasks of an archived change, read-only, as member 02 built them. */
@@ -179,7 +205,9 @@ function Tasks({ change }: { change: ChangeDetail }) {
             className="mt-0.5"
           />
           <span className="w-6 shrink-0 text-right text-sm text-muted-foreground tabular-nums">{i + 1}.</span>
-          <span className={task.done ? "text-sm whitespace-pre-line text-muted-foreground" : "text-sm whitespace-pre-line"}>
+          <span
+            className={task.done ? "text-sm whitespace-pre-line text-muted-foreground" : "text-sm whitespace-pre-line"}
+          >
             <TaskText text={task.text} />
           </span>
         </li>
@@ -201,7 +229,15 @@ const memberHref = (key: string, m: { active: string | null; archived: string | 
   m.active !== null ? `/${key}/changes/${m.active}?` : `/${key}/changes/archive/${m.archived}?`
 
 /** One ordinal of the series list; the current change's row shows the current change itself. */
-function SeriesRow({ projectKey, member, current }: { projectKey: string; member: SeriesMember; current: ChangeDetail | null }) {
+function SeriesRow({
+  projectKey,
+  member,
+  current,
+}: {
+  projectKey: string
+  member: SeriesMember
+  current: ChangeDetail | null
+}) {
   const shown: SeriesMember =
     current !== null
       ? {
@@ -217,15 +253,25 @@ function SeriesRow({ projectKey, member, current }: { projectKey: string; member
   const classes = "flex h-8 min-w-0 items-center gap-2 rounded-md px-2"
   if (shown.status === null || (shown.active === null && shown.archived === null)) {
     return (
-      <li className={current !== null ? `${classes} bg-muted` : classes} aria-current={current !== null ? "true" : undefined}>
+      <li
+        className={current !== null ? `${classes} bg-muted` : classes}
+        aria-current={current !== null ? "true" : undefined}
+      >
         <span className="text-muted-foreground tabular-nums">{member.ordinal}</span>
       </li>
     )
   }
   const right =
-    shown.status === "archived" ? "Archived" : shown.status === "invalid" ? "–" : `${shown.done ?? 0}/${shown.total ?? 0}`
+    shown.status === "archived"
+      ? "Archived"
+      : shown.status === "invalid"
+        ? "–"
+        : `${shown.done ?? 0}/${shown.total ?? 0}`
   return (
-    <li className={current !== null ? `${classes} bg-muted` : classes} aria-current={current !== null ? "true" : undefined}>
+    <li
+      className={current !== null ? `${classes} bg-muted` : classes}
+      aria-current={current !== null ? "true" : undefined}
+    >
       <StatusIcon status={shown.status} />
       <Link href={memberHref(projectKey, shown)} className="min-w-0 flex-1 underline-offset-4 hover:underline">
         <OneLine text={shown.id} />
@@ -268,7 +314,12 @@ function ChangePanel({ projectKey, change }: { projectKey: string; change: Chang
           <Row label="Series">
             <ol className="-mx-2 flex flex-col">
               {change.series.members.map((m) => (
-                <SeriesRow key={m.ordinal} projectKey={projectKey} member={m} current={m.ordinal === ordinal ? change : null} />
+                <SeriesRow
+                  key={m.ordinal}
+                  projectKey={projectKey}
+                  member={m}
+                  current={m.ordinal === ordinal ? change : null}
+                />
               ))}
             </ol>
           </Row>
@@ -311,7 +362,9 @@ function TabLabel({ children, dirty }: { children: ReactNode; dirty: boolean }) 
   return (
     <>
       {children}
-      {dirty ? <span role="img" aria-label="unsaved changes" className="size-2 shrink-0 rounded-full bg-foreground" /> : null}
+      {dirty ? (
+        <span role="img" aria-label="unsaved changes" className="size-2 shrink-0 rounded-full bg-foreground" />
+      ) : null}
     </>
   )
 }
@@ -326,7 +379,17 @@ function TaskCount({ change }: { change: ChangeDetail }) {
 }
 
 /** The page of an archived change: member 02's read-only page. */
-function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string; data: ChangeDetail; tab?: string; crumbs: TopBarItem[] }) {
+function ArchivedChange({
+  projectKey,
+  data,
+  tab,
+  crumbs,
+}: {
+  projectKey: string
+  data: ChangeDetail
+  tab?: string
+  crumbs: TopBarItem[]
+}) {
   const [open, setOpen] = usePanelOpen()
   const base = `/${projectKey}/changes/archive/${data.ref}`
   const tabs = changeTabs(data.files)
@@ -334,9 +397,18 @@ function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string;
   const file = data.files.find((f) => f.name === current.file)
   return (
     <>
-      <TopBar items={crumbs} heading={false} actions={<PanelToggle page="change" open={open} onOpenChange={setOpen} />} />
+      <TopBar
+        items={crumbs}
+        heading={false}
+        actions={<PanelToggle page="change" open={open} onOpenChange={setOpen} />}
+      />
       <PageBody>
-        <RecordBody name="Change details" open={open} onOpenChange={setOpen} panel={<ChangePanel projectKey={projectKey} change={data} />}>
+        <RecordBody
+          name="Change details"
+          open={open}
+          onOpenChange={setOpen}
+          panel={<ChangePanel projectKey={projectKey} change={data} />}
+        >
           <Header change={data} column edit={null} />
           <RecordTabs
             column
@@ -357,7 +429,11 @@ function ArchivedChange({ projectKey, data, tab, crumbs }: { projectKey: string;
             }))}
           />
           <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
-            <div className={file !== undefined ? "mx-auto w-full max-w-4xl px-4 py-6" : "mx-auto w-full max-w-4xl px-4 py-4"}>
+            <div
+              className={
+                file !== undefined ? "mx-auto w-full max-w-4xl px-4 py-6" : "mx-auto w-full max-w-4xl px-4 py-4"
+              }
+            >
               {file !== undefined ? <MarkdownView key={file.name} text={file.text} /> : <Tasks change={data} />}
             </div>
           </div>
@@ -389,7 +465,9 @@ const newId = (): string => `task-${++lastId}`
 function topLine(root: HTMLElement | null): number {
   if (root === null) return 1
   const top = root.getBoundingClientRect().top
-  const block = [...root.querySelectorAll<HTMLElement>("[data-line]")].find((b) => b.getBoundingClientRect().bottom > top + 1)
+  const block = [...root.querySelectorAll<HTMLElement>("[data-line]")].find(
+    (b) => b.getBoundingClientRect().bottom > top + 1,
+  )
   const n = Number(block?.dataset.line)
   return Number.isInteger(n) && n >= 1 ? n : 1
 }
@@ -398,7 +476,17 @@ function topLine(root: HTMLElement | null): number {
  * The page of an active change: its header, its tabs and its panel, every part edited in place on a draft per file,
  * written only by Save.
  */
-function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; data: ChangeDetail; tab?: string; crumbs: TopBarItem[] }) {
+function ActiveChange({
+  projectKey,
+  data,
+  tab,
+  crumbs,
+}: {
+  projectKey: string
+  data: ChangeDetail
+  tab?: string
+  crumbs: TopBarItem[]
+}) {
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const api = `/api/projects/${projectKey}/changes/${data.id}`
@@ -413,7 +501,10 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
   // Everything on the page reads the `change.yaml` draft.
   const yaml = drafts.get(CHANGE_FILE) ?? null
   const yamlText = yaml === null ? null : yaml.store.state.sliceDoc()
-  const check = useMemo(() => (yamlText === null ? { issues: data.issues } : checkChangeText(yamlText)), [yamlText, data.issues])
+  const check = useMemo(
+    () => (yamlText === null ? { issues: data.issues } : checkChangeText(yamlText)),
+    [yamlText, data.issues],
+  )
   const errors = useMemo(() => (yamlText === null ? [] : changeTextErrors(yamlText)), [yamlText])
   const valid = "change" in check
   const tasks = valid ? check.change.tasks : []
@@ -490,7 +581,10 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
       idsRef.current = { text: r.text, epoch, ids: nextIds(idsRef.current.ids) }
       listAction.current = true
     }
-    yaml.store.dispatch({ changes: { from: 0, to: state.doc.length, insert: r.text }, annotations: isolateHistory.of("full") })
+    yaml.store.dispatch({
+      changes: { from: 0, to: state.doc.length, insert: r.text },
+      annotations: isolateHistory.of("full"),
+    })
     return true
   }
 
@@ -532,7 +626,14 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
       return true
     }
     const id = newId()
-    if (!runEdit({ kind: "add", index: index + 1, text: f.value }, (list) => [...list.slice(0, index + 1), id, ...list.slice(index + 1)])) return false
+    if (
+      !runEdit({ kind: "add", index: index + 1, text: f.value }, (list) => [
+        ...list.slice(0, index + 1),
+        id,
+        ...list.slice(index + 1),
+      ])
+    )
+      return false
     setField(null)
     if (enter) setFocus(id)
     return true
@@ -542,7 +643,8 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
   const openField = (next: OpenField): boolean => {
     const f = live.current.field
     if (f !== null) {
-      const same = f.kind === next.kind && (f.kind === "add" || f.kind === "description" || ("id" in next && f.id === next.id))
+      const same =
+        f.kind === next.kind && (f.kind === "add" || f.kind === "description" || ("id" in next && f.id === next.id))
       if (same) return true
       if (!applyField(f, false)) return false
     }
@@ -667,7 +769,7 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
         isDirty: () => anyDirty() || fieldDiffers(),
         ask: (proceed) => setConfirm({ kind: "leave", proceed }),
       }),
-    [projectKey, data.id, anyDirty, fieldDiffers]
+    [projectKey, data.id, anyDirty, fieldDiffers],
   )
   const pending = anyDirty() || fieldDiffers()
   useEffect(() => {
@@ -705,7 +807,7 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
           ? { text: e.text, onClick: null }
           : { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
       }),
-    [errors]
+    [errors],
   )
 
   const endControl =
@@ -754,7 +856,11 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
           <TriangleAlertIcon aria-hidden="true" />
           <AlertTitle>This file changed on disk since you opened it.</AlertTitle>
           <AlertAction>
-            <Button variant="outline" size="xs" onClick={() => (drafts.isDirty(name) ? setConfirm({ kind: "reload", name }) : void reload(name))}>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => (drafts.isDirty(name) ? setConfirm({ kind: "reload", name }) : void reload(name))}
+            >
               Reload
             </Button>
           </AlertAction>
@@ -819,7 +925,11 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
       editingView && draft !== null ? (
         <MarkdownEditor key={name} store={draft.store} name={name} startLine={startLine} />
       ) : (
-        <div ref={scrollRoot} data-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
+        <div
+          ref={scrollRoot}
+          data-scroll-root
+          className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+        >
           <div className="mx-auto w-full max-w-4xl px-4 py-6">
             <MarkdownView key={name} text={text} onToggle={draft === null ? null : toggleBox(name)} />
           </div>
@@ -842,7 +952,14 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
           {yaml === null || !valid ? (
             <IssuesAlert issues={shown.issues} className="max-w-[80ch]" />
           ) : (
-            <TaskList rows={rows} field={field} actions={actions} focus={focus} onFocused={() => setFocus(null)} focusRow={setFocus} />
+            <TaskList
+              rows={rows}
+              field={field}
+              actions={actions}
+              focus={focus}
+              onFocused={() => setFocus(null)}
+              focusRow={setFocus}
+            />
           )}
         </div>
       </div>
@@ -886,12 +1003,21 @@ function ActiveChange({ projectKey, data, tab, crumbs }: { projectKey: string; d
 
   return (
     <>
-      <TopBar items={crumbs} heading={false} actions={editingView ? undefined : <PanelToggle page="change" open={open} onOpenChange={setOpen} />} />
+      <TopBar
+        items={crumbs}
+        heading={false}
+        actions={editingView ? undefined : <PanelToggle page="change" open={open} onOpenChange={setOpen} />}
+      />
       <PageBody>
         {editingView ? (
           <div className="flex min-h-0 flex-1 flex-col">{body}</div>
         ) : (
-          <RecordBody name="Change details" open={open} onOpenChange={setOpen} panel={<ChangePanel projectKey={projectKey} change={shown} />}>
+          <RecordBody
+            name="Change details"
+            open={open}
+            onOpenChange={setOpen}
+            panel={<ChangePanel projectKey={projectKey} change={shown} />}
+          >
             {body}
           </RecordBody>
         )}
@@ -1029,13 +1155,29 @@ function ChangeDialogs({
  * `#/<key>/changes/<id>[/<tab>]` and `#/<key>/changes/archive/<dir>[/<tab>]`: a change's header, its tabs (its Markdown
  * files, then Tasks) and its right panel; an active change is edited in place.
  */
-export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; id?: string; dir?: string; tab?: string }) {
+export function ChangePage({
+  projectKey,
+  id,
+  dir,
+  tab,
+}: {
+  projectKey: string
+  id?: string
+  dir?: string
+  tab?: string
+}) {
   const path =
-    dir !== undefined ? `/api/projects/${projectKey}/changes/archive/${dir}` : `/api/projects/${projectKey}/changes/${id}`
+    dir !== undefined
+      ? `/api/projects/${projectKey}/changes/archive/${dir}`
+      : `/api/projects/${projectKey}/changes/${id}`
   const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson<ChangeDetail>(path) })
 
   const name = dir ?? id ?? ""
-  const crumbs = (label: string): TopBarItem[] => [{ selector: true }, { label: "Changes", href: changesPath(projectKey) }, { label }]
+  const crumbs = (label: string): TopBarItem[] => [
+    { selector: true },
+    { label: "Changes", href: changesPath(projectKey) },
+    { label },
+  ]
 
   if (change.isPending) {
     return (
@@ -1054,7 +1196,12 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
           {unknown ? (
             <Unknown projectKey={projectKey} name={name} />
           ) : (
-            <LoadError what="this change" error={change.error} retry={() => void change.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="this change"
+              error={change.error}
+              retry={() => void change.refetch()}
+              className="m-4 w-auto"
+            />
           )}
         </PageBody>
       </>
@@ -1062,6 +1209,7 @@ export function ChangePage({ projectKey, id, dir, tab }: { projectKey: string; i
   }
 
   const data = change.data
-  if (data.archived !== null) return <ArchivedChange projectKey={projectKey} data={data} tab={tab} crumbs={crumbs(data.id)} />
+  if (data.archived !== null)
+    return <ArchivedChange projectKey={projectKey} data={data} tab={tab} crumbs={crumbs(data.id)} />
   return <ActiveChange projectKey={projectKey} data={data} tab={tab} crumbs={crumbs(data.id)} />
 }

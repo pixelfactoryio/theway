@@ -1,13 +1,14 @@
 /** The projects `GET /api/projects` lists, and the choice of the current one. Pure: no React, no DOM. */
-import type { Project, ProjectList } from "../../contract";
+import type { Project, ProjectList } from "../../contract"
 
-export type { Project, ProjectList } from "../../contract";
+export type { Project, ProjectList } from "../../contract"
 
 /** Orders projects by label (`localeCompare`, `"en"`, `sensitivity: "base"`), ties broken by key. */
 export function byLabel(projects: readonly Project[]): Project[] {
   return [...projects].sort(
-    (a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
-  );
+    (a, b) =>
+      a.label.localeCompare(b.label, "en", { sensitivity: "base" }) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0),
+  )
 }
 
 /**
@@ -15,15 +16,15 @@ export function byLabel(projects: readonly Project[]): Project[] {
  * else `start` when listed; else the first project by label. `null` with no project.
  */
 export function currentKey(list: ProjectList, routeKey: string | null, stored: string | null): string | null {
-  const listed = (key: string | null): key is string => key !== null && list.projects.some((p) => p.key === key);
-  if (listed(routeKey)) return routeKey;
-  if (listed(stored)) return stored;
-  if (listed(list.start)) return list.start;
-  return byLabel(list.projects)[0]?.key ?? null;
+  const listed = (key: string | null): key is string => key !== null && list.projects.some((p) => p.key === key)
+  if (listed(routeKey)) return routeKey
+  if (listed(stored)) return stored
+  if (listed(list.start)) return list.start
+  return byLabel(list.projects)[0]?.key ?? null
 }
 
 /** The address of a project's changes: `/<key>/changes?`, its `?` clearing the search part. */
-export const changesPath = (key: string): string => `/${key}/changes?`;
+export const changesPath = (key: string): string => `/${key}/changes?`
 
 /** The address of a project's Overview: `/<key>?`, its `?` clearing the search part. */
-export const overviewPath = (key: string): string => `/${key}?`;
+export const overviewPath = (key: string): string => `/${key}?`

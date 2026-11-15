@@ -5,5 +5,5 @@
  * key changed (another path for the page boundary).
  */
 export function resetOnKeyChange(prev: string | undefined, next: string | undefined, hadError: boolean): boolean {
-  return hadError && prev !== next;
+  return hadError && prev !== next
 }

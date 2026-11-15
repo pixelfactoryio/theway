@@ -1,25 +1,25 @@
-import { expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { expect, test } from "bun:test"
+import { execFileSync } from "node:child_process"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 
-const ROOT = join(import.meta.dirname, "..");
-const COMMANDS = join(ROOT, "plugin", "commands");
+const ROOT = join(import.meta.dirname, "..")
+const COMMANDS = join(ROOT, "plugin", "commands")
 
 /** A place where a retired term is legitimate: anywhere in `file`, or only on its lines that contain `contains`. */
-type Allow = { file: string; contains?: string };
+type Allow = { file: string; contains?: string }
 
 /** A retired term, as a regular expression source, and the tracked path prefixes it must be absent from. */
-type Entry = { term: string; flags: string; files: string[]; allow: Allow[] };
+type Entry = { term: string; flags: string; files: string[]; allow: Allow[] }
 
 /** Every tracked file: the scope `repo`. */
-const REPOSITORY = [""];
-const PIPELINE = "plugin/workflows/run-pipeline.js";
-const WORKFLOW = "plugin/commands/workflow.md";
-const ENGINEERING = "plugin/commands/engineering.md";
+const REPOSITORY = [""]
+const PIPELINE = "plugin/workflows/run-pipeline.js"
+const WORKFLOW = "plugin/commands/workflow.md"
+const ENGINEERING = "plugin/commands/engineering.md"
 
 /** A term matched literally. */
-const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
 /** Each term's literal is built by concatenation, so this file never matches itself. */
 const ENTRIES: Entry[] = [
@@ -90,7 +90,9 @@ const ENTRIES: Entry[] = [
     allow: [],
   },
   {
-    term: ["core-principles", "sre", "web-development", "quality"].map((n) => literal("<home>/" + "standards/" + n + ".md")).join("|"),
+    term: ["core-principles", "sre", "web-development", "quality"]
+      .map((n) => literal("<home>/" + "standards/" + n + ".md"))
+      .join("|"),
     flags: "",
     files: [ENGINEERING, "plugin/commands/document.md"],
     allow: [],
@@ -112,7 +114,11 @@ const ENTRIES: Entry[] = [
   },
   { term: "Esti" + "mated|Target " + "Completion", flags: "", files: ["plugin/home/templates/"], allow: [] },
   {
-    term: [literal("changes/" + "archive/*-"), literal("validate-id <change-id> " + "--series"), literal("min" + "(")].join("|"),
+    term: [
+      literal("changes/" + "archive/*-"),
+      literal("validate-id <change-id> " + "--series"),
+      literal("min" + "("),
+    ].join("|"),
     flags: "",
     files: [ENGINEERING],
     allow: [],
@@ -149,7 +155,12 @@ const ENTRIES: Entry[] = [
   },
   {
     // v1 is removed: no step file, and no condition of a typed result.
-    term: [literal("theway.step" + "/v1"), literal("no-" + "confirmed"), literal("no-" + "findings"), literal("no-" + "decision")].join("|"),
+    term: [
+      literal("theway.step" + "/v1"),
+      literal("no-" + "confirmed"),
+      literal("no-" + "findings"),
+      literal("no-" + "decision"),
+    ].join("|"),
     flags: "",
     files: REPOSITORY,
     allow: [
@@ -165,52 +176,52 @@ const ENTRIES: Entry[] = [
     files: ["README.md", "plugin/commands/"],
     allow: [],
   },
-];
+]
 
 /** Never swept: the release history, and this file. */
-const EXCLUDED = ["CHANGELOG.md", "test/vocabulary.test.ts"];
+const EXCLUDED = ["CHANGELOG.md", "test/vocabulary.test.ts"]
 
 const tracked = execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf-8" })
   .split("\n")
-  .filter((f) => f && !EXCLUDED.includes(f) && existsSync(join(ROOT, f)));
+  .filter((f) => f && !EXCLUDED.includes(f) && existsSync(join(ROOT, f)))
 
-const lines = new Map<string, string[]>();
+const lines = new Map<string, string[]>()
 const linesOf = (file: string) => {
-  let text = lines.get(file);
+  let text = lines.get(file)
   if (!text) {
-    text = readFileSync(join(ROOT, file), "utf-8").split("\n");
-    lines.set(file, text);
+    text = readFileSync(join(ROOT, file), "utf-8").split("\n")
+    lines.set(file, text)
   }
-  return text;
-};
+  return text
+}
 
 /** The `file:line` hits of an entry outside its allow-list. */
 function hits({ term, flags, files, allow }: Entry): string[] {
-  const re = new RegExp(term, flags);
+  const re = new RegExp(term, flags)
   return tracked
     .filter((f) => files.some((prefix) => f.startsWith(prefix)))
     .flatMap((f) =>
       linesOf(f).flatMap((line, i) => {
-        if (!re.test(line)) return [];
-        if (allow.some((a) => a.file === f && (a.contains === undefined || line.includes(a.contains)))) return [];
-        return [`${f}:${i + 1}`];
+        if (!re.test(line)) return []
+        if (allow.some((a) => a.file === f && (a.contains === undefined || line.includes(a.contains)))) return []
+        return [`${f}:${i + 1}`]
       }),
-    );
+    )
 }
 
 test("the sweep reads the tracked files", () => {
-  expect(tracked).toContain("plugin/commands/workflow.md");
-  expect(tracked).toContain("test/lint.test.ts");
-});
+  expect(tracked).toContain("plugin/commands/workflow.md")
+  expect(tracked).toContain("test/lint.test.ts")
+})
 
 for (const entry of ENTRIES) {
   test(`no retired term /${entry.term}/ in ${entry.files.map((f) => f || "the repository").join(", ")}`, () => {
-    expect(hits(entry)).toEqual([]);
-  });
+    expect(hits(entry)).toEqual([])
+  })
 }
 
 test("the retired command files are gone", () => {
-  expect(existsSync(join(COMMANDS, "engineering" + "-light.md"))).toBe(false);
-  expect(existsSync(join(COMMANDS, "develop" + "-workflow.md"))).toBe(false);
-  expect(existsSync(join(COMMANDS, "develop.md"))).toBe(false);
-});
+  expect(existsSync(join(COMMANDS, "engineering" + "-light.md"))).toBe(false)
+  expect(existsSync(join(COMMANDS, "develop" + "-workflow.md"))).toBe(false)
+  expect(existsSync(join(COMMANDS, "develop.md"))).toBe(false)
+})

@@ -50,13 +50,27 @@ export function usePanelOpen(): [boolean, (open: boolean) => void] {
 }
 
 /** The top bar's toggle of a record page's panel: `Hide <word>` or `Show <word>`, the word of `page`. */
-export function PanelToggle({ page, open, onOpenChange }: { page: PanelPage; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function PanelToggle({
+  page,
+  open,
+  onOpenChange,
+}: {
+  page: PanelPage
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const label = panelToggleLabel(page, open)
   return (
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button variant="ghost" size="icon" aria-pressed={open} aria-label={label} onClick={() => onOpenChange(!open)} />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-pressed={open}
+            aria-label={label}
+            onClick={() => onOpenChange(!open)}
+          />
         }
       >
         <PanelRightIcon aria-hidden="true" />
@@ -125,7 +139,17 @@ export function RecordBody({
   )
 }
 
-function DockedBody({ name, open, panel, children }: { name: string; open: boolean; panel: ReactNode; children: ReactNode }) {
+function DockedBody({
+  name,
+  open,
+  panel,
+  children,
+}: {
+  name: string
+  open: boolean
+  panel: ReactNode
+  children: ReactNode
+}) {
   const panelIds = open ? ["main", "panel"] : ["main"]
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: LAYOUT_ID, storage: localStorage, panelIds })
   return (

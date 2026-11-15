@@ -7,10 +7,28 @@ import { DataGrid, dataGridFeatures, type DataGridFeatures } from "@/components/
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
-import { appliesTo, byFile, compareText, fileCountText, fileMatches, filePath, rowId, type WorkflowRow } from "@/lib/files"
+import {
+  appliesTo,
+  byFile,
+  compareText,
+  fileCountText,
+  fileMatches,
+  filePath,
+  rowId,
+  type WorkflowRow,
+} from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
 import { NewFileButton } from "@/components/new-file"
-import { FilesToolbar, NameCell, NoFile, NoFileMatch, None, STATUS_HEADER, StatusCell, useFilesQuery } from "@/pages/files-table"
+import {
+  FilesToolbar,
+  NameCell,
+  NoFile,
+  NoFileMatch,
+  None,
+  STATUS_HEADER,
+  StatusCell,
+  useFilesQuery,
+} from "@/pages/files-table"
 import { useLabel, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -22,14 +40,19 @@ const PAGE = { pageIndex: 0, pageSize: 1000 }
 type Column = "name" | "applies" | "steps" | "runsOn"
 
 /** `rows` in the order of `sort`, ties broken by name then project. */
-function sortWorkflows(rows: readonly WorkflowRow[], sort: { id: Column; desc: boolean } | undefined, label: (key: string) => string) {
+function sortWorkflows(
+  rows: readonly WorkflowRow[],
+  sort: { id: Column; desc: boolean } | undefined,
+  label: (key: string) => string,
+) {
   if (sort === undefined) return [...rows].sort(byFile)
   const sign = sort.desc ? -1 : 1
   const applies = (r: WorkflowRow) => appliesTo(r.project, label)
   const compare = (a: WorkflowRow, b: WorkflowRow): number => {
     if (sort.id === "name") return byFile(a, b)
     if (sort.id === "applies") return compareText(applies(a), applies(b))
-    if (sort.id === "steps") return a.steps === b.steps ? 0 : a.steps === null ? 1 : b.steps === null ? -1 : a.steps - b.steps
+    if (sort.id === "steps")
+      return a.steps === b.steps ? 0 : a.steps === null ? 1 : b.steps === null ? -1 : a.steps - b.steps
     return compareText(a.runsOn, b.runsOn)
   }
   return [...rows].sort((a, b) => sign * compare(a, b) || byFile(a, b))
@@ -76,7 +99,11 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         cell: ({ row }) => (row.original.steps === null ? <None /> : row.original.steps),
         size: 90,
         enableSorting: true,
-        meta: { headerClassName: "text-right [&>div]:justify-end", cellClassName: "text-right tabular-nums", skeleton: cellSkeleton("ms-auto w-8") },
+        meta: {
+          headerClassName: "text-right [&>div]:justify-end",
+          cellClassName: "text-right tabular-nums",
+          skeleton: cellSkeleton("ms-auto w-8"),
+        },
       },
       {
         id: "runsOn",
@@ -96,7 +123,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         meta: { skeleton: cellSkeleton("w-16") },
       },
     ],
-    [label]
+    [label],
   )
 
   const table = useTable({
@@ -135,8 +162,13 @@ export function WorkflowsPage() {
   const projects = useProjects()
   const [query, setQuery] = useFilesQuery("workflows")
   const list = workflows.data
-  const rows = useMemo(() => (list === undefined ? [] : list.workflows.filter((w) => fileMatches(w, query.q))), [list, query.q])
-  const top = <TopBar items={[{ section: "Library" }, { label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
+  const rows = useMemo(
+    () => (list === undefined ? [] : list.workflows.filter((w) => fileMatches(w, query.q))),
+    [list, query.q],
+  )
+  const top = (
+    <TopBar items={[{ section: "Library" }, { label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
+  )
 
   if (workflows.isError || projects.isError) {
     return (
@@ -144,9 +176,19 @@ export function WorkflowsPage() {
         {top}
         <PageBody>
           {workflows.isError ? (
-            <LoadError what="the workflows" error={workflows.error} retry={() => void workflows.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the workflows"
+              error={workflows.error}
+              retry={() => void workflows.refetch()}
+              className="m-4 w-auto"
+            />
           ) : (
-            <LoadError what="the projects" error={projects.error as Error} retry={() => void projects.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the projects"
+              error={projects.error as Error}
+              retry={() => void projects.refetch()}
+              className="m-4 w-auto"
+            />
           )}
         </PageBody>
       </>
@@ -159,7 +201,12 @@ export function WorkflowsPage() {
       <>
         {top}
         <PageBody>
-          <NoFile title="No workflow yet" kind="YAML" folder={list.folder} action={<NewFileButton kind="workflows" variant="outline" />} />
+          <NoFile
+            title="No workflow yet"
+            kind="YAML"
+            folder={list.folder}
+            action={<NewFileButton kind="workflows" variant="outline" />}
+          />
         </PageBody>
       </>
     )

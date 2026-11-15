@@ -23,7 +23,13 @@ import type { FileError } from "@/lib/files"
 import { blockAt, type LinePrefix, linked, prefixed, type Replace, shortcutTip, wrapped } from "@/lib/change-edit"
 
 /** A Replace computed on the text around the selection, then placed in the document. */
-function replaceAround(state: EditorState, from: number, to: number, margin: number, f: (text: string, from: number, to: number) => Replace) {
+function replaceAround(
+  state: EditorState,
+  from: number,
+  to: number,
+  margin: number,
+  f: (text: string, from: number, to: number) => Replace,
+) {
   const start = Math.max(0, from - margin)
   const end = Math.min(state.doc.length, to + margin)
   const r = f(state.doc.sliceString(start, end), from - start, to - start)
@@ -39,8 +45,10 @@ const wrapCommand =
   (view) => {
     const state = view.state
     view.dispatch(
-      state.changeByRange((range) => replaceAround(state, range.from, range.to, marker.length, (t, f, e) => wrapped(t, f, e, marker))),
-      { scrollIntoView: true, userEvent: "input" }
+      state.changeByRange((range) =>
+        replaceAround(state, range.from, range.to, marker.length, (t, f, e) => wrapped(t, f, e, marker)),
+      ),
+      { scrollIntoView: true, userEvent: "input" },
     )
     return true
   }
@@ -50,7 +58,7 @@ const linkCommand: Command = (view) => {
   const state = view.state
   view.dispatch(
     state.changeByRange((range) => replaceAround(state, range.from, range.to, 0, linked)),
-    { scrollIntoView: true, userEvent: "input" }
+    { scrollIntoView: true, userEvent: "input" },
   )
   return true
 }
@@ -70,7 +78,7 @@ const prefixCommand =
     const lines = numbers.map((n) => state.doc.line(n))
     const next = prefixed(
       lines.map((l) => l.text),
-      kind
+      kind,
     )
     view.dispatch({
       changes: lines.map((l, i) => ({ from: l.from, to: l.to, insert: next[i] as string })),
@@ -97,8 +105,8 @@ export const formattingKeymap = Prec.highest(
         ["Mod-e", CODE],
         ["Mod-k", linkCommand],
       ] as const
-    ).map(([key, run]) => ({ key, run, preventDefault: true, stopPropagation: true }))
-  )
+    ).map(([key, run]) => ({ key, run, preventDefault: true, stopPropagation: true })),
+  ),
 )
 
 const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
@@ -126,7 +134,9 @@ function Toolbar({ store }: { store: DraftStore }) {
     <div role="toolbar" aria-label="Formatting" className="flex items-center gap-1 border-b px-2 py-1">
       {GROUPS.map((group, g) => (
         <Fragment key={g}>
-          {g > 0 ? <Separator orientation="vertical" className="mx-1 data-vertical:h-4 data-vertical:self-center" /> : null}
+          {g > 0 ? (
+            <Separator orientation="vertical" className="mx-1 data-vertical:h-4 data-vertical:self-center" />
+          ) : null}
           {group.map((tool) => (
             <Tooltip key={tool.label}>
               <TooltipTrigger
@@ -148,7 +158,9 @@ function Toolbar({ store }: { store: DraftStore }) {
               >
                 {tool.icon}
               </TooltipTrigger>
-              <TooltipContent>{tool.key === undefined ? tool.label : shortcutTip(tool.label, tool.key, MAC)}</TooltipContent>
+              <TooltipContent>
+                {tool.key === undefined ? tool.label : shortcutTip(tool.label, tool.key, MAC)}
+              </TooltipContent>
             </Tooltip>
           ))}
         </Fragment>
@@ -174,7 +186,7 @@ function Preview({ store, name }: { store: DraftStore; name: string }) {
     const blocks = [...p.querySelectorAll<HTMLElement>("[data-line]")]
     const i = blockAt(
       blocks.map((b) => Number(b.dataset.line)),
-      line
+      line,
     )
     const block = blocks[i]
     if (block === undefined) return
@@ -194,7 +206,10 @@ function Preview({ store, name }: { store: DraftStore; name: string }) {
         const n = Number(block.dataset.line)
         if (!(n >= 1 && n <= view.state.doc.lines)) return
         const from = view.state.doc.line(n).from
-        view.dispatch({ selection: EditorSelection.cursor(from), effects: EditorView.scrollIntoView(from, { y: "start" }) })
+        view.dispatch({
+          selection: EditorSelection.cursor(from),
+          effects: EditorView.scrollIntoView(from, { y: "start" }),
+        })
         view.focus()
       }}
     >
@@ -265,7 +280,11 @@ export function MarkdownEditor({ store, name, startLine }: { store: DraftStore; 
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (
-        <Tabs value={pane} onValueChange={(v) => setPane(v === "preview" ? "preview" : "write")} className="min-h-0 flex-1 gap-0">
+        <Tabs
+          value={pane}
+          onValueChange={(v) => setPane(v === "preview" ? "preview" : "write")}
+          className="min-h-0 flex-1 gap-0"
+        >
           <TabsList variant="line" aria-label="Write or preview" className="h-10 px-2">
             <TabsTrigger value="write" className="px-2">
               Write
@@ -274,7 +293,9 @@ export function MarkdownEditor({ store, name, startLine }: { store: DraftStore; 
               Preview
             </TabsTrigger>
           </TabsList>
-          <div className="min-h-0 flex-1 border-t">{pane === "write" ? <Source store={store} /> : <Preview store={store} name={name} />}</div>
+          <div className="min-h-0 flex-1 border-t">
+            {pane === "write" ? <Source store={store} /> : <Preview store={store} name={name} />}
+          </div>
         </Tabs>
       )}
     </div>
