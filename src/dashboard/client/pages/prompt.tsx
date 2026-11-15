@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
@@ -92,7 +92,8 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const [open, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const code = useRef<CodeViewHandle>(null)
-  const [pending, setPending] = useState<number | null>(null)
+  // A placed line clicked on the Preview tab, for the Prompt tab's code view.
+  const pending = useRef<number | null>(null)
   const view = tab === "preview" || tab === "history" ? tab : "prompt"
   const base = filePath("prompts", project, name)
   const historyTab = useHistoryTab({
@@ -104,12 +105,13 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     active: view === "history",
   })
 
-  // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there.
+  // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there: the child's
+  // mount effect, which attaches its editor to the draft, runs before this one.
   useEffect(() => {
-    if (view !== "prompt" || pending === null) return
-    code.current?.goToLine(pending)
-    setPending(null)
-  }, [view, pending])
+    if (view !== "prompt" || pending.current === null) return
+    code.current?.goToLine(pending.current)
+    pending.current = null
+  }, [view])
 
   const errors = draft.errors
   const lines = useMemo<AlertLine[]>(
@@ -121,7 +123,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           return {
             text: e.text,
             onClick: () => {
-              setPending(line)
+              pending.current = line
               navigate(`${base}?`)
             },
           }
