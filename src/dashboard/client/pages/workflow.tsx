@@ -24,8 +24,11 @@ import { CopyField } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { StepPicker } from "@/components/step-picker"
-import { type CanvasEdits, toneTile, WorkflowCanvas } from "@/components/workflow-canvas"
-import { applyEdit, type HistoryMode, StepEditPanel, WorkflowEditPanel, type Write } from "@/components/workflow-forms"
+import { type CanvasEdits, WorkflowCanvas } from "@/components/workflow-canvas"
+import { toneTile } from "@/components/workflow-card"
+import { applyEdit, type HistoryMode, type Write } from "@/components/workflow-fields"
+import { WorkflowEditPanel } from "@/components/workflow-panel"
+import { StepEditPanel } from "@/components/workflow-step-panel"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
 import {
   type Drawing,

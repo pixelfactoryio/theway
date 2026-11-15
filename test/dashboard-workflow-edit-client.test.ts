@@ -9,12 +9,8 @@ import {
   changeStepPrompt,
   editText,
   hasAnchors,
-  keyError,
-  matrixLines,
   moveStep,
   nextInputName,
-  pickerGroups,
-  placeLine,
   removeInput,
   removeStep,
   renameInput,
@@ -30,10 +26,10 @@ import {
   setStepWith,
   setTries,
   setWorkflowKey,
-  stepForm,
-  stepPromptNames,
-  workflowForm,
 } from "../src/dashboard/client/lib/workflow-edit"
+import { keyError, matrixLines, stepForm, workflowForm } from "../src/dashboard/client/lib/workflow-form"
+import { placeLine } from "../src/dashboard/client/lib/workflow-place"
+import { pickerGroups, stepPromptNames } from "../src/dashboard/client/lib/step-prompts"
 
 const REPO = join(import.meta.dirname, "..")
 
