@@ -5,7 +5,15 @@ import { Link, useLocation } from "wouter"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
+import {
+  type AlertLine,
+  Dash,
+  InputsList,
+  LinesAlert,
+  PanelRow,
+  SavedStatus,
+  UnknownFile,
+} from "@/components/file-page"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
 import { Alert, AlertTitle } from "@/components/reui/alert"
@@ -19,7 +27,16 @@ import { StepPicker } from "@/components/step-picker"
 import { type CanvasEdits, toneTile, WorkflowCanvas } from "@/components/workflow-canvas"
 import { applyEdit, type HistoryMode, StepEditPanel, WorkflowEditPanel, type Write } from "@/components/workflow-forms"
 import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
-import { type Drawing, drawWorkflow, findPrompt, isDefaultWorkflow, type Selection, selectionOf, type Shown, type StepCard } from "@/lib/workflow"
+import {
+  type Drawing,
+  drawWorkflow,
+  findPrompt,
+  isDefaultWorkflow,
+  type Selection,
+  selectionOf,
+  type Shown,
+  type StepCard,
+} from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
@@ -28,13 +45,24 @@ import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
-function ShownValue({ shown, prompts, project }: { shown: Shown; prompts: readonly PromptRow[]; project: string | null }) {
+function ShownValue({
+  shown,
+  prompts,
+  project,
+}: {
+  shown: Shown
+  prompts: readonly PromptRow[]
+  project: string | null
+}) {
   if ("source" in shown) return <span className="font-mono text-sm">{shown.source}</span>
   const text = `prompts/${shown.prompt}.md`
   const row = findPrompt(prompts, project, shown.prompt)
   if (row === null) return <span className="text-sm">{text}</span>
   return (
-    <Link href={`${filePath("prompts", row.project, row.name)}?`} className="text-sm underline-offset-4 hover:underline">
+    <Link
+      href={`${filePath("prompts", row.project, row.name)}?`}
+      className="text-sm underline-offset-4 hover:underline"
+    >
       {text}
     </Link>
   )
@@ -71,15 +99,9 @@ function WorkflowPanel({ file, drawing }: { file: FileBody; drawing: Drawing | n
       <dl className="flex flex-col gap-4">
         {drawing !== null ? (
           <>
-            <PanelRow yamlKey="description">
-              {drawing.description ?? <Dash />}
-            </PanelRow>
-            <PanelRow yamlKey="runs-on">
-              {drawing.runsOn ?? <Dash />}
-            </PanelRow>
-            <PanelRow yamlKey="default">
-              {drawing.default ? "Yes" : "No"}
-            </PanelRow>
+            <PanelRow yamlKey="description">{drawing.description ?? <Dash />}</PanelRow>
+            <PanelRow yamlKey="runs-on">{drawing.runsOn ?? <Dash />}</PanelRow>
+            <PanelRow yamlKey="default">{drawing.default ? "Yes" : "No"}</PanelRow>
             <PanelRow yamlKey="inputs">
               <InputsList inputs={drawing.inputFields} />
             </PanelRow>
@@ -128,7 +150,11 @@ function StepPanel({
     if (f.matrix !== null) {
       rows.push({
         label: "matrix",
-        value: <span className="font-mono text-sm">{"source" in f.matrix ? f.matrix.source : `${f.matrix.key}: ${f.matrix.values.join(", ")}`}</span>,
+        value: (
+          <span className="font-mono text-sm">
+            {"source" in f.matrix ? f.matrix.source : `${f.matrix.key}: ${f.matrix.values.join(", ")}`}
+          </span>
+        ),
       })
     }
     if (f.onFail !== null) rows.push({ label: "on-fail", value: shown(f.onFail) })
@@ -175,7 +201,11 @@ function keptSelection(selection: Selection | null, drawing: Drawing | null): Se
 }
 
 const sameSelection = (a: Selection | null, b: Selection | null): boolean =>
-  a === b || (a !== null && b !== null && a.kind === b.kind && (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.kind === b.kind &&
+    (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
 
 /** A full-width strip under the tabs: no rounding, the bottom border only. */
 const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
@@ -236,9 +266,9 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             text,
             errors.map((e) => e.text),
             prompts.data.prompts,
-            project
+            project,
           ),
-    [text, errors, prompts.data, project]
+    [text, errors, prompts.data, project],
   )
   const drawing = drawn !== null && "drawing" in drawn ? drawn.drawing : null
   // From the text, not the drawing: a default file that cannot be drawn still carries its badge.
@@ -255,7 +285,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       setSelection(next)
       if (next !== null) setOpen(true)
     },
-    [setOpen, setPicker]
+    [setOpen, setPicker],
   )
 
   // After Undo, Redo, a YAML tab edit or any edit: a selected step that no longer exists is cleared, a gone on-fail
@@ -279,13 +309,14 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       setPicker(next)
       setOpen(true)
     },
-    [text, setOpen, setPicker]
+    [text, setOpen, setPicker],
   )
 
   const store = draft.store
   const write: Write = useCallback(
-    (edit: (text: string) => string, mode: HistoryMode = "full") => (store === null ? false : applyEdit(store, edit, mode)),
-    [store]
+    (edit: (text: string) => string, mode: HistoryMode = "full") =>
+      store === null ? false : applyEdit(store, edit, mode),
+    [store],
   )
 
   const lines = useMemo<AlertLine[]>(
@@ -300,11 +331,12 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         const target = drawing === null ? null : selectionOf(e, drawing)
         return { text: e.text, onClick: target === null ? null : () => select(target) }
       }),
-    [errors, yamlTab, drawing, select]
+    [errors, yamlTab, drawing, select],
   )
 
   const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Workflows", href: "/workflows?" }, { label: name }]
-  const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
+  const unknownKey =
+    project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
@@ -322,17 +354,38 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         <TopBar items={crumbs} />
         <PageBody>
           {projects.isError ? (
-            <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the projects"
+              error={projects.error}
+              retry={() => void projects.refetch()}
+              className="m-4 w-auto"
+            />
           ) : fileFailed ? (
-            <LoadError what="this workflow" error={file.error as Error} retry={() => void file.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="this workflow"
+              error={file.error as Error}
+              retry={() => void file.refetch()}
+              className="m-4 w-auto"
+            />
           ) : (
-            <LoadError what="the prompts" error={prompts.error as Error} retry={() => void prompts.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the prompts"
+              error={prompts.error as Error}
+              retry={() => void prompts.refetch()}
+              className="m-4 w-auto"
+            />
           )}
         </PageBody>
       </>
     )
   }
-  if (data === undefined || prompts.data === undefined || projects.data === undefined || drawn === null || draft.store === null) {
+  if (
+    data === undefined ||
+    prompts.data === undefined ||
+    projects.data === undefined ||
+    drawn === null ||
+    draft.store === null
+  ) {
     return (
       <>
         <TopBar items={crumbs} />
@@ -418,7 +471,10 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   return (
     <>
-      <TopBar items={crumbs} actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />} />
+      <TopBar
+        items={crumbs}
+        actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />}
+      />
       <PageBody>
         <RecordTabs
           column={false}

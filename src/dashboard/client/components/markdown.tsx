@@ -1,4 +1,13 @@
-import { Children, cloneElement, createContext, isValidElement, useContext, type ComponentProps, type ReactElement, type ReactNode } from "react"
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useContext,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from "react"
 import Markdown, { type Components, type ExtraProps } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -54,7 +63,8 @@ const isBox = (c: ReactNode): c is ReactElement<{ checked?: boolean }> => isVali
 function takeBox(children: ReactNode): { box: ReactElement<{ checked?: boolean }> | undefined; content: ReactNode[] } {
   const items = Children.toArray(children)
   const at = items.findIndex(isBox)
-  if (at !== -1) return { box: items[at] as ReactElement<{ checked?: boolean }>, content: items.filter((_, i) => i !== at) }
+  if (at !== -1)
+    return { box: items[at] as ReactElement<{ checked?: boolean }>, content: items.filter((_, i) => i !== at) }
   const first = items.findIndex(isValidElement)
   const paragraph = items[first] as ReactElement<{ children?: ReactNode }> | undefined
   if (paragraph === undefined) return { box: undefined, content: items }
@@ -62,7 +72,10 @@ function takeBox(children: ReactNode): { box: ReactElement<{ checked?: boolean }
   const inside = inner.findIndex(isBox)
   if (inside === -1) return { box: undefined, content: items }
   const rest = cloneElement(paragraph, undefined, ...inner.filter((_, i) => i !== inside))
-  return { box: inner[inside] as ReactElement<{ checked?: boolean }>, content: items.map((c, i) => (i === first ? rest : c)) }
+  return {
+    box: inner[inside] as ReactElement<{ checked?: boolean }>,
+    content: items.map((c, i) => (i === first ? rest : c)),
+  }
 }
 
 /** A list item; a GFM task item puts its box before its content, with no bullet. */
@@ -122,7 +135,13 @@ const PROSE = [
  * A Markdown file, rendered read-only: GFM tables and task lists, raw HTML dropped, headings one level down. With
  * `onToggle`, a task item's box can be ticked, and gives the item's first source line.
  */
-export function MarkdownView({ text, onToggle = null }: { text: string; onToggle?: ((line: number, checked: boolean) => void) | null }) {
+export function MarkdownView({
+  text,
+  onToggle = null,
+}: {
+  text: string
+  onToggle?: ((line: number, checked: boolean) => void) | null
+}) {
   return (
     <ToggleContext.Provider value={onToggle}>
       <div className={PROSE}>

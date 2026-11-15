@@ -74,7 +74,10 @@ const LAYOUT = { headerSticky: true, headerBackground: false }
  */
 export function GridFrame({ children }: { children: ReactNode }) {
   return (
-    <div data-scroll-root className="flex min-h-0 flex-1 flex-col [&>div]:flex [&>div]:min-h-0 [&>div]:flex-1 [&>div]:flex-col">
+    <div
+      data-scroll-root
+      className="flex min-h-0 flex-1 flex-col [&>div]:flex [&>div]:min-h-0 [&>div]:flex-1 [&>div]:flex-col"
+    >
       {children}
     </div>
   )
@@ -205,12 +208,14 @@ function ActiveGrid({
   const [expansion, setExpansion] = useState<SeriesExpansion>(SERIES_CLOSED)
   const expanded: ExpandedState = shownSeriesOpen(expansion, narrowed, rows)
   const setExpanded = (updater: Updater<ExpandedState>) =>
-    setExpansion((state) => keepSeriesOpen(state, narrowed, typeof updater === "function" ? updater(expanded) : updater))
+    setExpansion((state) =>
+      keepSeriesOpen(state, narrowed, typeof updater === "function" ? updater(expanded) : updater),
+    )
 
   const sort = sorting[0]
   const data = useMemo(
     () => (sort === undefined ? rows : sortRows(rows, { column: sort.id as SortColumn, desc: sort.desc })),
-    [rows, sort]
+    [rows, sort],
   )
 
   const columns = useMemo<ColumnDef<DataGridFeatures, ActiveRow>[]>(
@@ -278,7 +283,11 @@ function ActiveGrid({
         header: ({ column }) => <DataGridColumnHeader title="Progress" column={column} />,
         cell: ({ row }) => {
           const item = row.original
-          return <ProgressCell progress={item.kind === "series" ? item.progress : item.change.status === "invalid" ? null : item.change} />
+          return (
+            <ProgressCell
+              progress={item.kind === "series" ? item.progress : item.change.status === "invalid" ? null : item.change}
+            />
+          )
         },
         size: 180,
         enableSorting: true,
@@ -318,7 +327,7 @@ function ActiveGrid({
         meta: { skeleton: cellSkeleton("w-20") },
       },
     ],
-    [projectKey, active]
+    [projectKey, active],
   )
 
   const table = useTable({
@@ -345,7 +354,11 @@ function ActiveGrid({
       tableLayout={LAYOUT}
       tableClassNames={EDGES}
       onRowClick={(row) => {
-        if (row.kind === "series") setExpanded((old) => ({ ...(old as Record<string, boolean>), [row.id]: !(old as Record<string, boolean>)[row.id] }))
+        if (row.kind === "series")
+          setExpanded((old) => ({
+            ...(old as Record<string, boolean>),
+            [row.id]: !(old as Record<string, boolean>)[row.id],
+          }))
         else navigate(changeHref(projectKey, row.id))
       }}
     >
@@ -371,7 +384,10 @@ function ArchivedGrid({
   setQuery: (next: ChangesQuery) => void
 }) {
   const [, navigate] = useLocation()
-  const pagination: PaginationState = { pageIndex: shownPage(query.page, rows.length, query.size), pageSize: query.size }
+  const pagination: PaginationState = {
+    pageIndex: shownPage(query.page, rows.length, query.size),
+    pageSize: query.size,
+  }
 
   const columns = useMemo<ColumnDef<DataGridFeatures, ArchivedChange>[]>(
     () => [
@@ -402,7 +418,7 @@ function ArchivedGrid({
         meta: { skeleton: cellSkeleton("w-20") },
       },
     ],
-    [projectKey]
+    [projectKey],
   )
 
   const table = useTable({
@@ -487,7 +503,7 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
   const list = changes.data
   const rows = useMemo(
     () => (list === undefined ? [] : activeRows(list.active, query.q, query.statuses)),
-    [list, query.q, query.statuses]
+    [list, query.q, query.statuses],
   )
   const archived = useMemo(() => (list === undefined ? [] : archivedRows(list.archived, query.q)), [list, query.q])
   const counts = useMemo(() => statusCounts(list?.active ?? [], query.q), [list, query.q])
@@ -503,7 +519,12 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
       <>
         {top}
         <PageBody>
-          <LoadError what="the changes" error={changes.error} retry={() => void changes.refetch()} className="m-4 w-auto" />
+          <LoadError
+            what="the changes"
+            error={changes.error}
+            retry={() => void changes.refetch()}
+            className="m-4 w-auto"
+          />
         </PageBody>
       </>
     )
@@ -572,7 +593,11 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
     <>
       {top}
       <PageBody>
-        <Tabs value={query.view} onValueChange={(view) => setQuery(switchView(query, view === "archived" ? "archived" : "active"))} className="shrink-0 gap-0">
+        <Tabs
+          value={query.view}
+          onValueChange={(view) => setQuery(switchView(query, view === "archived" ? "archived" : "active"))}
+          className="shrink-0 gap-0"
+        >
           <TabsList variant="line" aria-label="Views" className="h-10 px-2">
             <TabsTrigger value="active" className="gap-2 px-2">
               Active
@@ -607,11 +632,18 @@ function ArchivedLoading() {
         meta: { skeleton: cellSkeleton("w-20") },
       },
     ],
-    []
+    [],
   )
   const table = useTable({ features: dataGridFeatures, columns, data: [] as ArchivedChange[] })
   return (
-    <DataGrid table={table} recordCount={0} isLoading loadingMode="skeleton" tableLayout={LAYOUT} tableClassNames={EDGES}>
+    <DataGrid
+      table={table}
+      recordCount={0}
+      isLoading
+      loadingMode="skeleton"
+      tableLayout={LAYOUT}
+      tableClassNames={EDGES}
+    >
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>
           <DataGridTable />

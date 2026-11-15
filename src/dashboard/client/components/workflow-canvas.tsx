@@ -73,7 +73,9 @@ function TwoLines({ text }: { text: string }) {
   }, [text])
   return (
     <Tooltip disabled={!cut}>
-      <TooltipTrigger render={<span ref={ref} className="line-clamp-2 text-xs text-muted-foreground" />}>{text}</TooltipTrigger>
+      <TooltipTrigger render={<span ref={ref} className="line-clamp-2 text-xs text-muted-foreground" />}>
+        {text}
+      </TooltipTrigger>
       <TooltipContent className="max-w-sm">{text}</TooltipContent>
     </Tooltip>
   )
@@ -132,14 +134,18 @@ function Card({
         className={cn(
           "flex w-full flex-col gap-2 rounded-lg border bg-card p-3 text-left text-card-foreground shadow-xs transition-colors outline-none hover:bg-accent/50 focus-visible:ring-3 focus-visible:ring-ring/50",
           errors > 0 && "border-destructive",
-          selected && "border-primary ring-1 ring-primary"
+          selected && "border-primary ring-1 ring-primary",
         )}
       >
         <span className={cn("flex min-w-0 items-center gap-2", menu !== null && "pe-7")}>
           <IconTile size="xs" {...toneTile(tone)}>
             {icon}
           </IconTile>
-          <OneLine text={name} tooltipClassName="max-w-sm" className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")} />
+          <OneLine
+            text={name}
+            tooltipClassName="max-w-sm"
+            className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")}
+          />
           {badge !== null ? (
             <span className="flex shrink-0 items-center gap-1">
               <Badge variant="outline">{badge}</Badge>
@@ -516,7 +522,15 @@ export function WorkflowCanvas({
                     code={step.code}
                     badge={step.badge}
                     second={step.valid ? (step.description ?? "No description") : "Invalid step"}
-                    third={step.matrix !== null ? [<Badge key="matrix" variant="outline">{step.matrix}</Badge>] : []}
+                    third={
+                      step.matrix !== null
+                        ? [
+                            <Badge key="matrix" variant="outline">
+                              {step.matrix}
+                            </Badge>,
+                          ]
+                        : []
+                    }
                     errors={step.errors.length}
                     selected={same(selection, { kind: "step", index: step.index })}
                     port
@@ -578,7 +592,12 @@ export function WorkflowCanvas({
         className="panzoom-exclude absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
       >
         <HistoryButtons store={store} />
-        <ToolbarButton tip="Zoom out" label="Zoom out" disabled={scale <= 0.5} onClick={() => zoomTo(zoomStep(scale, -0.1))}>
+        <ToolbarButton
+          tip="Zoom out"
+          label="Zoom out"
+          disabled={scale <= 0.5}
+          onClick={() => zoomTo(zoomStep(scale, -0.1))}
+        >
           <MinusIcon aria-hidden="true" />
         </ToolbarButton>
         <ToolbarButton

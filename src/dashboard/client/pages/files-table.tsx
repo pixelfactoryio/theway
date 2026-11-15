@@ -10,7 +10,9 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "
 import { type FilesQuery, filesQueryString, parseFilesQuery } from "@/lib/files"
 
 /** A table's state in the address (`q`, and `kind` on Prompts), and the navigation that changes it. */
-export function useFilesQuery(section: "workflows" | "prompts"): [FilesQuery, (next: FilesQuery, replace?: boolean) => void] {
+export function useFilesQuery(
+  section: "workflows" | "prompts",
+): [FilesQuery, (next: FilesQuery, replace?: boolean) => void] {
   const search = useSearch()
   const [, navigate] = useLocation()
   const query = useMemo(() => parseFilesQuery(search), [search])
@@ -45,7 +47,11 @@ export function NameCell({
   return (
     <div className="flex min-h-10 min-w-0 flex-col justify-center">
       <div className="flex min-w-0 items-center gap-2">
-        <Link href={href} onClick={(e) => e.stopPropagation()} className="truncate font-medium text-foreground hover:underline">
+        <Link
+          href={href}
+          onClick={(e) => e.stopPropagation()}
+          className="truncate font-medium text-foreground hover:underline"
+        >
           {name}
         </Link>
         {isDefault ? <Badge variant="outline">default</Badge> : null}
@@ -75,7 +81,17 @@ export function StatusCell({ errors }: { errors: readonly string[] }) {
 export const None = () => <span className="text-muted-foreground">–</span>
 
 /** A home with no file of the section, with the section's New button (`outline`). */
-export function NoFile({ title, kind, folder, action }: { title: string; kind: string; folder: string; action?: ReactNode }) {
+export function NoFile({
+  title,
+  kind,
+  folder,
+  action,
+}: {
+  title: string
+  kind: string
+  folder: string
+  action?: ReactNode
+}) {
   return (
     <Empty className="py-12">
       <EmptyHeader>

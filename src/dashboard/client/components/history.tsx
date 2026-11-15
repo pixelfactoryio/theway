@@ -4,7 +4,15 @@ import { useState, type ReactNode } from "react"
 import { type CodeLanguage, CodeView, DiffView } from "@/components/code-view"
 import type { FileDraft } from "@/components/draft"
 import { Badge } from "@/components/reui/badge"
-import { Timeline, TimelineContent, TimelineHeader, TimelineIndicator, TimelineItem, TimelineSeparator, TimelineTitle } from "@/components/reui/timeline"
+import {
+  Timeline,
+  TimelineContent,
+  TimelineHeader,
+  TimelineIndicator,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineTitle,
+} from "@/components/reui/timeline"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,7 +89,8 @@ export function useHistoryTab({
 
   const list = versions.data?.versions ?? []
   // The newest version at first, Current when there is none.
-  const selected = chosen !== null && (chosen === CURRENT || list.some((v) => v.id === chosen)) ? chosen : (list[0]?.id ?? CURRENT)
+  const selected =
+    chosen !== null && (chosen === CURRENT || list.some((v) => v.id === chosen)) ? chosen : (list[0]?.id ?? CURRENT)
   const version = list.find((v) => v.id === selected) ?? null
   const text = useQuery({
     queryKey: ["version", api, selected],
@@ -135,7 +144,9 @@ export function useHistoryTab({
                     }
                   />
                 </TimelineHeader>
-                {v !== null ? <TimelineContent className="text-xs tabular-nums">{lineCounts(v.added, v.removed)}</TimelineContent> : null}
+                {v !== null ? (
+                  <TimelineContent className="text-xs tabular-nums">{lineCounts(v.added, v.removed)}</TimelineContent>
+                ) : null}
               </TimelineItem>
             )
           })}
@@ -172,14 +183,24 @@ export function useHistoryTab({
   }
 
   const main = versions.isError ? (
-    <LoadError what="the versions" error={versions.error} retry={() => void versions.refetch()} className="m-4 w-auto" />
+    <LoadError
+      what="the versions"
+      error={versions.error}
+      retry={() => void versions.refetch()}
+      className="m-4 w-auto"
+    />
   ) : versions.data === undefined ? null : (
     <>
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2">
         <span className="text-sm font-medium tabular-nums">{time ?? "Current"}</span>
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <Switch id="history-show-changes" checked={show && !isCurrent} disabled={isCurrent} onCheckedChange={setShow} />
+            <Switch
+              id="history-show-changes"
+              checked={show && !isCurrent}
+              disabled={isCurrent}
+              onCheckedChange={setShow}
+            />
             <Label htmlFor="history-show-changes" className="font-normal">
               Show changes
             </Label>

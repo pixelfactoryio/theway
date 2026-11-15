@@ -89,7 +89,11 @@ export function useFileDraft({
   // The page owns what it loaded: the first answer of the file's route once no refetch is running; a later refetch
   // changes nothing here.
   if (store === null && file !== undefined && !fetching) {
-    const first: Loaded = { text: file.text, version: file.version, result: { text: file.text, errors: file.errors, header: null } }
+    const first: Loaded = {
+      text: file.text,
+      version: file.version,
+      result: { text: file.text, errors: file.errors, header: null },
+    }
     setStore(new DraftStore(draftState(file.text, language, docName)))
     setLoaded(first)
     setResult(first.result)
@@ -134,11 +138,10 @@ export function useFileDraft({
     (checked: string): Promise<Outcome> => {
       const running = inFlight.current.get(checked)
       if (running !== undefined) return running
-      const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }).then(
-        (r): Outcome =>
-          r.status === 200 && Array.isArray(r.body.errors)
-            ? { ok: true, errors: (r.body as CheckBody).errors, header: kind === "prompts" ? headerOf(r.body) : null }
-            : { ok: false, error: r.error !== "" ? r.error : `${r.status}` }
+      const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }).then((r): Outcome =>
+        r.status === 200 && Array.isArray(r.body.errors)
+          ? { ok: true, errors: (r.body as CheckBody).errors, header: kind === "prompts" ? headerOf(r.body) : null }
+          : { ok: false, error: r.error !== "" ? r.error : `${r.status}` },
       )
       inFlight.current.set(checked, p)
       void p.then((outcome) => {
@@ -147,7 +150,7 @@ export function useFileDraft({
       })
       return p
     },
-    [kind, project, name, apply]
+    [kind, project, name, apply],
   )
 
   // 400ms after the last edit, the draft is checked.
@@ -166,7 +169,8 @@ export function useFileDraft({
   }, [dirty])
 
   const invalidate = useCallback(() => {
-    for (const key of [["workflows"], ["prompts"], ["history", api], ["file", api]]) void queryClient.invalidateQueries({ queryKey: key })
+    for (const key of [["workflows"], ["prompts"], ["history", api], ["file", api]])
+      void queryClient.invalidateQueries({ queryKey: key })
   }, [queryClient, api])
 
   /**
@@ -215,7 +219,7 @@ export function useFileDraft({
       else setSaveFailure(res.error !== "" ? res.error : `${res.status}`)
       return false
     },
-    [api, runCheck, invalidate]
+    [api, runCheck, invalidate],
   )
 
   /** `write`, one at a time: a save asked while one runs does nothing and gives false. */
@@ -231,7 +235,7 @@ export function useFileDraft({
         if (mounted.current) setSaving(false)
       }
     },
-    [write]
+    [write],
   )
 
   /** A new state from the file's text, with an empty undo history. */
@@ -242,7 +246,7 @@ export function useFileDraft({
       setCheckFailure(null)
       setDetails(null)
     },
-    [language, docName]
+    [language, docName],
   )
 
   const doDiscard = useCallback(() => {
@@ -259,7 +263,11 @@ export function useFileDraft({
       return false
     }
     queryClient.setQueryData(["file", api], fresh)
-    const l: Loaded = { text: fresh.text, version: fresh.version, result: { text: fresh.text, errors: fresh.errors, header: null } }
+    const l: Loaded = {
+      text: fresh.text,
+      version: fresh.version,
+      result: { text: fresh.text, errors: fresh.errors, header: null },
+    }
     setLoaded(l)
     reset(l)
     setConflict(false)
@@ -282,7 +290,7 @@ export function useFileDraft({
       else setSaveFailure(res.error !== "" ? res.error : `${res.status}`)
       return false
     },
-    [api, doReload, invalidate]
+    [api, doReload, invalidate],
   )
 
   // Leaving the page with unsaved changes asks first; closing or reloading the tab gets the browser's prompt.
@@ -293,7 +301,7 @@ export function useFileDraft({
         isDirty: () => refs.current.dirty,
         ask: (proceed) => setConfirm({ kind: "leave", proceed }),
       }),
-    [kind, project, name]
+    [kind, project, name],
   )
   useEffect(() => {
     if (!dirty) return
@@ -339,7 +347,15 @@ const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
  * The stack under the tabs, from the top: the conflict, the save failure, the unsaved bar, then the check failure or
  * the error alert. On History the unsaved bar and the error alert are hidden.
  */
-export function DraftNotices({ draft, lines, history }: { draft: FileDraft; lines: readonly AlertLine[]; history: boolean }) {
+export function DraftNotices({
+  draft,
+  lines,
+  history,
+}: {
+  draft: FileDraft
+  lines: readonly AlertLine[]
+  history: boolean
+}) {
   return (
     <>
       {draft.conflict ? (

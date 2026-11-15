@@ -54,7 +54,9 @@ export function TopBar({
             return (
               <Fragment key={i}>
                 {i > 0 ? (
-                  <BreadcrumbSeparator className={keptOnPhone(shown[i - 1] as TopBarItem) ? "" : "max-sm:hidden"}>/</BreadcrumbSeparator>
+                  <BreadcrumbSeparator className={keptOnPhone(shown[i - 1] as TopBarItem) ? "" : "max-sm:hidden"}>
+                    /
+                  </BreadcrumbSeparator>
                 ) : null}
                 <BreadcrumbItem className={`min-w-0 ${hidden}`}>
                   {"selector" in item ? (

@@ -103,7 +103,11 @@ export function AppSidebar() {
   const shown = version()
 
   return (
-    <Sidebar variant="sidebar" collapsible="icon" className="top-(--header-height) h-[calc(100svh-var(--header-height))]!">
+    <Sidebar
+      variant="sidebar"
+      collapsible="icon"
+      className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
+    >
       <SidebarContent role="navigation" aria-label="Sections">
         <SearchEntry />
         {current !== null ? (
@@ -143,7 +147,9 @@ export function AppSidebar() {
           <ThemeMenu />
         </SidebarMenu>
         {shown !== "" ? (
-          <p className="px-2 font-mono text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">theway {shown}</p>
+          <p className="px-2 font-mono text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+            theway {shown}
+          </p>
         ) : null}
       </SidebarFooter>
 

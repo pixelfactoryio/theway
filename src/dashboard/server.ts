@@ -3,57 +3,57 @@
  * and its embedded assets, the read API over the home, the check and write routes of workflow and prompt files, and the
  * save route of a change's files.
  */
-import { createHash, timingSafeEqual } from "node:crypto";
-import { type Context, Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
-import { NONCE, secureHeaders } from "hono/secure-headers";
-import css from "./generated/app.css.txt" with { type: "text" };
-import js from "./generated/app.js.txt" with { type: "text" };
-import inter from "./generated/inter.woff2.txt" with { type: "text" };
-import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" };
-import { version } from "../../package.json" with { type: "json" };
-import { fileStore } from "../core/store/files";
-import { escaped } from "../core/text";
-import { changeDetail, datedArchives, listChanges } from "./changes";
-import type { ProjectList } from "./contract";
-import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files";
-import { projects } from "./projects";
-import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write";
+import { createHash, timingSafeEqual } from "node:crypto"
+import { type Context, Hono } from "hono"
+import { bodyLimit } from "hono/body-limit"
+import { NONCE, secureHeaders } from "hono/secure-headers"
+import css from "./generated/app.css.txt" with { type: "text" }
+import js from "./generated/app.js.txt" with { type: "text" }
+import inter from "./generated/inter.woff2.txt" with { type: "text" }
+import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" }
+import { version } from "../../package.json" with { type: "json" }
+import { fileStore } from "../core/store/files"
+import { escaped } from "../core/text"
+import { changeDetail, datedArchives, listChanges } from "./changes"
+import type { ProjectList } from "./contract"
+import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files"
+import { projects } from "./projects"
+import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write"
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
-type Env = { Variables: { secureHeadersNonce?: string } };
+type Env = { Variables: { secureHeadersNonce?: string } }
 
-const JSON_TYPE = "application/json; charset=utf-8";
+const JSON_TYPE = "application/json; charset=utf-8"
 
 /** The two fonts, embedded as base64 text and decoded once. */
 const FONTS: Record<string, Uint8Array<ArrayBuffer>> = {
   "/fonts/inter.woff2": Uint8Array.from(Buffer.from(inter, "base64")),
   "/fonts/jetbrains-mono.woff2": Uint8Array.from(Buffer.from(jetbrainsMono, "base64")),
-};
+}
 
 /** The largest body a write route takes, in bytes. */
-export const MAX_BODY = 1048576;
+export const MAX_BODY = 1048576
 
 /** Whether two strings are equal, compared in constant time over their SHA-256. */
 const sameSecret = (a: string, b: string): boolean =>
-  timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
+  timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest())
 
 /** A JSON body's fields, each of its expected type: `string`, `string?` (a string or `null`); `null` when one is not. */
 function fields<T extends Record<string, "string" | "string?">>(
   body: unknown,
   spec: T,
 ): { [K in keyof T]: T[K] extends "string" ? string : string | null } | null {
-  if (body === null || typeof body !== "object" || Array.isArray(body)) return null;
-  const out: Record<string, unknown> = {};
+  if (body === null || typeof body !== "object" || Array.isArray(body)) return null
+  const out: Record<string, unknown> = {}
   for (const [key, type] of Object.entries(spec)) {
-    const v = (body as Record<string, unknown>)[key];
-    if (!(typeof v === "string" || (type === "string?" && v === null))) return null;
-    out[key] = v;
+    const v = (body as Record<string, unknown>)[key]
+    if (!(typeof v === "string" || (type === "string?" && v === null))) return null
+    out[key] = v
   }
-  return out as { [K in keyof T]: T[K] extends "string" ? string : string | null };
+  return out as { [K in keyof T]: T[K] extends "string" ? string : string | null }
 }
 
-const escapeAttr = (v: string): string => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const escapeAttr = (v: string): string => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
 
 /** The page: the app's script and stylesheet, the response's style nonce, the write token and theway's version. */
 function page(nonce: string, token: string): string {
@@ -73,7 +73,7 @@ function page(nonce: string, token: string): string {
 <div id="root"></div>
 </body>
 </html>
-`;
+`
 }
 
 /**
@@ -81,10 +81,10 @@ function page(nonce: string, token: string): string {
  * `startKey` is the key of the project the command was started in; `token` is the process's write token.
  */
 export function createApp(home: string, port: () => number, startKey: string, token: string): Hono<Env> {
-  const app = new Hono<Env>();
-  const store = fileStore(home);
+  const app = new Hono<Env>()
+  const store = fileStore(home)
   const json = (status: number, body: unknown): Response =>
-    new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } });
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } })
 
   app.use(
     "*",
@@ -103,144 +103,155 @@ export function createApp(home: string, port: () => number, startKey: string, to
       referrerPolicy: "no-referrer",
       strictTransportSecurity: false,
     }),
-  );
+  )
   // DNS-rebinding defence: only the loopback names of this server's own port. On port 80 a browser omits the port
   // from the Host header (RFC 9110, 7.2), so the bare loopback names pass there, and only there.
   app.use("*", async (c, next) => {
-    const host = (c.req.header("host") ?? "").toLowerCase();
-    const p = port();
-    const allowed = [`127.0.0.1:${p}`, `localhost:${p}`, ...(p === 80 ? ["127.0.0.1", "localhost"] : [])];
+    const host = (c.req.header("host") ?? "").toLowerCase()
+    const p = port()
+    const allowed = [`127.0.0.1:${p}`, `localhost:${p}`, ...(p === 80 ? ["127.0.0.1", "localhost"] : [])]
     if (!allowed.includes(host)) {
-      c.res = json(403, { error: "forbidden host" });
-      return;
+      c.res = json(403, { error: "forbidden host" })
+      return
     }
-    await next();
-  });
+    await next()
+  })
   app.use("/api/*", async (c, next) => {
-    await next();
-    c.res.headers.set("Cache-Control", "no-store");
-  });
+    await next()
+    c.res.headers.set("Cache-Control", "no-store")
+  })
   // Write guard, on every request that is not a read: this server's own Origin and the process token (the same answer
   // for either), a JSON media type, then a bounded body.
   app.use("*", async (c, next) => {
-    if (c.req.method === "GET" || c.req.method === "HEAD") return next();
-    const p = port();
-    const origins = [`http://127.0.0.1:${p}`, `http://localhost:${p}`, ...(p === 80 ? ["http://127.0.0.1", "http://localhost"] : [])];
-    const origin = c.req.header("origin") ?? "";
-    const given = c.req.header("x-theway-token");
-    if (!origins.includes(origin) || given === undefined || !sameSecret(given, token)) return json(403, { error: "forbidden" });
-    const media = (c.req.header("content-type") ?? "").split(";")[0]?.trim().toLowerCase();
-    if (media !== "application/json") return json(415, { error: "unsupported media type" });
-    return next();
-  });
+    if (c.req.method === "GET" || c.req.method === "HEAD") return next()
+    const p = port()
+    const origins = [
+      `http://127.0.0.1:${p}`,
+      `http://localhost:${p}`,
+      ...(p === 80 ? ["http://127.0.0.1", "http://localhost"] : []),
+    ]
+    const origin = c.req.header("origin") ?? ""
+    const given = c.req.header("x-theway-token")
+    if (!origins.includes(origin) || given === undefined || !sameSecret(given, token))
+      return json(403, { error: "forbidden" })
+    const media = (c.req.header("content-type") ?? "").split(";")[0]?.trim().toLowerCase()
+    if (media !== "application/json") return json(415, { error: "unsupported media type" })
+    return next()
+  })
   app.use("*", async (c, next) => {
-    if (c.req.method === "GET" || c.req.method === "HEAD") return next();
-    return bodyLimit({ maxSize: MAX_BODY, onError: () => json(413, { error: "body too large" }) })(c, next);
-  });
+    if (c.req.method === "GET" || c.req.method === "HEAD") return next()
+    return bodyLimit({ maxSize: MAX_BODY, onError: () => json(413, { error: "body too large" }) })(c, next)
+  })
 
   app.get("/", (c) =>
-    c.body(page(c.get("secureHeadersNonce") ?? "", token), 200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }),
-  );
-  app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }));
-  app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }));
-  for (const [path, bytes] of Object.entries(FONTS)) app.get(path, (c) => c.body(bytes, 200, { "Content-Type": "font/woff2" }));
+    c.body(page(c.get("secureHeadersNonce") ?? "", token), 200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    }),
+  )
+  app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }))
+  app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }))
+  for (const [path, bytes] of Object.entries(FONTS))
+    app.get(path, (c) => c.body(bytes, 200, { "Content-Type": "font/woff2" }))
 
   app.get("/api/projects", () => {
-    const list = projects(home, store);
-    const body: ProjectList = { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null };
-    return json(200, body);
-  });
+    const list = projects(home, store)
+    const body: ProjectList = { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null }
+    return json(200, body)
+  })
 
   // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names the store lists before it is
   // passed to the store.
-  const known = (key: string): boolean => store.projectKeys().includes(key);
+  const known = (key: string): boolean => store.projectKeys().includes(key)
   app.get("/api/projects/:key/changes", (c) => {
-    const key = c.req.param("key");
-    if (!known(key)) return json(404, { error: "unknown project" });
-    return json(200, listChanges(store, key));
-  });
+    const key = c.req.param("key")
+    if (!known(key)) return json(404, { error: "unknown project" })
+    return json(200, listChanges(store, key))
+  })
   app.get("/api/projects/:key/changes/archive/:dir", (c) => {
-    const key = c.req.param("key");
-    if (!known(key)) return json(404, { error: "unknown project" });
-    const ref = c.req.param("dir");
-    const archive = datedArchives(store, key).find((e) => e.ref === ref);
-    if (archive === undefined) return json(404, { error: "unknown archive folder" });
-    return json(200, changeDetail(store, key, archive.id, archive));
-  });
+    const key = c.req.param("key")
+    if (!known(key)) return json(404, { error: "unknown project" })
+    const ref = c.req.param("dir")
+    const archive = datedArchives(store, key).find((e) => e.ref === ref)
+    if (archive === undefined) return json(404, { error: "unknown archive folder" })
+    return json(200, changeDetail(store, key, archive.id, archive))
+  })
   app.get("/api/projects/:key/changes/:id", (c) => {
-    const key = c.req.param("key");
-    if (!known(key)) return json(404, { error: "unknown project" });
-    const id = c.req.param("id");
-    if (!store.activeIds(key).includes(id)) return json(404, { error: "unknown change" });
-    return json(200, changeDetail(store, key, id));
-  });
+    const key = c.req.param("key")
+    if (!known(key)) return json(404, { error: "unknown project" })
+    const id = c.req.param("id")
+    if (!store.activeIds(key).includes(id)) return json(404, { error: "unknown change" })
+    return json(200, changeDetail(store, key, id))
+  })
 
-  app.get("/api/workflows", () => json(200, listWorkflows(home)));
-  app.get("/api/prompts", () => json(200, listPrompts(home)));
+  app.get("/api/workflows", () => json(200, listWorkflows(home)))
+  app.get("/api/prompts", () => json(200, listPrompts(home)))
   // Each file route serves only the file in its own folder: the global one, or the project's own (never the global one).
-  const answer = (a: FileAnswer): Response => json(a.status, a.body);
-  app.get("/api/workflows/global/:name", (c) => answer(workflowFile(home, null, c.req.param("name"))));
-  app.get("/api/workflows/projects/:key/:name", (c) => answer(workflowFile(home, c.req.param("key"), c.req.param("name"))));
-  app.get("/api/prompts/global/:name", (c) => answer(promptFile(home, null, c.req.param("name"))));
-  app.get("/api/prompts/projects/:key/:name", (c) => answer(promptFile(home, c.req.param("key"), c.req.param("name"))));
+  const answer = (a: FileAnswer): Response => json(a.status, a.body)
+  app.get("/api/workflows/global/:name", (c) => answer(workflowFile(home, null, c.req.param("name"))))
+  app.get("/api/workflows/projects/:key/:name", (c) =>
+    answer(workflowFile(home, c.req.param("key"), c.req.param("name"))),
+  )
+  app.get("/api/prompts/global/:name", (c) => answer(promptFile(home, null, c.req.param("name"))))
+  app.get("/api/prompts/projects/:key/:name", (c) => answer(promptFile(home, c.req.param("key"), c.req.param("name"))))
 
   // The check and write routes. A body that is not JSON, or misses a field or has one of the wrong type, gets 400.
-  const invalid = (): Response => json(400, { error: "invalid body" });
+  const invalid = (): Response => json(400, { error: "invalid body" })
   const body = async (c: Context<Env>): Promise<unknown> => {
     try {
-      return await c.req.json();
+      return await c.req.json()
     } catch {
-      return undefined;
+      return undefined
     }
-  };
-  const reply = (a: Answer): Response => json(a.status, a.body);
+  }
+  const reply = (a: Answer): Response => json(a.status, a.body)
   app.post("/api/check", async (c) => {
-    const f = fields(await body(c), { kind: "string", project: "string?", name: "string", text: "string" });
-    if (f === null || (f.kind !== "workflows" && f.kind !== "prompts")) return invalid();
-    return reply(checkDraft(home, f.kind, f.project, f.name, f.text));
-  });
+    const f = fields(await body(c), { kind: "string", project: "string?", name: "string", text: "string" })
+    if (f === null || (f.kind !== "workflows" && f.kind !== "prompts")) return invalid()
+    return reply(checkDraft(home, f.kind, f.project, f.name, f.text))
+  })
   for (const kind of ["workflows", "prompts"] as const) {
     for (const [scope, projectOfParams] of [
       ["global/:name", () => null],
       ["projects/:key/:name", (c: Context<Env>) => c.req.param("key") as string],
     ] as const) {
-      const route = `/api/${kind}/${scope}`;
-      const at = (c: Context<Env>) => ({ project: projectOfParams(c), name: c.req.param("name") as string });
+      const route = `/api/${kind}/${scope}`
+      const at = (c: Context<Env>) => ({ project: projectOfParams(c), name: c.req.param("name") as string })
       app.put(route, async (c) => {
-        const f = fields(await body(c), { text: "string", base: "string?" });
-        if (f === null) return invalid();
-        const { project, name } = at(c);
-        return reply(writeFile(home, kind, project, name, f.text, f.base));
-      });
+        const f = fields(await body(c), { text: "string", base: "string?" })
+        if (f === null) return invalid()
+        const { project, name } = at(c)
+        return reply(writeFile(home, kind, project, name, f.text, f.base))
+      })
       app.get(`${route}/history`, (c) => {
-        const { project, name } = at(c);
-        return reply(listVersions(home, kind, project, name));
-      });
+        const { project, name } = at(c)
+        return reply(listVersions(home, kind, project, name))
+      })
       app.get(`${route}/history/:id`, (c) => {
-        const { project, name } = at(c);
-        return reply(readVersion(home, kind, project, name, c.req.param("id")));
-      });
+        const { project, name } = at(c)
+        return reply(readVersion(home, kind, project, name, c.req.param("id")))
+      })
       app.post(`${route}/history/:id/restore`, async (c) => {
-        const f = fields(await body(c), { base: "string?" });
-        if (f === null) return invalid();
-        const { project, name } = at(c);
-        return reply(restoreVersion(home, kind, project, name, c.req.param("id"), f.base));
-      });
+        const f = fields(await body(c), { base: "string?" })
+        if (f === null) return invalid()
+        const { project, name } = at(c)
+        return reply(restoreVersion(home, kind, project, name, c.req.param("id"), f.base))
+      })
     }
   }
 
   app.put("/api/projects/:key/changes/:id/files/:name", async (c) => {
-    const f = fields(await body(c), { text: "string", base: "string" });
-    if (f === null) return invalid();
-    return reply(writeChangeFile(store, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base));
-  });
+    const f = fields(await body(c), { text: "string", base: "string" })
+    if (f === null) return invalid()
+    return reply(writeChangeFile(store, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base))
+  })
 
-  app.notFound(() => json(404, { error: "not found" }));
+  app.notFound(() => json(404, { error: "not found" }))
   // An error that escaped its route: Hono's own answer for an HTTPException, else one stderr line and a JSON 500.
   app.onError((err, c) => {
-    if ("getResponse" in err) return err.getResponse();
-    process.stderr.write(`theway: ${c.req.method} ${c.req.path}: ${escaped(err.message)}\n`);
-    return json(500, { error: err.message });
-  });
-  return app;
+    if ("getResponse" in err) return err.getResponse()
+    process.stderr.write(`theway: ${c.req.method} ${c.req.path}: ${escaped(err.message)}\n`)
+    return json(500, { error: err.message })
+  })
+  return app
 }

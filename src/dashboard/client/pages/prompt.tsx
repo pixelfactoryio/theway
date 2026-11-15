@@ -10,7 +10,16 @@ import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel
 import { RecordTabs } from "@/components/record-tabs"
 import { ErrorsBadge } from "@/components/status"
 import { CopyField } from "@/components/text"
-import { appliesTo, type FileBody, filePath, KIND_LABEL, kindOf, previewText, type PromptRow, describeUse } from "@/lib/files"
+import {
+  appliesTo,
+  type FileBody,
+  filePath,
+  KIND_LABEL,
+  kindOf,
+  previewText,
+  type PromptRow,
+  describeUse,
+} from "@/lib/files"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -31,9 +40,7 @@ function DetailsPanel({ file, fields }: { file: FileBody; fields: HeaderFields }
           {fields.header && fields.description !== null ? fields.description : <Dash />}
         </PanelRow>
         <PanelRow label="Kind">{KIND_LABEL[kindOf(fields)]}</PanelRow>
-        <PanelRow yamlKey="model">
-          {fields.model ?? <Dash />}
-        </PanelRow>
+        <PanelRow yamlKey="model">{fields.model ?? <Dash />}</PanelRow>
         <PanelRow yamlKey="inputs">
           <InputsList inputs={fields.inputs} />
         </PanelRow>
@@ -44,7 +51,10 @@ function DetailsPanel({ file, fields }: { file: FileBody; fields: HeaderFields }
             <ul className="flex flex-col gap-1">
               {usedBy.map((use, i) => (
                 <li key={i}>
-                  <Link href={`${filePath("workflows", use.project, use.workflow)}?`} className="underline-offset-4 hover:underline">
+                  <Link
+                    href={`${filePath("workflows", use.project, use.workflow)}?`}
+                    className="underline-offset-4 hover:underline"
+                  >
                     {describeUse(use, label)}
                   </Link>
                 </li>
@@ -85,7 +95,14 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const [pending, setPending] = useState<number | null>(null)
   const view = tab === "preview" || tab === "history" ? tab : "prompt"
   const base = filePath("prompts", project, name)
-  const historyTab = useHistoryTab({ draft, kind: "prompts", project, name, language: "prompt", active: view === "history" })
+  const historyTab = useHistoryTab({
+    draft,
+    kind: "prompts",
+    project,
+    name,
+    language: "prompt",
+    active: view === "history",
+  })
 
   // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there.
   useEffect(() => {
@@ -111,11 +128,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         }
         return { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
       }),
-    [errors, view, base, navigate]
+    [errors, view, base, navigate],
   )
 
   const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Prompts", href: "/prompts?" }, { label: name }]
-  const unknownKey = project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
+  const unknownKey =
+    project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
   const unknown = unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))
   if (unknown) {
@@ -134,7 +152,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         <TopBar items={crumbs} />
         <PageBody>
           {projects.isError ? (
-            <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
+            <LoadError
+              what="the projects"
+              error={projects.error}
+              retry={() => void projects.refetch()}
+              className="m-4 w-auto"
+            />
           ) : (
             <LoadError
               what="this prompt"
@@ -152,7 +175,13 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   }
   const data = file.data
   const row = prompts.data?.prompts.find((p) => p.name === name && p.project === project)
-  if (data === undefined || projects.data === undefined || prompts.data === undefined || draft.store === null || draft.text === null) {
+  if (
+    data === undefined ||
+    projects.data === undefined ||
+    prompts.data === undefined ||
+    draft.store === null ||
+    draft.text === null
+  ) {
     return (
       <>
         <TopBar items={crumbs} />

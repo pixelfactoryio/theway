@@ -80,7 +80,11 @@ const THEME = EditorView.theme({
   },
   // The lint gutter's error mark: a dot drawn in CSS, in place of the stock `data:` image the page's policy refuses.
   ".cm-lint-marker-error": { content: "normal", borderRadius: "50%", backgroundColor: "var(--destructive)" },
-  ".cm-tooltip": { backgroundColor: "var(--popover)", color: "var(--popover-foreground)", border: "1px solid var(--border)" },
+  ".cm-tooltip": {
+    backgroundColor: "var(--popover)",
+    color: "var(--popover-foreground)",
+    border: "1px solid var(--border)",
+  },
   ".cm-tooltip-lint, .cm-diagnostic": { fontFamily: "var(--font-sans)" },
   ".cm-diagnostic-error": { borderLeftColor: "var(--destructive)" },
 })
@@ -96,7 +100,15 @@ const LANGUAGE: Record<CodeLanguage, () => Extension> = {
  * selection, indentation on input, history, search at the top, the keymaps, the language, the highlight style, the
  * theme, wrapped lines, the lint gutter, the accessible name, the file's line separator and the style nonce.
  */
-export function sharedExtensions({ language, name, separator }: { language: CodeLanguage; name: string; separator: string }): Extension[] {
+export function sharedExtensions({
+  language,
+  name,
+  separator,
+}: {
+  language: CodeLanguage
+  name: string
+  separator: string
+}): Extension[] {
   return [
     lineNumbers(),
     highlightActiveLineGutter(),
@@ -128,7 +140,10 @@ export function editableExtensions(options: { language: CodeLanguage; name: stri
 
 /** A draft's first state: `text` with the editable set and its line separator, so that the draft equals the file. */
 export function draftState(text: string, language: CodeLanguage, name: string): EditorState {
-  return EditorState.create({ doc: text, extensions: editableExtensions({ language, name, separator: lineSeparatorOf(text) }) })
+  return EditorState.create({
+    doc: text,
+    extensions: editableExtensions({ language, name, separator: lineSeparatorOf(text) }),
+  })
 }
 
 /**
@@ -195,7 +210,10 @@ function diagnostics(state: EditorState, errors: readonly FileError[]): Diagnost
 function goTo(view: EditorView | null, n: number): void {
   if (view === null || n < 1 || n > view.state.doc.lines) return
   const line = view.state.doc.line(n)
-  view.dispatch({ selection: EditorSelection.cursor(line.from), effects: EditorView.scrollIntoView(line.from, { y: "center" }) })
+  view.dispatch({
+    selection: EditorSelection.cursor(line.from),
+    effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+  })
   view.focus()
 }
 
@@ -203,7 +221,15 @@ function goTo(view: EditorView | null, n: number): void {
  * The editable code view of a draft: it mounts the draft's state unchanged, dispatches through it, and marks each of
  * `errors` (the applied check's) that has a line; it creates no state and runs no check.
  */
-export function EditableCodeView({ draft, errors, ref }: { draft: DraftStore; errors: readonly FileError[]; ref?: Ref<CodeViewHandle> }) {
+export function EditableCodeView({
+  draft,
+  errors,
+  ref,
+}: {
+  draft: DraftStore
+  errors: readonly FileError[]
+  ref?: Ref<CodeViewHandle>
+}) {
   const host = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -259,7 +285,10 @@ export function CodeView({
     if (host.current === null) return
     const state = EditorState.create({
       doc: text,
-      extensions: [...sharedExtensions({ language, name, separator: lineSeparatorOf(text) }), EditorState.readOnly.of(true)],
+      extensions: [
+        ...sharedExtensions({ language, name, separator: lineSeparatorOf(text) }),
+        EditorState.readOnly.of(true),
+      ],
     })
     const v = new EditorView({ state, parent: host.current })
     v.dispatch(setDiagnostics(v.state, diagnostics(v.state, errors)))
@@ -276,7 +305,8 @@ export function CodeView({
 }
 
 /** A tint of a colour token for a difference: `color-mix` of the token at `percent`. */
-const tint = (token: string, percent: number): string => `color-mix(in oklab, var(--${token}) ${percent}%, transparent) !important`
+const tint = (token: string, percent: number): string =>
+  `color-mix(in oklab, var(--${token}) ${percent}%, transparent) !important`
 
 /**
  * The colours of a difference. Unified: changed lines `success` at 10%, inserted text `success` at 18%, deleted
@@ -359,5 +389,10 @@ export function DiffView({
     return () => m.destroy()
   }, [original, text, layout, language, names.original, names.text])
 
-  return <div ref={host} className="h-full min-h-0 [&_.cm-mergeView]:h-full [&_.cm-mergeView]:overflow-y-auto [&_.cm-mergeViewEditor+.cm-mergeViewEditor]:border-l" />
+  return (
+    <div
+      ref={host}
+      className="h-full min-h-0 [&_.cm-mergeView]:h-full [&_.cm-mergeView]:overflow-y-auto [&_.cm-mergeViewEditor+.cm-mergeViewEditor]:border-l"
+    />
+  )
 }

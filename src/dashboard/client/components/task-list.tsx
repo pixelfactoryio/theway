@@ -1,5 +1,13 @@
 import { cn } from "cn"
-import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  GripVerticalIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 import { type OpenField, TextField } from "@/components/change-fields"
@@ -84,7 +92,7 @@ function RowMenu({
             aria-label={`Task ${n} actions`}
             className={cn(
               "shrink-0 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
-              open && "opacity-100"
+              open && "opacity-100",
             )}
           />
         }
@@ -162,7 +170,7 @@ function Row({
       onKeyDown={onKeyDown}
       className={cn(
         "group/row flex items-start gap-2 rounded-md border-b py-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        index === count - 1 && "border-b-0"
+        index === count - 1 && "border-b-0",
       )}
     >
       <SortableItemHandle
@@ -171,7 +179,12 @@ function Row({
       >
         <GripVerticalIcon aria-hidden="true" className="size-4" />
       </SortableItemHandle>
-      <Checkbox checked={row.done} onCheckedChange={(next) => actions.toggle(index, next === true)} aria-label={`Task ${n} done`} className="mt-0.5" />
+      <Checkbox
+        checked={row.done}
+        onCheckedChange={(next) => actions.toggle(index, next === true)}
+        aria-label={`Task ${n} done`}
+        className="mt-0.5"
+      />
       <span className="w-6 shrink-0 text-right text-sm text-muted-foreground tabular-nums">{n}.</span>
       <div className="min-w-0 flex-1">
         {editing !== null ? (
@@ -194,7 +207,7 @@ function Row({
             onClick={edit}
             className={cn(
               "-mx-1 cursor-text rounded-sm px-1 text-sm whitespace-pre-line transition-colors hover:bg-muted",
-              row.done && "text-muted-foreground"
+              row.done && "text-muted-foreground",
             )}
           >
             <TaskText text={row.text} />
@@ -253,72 +266,82 @@ export function TaskList({
 
   return (
     <div ref={list}>
-    <Sortable
-      value={rows as TaskRow[]}
-      onValueChange={() => undefined}
-      getItemValue={(r) => r.id}
-      onMove={({ activeIndex, overIndex }) => {
-        const id = rows[activeIndex]?.id
-        actions.move(activeIndex, overIndex)
-        if (id !== undefined) focusRow(id)
-      }}
-      strategy="vertical"
-      role="list"
-      aria-label="Tasks"
-      className="flex max-w-[80ch] flex-col"
-    >
-      {rows.flatMap((row, i) => {
-        const out = [<Row key={row.id} row={row} index={i} count={rows.length} field={field} actions={actions} focusRow={focusRow} />]
-        if (below !== null && below.id === row.id) {
-          out.push(
-            <div key={`below-${row.id}`} role="listitem" className="flex items-start gap-2 border-b py-2 ps-7">
-              <Checkbox disabled aria-hidden="true" tabIndex={-1} className="mt-2" />
-              <span className="w-6 shrink-0" />
-              <div className="min-w-0 flex-1">
-                <TextField
-                  multiline
-                  label="New task"
-                  value={below.value}
-                  error={below.error}
-                  onChange={(value) => actions.change({ ...below, value, error: null })}
-                  onApply={() => void actions.apply()}
-                  onCancel={() => {
-                    actions.cancel()
-                    focusRow(row.id)
-                  }}
-                />
-              </div>
-            </div>
-          )
-        }
-        return out
-      })}
-      <div role="listitem" className="flex items-center gap-2 py-2">
-        <span className="size-5 shrink-0" />
-        <Checkbox disabled aria-hidden="true" tabIndex={-1} />
-        <span className="w-6 shrink-0" />
-        <Input
-          value={add}
-          placeholder="Add a task"
-          aria-label="Add a task"
-          onChange={(event) => {
-            const value = event.target.value
-            if (field !== null && field.kind !== "add" && !actions.open({ kind: "add", value })) return
-            actions.change(value === "" ? null : { kind: "add", value })
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-              event.preventDefault()
-              if (add.trim() !== "") actions.apply()
-            } else if (event.key === "Escape" && field?.kind === "add") {
-              event.preventDefault()
-              actions.change(null)
-            }
-          }}
-          className="h-7 flex-1 rounded-sm border-0 bg-transparent px-1 shadow-none dark:bg-transparent"
-        />
-      </div>
-    </Sortable>
+      <Sortable
+        value={rows as TaskRow[]}
+        onValueChange={() => undefined}
+        getItemValue={(r) => r.id}
+        onMove={({ activeIndex, overIndex }) => {
+          const id = rows[activeIndex]?.id
+          actions.move(activeIndex, overIndex)
+          if (id !== undefined) focusRow(id)
+        }}
+        strategy="vertical"
+        role="list"
+        aria-label="Tasks"
+        className="flex max-w-[80ch] flex-col"
+      >
+        {rows.flatMap((row, i) => {
+          const out = [
+            <Row
+              key={row.id}
+              row={row}
+              index={i}
+              count={rows.length}
+              field={field}
+              actions={actions}
+              focusRow={focusRow}
+            />,
+          ]
+          if (below !== null && below.id === row.id) {
+            out.push(
+              <div key={`below-${row.id}`} role="listitem" className="flex items-start gap-2 border-b py-2 ps-7">
+                <Checkbox disabled aria-hidden="true" tabIndex={-1} className="mt-2" />
+                <span className="w-6 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <TextField
+                    multiline
+                    label="New task"
+                    value={below.value}
+                    error={below.error}
+                    onChange={(value) => actions.change({ ...below, value, error: null })}
+                    onApply={() => void actions.apply()}
+                    onCancel={() => {
+                      actions.cancel()
+                      focusRow(row.id)
+                    }}
+                  />
+                </div>
+              </div>,
+            )
+          }
+          return out
+        })}
+        <div role="listitem" className="flex items-center gap-2 py-2">
+          <span className="size-5 shrink-0" />
+          <Checkbox disabled aria-hidden="true" tabIndex={-1} />
+          <span className="w-6 shrink-0" />
+          <Input
+            value={add}
+            placeholder="Add a task"
+            aria-label="Add a task"
+            onChange={(event) => {
+              const value = event.target.value
+              if (field !== null && field.kind !== "add" && !actions.open({ kind: "add", value })) return
+              actions.change(value === "" ? null : { kind: "add", value })
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                if (add.trim() !== "") actions.apply()
+              } else if (event.key === "Escape" && field?.kind === "add") {
+                event.preventDefault()
+                actions.change(null)
+              }
+            }}
+            className="h-7 flex-1 rounded-sm border-0 bg-transparent px-1 shadow-none dark:bg-transparent"
+          />
+        </div>
+      </Sortable>
     </div>
   )
 }

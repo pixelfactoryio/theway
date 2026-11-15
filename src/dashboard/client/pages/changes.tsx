@@ -30,7 +30,12 @@ function ProjectsGate({ label }: { label: string }) {
       <>
         <TopBar items={[{ label }]} />
         <PageBody>
-          <LoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} className="m-4 w-auto" />
+          <LoadError
+            what="the projects"
+            error={projects.error}
+            retry={() => void projects.refetch()}
+            className="m-4 w-auto"
+          />
         </PageBody>
       </>
     )

@@ -7,10 +7,24 @@ import { Link } from "wouter"
 import type { DraftStore } from "@/components/code-view"
 import { KeyLabelText, LinesAlert, PanelRow } from "@/components/file-page"
 import { IconTile } from "@/components/reui/icon-tile"
-import { NumberField, NumberFieldDecrement, NumberFieldGroup, NumberFieldIncrement, NumberFieldInput } from "@/components/reui/number-field"
+import {
+  NumberField,
+  NumberFieldDecrement,
+  NumberFieldGroup,
+  NumberFieldIncrement,
+  NumberFieldInput,
+} from "@/components/reui/number-field"
 import { CopyField } from "@/components/text"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
@@ -290,7 +304,10 @@ function WithFields({
 function UsesValue({ uses, prompt }: { uses: string | null; prompt: PromptRow | null }) {
   if (prompt === null) return <span className="min-h-5 font-mono text-sm break-all">{uses ?? ""}</span>
   return (
-    <Link href={`${filePath("prompts", prompt.project, prompt.name)}?`} className="text-sm underline-offset-4 hover:underline">
+    <Link
+      href={`${filePath("prompts", prompt.project, prompt.name)}?`}
+      className="text-sm underline-offset-4 hover:underline"
+    >
       prompts/{prompt.name}.md
     </Link>
   )
@@ -336,7 +353,9 @@ export function StepEditPanel({
   }, [onFailCard, index])
   if (form === null) return null
   const n = index + 1
-  const places = lines.map((line) => ({ line, place: placeLine(line) })).filter((p) => p.place.panel === "step" && p.place.index === index)
+  const places = lines
+    .map((line) => ({ line, place: placeLine(line) }))
+    .filter((p) => p.place.panel === "step" && p.place.index === index)
 
   if (!form.valid) {
     return (
@@ -360,8 +379,10 @@ export function StepEditPanel({
     if (field === "model") return showModel
     if (field === "tries") return showTries
     if (field === "on-fail.model") return showOnFailModel
-    if (field.startsWith("with.")) return withPrompt !== null && withPrompt.inputs.some((i) => `with.${i.name}` === field)
-    if (field.startsWith("on-fail.with.")) return onFailPrompt !== null && onFailPrompt.inputs.some((i) => `on-fail.with.${i.name}` === field)
+    if (field.startsWith("with."))
+      return withPrompt !== null && withPrompt.inputs.some((i) => `with.${i.name}` === field)
+    if (field.startsWith("on-fail.with."))
+      return onFailPrompt !== null && onFailPrompt.inputs.some((i) => `on-fail.with.${i.name}` === field)
     return false
   }
   const { fields, alert } = byField(places, shown)
@@ -684,7 +705,8 @@ function InputBox({
   const id = (k: string) => `${idPrefix}-${index}-${k}`
   const nameErr = typed === null ? null : keyError(typed, siblings)
   const at = (k: string) => lines.get(`inputs.${input.name}.${k}`)
-  const field = (k: InputKey, value: string | boolean, mode: HistoryMode = "full") => write((t) => setInputField(t, input.name, k, value), mode)
+  const field = (k: InputKey, value: string | boolean, mode: HistoryMode = "full") =>
+    write((t) => setInputField(t, input.name, k, value), mode)
   const editable = input.editable && !disabled
   return (
     <div className="flex flex-col gap-4 rounded-lg border p-3">
@@ -771,13 +793,25 @@ function InputBox({
  * inputs with Add input, then Applies to and File, read-only. The workflow's lines go under their fields; the others
  * in the alert under the title row.
  */
-export function WorkflowEditPanel({ file, text, lines, write }: { file: FileBody; text: string; lines: readonly string[]; write: Write }) {
+export function WorkflowEditPanel({
+  file,
+  text,
+  lines,
+  write,
+}: {
+  file: FileBody
+  text: string
+  lines: readonly string[]
+  write: Write
+}) {
   const uid = useId()
   const label = useLabel()
   const form = workflowForm(text)
   if (form === null) return null
   const names = form.inputs.map((i) => i.name)
-  const places = lines.map((line) => ({ line, place: placeLine(line, names) })).filter((p) => p.place.panel === "workflow")
+  const places = lines
+    .map((line) => ({ line, place: placeLine(line, names) }))
+    .filter((p) => p.place.panel === "workflow")
   const shown = (field: string): boolean => {
     if (["description", "runs-on", "default"].includes(field)) return true
     const m = /^inputs\.(.+?)(?:\.(description|required|default|type))?$/.exec(field)

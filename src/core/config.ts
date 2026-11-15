@@ -1,56 +1,56 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { stringify } from "yaml";
-import { readManifest } from "./init";
-import { isFile, thewayHome } from "./io";
-import { error, print, type Warn, warnLoud, warning } from "./output";
-import { projectDir, resolveKey } from "./project";
-import { parseYaml } from "./text";
+import { readdirSync, readFileSync } from "node:fs"
+import { join } from "node:path"
+import { stringify } from "yaml"
+import { readManifest } from "./init"
+import { isFile, thewayHome } from "./io"
+import { error, print, type Warn, warnLoud, warning } from "./output"
+import { projectDir, resolveKey } from "./project"
+import { parseYaml } from "./text"
 
 /** A leaf's type: the rule its value must follow. */
-type Rule = "boolean";
-type Leaf = { rule: Rule; default: boolean | number | string | string[] };
-type Schema = { [key: string]: Leaf | Schema };
+type Rule = "boolean"
+type Leaf = { rule: Rule; default: boolean | number | string | string[] }
+type Schema = { [key: string]: Leaf | Schema }
 
 /** An empty map with no prototype, so every key, `__proto__` included, is an own property. */
-const dict = <T>(): T => Object.create(null) as T;
+const dict = <T>(): T => Object.create(null) as T
 
-const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d });
+const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d })
 
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
-export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"];
+export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"]
 /**
  * The shipped standards the commands always read by path: a global file with one of these names is never listed nor
  * switchable; `authority.md` only when `.shipped.json` lists it, else it is the user's own standard.
  */
-const CORE = ["interaction.md", "develop.md", "authority.md"];
+const CORE = ["interaction.md", "develop.md", "authority.md"]
 /**
  * The shipped convention standards the prompts read by path, the project file over the global one: never listed from
  * either folder nor switchable.
  */
-export const CONVENTIONS = ["commits.md", "git-host.md"];
+export const CONVENTIONS = ["commits.md", "git-host.md"]
 
 /** The `standards.<key>` of a standard file: its stem with `-` turned into `_`. */
-const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_");
-export const OPT_IN_KEYS = OPT_IN.map(keyOf);
+const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_")
+export const OPT_IN_KEYS = OPT_IN.map(keyOf)
 /** The `standards.<key>` names that warn `cannot be switched`: the core ones (unless a project file holds one) and the conventions. */
-const FIXED_KEYS = new Set([...CORE, ...CONVENTIONS].map(keyOf));
+const FIXED_KEYS = new Set([...CORE, ...CONVENTIONS].map(keyOf))
 
 /**
  * A standard a project can read: its path, its switch, whether it is a shipped opt-in one and, for a global file, the
  * path of the project file with the same name that replaces it for the phases that file applies to.
  */
-export type Standard = { path: string; key: string; optIn: boolean; shadowedBy?: string };
+export type Standard = { path: string; key: string; optIn: boolean; shadowedBy?: string }
 
 /** The names of the regular `.md` files directly in `dir`, sorted; none when it is missing. */
 function mdFiles(dir: string): string[] {
-  let names: string[];
+  let names: string[]
   try {
-    names = readdirSync(dir);
+    names = readdirSync(dir)
   } catch {
-    return [];
+    return []
   }
-  return names.filter((n) => n.endsWith(".md") && isFile(join(dir, n))).sort();
+  return names.filter((n) => n.endsWith(".md") && isFile(join(dir, n))).sort()
 }
 
 /**
@@ -61,22 +61,22 @@ function mdFiles(dir: string): string[] {
  * filter drops the global file only for the phases the project file applies to.
  */
 export function standardsOf(home: string, key: string): Standard[] {
-  const globalDir = join(home, "standards");
-  const ownDir = join(projectDir(home, key), "standards");
-  const projectNames = mdFiles(ownDir).filter((n) => !CONVENTIONS.includes(n));
-  const shipped = readManifest(home) ?? {};
-  const out: Standard[] = [];
+  const globalDir = join(home, "standards")
+  const ownDir = join(projectDir(home, key), "standards")
+  const projectNames = mdFiles(ownDir).filter((n) => !CONVENTIONS.includes(n))
+  const shipped = readManifest(home) ?? {}
+  const out: Standard[] = []
   for (const name of mdFiles(globalDir)) {
-    const core = name === "authority.md" ? "standards/authority.md" in shipped : CORE.includes(name);
-    if (core || CONVENTIONS.includes(name)) continue;
-    const optIn = OPT_IN.includes(name);
-    if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue;
-    const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn };
-    if (projectNames.includes(name)) global.shadowedBy = join(ownDir, name);
-    out.push(global);
+    const core = name === "authority.md" ? "standards/authority.md" in shipped : CORE.includes(name)
+    if (core || CONVENTIONS.includes(name)) continue
+    const optIn = OPT_IN.includes(name)
+    if (!optIn && (`standards/${name}` in shipped || name.endsWith(".default.md"))) continue
+    const global: Standard = { path: join(globalDir, name), key: keyOf(name), optIn }
+    if (projectNames.includes(name)) global.shadowedBy = join(ownDir, name)
+    out.push(global)
   }
-  for (const name of projectNames) out.push({ path: join(ownDir, name), key: keyOf(name), optIn: false });
-  return out;
+  for (const name of projectNames) out.push({ path: join(ownDir, name), key: keyOf(name), optIn: false })
+  return out
 }
 
 /**
@@ -86,114 +86,122 @@ export function standardsOf(home: string, key: string): Standard[] {
  * A core key is switchable only when a project file holds it: `standardsOf` leaves the global core files out.
  */
 function standardsSchema(standards: Standard[]): Schema {
-  const userKeys = [...new Set(standards.map((s) => s.key))].filter((k) => !OPT_IN_KEYS.includes(k)).sort();
-  const schema = dict<Schema>();
+  const userKeys = [...new Set(standards.map((s) => s.key))].filter((k) => !OPT_IN_KEYS.includes(k)).sort()
+  const schema = dict<Schema>()
   for (const key of [...OPT_IN_KEYS, ...userKeys]) {
-    const holders = standards.filter((s) => s.key === key);
-    schema[key] = { enabled: bool(holders.length > 0 && holders.every((s) => !s.optIn)) };
+    const holders = standards.filter((s) => s.key === key)
+    schema[key] = { enabled: bool(holders.length > 0 && holders.every((s) => !s.optIn)) }
   }
-  return schema;
+  return schema
 }
 
 /** Every key of the config, in output order, with its type and default; `standards` is filled per project. */
 const SCHEMA: Schema = {
   standards: {},
-};
+}
 
 const RULE_TEXT: Record<Rule, string> = {
   boolean: "true or false",
-};
+}
 
-const isLeaf = (node: Leaf | Schema): node is Leaf => typeof (node as Leaf).rule === "string";
+const isLeaf = (node: Leaf | Schema): node is Leaf => typeof (node as Leaf).rule === "string"
 
 function valid(rule: Rule, v: unknown): boolean {
   switch (rule) {
     case "boolean":
-      return typeof v === "boolean";
+      return typeof v === "boolean"
   }
 }
 
-export type Config = { [key: string]: Config | boolean | number | string | string[] };
+export type Config = { [key: string]: Config | boolean | number | string | string[] }
 
 function defaults(schema: Schema): Config {
-  const out = dict<Config>();
+  const out = dict<Config>()
   for (const [key, node] of Object.entries(schema)) {
-    out[key] = isLeaf(node) ? (Array.isArray(node.default) ? [...node.default] : node.default) : defaults(node);
+    out[key] = isLeaf(node) ? (Array.isArray(node.default) ? [...node.default] : node.default) : defaults(node)
   }
-  return out;
+  return out
 }
 
 /** Applies one layer's map onto `into`, warning about every unknown key, invalid value or wrong shape in document order. */
-function apply(file: string, schema: Schema, layer: Map<unknown, unknown>, into: Config, prefix: string, warn: Warn): void {
+function apply(
+  file: string,
+  schema: Schema,
+  layer: Map<unknown, unknown>,
+  into: Config,
+  prefix: string,
+  warn: Warn,
+): void {
   for (const [rawKey, value] of layer) {
-    const key = String(rawKey);
-    const dotted = prefix === "" ? key : `${prefix}.${key}`;
-    const node = Object.hasOwn(schema, key) ? schema[key] : undefined;
+    const key = String(rawKey)
+    const dotted = prefix === "" ? key : `${prefix}.${key}`
+    const node = Object.hasOwn(schema, key) ? schema[key] : undefined
     if (node === undefined) {
-      if (prefix !== "standards") warn(file, `unknown key ${dotted}`);
-      else if (FIXED_KEYS.has(key)) warn(file, `${dotted} cannot be switched`);
-      else warn(file, `${dotted} has no standard file`);
+      if (prefix !== "standards") warn(file, `unknown key ${dotted}`)
+      else if (FIXED_KEYS.has(key)) warn(file, `${dotted} cannot be switched`)
+      else warn(file, `${dotted} has no standard file`)
     } else if (isLeaf(node)) {
-      if (valid(node.rule, value)) into[key] = Array.isArray(value) ? [...(value as string[])] : (value as boolean | number | string);
-      else warn(file, `${dotted} must be ${RULE_TEXT[node.rule]}`);
+      if (valid(node.rule, value))
+        into[key] = Array.isArray(value) ? [...(value as string[])] : (value as boolean | number | string)
+      else warn(file, `${dotted} must be ${RULE_TEXT[node.rule]}`)
     } else if (value instanceof Map) {
-      apply(file, node, value, into[key] as Config, dotted, warn);
+      apply(file, node, value, into[key] as Config, dotted, warn)
     } else {
-      warn(file, `${dotted} must be a map`);
+      warn(file, `${dotted} must be a map`)
     }
   }
 }
 
 /** The parsed root of `<home>/<file>`, or the error message when it cannot be read or is not valid YAML. */
 function load(home: string, file: string): { root: unknown } | { error: string } {
-  let text: string;
+  let text: string
   try {
-    text = readFileSync(join(home, file), "utf-8");
+    text = readFileSync(join(home, file), "utf-8")
   } catch {
-    return { error: `${file}: cannot be read` };
+    return { error: `${file}: cannot be read` }
   }
-  const parsed = parseYaml(text);
-  return "reason" in parsed ? { error: `${file}: ${parsed.reason}` } : { root: parsed.root };
+  const parsed = parseYaml(text)
+  return "reason" in parsed ? { error: `${file}: ${parsed.reason}` } : { root: parsed.root }
 }
 
 /** A project's effective config and its standards before any phase filter. */
-export type Loaded = { config: Config; standards: Standard[] };
+export type Loaded = { config: Config; standards: Standard[] }
 
 /** A project's effective config and standards, or the error message that stops it. */
-export type Effective = Loaded | { error: string };
+export type Effective = Loaded | { error: string }
 
 /**
  * The effective config of a project: per key, the project file's valid value, else the global file's valid value,
  * else the default. A missing global file counts as an empty layer; every warning goes to `warn`.
  */
 export function effectiveConfig(home: string, key: string, warn: Warn): Effective {
-  const files: string[] = [];
-  const own = join("projects", key, "config.yaml");
-  if (isFile(join(home, "config.yaml"))) files.push("config.yaml");
-  if (isFile(join(home, own))) files.push(own);
+  const files: string[] = []
+  const own = join("projects", key, "config.yaml")
+  if (isFile(join(home, "config.yaml"))) files.push("config.yaml")
+  if (isFile(join(home, own))) files.push(own)
 
-  const roots: [string, unknown][] = [];
+  const roots: [string, unknown][] = []
   for (const file of files) {
-    const loaded = load(home, file);
-    if ("error" in loaded) return { error: loaded.error };
-    roots.push([file, loaded.root]);
+    const loaded = load(home, file)
+    if ("error" in loaded) return { error: loaded.error }
+    roots.push([file, loaded.root])
   }
 
-  const standards = standardsOf(home, key);
-  const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) });
-  const config = defaults(schema);
+  const standards = standardsOf(home, key)
+  const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) })
+  const config = defaults(schema)
   for (const [file, root] of roots) {
-    if (root === null) continue;
-    if (root instanceof Map) apply(file, schema, root, config, "", warn);
-    else warn(file, "not a map");
+    if (root === null) continue
+    if (root instanceof Map) apply(file, schema, root, config, "", warn)
+    else warn(file, "not a map")
   }
-  return { config, standards };
+  return { config, standards }
 }
 
 /** Whether a standard is on in an effective config; a key with no switch is always on. */
 export function enabled(config: Config, key: string): boolean {
-  const all = config.standards as Config;
-  return !Object.hasOwn(all, key) || (all[key] as Config).enabled === true;
+  const all = config.standards as Config
+  return !Object.hasOwn(all, key) || (all[key] as Config).enabled === true
 }
 
 /**
@@ -202,18 +210,20 @@ export function enabled(config: Config, key: string): boolean {
  */
 export function loadConfigResult(home: string, key: string, warn: Warn): Effective {
   if (!isFile(join(home, "config.yaml"))) {
-    return { error: `config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins` };
+    return {
+      error: `config.yaml not found in ${home}; run npx --yes @pixelfactoryio/theway@latest install, then /reload-plugins`,
+    }
   }
-  return effectiveConfig(home, key, warn);
+  return effectiveConfig(home, key, warn)
 }
 
 /** `theway config [--project <key>]`: the effective config of the project, as YAML on stdout. */
 export function cmdConfig(override: string | undefined): number {
-  const resolved = resolveKey(override);
-  if ("error" in resolved) return error(resolved.error);
-  if (resolved.warning !== null) warning(resolved.warning);
-  const loaded = loadConfigResult(thewayHome(), resolved.key, warnLoud);
-  if ("error" in loaded) return error(loaded.error);
-  print(stringify(loaded.config));
-  return 0;
+  const resolved = resolveKey(override)
+  if ("error" in resolved) return error(resolved.error)
+  if (resolved.warning !== null) warning(resolved.warning)
+  const loaded = loadConfigResult(thewayHome(), resolved.key, warnLoud)
+  if ("error" in loaded) return error(loaded.error)
+  print(stringify(loaded.config))
+  return 0
 }

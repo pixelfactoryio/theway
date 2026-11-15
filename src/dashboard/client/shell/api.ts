@@ -2,7 +2,8 @@
 const token = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-token"]')?.content ?? ""
 
 /** theway's version, from this page's `theway-version` meta; `""` when absent. */
-export const version = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-version"]')?.content ?? ""
+export const version = (): string =>
+  document.querySelector<HTMLMetaElement>('meta[name="theway-version"]')?.content ?? ""
 
 /** In place of the server's `error` when a request got no JSON answer. */
 export const NO_ANSWER = "The server did not answer."
@@ -23,7 +24,8 @@ export async function sendJson(method: "POST" | "PUT", path: string, body: unkno
     return { status: 0, body: {}, error: NO_ANSWER }
   }
   const json: unknown = await res.json().catch(() => null)
-  if (json === null || typeof json !== "object" || Array.isArray(json)) return { status: res.status, body: {}, error: NO_ANSWER }
+  if (json === null || typeof json !== "object" || Array.isArray(json))
+    return { status: res.status, body: {}, error: NO_ANSWER }
   const record = json as Record<string, unknown>
   return { status: res.status, body: record, error: typeof record.error === "string" ? record.error : "" }
 }

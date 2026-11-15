@@ -7,7 +7,11 @@ import { locationAction, type Moving, positionOf, positionState, pushedPosition,
  * The page holding unsaved changes: whether an address path leaves it, whether it has unsaved changes now, and how it
  * asks before leaving (`proceed` leaves).
  */
-export type LeaveGuard = { leaves: (target: string) => boolean; isDirty: () => boolean; ask: (proceed: () => void) => void }
+export type LeaveGuard = {
+  leaves: (target: string) => boolean
+  isDirty: () => boolean
+  ask: (proceed: () => void) => void
+}
 
 let guard: LeaveGuard | null = null
 

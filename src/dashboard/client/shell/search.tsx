@@ -65,7 +65,9 @@ function Results({ close }: { close: () => void }) {
               >
                 {/* The label keeps its width up to 4/5 of the row; the detail takes what is left. */}
                 <span className="max-w-4/5 shrink-0 truncate">{entry.label}</span>
-                {entry.detail !== "" ? <span className="min-w-0 truncate text-muted-foreground">{entry.detail}</span> : null}
+                {entry.detail !== "" ? (
+                  <span className="min-w-0 truncate text-muted-foreground">{entry.detail}</span>
+                ) : null}
               </CommandItem>
             ))}
           </CommandGroup>
