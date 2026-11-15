@@ -17,7 +17,7 @@ import {
   rowId,
   type WorkflowRow,
 } from "@/lib/files"
-import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
+import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
 import { NewFileButton } from "@/components/new-file"
 import {
   FilesToolbar,

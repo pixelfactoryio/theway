@@ -2,10 +2,11 @@ import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ExpandedState, PaginationState, SortingState, Updater } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { cn } from "cn"
-import { ListChecksIcon, SearchIcon, XIcon } from "lucide-react"
+import { ListChecksIcon, SearchIcon } from "lucide-react"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useLocation, useSearch } from "wouter"
 
+import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
 import { Badge } from "@/components/reui/badge"
 import { DataGrid, dataGridFeatures, type DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
@@ -16,9 +17,7 @@ import { ICON, StatusBadge } from "@/components/status"
 import { CopyField, OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Progress } from "@/components/ui/progress"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
@@ -63,60 +62,7 @@ function useChangesQuery(key: string): [ChangesQuery, (next: ChangesQuery, repla
   return [query, set]
 }
 
-export const cellSkeleton = (width: string): ReactNode => <Skeleton className={`h-5 ${width}`} />
-
-export const EDGES = { edgeCell: "first:ps-4 last:pe-4" }
 const LAYOUT = { headerSticky: true, headerBackground: false }
-
-/**
- * A grid's scroll root: the grid container, its scroll viewport padded by the header row's height. The scroll area's
- * own wrapper is made a flex column so the area takes the height left and its viewport scrolls under the header row.
- */
-export function GridFrame({ children }: { children: ReactNode }) {
-  return (
-    <div
-      data-scroll-root
-      className="flex min-h-0 flex-1 flex-col [&>div]:flex [&>div]:min-h-0 [&>div]:flex-1 [&>div]:flex-col"
-    >
-      {children}
-    </div>
-  )
-}
-
-export const SCROLL_AREA = "min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:scroll-pt-10"
-
-/** A table's search field: `label` is its placeholder and accessible name. */
-export function SearchField({
-  value,
-  onChange,
-  label = "Search changes",
-}: {
-  value: string
-  onChange: (value: string) => void
-  label?: string
-}) {
-  return (
-    <InputGroup className="w-full sm:w-64">
-      <InputGroupAddon align="inline-start">
-        <SearchIcon aria-hidden="true" />
-      </InputGroupAddon>
-      <InputGroupInput
-        placeholder={label}
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {value !== "" ? (
-        <InputGroupAddon align="inline-end">
-          <InputGroupButton size="icon-xs" aria-label="Clear search" onClick={() => onChange("")}>
-            <XIcon aria-hidden="true" />
-          </InputGroupButton>
-        </InputGroupAddon>
-      ) : null}
-    </InputGroup>
-  )
-}
-
 /** The status chips: one toggle per status with changes (or pressed), its icon, label and count; none pressed keeps every status. */
 function StatusChips({
   pressed,
