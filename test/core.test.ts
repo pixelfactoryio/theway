@@ -1625,7 +1625,7 @@ test("v1beta: prompt files with CRLF line endings or a leading BOM resolve like 
   expect([lf.status, lf.stderr]).toEqual([0, ""]);
   const prompts = join(dir, "prompts");
   const originals = readdirSync(prompts).map((f) => [join(prompts, f), readFileSync(join(prompts, f), "utf-8")] as const);
-  for (const rewrite of [(t: string) => t.replaceAll("\n", "\r\n"), (t: string) => `﻿${t}`]) {
+  for (const rewrite of [(t: string) => t.replaceAll("\n", "\r\n"), (t: string) => `\uFEFF${t}`]) {
     for (const [path, text] of originals) put(path, rewrite(text));
     const res = v1beta(dir, "agents", "--input", "change=add-foo");
     expect([res.status, res.stderr, res.stdout]).toEqual([0, "", lf.stdout]);
@@ -1900,7 +1900,7 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
   const dir = fixtureHome();
   const warned: string[] = [];
   const before = listWorkflowFiles(dir, "p", (f, t) => warned.push(`${f}: ${t}`));
-  expect(before.map(({ doc: _, ...item }) => item)).toEqual([
+  expect(before.map((item) => Object.fromEntries(Object.entries(item).filter(([key]) => key !== "doc")))).toEqual([
     { name: "agents", scope: "global", description: "Implement, review and open the PR through agents", default: false, errors: [] },
     { name: "develop", scope: "global", description: "The tasks done inline in your session, on the working tree, nothing committed", default: true, errors: [] },
     { name: "engineering", scope: "global", description: "Investigate a request and write its spec and tasks, then review them", default: false, errors: [] },

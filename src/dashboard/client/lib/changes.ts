@@ -163,7 +163,7 @@ export function sortRows(rows: readonly ActiveRow[], sort: { column: SortColumn;
   const compare = (a: ActiveRow, b: ActiveRow): number => {
     if (sort === null) return rank(a) - rank(b) || byId(a.id, b.id);
     const sign = sort.desc ? -1 : 1;
-    let v = 0;
+    let v: number;
     if (sort.column === "change") v = byId(a.id, b.id);
     else if (sort.column === "status") v = rank(a) - rank(b);
     else if (sort.column === "progress") v = rowFraction(a) - rowFraction(b);

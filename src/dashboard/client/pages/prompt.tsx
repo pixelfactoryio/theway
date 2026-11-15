@@ -10,7 +10,7 @@ import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel
 import { RecordTabs } from "@/components/record-tabs"
 import { ErrorsBadge } from "@/components/status"
 import { CopyField } from "@/components/text"
-import { appliesTo, type FileBody, filePath, KIND_LABEL, kindOf, previewText, type PromptRow, useText } from "@/lib/files"
+import { appliesTo, type FileBody, filePath, KIND_LABEL, kindOf, previewText, type PromptRow, describeUse } from "@/lib/files"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -19,8 +19,8 @@ import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
 
-/** The prompt page's Details panel: `row`'s header fields, or the draft's (`fields`) while it differs from the file. */
-function DetailsPanel({ file, row, fields }: { file: FileBody; row: PromptRow; fields: HeaderFields }) {
+/** The prompt page's Details panel: `fields`, the file's header fields or the draft's while it differs from the file. */
+function DetailsPanel({ file, fields }: { file: FileBody; fields: HeaderFields }) {
   const label = useLabel()
   const usedBy = file.usedBy ?? []
   return (
@@ -45,7 +45,7 @@ function DetailsPanel({ file, row, fields }: { file: FileBody; row: PromptRow; f
               {usedBy.map((use, i) => (
                 <li key={i}>
                   <Link href={`${filePath("workflows", use.project, use.workflow)}?`} className="underline-offset-4 hover:underline">
-                    {useText(use, label)}
+                    {describeUse(use, label)}
                   </Link>
                 </li>
               ))}
@@ -202,7 +202,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           name={history ? "Versions" : "Details"}
           open={open}
           onOpenChange={setOpen}
-          panel={history ? historyTab.panel : <DetailsPanel file={data} row={shownRow} fields={fields} />}
+          panel={history ? historyTab.panel : <DetailsPanel file={data} fields={fields} />}
         >
           <DraftNotices draft={draft} lines={lines} history={history} />
           {history ? (

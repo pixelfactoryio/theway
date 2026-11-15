@@ -28,8 +28,10 @@ function TaskBox({ checked, line: at }: { checked?: boolean; line?: number }) {
 }
 
 /** An `input` of the Markdown: GFM's task boxes only. */
-function TaskInput({ node: _node, ...props }: ComponentProps<"input"> & ExtraProps) {
-  return props.type === "checkbox" ? <TaskBox checked={props.checked} /> : <input {...props} />
+function TaskInput(props: ComponentProps<"input"> & ExtraProps) {
+  const input = { ...props }
+  delete input.node
+  return input.type === "checkbox" ? <TaskBox checked={input.checked} /> : <input {...input} />
 }
 
 function heading(depth: number) {
@@ -94,14 +96,16 @@ const COMPONENTS: Components = {
   pre: ({ node, ...props }) => <pre {...props} data-line={line({ node })} />,
   blockquote: ({ node, ...props }) => <blockquote {...props} data-line={line({ node })} />,
   table: ({ node, ...props }) => <table {...props} data-line={line({ node })} />,
-  a: ({ node: _node, href, children, ...props }) =>
-    isLinkTarget(href) ? (
+  a: ({ href, children, ...props }) => {
+    delete props.node
+    return isLinkTarget(href) ? (
       <a {...props} href={href} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     ) : (
       <>{children}</>
-    ),
+    )
+  },
   img: ({ alt }) => <>{alt ?? ""}</>,
   input: TaskInput,
 }

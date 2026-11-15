@@ -88,7 +88,8 @@ function run(env: Env, ...args: string[]) {
 
 /** Runs the installed binary itself, from `env.root`, without THEWAY_HOME. */
 function runInstalled(env: Env, ...args: string[]) {
-  const { THEWAY_HOME: _, ...rest } = vars(env);
+  const rest = vars(env);
+  delete rest.THEWAY_HOME;
   return spawnSync(bin(env), args, { encoding: "utf-8", env: rest, cwd: env.root });
 }
 
@@ -851,7 +852,9 @@ test("install keeps a user workflow and prompt with a shipped name, and removes 
   const LENS = "prompts/correctness.md";
   const GONE = "prompts/old.md";
   const EDITED = "workflows/old.yaml";
-  const { [LENS]: _, [WF]: __, ...rest } = manifest(env);
+  const rest = manifest(env);
+  delete rest[LENS];
+  delete rest[WF];
   put(join(env.theway, ".shipped.json"), JSON.stringify({ ...rest, [GONE]: sha256("# old\n"), [EDITED]: sha256("steps: []\n") }));
   put(join(env.theway, LENS), "# my correctness\n");
   put(join(env.theway, WF), "steps:\n  - implement:\n");
@@ -1241,7 +1244,8 @@ test("install removes the stale shipped copy once an edited file is deleted", ()
 test("install backs up a differing file the manifest has no entry for", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const { [TPL]: _, ...rest } = manifest(env);
+  const rest = manifest(env);
+  delete rest[TPL];
   put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
   put(join(env.theway, TPL), "# my spec template\n");
   const res = run(env, "install");
@@ -1291,7 +1295,8 @@ test("install over a home without a manifest keeps a differing standard as edite
 test("install keeps a user standard with a newly shipped name, on every install while the clash lasts", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const { [STD]: _, ...rest } = manifest(env);
+  const rest = manifest(env);
+  delete rest[STD];
   put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
   put(join(env.theway, STD), "# my own develop standard\n");
   const line = `Kept your ${STD}: theway now ships a file with that name (its version: ${STD_DEFAULT})\n`;
@@ -1310,7 +1315,8 @@ test("install keeps a user standard with a newly shipped name, on every install 
 test("install records a user standard identical to the newly shipped one, with no line", () => {
   const env = setup();
   expect(run(env, "install").status).toBe(0);
-  const { [STD]: _, ...rest } = manifest(env);
+  const rest = manifest(env);
+  delete rest[STD];
   put(join(env.theway, ".shipped.json"), JSON.stringify(rest));
   const res = run(env, "install");
   expect(res.status).toBe(0);

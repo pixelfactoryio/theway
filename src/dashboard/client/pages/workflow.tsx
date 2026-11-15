@@ -255,7 +255,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       setSelection(next)
       if (next !== null) setOpen(true)
     },
-    [setOpen]
+    [setOpen, setPicker]
   )
 
   // After Undo, Redo, a YAML tab edit or any edit: a selected step that no longer exists is cleared, a gone on-fail
@@ -279,7 +279,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       setPicker(next)
       setOpen(true)
     },
-    [text, setOpen]
+    [text, setOpen, setPicker]
   )
 
   const store = draft.store

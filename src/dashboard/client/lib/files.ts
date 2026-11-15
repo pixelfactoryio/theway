@@ -79,7 +79,7 @@ export const appliesTo = (project: string | null, label: (key: string) => string
   project === null ? "All projects" : `${label(project)} only`;
 
 /** A use's text: `<workflow>[ · <label>] · step N`, `… · on-fail of step N`, `… · value in step N`. */
-export function useText(use: Use, label: (key: string) => string): string {
+export function describeUse(use: Use, label: (key: string) => string): string {
   const where = use.as === "step" ? `step ${use.step}` : use.as === "on-fail" ? `on-fail of step ${use.step}` : `value in step ${use.step}`;
   return use.project === null ? `${use.workflow} · ${where}` : `${use.workflow} · ${label(use.project)} · ${where}`;
 }
@@ -112,7 +112,7 @@ export const rowId = (row: { name: string; project: string | null }): string => 
  * when the prompt has a header; else the whole text. A BOM is dropped and `\r\n` read as `\n`.
  */
 export function previewText(raw: string, header: boolean): string {
-  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   if (!header) return text;
   const lines = text.split("\n");
   if (lines[0] !== "---") return text;

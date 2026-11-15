@@ -145,7 +145,7 @@ export function useHistoryTab({
   )
 
   const versionName = time === null ? "Current text" : `Version of ${time}`
-  let body: ReactNode = null
+  let body: ReactNode
   if (isCurrent) body = <CodeView text={saved} language={language} name="Current text" errors={[]} />
   else if (text.isError) {
     body = <LoadError what="this version" error={text.error} retry={() => void text.refetch()} className="m-4 w-auto" />

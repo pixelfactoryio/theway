@@ -291,7 +291,7 @@ export function promptLine(text: string, line: string): number | null {
   if (line === "cannot be read" || line.startsWith("body:") || line.startsWith("header:")) return null;
   const at = line.indexOf(": ");
   if (at === -1) return null;
-  const lines = text.replace(/^﻿/, "").replaceAll("\r\n", "\n").split("\n");
+  const lines = text.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n").split("\n");
   if (lines[0] !== "---") return null;
   const end = lines.findIndex((l, i) => i > 0 && l === "---");
   if (end === -1) return null;

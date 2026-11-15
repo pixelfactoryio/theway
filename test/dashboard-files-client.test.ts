@@ -9,7 +9,7 @@ import {
   parseFilesQuery,
   previewText,
   type PromptRow,
-  useText,
+  describeUse,
 } from "../src/dashboard/client/lib/files";
 import { drawWorkflow, findPrompt, fitScale, isDefaultWorkflow, keyLabel, percent, selectionOf, zoomStep } from "../src/dashboard/client/lib/workflow";
 
@@ -48,9 +48,9 @@ test("the tables' address keeps q and one kind; both or none checked is no kind"
 test("labels and uses read as the tables and panels write them", () => {
   const label = (k: string) => (k === "-p" ? "tower" : k);
   expect([appliesTo(null, label), appliesTo("-p", label)]).toEqual(["All projects", "tower only"]);
-  expect(useText({ workflow: "agents", project: null, step: 2, as: "step" }, label)).toBe("agents · step 2");
-  expect(useText({ workflow: "agents", project: "-p", step: 1, as: "on-fail" }, label)).toBe("agents · tower · on-fail of step 1");
-  expect(useText({ workflow: "w", project: null, step: 3, as: "value" }, label)).toBe("w · value in step 3");
+  expect(describeUse({ workflow: "agents", project: null, step: 2, as: "step" }, label)).toBe("agents · step 2");
+  expect(describeUse({ workflow: "agents", project: "-p", step: 1, as: "on-fail" }, label)).toBe("agents · tower · on-fail of step 1");
+  expect(describeUse({ workflow: "w", project: null, step: 3, as: "value" }, label)).toBe("w · value in step 3");
 });
 
 test("the preview is the text after the header, without a BOM or CRLF; the separator follows the first line break", () => {

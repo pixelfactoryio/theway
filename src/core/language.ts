@@ -138,7 +138,7 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
  * `---` line (`-1` when the file has no fenced header).
  */
 function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
-  const text = raw.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   const lines = text.split("\n");
   const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---";
   const end = fence(lines[0]) ? lines.findIndex((l, i) => i > 0 && fence(l)) : -1;

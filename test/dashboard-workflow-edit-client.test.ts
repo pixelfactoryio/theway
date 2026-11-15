@@ -88,8 +88,13 @@ steps:
 /** Every comment of a text. */
 const commentsOf = (text: string): string[] => [...text.matchAll(/(?:^|\s)(#.*)$/gm)].map((m) => (m[1] as string).trim());
 
+/** A parsed YAML value, read by key or index at any depth. */
+interface Value {
+  [key: string]: Value;
+}
+
 /** The parsed value of a text. */
-const value = (text: string) => parse(text) as Record<string, any>;
+const value = (text: string) => parse(text) as Value;
 
 /** Asserts that every comment of `from` is in `to`, except `gone`. */
 function keepsComments(from: string, to: string, gone: string[] = []) {
@@ -146,7 +151,7 @@ test("steps: [] and a file with no steps take the first step in a block list", (
 
 test("moving a step carries its comments; the comment above the first step stays at the top of the list", () => {
   const down = moveStep(SOURCE, 0, 1);
-  expect(value(down).steps.map((s: { uses: string }) => s.uses)).toEqual(["prompts/review.md", "prompts/implement.md", "prompts/plain.md"]);
+  expect(Object.values(value(down).steps).map((s) => s.uses)).toEqual(["prompts/review.md", "prompts/implement.md", "prompts/plain.md"]);
   keepsComments(SOURCE, down);
   const lines = down.split("\n");
   // The list's comment stays first; the second step's comment moved up with it; trailing comments moved with their step.

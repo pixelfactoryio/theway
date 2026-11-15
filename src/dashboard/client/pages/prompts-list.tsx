@@ -31,7 +31,7 @@ import {
   type PromptRow,
   rowId,
   type Use,
-  useText,
+  describeUse,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/pages/changes-list"
 import { NewFileButton } from "@/components/new-file"
@@ -103,7 +103,7 @@ function UsedByCell({ row }: { row: PromptRow }) {
             <ul className="flex flex-col gap-2 text-sm">
               {row.usedBy.map((use, i) => (
                 <li key={i}>
-                  <UseLink use={use}>{useText(use, label)}</UseLink>
+                  <UseLink use={use}>{describeUse(use, label)}</UseLink>
                 </li>
               ))}
             </ul>
