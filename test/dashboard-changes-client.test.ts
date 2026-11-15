@@ -41,7 +41,7 @@ const c = (
   status,
   done,
   total,
-  issues: status === "invalid" ? ["version: must be theway.change/v1beta"] : [],
+  issues: status === "invalid" ? ["version: must be theway.change/v1beta1"] : [],
   updated,
 })
 

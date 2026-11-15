@@ -63,7 +63,7 @@ const FIX = prompt("fix", [
 
 /** A workflow with comments, blank lines, a `>-` scalar, an unknown key on a step and on the workflow. */
 const SOURCE = `# The workflow
-version: theway.workflow/v1beta # the version
+version: theway.workflow/v1beta1 # the version
 description: >-
   Implement and
   review
@@ -152,14 +152,14 @@ test("a new step is uses then with, the required inputs in declaration order, an
 })
 
 test("steps: [] and a file with no steps take the first step in a block list", () => {
-  const empty = addStep("version: theway.workflow/v1beta\nsteps: []\n", 0, PLAIN)
-  expect(empty).toBe("version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n")
-  const none = addStep("version: theway.workflow/v1beta\n", 0, REVIEW)
+  const empty = addStep("version: theway.workflow/v1beta1\nsteps: []\n", 0, PLAIN)
+  expect(empty).toBe("version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n")
+  const none = addStep("version: theway.workflow/v1beta1\n", 0, REVIEW)
   expect(value(none)).toEqual({
-    version: "theway.workflow/v1beta",
+    version: "theway.workflow/v1beta1",
     steps: [{ uses: "prompts/review.md", with: { lens: "" } }],
   })
-  const nulled = addStep("version: theway.workflow/v1beta\nsteps:\n", 0, PLAIN)
+  const nulled = addStep("version: theway.workflow/v1beta1\nsteps:\n", 0, PLAIN)
   expect(value(nulled).steps).toEqual([{ uses: "prompts/plain.md" }])
 })
 
@@ -191,9 +191,9 @@ test("removing a step removes its comments; the comment above the first stays; t
   const first = removeStep(SOURCE, 0)
   keepsComments(SOURCE, first, ["# first trailing", "# notes comment"])
   expect(first).toContain("# above the first")
-  let text = "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n"
+  let text = "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n"
   text = removeStep(text, 0)
-  expect(text).toBe("version: theway.workflow/v1beta\nsteps: []\n")
+  expect(text).toBe("version: theway.workflow/v1beta1\nsteps: []\n")
   expect(value(text).steps).toEqual([])
 })
 
@@ -241,19 +241,19 @@ test("with values: set in place keeping comments, an empty optional value remove
   expect(value(text).steps[0]).toEqual({ uses: "prompts/implement.md" })
   // A null with is filled with a block map; a with that is not a map is never written.
   const nulled = setStepWith(
-    "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/review.md\n    with:\n",
+    "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/review.md\n    with:\n",
     0,
     "lens",
     "x",
     true,
   )
   expect(nulled).toBe(
-    "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/review.md\n    with:\n      lens: x\n",
+    "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/review.md\n    with:\n      lens: x\n",
   )
-  const list = "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/review.md\n    with: [a]\n"
+  const list = "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/review.md\n    with: [a]\n"
   expect(setStepWith(list, 0, "lens", "x", true)).toBe(list)
   // A number value turned into a numeric-looking string reads back as a string.
-  const numeric = setStepWith("version: theway.workflow/v1beta\nsteps:\n  - with:\n      n: 3\n", 0, "n", "4", true)
+  const numeric = setStepWith("version: theway.workflow/v1beta1\nsteps:\n  - with:\n      n: 3\n", 0, "n", "4", true)
   expect(value(numeric).steps[0].with.n).toBe("4")
 })
 
@@ -266,9 +266,9 @@ test("matrix: on writes item: null, off removes it; values keep the list's node 
   const flow = setMatrixValues(SOURCE, 1, ["x", "y", "z"])
   expect(flow).toContain("      lens: [x, y, z]\n")
   // Block list: block kept.
-  const block = "version: theway.workflow/v1beta\nsteps:\n  - matrix:\n      k:\n        - a\n        - b\n"
+  const block = "version: theway.workflow/v1beta1\nsteps:\n  - matrix:\n      k:\n        - a\n        - b\n"
   expect(setMatrixValues(block, 0, ["c"])).toBe(
-    "version: theway.workflow/v1beta\nsteps:\n  - matrix:\n      k:\n        - c\n",
+    "version: theway.workflow/v1beta1\nsteps:\n  - matrix:\n      k:\n        - c\n",
   )
   // A key holding no list gets a flow list; no value writes null.
   const fresh = setMatrixValues(on, 0, ["p", "q"])
@@ -276,10 +276,10 @@ test("matrix: on writes item: null, off removes it; values keep the list's node 
   expect(setMatrixValues(flow, 1, [])).toContain("      lens: null\n")
   // Rename in place: the key keeps its place and comments.
   const renamed = renameMatrixKey(block, 0, "lens")
-  expect(renamed).toBe("version: theway.workflow/v1beta\nsteps:\n  - matrix:\n      lens:\n        - a\n        - b\n")
+  expect(renamed).toBe("version: theway.workflow/v1beta1\nsteps:\n  - matrix:\n      lens:\n        - a\n        - b\n")
   expect(renameMatrixKey(block, 0, "")).toBe(block)
   // A matrix the form cannot show is never written.
-  const other = "version: theway.workflow/v1beta\nsteps:\n  - matrix: {a: [x], b: [y]}\n"
+  const other = "version: theway.workflow/v1beta1\nsteps:\n  - matrix: {a: [x], b: [y]}\n"
   expect(setMatrixValues(other, 0, ["z"])).toBe(other)
   expect(matrixLines("  a \n\n b\r\n  \n")).toEqual(["a", "b"])
 })
@@ -299,7 +299,7 @@ test("on-fail: a string or a block map of uses then with; a map keeps its keys; 
   expect(value(replaced).steps[1].tries).toBe(2)
   // An existing map keeps its keys and gets its uses; Change rule on its with.
   const map =
-    "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    on-fail:\n      uses: prompts/fix.md\n      model: opus # m\n      with:\n        why: because\n        how: so\n    tries: 3\n"
+    "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n    on-fail:\n      uses: prompts/fix.md\n      model: opus # m\n      with:\n        why: because\n        how: so\n    tries: 3\n"
   const changed = setOnFail(
     map,
     0,
@@ -347,7 +347,7 @@ test("tries: an integer from 1 to 10 keeps its node; null removes it", () => {
 test("tries: any number shows as written; a value of another kind cannot be shown", () => {
   const triesOf = (raw: string) => {
     const f = stepForm(
-      `version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: ${raw}\n`,
+      `version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n    tries: ${raw}\n`,
       0,
       [PLAIN],
       null,
@@ -366,9 +366,9 @@ test("tries: any number shows as written; a value of another kind cannot be show
 })
 
 test("tries: a whole number from 1 to 10 replaces an out-of-range one; others write nothing", () => {
-  const over = "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: 12 # many\n"
+  const over = "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n    tries: 12 # many\n"
   expect(setTries(over, 0, 3)).toBe(
-    "version: theway.workflow/v1beta\nsteps:\n  - uses: prompts/plain.md\n    tries: 3 # many\n",
+    "version: theway.workflow/v1beta1\nsteps:\n  - uses: prompts/plain.md\n    tries: 3 # many\n",
   )
   expect(setTries(over, 0, 11)).toBe(over)
   expect(setTries(over, 0, 2.5)).toBe(over)
@@ -417,7 +417,7 @@ test("inputs: add input, input2…; rename in place; required removes default; d
   t = removeInput(removeInput(removeInput(t, "input"), "input2"), "change")
   expect(value(t).inputs).toBeUndefined()
   // A null inputs or declaration is filled; another value is never written.
-  expect(value(addInput("version: theway.workflow/v1beta\ninputs:\n")).inputs).toEqual({ input: { description: "" } })
+  expect(value(addInput("version: theway.workflow/v1beta1\ninputs:\n")).inputs).toEqual({ input: { description: "" } })
   expect(value(setInputField("inputs:\n  a:\n", "a", "description", "d")).inputs).toEqual({ a: { description: "d" } })
   const odd = "inputs: [a]\n"
   expect(addInput(odd)).toBe(odd)
@@ -450,7 +450,7 @@ test("the step form reads each key, and marks what its controls cannot show", ()
   expect(f.onFail).toMatchObject({ value: "fix", model: null })
   expect(f.tries).toBe(2)
   const odd =
-    "version: theway.workflow/v1beta\nsteps:\n  - 42\n  - uses: {a: 1}\n    runs-on: nowhere\n    with:\n      a: {b: c}\n      n: 3\n    matrix: {a: [x], b: [y]}\n    tries: 0\n"
+    "version: theway.workflow/v1beta1\nsteps:\n  - 42\n  - uses: {a: 1}\n    runs-on: nowhere\n    with:\n      a: {b: c}\n      n: 3\n    matrix: {a: [x], b: [y]}\n    tries: 0\n"
   expect(stepForm(odd, 0, prompts, null)).toEqual({ valid: false })
   const g = stepForm(odd, 1, prompts, null)
   if (g === null || !g.valid) throw new Error("no form")
@@ -522,7 +522,7 @@ test("every row of the error table places its line", () => {
     ["inputs.change: unknown key x", { panel: "workflow", field: "inputs.change" }],
     ["inputs: must be a map of input name to its declaration", { panel: "workflow", field: "alert" }],
     ["steps: must be a non-empty list", { panel: "workflow", field: "alert" }],
-    ["version: must be theway.workflow/v1beta", { panel: "workflow", field: "alert" }],
+    ["version: must be theway.workflow/v1beta1", { panel: "workflow", field: "alert" }],
     ["prompts/review.md: model: must be one of opus, sonnet, haiku", { panel: "none" }],
     ["something else entirely", { panel: "workflow", field: "alert" }],
   ]

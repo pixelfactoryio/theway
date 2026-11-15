@@ -1,4 +1,4 @@
-version: theway.workflow/v1beta
+version: theway.workflow/v1beta1
 description: The tasks done inline in your session, on the working tree, nothing committed
 default: true
 inputs:

@@ -19,7 +19,7 @@ import {
 } from "yaml"
 import { escaped, parseYaml, yamlErrorLine } from "./text"
 
-export const CHANGE_VERSION = "theway.change/v1beta"
+export const CHANGE_VERSION = "theway.change/v1beta1"
 export const CHANGE_FILE = "change.yaml"
 
 export const ROOT_KEYS = ["version", "description", "tasks"]

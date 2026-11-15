@@ -84,7 +84,7 @@ test("the preview is the text after the header, without a BOM or CRLF; the separ
 })
 
 const WORKFLOW = `# The workflow
-version: theway.workflow/v1beta # a comment
+version: theway.workflow/v1beta1 # a comment
 description: Implement and review
 runs-on: agents
 inputs:
@@ -166,7 +166,7 @@ test("lines go to their card, steps[N] being 0-based; the workflow's own lines t
 
 test("a workflow that does not resolve is still drawn, malformed shapes as the spec says", () => {
   const text = [
-    "version: theway.workflow/v1beta",
+    "version: theway.workflow/v1beta1",
     "inputs: [a]",
     "runs-on: nowhere",
     "steps:",
@@ -202,12 +202,12 @@ test("a workflow that does not resolve is still drawn, malformed shapes as the s
   expect(two).toMatchObject({ matrix: "matrix", badge: null })
   expect(two?.onFail).toMatchObject({ name: "{model: opus}", code: true })
   // steps missing or empty: the Inputs card alone.
-  const bare = drawWorkflow("version: theway.workflow/v1beta\nsteps: []\n", [], PROMPTS, null)
+  const bare = drawWorkflow("version: theway.workflow/v1beta1\nsteps: []\n", [], PROMPTS, null)
   expect("drawing" in bare && bare.drawing.steps).toEqual([])
   // `steps:` with no value parses as a null scalar: the Inputs card alone too.
   for (const empty of ["steps:\n", "steps: ~\n", "steps: null\n"]) {
     const r = drawWorkflow(
-      `version: theway.workflow/v1beta\n${empty}`,
+      `version: theway.workflow/v1beta1\n${empty}`,
       ["steps: must be a non-empty list"],
       PROMPTS,
       null,
@@ -217,10 +217,10 @@ test("a workflow that does not resolve is still drawn, malformed shapes as the s
 })
 
 test("a file is the default from its text, whatever its steps", () => {
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: true\nsteps: 5\n")).toBe(true)
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: false\nsteps: []\n")).toBe(false)
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: true\nsteps: 5\n")).toBe(true)
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: false\nsteps: []\n")).toBe(false)
   expect(isDefaultWorkflow("version: theway.workflow/v1\ndefault: true\n")).toBe(false)
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta\ndefault: true\nsteps: [\n")).toBe(false)
+  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: true\nsteps: [\n")).toBe(false)
   expect(isDefaultWorkflow("- a\n")).toBe(false)
 })
 
@@ -228,9 +228,9 @@ test("a file that cannot be drawn gives its first line as the reason", () => {
   expect(drawWorkflow("steps: [\n  - a\n", ["invalid YAML: bad"], PROMPTS, null)).toEqual({
     reason: "invalid YAML: bad",
   })
-  expect(drawWorkflow("- a\n", [], PROMPTS, null)).toEqual({ reason: "version: must be theway.workflow/v1beta" })
+  expect(drawWorkflow("- a\n", [], PROMPTS, null)).toEqual({ reason: "version: must be theway.workflow/v1beta1" })
   expect(drawWorkflow("version: theway.workflow/v1\n", ["version: x"], PROMPTS, null)).toEqual({ reason: "version: x" })
-  expect(drawWorkflow("version: theway.workflow/v1beta\nsteps: {a: 1}\n", [], PROMPTS, null)).toEqual({
+  expect(drawWorkflow("version: theway.workflow/v1beta1\nsteps: {a: 1}\n", [], PROMPTS, null)).toEqual({
     reason: "steps: must be a non-empty list",
   })
 })

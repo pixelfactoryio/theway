@@ -173,7 +173,7 @@ test("install with a custom home writes the pointer, leaves no ~/.theway and nam
 
   put(
     join(env.theway, "projects", "proj", "changes", "add-x", "change.yaml"),
-    "version: theway.change/v1beta\ndescription: d\ntasks:\n  - text: a\n    done: true\n  - text: b\n",
+    "version: theway.change/v1beta1\ndescription: d\ntasks:\n  - text: a\n    done: true\n  - text: b\n",
   )
   const path = runInstalled(env, "path", "--verbose")
   expect(path.stdout).toBe(`${env.theway}\n`)
@@ -824,7 +824,7 @@ test("install counts the active changes of every project that still use tasks.md
   put(join(projects, "a", "changes", "add-x", "tasks.md"), "# Tasks\n")
   put(join(projects, "b", "changes", "add-y", "tasks.md"), "# Tasks\n")
   put(join(projects, "b", "changes", "add-z", "tasks.md"), "# Tasks\n")
-  put(join(projects, "b", "changes", "add-z", "change.yaml"), "version: theway.change/v1beta\n")
+  put(join(projects, "b", "changes", "add-z", "change.yaml"), "version: theway.change/v1beta1\n")
   put(join(projects, "b", "changes", "archive", "2026-01-01-add-w", "tasks.md"), "# Tasks\n")
   expect(run(env, "install").stdout).toContain(line(2))
   rmSync(join(projects, "b", "changes", "add-y"), { recursive: true })
@@ -876,6 +876,20 @@ test("install keeps an edited develop.yaml with develop.default.yaml next to it,
   writeFileSync(join(env.theway, WF), shipped(WF))
   expect(run(env, "install").status).toBe(0)
   expect(existsSync(join(env.theway, WF_DEFAULT))).toBe(false)
+})
+
+test("install keeps an edited workflow of another version and says it is not the current version", () => {
+  const env = setup()
+  expect(run(env, "install").status).toBe(0)
+  const edited = shipped(WF).replace("version: theway.workflow/v1beta1", "version: theway.workflow/v1beta")
+  put(join(env.theway, WF), edited)
+  const res = run(env, "install")
+  expect(res.status).toBe(0)
+  expect(res.stdout).toContain(
+    `Kept your edited ${WF} (shipped version: ${WF_DEFAULT})\n` +
+      `${WF} is not a theway.workflow/v1beta1 file, so theway does not read it: rewrite it from ${WF_DEFAULT}\n`,
+  )
+  expect(readFileSync(join(env.theway, WF), "utf-8")).toBe(edited)
 })
 
 test("install keeps a user workflow and prompt with a shipped name, and removes an unedited one theway stops shipping", () => {
@@ -1104,7 +1118,7 @@ test("install over the previous layout removes the unedited step files, schemas 
     expect(existsSync(join(env.theway, rel))).toBe(false)
   }
   for (const dir of ["steps", "schemas"]) expect(existsSync(join(env.theway, dir))).toBe(false)
-  // The unedited v1 agents workflow is replaced by the v1beta one.
+  // The unedited v1 agents workflow is replaced by the v1beta1 one.
   expect(readFileSync(join(env.theway, "workflows", "agents.yaml"), "utf-8")).toBe(shipped("workflows/agents.yaml"))
   expect(existsSync(join(env.theway, "workflows", "agents.default.yaml"))).toBe(false)
   expect(
@@ -1141,7 +1155,7 @@ test("install over the previous layout keeps an edited or user step file and an 
   expect(readdirSync(join(env.theway, "schemas")).sort()).toEqual(["notes.txt", "step.v1.json"])
 })
 
-test("install over the previous layout keeps an edited v1 agents workflow with the v1beta one next to it", () => {
+test("install over the previous layout keeps an edited v1 agents workflow with the v1beta1 one next to it", () => {
   const env = setup()
   previousLayout(env)
   const edited = `${V1_AGENTS}  - mine:\n`
@@ -1149,7 +1163,7 @@ test("install over the previous layout keeps an edited v1 agents workflow with t
   const res = run(env, "install")
   expect(res.stdout).toContain(
     "Kept your edited workflows/agents.yaml (shipped version: workflows/agents.default.yaml)\n" +
-      "workflows/agents.yaml is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/agents.default.yaml\n",
+      "workflows/agents.yaml is not a theway.workflow/v1beta1 file, so theway does not read it: rewrite it from workflows/agents.default.yaml\n",
   )
   expect(readFileSync(join(env.theway, "workflows", "agents.yaml"), "utf-8")).toBe(edited)
   expect(readFileSync(join(env.theway, "workflows", "agents.default.yaml"), "utf-8")).toBe(
@@ -1160,7 +1174,7 @@ test("install over the previous layout keeps an edited v1 agents workflow with t
 test("install says when a kept edited prompt has no header while the shipped one has", () => {
   const env = setup()
   expect(run(env, "install").status).toBe(0)
-  // An edited v1 prompt still shipped under its name, and an edited v1beta workflow and prompt that still work.
+  // An edited v1 prompt still shipped under its name, and an edited v1beta1 workflow and prompt that still work.
   const v1Triage = "# Triage\n\nJudge the findings.\n"
   put(join(env.theway, "prompts", "triage.md"), v1Triage)
   put(join(env.theway, "prompts", "ci.md"), `${shipped("prompts/ci.md")}\nMine.\n`)
@@ -1180,7 +1194,7 @@ test("install says when a kept edited prompt has no header while the shipped one
     "Kept your edited workflows/develop.yaml (shipped version: workflows/develop.default.yaml)\n",
   )
   expect(res.stdout).not.toContain("prompts/ci.md has no header")
-  expect(res.stdout).not.toContain("workflows/develop.yaml is a theway.workflow/v1 file")
+  expect(res.stdout).not.toContain("workflows/develop.yaml is not a theway.workflow/v1beta1 file")
 })
 
 test("install keeps each project's steps/ files with a line, removes nothing there, and removes an empty one", () => {

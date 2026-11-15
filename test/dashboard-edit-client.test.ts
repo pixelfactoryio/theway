@@ -52,7 +52,7 @@ test("times show as YYYY-MM-DD HH:MM:SS in the local time zone", () => {
 
 test("an Empty file is exactly its four lines, its description reading back as typed", () => {
   expect(emptyText("workflows", "Ship it")).toBe(
-    "version: theway.workflow/v1beta\ndescription: Ship it\nruns-on: agents\nsteps: []\n",
+    "version: theway.workflow/v1beta1\ndescription: Ship it\nruns-on: agents\nsteps: []\n",
   )
   expect(emptyText("prompts", "Review it")).toBe("---\ndescription: Review it\nmodel: opus\n---\n")
   for (const d of ["a: b", "#x", "yes", "  padded ", 'quote\'s "two"', "123", "- dash", "x".repeat(200)]) {

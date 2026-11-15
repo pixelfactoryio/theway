@@ -43,7 +43,7 @@ Do \${{ inputs.change }}
 
 const REVIEW = "---\ndescription: Review it\n---\nReview.\n"
 
-const AGENTS = `version: theway.workflow/v1beta
+const AGENTS = `version: theway.workflow/v1beta1
 description: Implement then review
 runs-on: agents
 inputs:
@@ -86,7 +86,7 @@ test("GET /api/workflows lists the global files and each project's own, a global
   )
   put(
     join(h, "workflows", "broken.yaml"),
-    "version: theway.workflow/v1beta\ndescription: Broken\nruns-on: agents\nsteps:\n  - uses: prompts/missing.md\n",
+    "version: theway.workflow/v1beta1\ndescription: Broken\nruns-on: agents\nsteps:\n  - uses: prompts/missing.md\n",
   )
   const { status, body } = await get(h, "/api/workflows")
   expect(status).toBe(200)
@@ -143,7 +143,7 @@ test("a workflow's lines take their path's line, the nearest present ancestor's,
   put(
     join(h, "workflows", "bad.yaml"),
     [
-      "version: theway.workflow/v1beta",
+      "version: theway.workflow/v1beta1",
       "description: Bad",
       "runs-on: agents",
       "steps:",
@@ -155,7 +155,7 @@ test("a workflow's lines take their path's line, the nearest present ancestor's,
       "",
     ].join("\n"),
   )
-  put(join(h, "workflows", "unparsed.yaml"), "version: theway.workflow/v1beta\ndescription: x\nsteps: [\n  - a\n")
+  put(join(h, "workflows", "unparsed.yaml"), "version: theway.workflow/v1beta1\ndescription: x\nsteps: [\n  - a\n")
   put(join(h, "workflows", "old.yaml"), "version: nope\n")
   const bad = await get(h, "/api/workflows/global/bad")
   expect(bad.body.errors).toEqual([
@@ -177,11 +177,11 @@ test("a workflow's lines take their path's line, the nearest present ancestor's,
   expect(typeof lines[0]?.line).toBe("number")
 
   const old = await get(h, "/api/workflows/global/old")
-  expect(old.body.errors).toEqual([{ text: "version: must be theway.workflow/v1beta", line: null }])
+  expect(old.body.errors).toEqual([{ text: "version: must be theway.workflow/v1beta1", line: null }])
   // A root key absent from the file: no line.
   put(
     join(h, "workflows", "bare.yaml"),
-    "version: theway.workflow/v1beta\nruns-on: agents\nsteps:\n  - uses: prompts/review.md\n    model: opus\n",
+    "version: theway.workflow/v1beta1\nruns-on: agents\nsteps:\n  - uses: prompts/review.md\n    model: opus\n",
   )
   const bare = await get(h, "/api/workflows/global/bare")
   expect(bare.body.errors).toEqual([{ text: "description: must be a non-empty string", line: null }])
@@ -200,7 +200,7 @@ test("GET /api/prompts gives the header, the deduplicated lines and the uses; a 
   put(
     join(h, "workflows", "uses.yaml"),
     [
-      "version: theway.workflow/v1beta",
+      "version: theway.workflow/v1beta1",
       "description: Uses",
       "runs-on: session",
       "steps:",
@@ -218,13 +218,13 @@ test("GET /api/prompts gives the header, the deduplicated lines and the uses; a 
       "",
     ].join("\n"),
   )
-  // Neither a v1beta map with a steps list: contributes nothing.
+  // Neither a v1beta1 map with a steps list: contributes nothing.
   put(join(h, "workflows", "other.yaml"), "version: theway.workflow/v1\nsteps:\n  - uses: prompts/notes.md\n")
-  put(join(h, "workflows", "nolist.yaml"), "version: theway.workflow/v1beta\nsteps:\n  uses: prompts/notes.md\n")
+  put(join(h, "workflows", "nolist.yaml"), "version: theway.workflow/v1beta1\nsteps:\n  uses: prompts/notes.md\n")
   // A project's workflow counts for the global prompt when the project has none of that name.
   put(
     join(h, "projects", KEY, "workflows", "uses.yaml"),
-    "version: theway.workflow/v1beta\ndescription: P\nruns-on: session\nsteps:\n  - uses: prompts/review.md\n",
+    "version: theway.workflow/v1beta1\ndescription: P\nruns-on: session\nsteps:\n  - uses: prompts/review.md\n",
   )
 
   const { status, body } = await get(h, "/api/prompts")
@@ -300,7 +300,7 @@ test("a prompt's file route gives its lines on the whole file's lines, and its u
   put(join(h, "prompts", "bad.md"), text)
   put(
     join(h, "workflows", "w.yaml"),
-    "version: theway.workflow/v1beta\ndescription: W\nruns-on: session\nsteps:\n  - uses: prompts/bad.md\n",
+    "version: theway.workflow/v1beta1\ndescription: W\nruns-on: session\nsteps:\n  - uses: prompts/bad.md\n",
   )
   const { status, body } = await get(h, "/api/prompts/global/bad")
   expect(status).toBe(200)
@@ -321,7 +321,7 @@ test("a prompt's file route gives its lines on the whole file's lines, and its u
   put(join(h, "prompts", "plain.md"), "Plain\n")
   put(
     join(h, "workflows", "w.yaml"),
-    "version: theway.workflow/v1beta\ndescription: W\nruns-on: session\nsteps:\n  - uses: prompts/plain.md\n",
+    "version: theway.workflow/v1beta1\ndescription: W\nruns-on: session\nsteps:\n  - uses: prompts/plain.md\n",
   )
   const plain = await get(h, "/api/prompts/global/plain")
   expect(plain.body.errors).toEqual([

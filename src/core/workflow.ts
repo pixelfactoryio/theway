@@ -32,7 +32,7 @@ export const markedPath = (key: string | null, w: { name: string; scope: "projec
   w.scope === "project" && key !== null ? `projects/${key}/workflows/${w.name}.yaml` : `workflows/${w.name}.yaml`
 
 /**
- * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta` file of the project and the
+ * The name of the workflow a run without a name uses: the one `theway.workflow/v1beta1` file of the project and the
  * home (a project file hiding the global one) that sets `default: true`; or the lines that refuse: the v1 error of each
  * v1 file when none sets it and v1 files are left, else that none sets it, or that several do.
  */
@@ -86,7 +86,7 @@ export function compactWorkflow(doc: ResolvedWorkflow) {
 }
 
 /**
- * `theway workflow [<name>] [--project <key>] [--input <name>=<value>]… [--compact]`: one `theway.workflow/v1beta` workflow,
+ * `theway workflow [<name>] [--project <key>] [--input <name>=<value>]… [--compact]`: one `theway.workflow/v1beta1` workflow,
  * checked and resolved, as JSON; the one that sets `default: true` when no name is given. `--compact` prints it without
  * its prompt text (`compactWorkflow`).
  */

@@ -26,7 +26,7 @@ afterEach(() => {
   for (const d of temps.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
-const YAML = "version: theway.change/v1beta\ndescription: Do it\ntasks:\n  - text: one\n"
+const YAML = "version: theway.change/v1beta1\ndescription: Do it\ntasks:\n  - text: one\n"
 const SPEC = "# Spec\n\n- [ ] works\n"
 
 /** A temporary home with the project `-p`, its active change `add-a` and the archived `2026-01-01-add-b`. */

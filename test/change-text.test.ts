@@ -49,10 +49,10 @@ test("parseYaml and escaped live in text.ts and are still exported by language.t
   expect(language.parseYaml).toBe(text.parseYaml)
   expect(io.escaped).toBe(text.escaped)
   const change = await import("../src/core/change")
-  expect([change.CHANGE_VERSION, change.CHANGE_FILE]).toEqual(["theway.change/v1beta", "change.yaml"])
+  expect([change.CHANGE_VERSION, change.CHANGE_FILE]).toEqual(["theway.change/v1beta1", "change.yaml"])
 })
 
-const v = "version: theway.change/v1beta\n"
+const v = "version: theway.change/v1beta1\n"
 const d = "description: Do it\n"
 const t = "tasks:\n  - text: a\n"
 
@@ -96,7 +96,7 @@ test("changeTextErrors places each issue on the line of the node its path names"
   expect(lines(`${v}${d}tasks:\n  - text: a\n`)).toEqual([])
   expect(lines(`${v}${d}tasks: [\n`)).toEqual([["invalid YAML", 4]])
   expect(lines("- a\n")).toEqual([["must be a map", null]])
-  expect(lines(`version: x\n${d}${t}`)).toEqual([["version: must be theway.change/v1beta", 1]])
+  expect(lines(`version: x\n${d}${t}`)).toEqual([["version: must be theway.change/v1beta1", 1]])
   expect(lines(`${v}${d}tasks:\n  - text: a\n  - b\n`)).toEqual([["tasks[1]: must be a map", 5]])
   expect(lines(`${v}${d}tasks:\n  - text: a\n    owner: me\n`)).toEqual([["tasks[0].owner: unknown key", 5]])
   expect(lines(`${v}${d}tasks:\n  - text: a\n  - done: true\n`)).toEqual([["tasks[1].text: is required", 5]])
@@ -119,7 +119,7 @@ test("changeStatus gives the API slug of each status of an active change", () =>
 
 /** A file with comments, quoted and plain scalars and a `>-` description; its reprint differs from it. */
 const BLOCK = `# A change
-version: theway.change/v1beta
+version: theway.change/v1beta1
 description: >-
   Limit requests
   per API key
@@ -138,7 +138,7 @@ tasks:
 
 /** The same change in flow style. */
 const FLOW = `# A change
-{version: theway.change/v1beta, description: "Limit requests per API key", tasks: [{text: "Add a bucket"}, {text: 'Answer 429', done: true}, {text: Read the limit, done: false}, {text: Document it}]}
+{version: theway.change/v1beta1, description: "Limit requests per API key", tasks: [{text: "Add a bucket"}, {text: 'Answer 429', done: true}, {text: Read the limit, done: false}, {text: Document it}]}
 `
 
 const CRLF = BLOCK.replaceAll("\n", "\r\n")
