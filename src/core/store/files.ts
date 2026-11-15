@@ -16,6 +16,7 @@ import {
   StoreError,
   type WriteResult,
 } from "../store"
+import { byText } from "../text"
 
 /** The SHA-256 of `data`, as hex: a file's version. */
 export const sha256 = (data: string | Buffer): string => createHash("sha256").update(data).digest("hex")
@@ -25,8 +26,6 @@ const DATED = /^\d{4}-\d{2}-\d{2}-.+/
 
 /** The Markdown files that come first, in this order. */
 const FIRST = ["spec.md", "design.md", "notes.md"]
-
-const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 function visibleNames(dir: string): string[] {
   try {

@@ -11,13 +11,14 @@ Install Node.js 22.13 or later and bun 1.3.14, then run:
 
 ```bash
 bun install
-bun run build
 bun run typecheck
 bun run lint
 bun run format:check
-bun test
+bun run test
 claude plugin validate plugin --strict
 ```
+
+`bun run test` builds, then runs the tests. Raw `bun test` needs a prior `bun run build`: many tests load the generated dashboard assets and the built CLI.
 
 ## Repo layout
 

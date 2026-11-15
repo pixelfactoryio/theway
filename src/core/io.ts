@@ -65,6 +65,15 @@ export function isFile(path: string): boolean {
   }
 }
 
+/** The bytes of a file, `null` when it cannot be read. */
+export function readBytes(path: string): Buffer | null {
+  try {
+    return readFileSync(path)
+  } catch {
+    return null
+  }
+}
+
 /**
  * Candidate file texts the resolver reads before the disk, keyed by absolute path: a string is the file's text, `null`
  * a file taken as absent. The CLI never passes one.

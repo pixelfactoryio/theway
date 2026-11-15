@@ -5,9 +5,8 @@ import { isDir } from "../core/io"
 import { keyOf, recordedRoot } from "../core/project"
 import type { ChangeStore } from "../core/store"
 import { fileStore } from "../core/store/files"
+import { byText } from "../core/text"
 import type { Project } from "./contract"
-
-const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /** The project keys of a home, sorted: the non-hidden folders of its `projects/` whose name is a valid key. */
 export const projectKeys = (home: string): string[] => fileStore(home).projectKeys()

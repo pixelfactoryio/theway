@@ -15,6 +15,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { keyOf } from "../src/core/project"
 import { createApp } from "../src/dashboard/server"
+import { buildProgram } from "../src/program"
 
 const REPO = join(import.meta.dirname, "..")
 const CLI = join(REPO, "dist", "theway.js")
@@ -341,18 +342,18 @@ test("dashboard whose derived key is claimed by another root warns and has no st
   expect(await exited).toBe(0)
 })
 
-test("dashboard listens on 127.0.0.1 by default port 4870 and stops on SIGINT", async () => {
-  const run = start(temp())
+test("dashboard defaults to port 4870", () => {
+  const dashboard = buildProgram().commands.find((c) => c.name() === "dashboard")
+  const port = dashboard?.options.find((o) => o.long === "--port")
+  expect(port?.defaultValue).toBe(4870)
+})
+
+test("dashboard on --port 0 stops on SIGINT with exit 0", async () => {
+  const run = start(temp(), "--port", "0")
   await run.ready
-  if (run.out() !== "") {
-    expect(run.out()).toBe("theway dashboard: http://127.0.0.1:4870/\n")
-    run.child.kill("SIGINT")
-    expect(await run.exited).toBe(0)
-  } else {
-    // Another process holds 4870 on this machine: the message still names the default port.
-    expect(run.err()).toBe("theway: port 4870 is in use; pass --port <n>\n")
-    expect(await run.exited).toBe(1)
-  }
+  expect([/^theway dashboard: http:\/\/127\.0\.0\.1:\d+\/\n$/.test(run.out()), run.err()]).toEqual([true, ""])
+  run.child.kill("SIGINT")
+  expect(await run.exited).toBe(0)
 })
 
 test("dashboard rejects a port that is not an integer from 0 to 65535", () => {

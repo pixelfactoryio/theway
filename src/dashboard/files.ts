@@ -2,18 +2,17 @@
  * The home's workflow and prompt files as the dashboard reads them: `GET /api/workflows`, `GET /api/prompts` and each
  * file's route. A global file is read with the global folders only; a project's file as that project resolves it.
  */
-import { createHash } from "node:crypto"
-import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml"
-import { isFile, type Overlay } from "../core/io"
+import { isFile, type Overlay, readBytes } from "../core/io"
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language"
 import { FILE_PREFIX, NAME, PROMPT_REF, VERSION, type WorkflowFileItem } from "../core/language-schema"
 import { warnQuiet } from "../core/output"
 import { projectDir } from "../core/project"
 import type { Kind } from "../core/step-files"
-import { parseYaml, yamlErrorLine } from "../core/text"
+import { sha256 } from "../core/store/files"
+import { byText, parseYaml, yamlErrorLine } from "../core/text"
 import { joinAnd, markedPath } from "../core/workflow"
 import { tildePath } from "./changes"
 import type { CheckBody, FileBody, FileError, PromptList, PromptRow, Use, WorkflowList, WorkflowRow } from "./contract"
@@ -22,8 +21,6 @@ import { projectKeys } from "./projects"
 const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" }
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"]
-
-const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 /** Name, then a global file before a project's, then project key. */
 const byFile = (a: { name: string; project: string | null }, b: { name: string; project: string | null }): number =>
@@ -38,15 +35,6 @@ export const absPath = (home: string, kind: Kind, project: string | null, name: 
   project === null
     ? join(home, kind, `${name}${EXT[kind]}`)
     : join(projectDir(home, project), kind, `${name}${EXT[kind]}`)
-
-/** The bytes of a file, `null` when it cannot be read. */
-function readBytes(path: string): Buffer | null {
-  try {
-    return readFileSync(path)
-  } catch {
-    return null
-  }
-}
 
 /** A line without the prefix naming its own file. */
 const own = (line: string, prefix: string): string => (line.startsWith(prefix) ? line.slice(prefix.length) : line)
@@ -335,19 +323,28 @@ export function promptLine(text: string, line: string): number | null {
 /** What a file route answers: its body, or the status and error. */
 export type FileAnswer = { status: 200; body: FileBody } | { status: 404 | 500; body: { error: string } }
 
-/** The file `name` of `kind` in the global folder (`project` `null`) or in the project's own folder. */
-function readListed(home: string, kind: Kind, project: string | null, name: string): { bytes: Buffer } | FileAnswer {
+/** The answer refusing an unlisted project or an invalid name, `null` when both are valid. */
+export function refused(
+  home: string,
+  project: string | null,
+  name: string,
+): { status: 404; body: { error: string } } | null {
   if (project !== null && !projectKeys(home).includes(project))
     return { status: 404, body: { error: "unknown project" } }
   if (!NAME.test(name)) return { status: 404, body: { error: "unknown file" } }
+  return null
+}
+
+/** The file `name` of `kind` in the global folder (`project` `null`) or in the project's own folder. */
+function readListed(home: string, kind: Kind, project: string | null, name: string): { bytes: Buffer } | FileAnswer {
+  const refusal = refused(home, project, name)
+  if (refusal !== null) return refusal
   const path = absPath(home, kind, project, name)
   if (!isFile(path)) return { status: 404, body: { error: "unknown file" } }
   const bytes = readBytes(path)
   if (bytes === null) return { status: 500, body: { error: "cannot be read" } }
   return { bytes }
 }
-
-export const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex")
 
 /**
  * The check lines of the workflow `name` of `project` (`null`: global) if it held `text`, each on its line: the lines of
@@ -451,9 +448,8 @@ export function checkDraft(
   name: string,
   text: string,
 ): { status: 200; body: CheckBody } | { status: 404; body: { error: string } } {
-  if (project !== null && !projectKeys(home).includes(project))
-    return { status: 404, body: { error: "unknown project" } }
-  if (!NAME.test(name)) return { status: 404, body: { error: "unknown file" } }
+  const refusal = refused(home, project, name)
+  if (refusal !== null) return refusal
   const overlay: Overlay = new Map([[absPath(home, kind, project, name), text]])
   if (kind === "workflows") return { status: 200, body: { errors: workflowErrors(home, project, name, text, overlay) } }
   return { status: 200, body: { errors: promptErrors(home, project, name, text, overlay), ...promptHeader(text) } }
