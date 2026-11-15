@@ -47,6 +47,17 @@ afterEach(() => {
   for (const d of homes.splice(0)) rmSync(d, { recursive: true, force: true })
 })
 
+test("--version and -V print the package version", () => {
+  const dir = home()
+  const expected = JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf-8")).version
+  for (const flag of ["--version", "-V"]) {
+    const r = run(dir, flag)
+    expect(r.status).toBe(0)
+    expect(r.stdout).toBe(`${expected}\n`)
+    expect(r.stderr).toBe("")
+  }
+})
+
 /** A `change.yaml` with one task per entry of `done`, ticked when true. */
 function changeYaml(done: boolean[]): string {
   const tasks = done.map((d, i) => `  - text: task ${i + 1}\n${d ? "    done: true\n" : ""}`).join("")
