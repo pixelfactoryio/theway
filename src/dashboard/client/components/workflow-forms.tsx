@@ -652,7 +652,7 @@ function KeyText({
     }
     setTyped((t) => (t === null ? null : (value ?? "")))
     onTyped(null)
-  }, [value])
+  }, [value, onTyped])
   const err = typed === null ? null : keyError(typed, siblings)
   return (
     <Input

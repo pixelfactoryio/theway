@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
 import { type CodeLanguage, DraftStore, draftState } from "@/components/code-view"
 import { type AlertLine, ErrorStrip } from "@/components/file-page"
@@ -101,12 +101,20 @@ export function useFileDraft({
 
   const state = useSyncExternalStore(store?.subscribe ?? noop, () => store?.state ?? null)
   const doc = state?.doc
-  // A draft's text is `state.sliceDoc()` everywhere.
-  const text = useMemo(() => (state === null ? null : state.sliceDoc()), [doc])
+  const lineBreak = state?.lineBreak
+  // A draft's text is always read with the state's line break: `sliceDoc()`, or `doc.sliceString` with `lineBreak`
+  // here, so a selection-only change does not slice the text again.
+  const text = useMemo(() => (doc === undefined ? null : doc.sliceString(0, doc.length, lineBreak)), [doc, lineBreak])
   const dirty = text !== null && loaded !== null && text !== loaded.text
 
+  // A draft equal to the file shows the prompt's row again.
+  if (!dirty && details !== null) setDetails(null)
+
   const refs = useRef({ store, loaded, result, checkFailure, dirty })
-  refs.current = { store, loaded, result, checkFailure, dirty }
+  // The callbacks read the latest store, result and dirty state without being recreated.
+  useLayoutEffect(() => {
+    refs.current = { store, loaded, result, checkFailure, dirty }
+  })
   const inFlight = useRef(new Map<string, Promise<Outcome>>())
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // One save at a time: a second one would send the same base and be refused as a change on disk.
@@ -161,12 +169,7 @@ export function useFileDraft({
     const t = setTimeout(() => void runCheck(text), CHECK_DELAY)
     timer.current = t
     return () => clearTimeout(t)
-  }, [doc, runCheck])
-
-  // A draft equal to the file shows the prompt's row again.
-  useEffect(() => {
-    if (!dirty) setDetails(null)
-  }, [dirty])
+  }, [text, runCheck])
 
   const invalidate = useCallback(() => {
     for (const key of [["workflows"], ["prompts"], ["history", api], ["file", api]])

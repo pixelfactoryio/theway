@@ -13,7 +13,16 @@ import {
   XIcon,
 } from "lucide-react"
 import { cn } from "cn"
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react"
 import { Link, useLocation } from "wouter"
 
 import {
@@ -461,6 +470,22 @@ let lastId = 0
 /** A new client id of a task row. */
 const newId = (): string => `task-${++lastId}`
 
+/** The row ids of the tasks of a `change.yaml` text, for the draft's epoch. */
+type RowIds = { text: string | null; epoch: number; ids: string[] }
+
+/** Whether the open field `f` holds a text other than the draft's `tasks` and `description`, rows by `ids`. */
+function differs(
+  f: OpenField | null,
+  tasks: readonly { text: string }[],
+  description: string | null,
+  ids: readonly string[],
+): boolean {
+  if (f === null) return false
+  if (f.kind === "add" || f.kind === "below") return f.value !== ""
+  if (f.kind === "description") return f.value !== description
+  return f.value !== tasks[ids.indexOf(f.id)]?.text
+}
+
 /** The first source line of the block at the top of a reading view, 1 when none. */
 function topLine(root: HTMLElement | null): number {
   if (root === null) return 1
@@ -500,7 +525,8 @@ function ActiveChange({
 
   // Everything on the page reads the `change.yaml` draft.
   const yaml = drafts.get(CHANGE_FILE) ?? null
-  const yamlText = yaml === null ? null : yaml.store.state.sliceDoc()
+  // A string snapshot: equal by `Object.is` while the text is unchanged, so the memos below keep their values.
+  const yamlText = useSyncExternalStore(drafts.subscribe, () => drafts.text(CHANGE_FILE))
   const check = useMemo(
     () => (yamlText === null ? { issues: data.issues } : checkChangeText(yamlText)),
     [yamlText, data.issues],
@@ -519,20 +545,27 @@ function ActiveChange({
     issues: valid ? [] : check.issues,
   }
 
-  // Row ids: made when the change loads and on Reload or Discard, carried through the list actions, kept by position
-  // after any other change of the draft.
+  const [field, setField] = useState<OpenField | null>(null)
+
+  // Row ids: made when the change loads and on Reload or Discard, carried through the list actions (set by `runEdit`
+  // with the edit's text), kept by position after any other change of the draft.
   const epoch = yaml?.epoch ?? 0
-  const idsRef = useRef<{ text: string | null; epoch: number; ids: string[] } | null>(null)
-  const listAction = useRef(false)
-  if (idsRef.current === null || idsRef.current.epoch !== epoch) {
-    idsRef.current = { text: yamlText, epoch, ids: tasks.map(newId) }
-  } else if (idsRef.current.text !== yamlText) {
-    idsRef.current = { text: yamlText, epoch, ids: keptIds(idsRef.current.ids, tasks.length, newId) }
+  const [rowIds, setRowIds] = useState<RowIds>(() => ({ text: yamlText, epoch, ids: tasks.map(newId) }))
+  let ids = rowIds.ids
+  if (rowIds.epoch !== epoch || rowIds.text !== yamlText) {
+    const previous = rowIds.ids
+    const next = rowIds.epoch !== epoch ? tasks.map(newId) : keptIds(previous, tasks.length, newId)
+    setRowIds({ text: yamlText, epoch, ids: next })
+    // An open task field keeps its position; it closes when its position is gone.
+    setField((f) => {
+      if (f === null || (f.kind !== "task" && f.kind !== "below") || next.includes(f.id)) return f
+      const i = previous.indexOf(f.id)
+      return i >= 0 && i < next.length ? { ...f, id: next[i] as string } : null
+    })
+    ids = next
   }
-  const ids = idsRef.current.ids
   const rows: TaskRow[] = tasks.map((t, i) => ({ id: ids[i] as string, text: t.text, done: t.done }))
 
-  const [field, setField] = useState<OpenField | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [undoNote, setUndoNote] = useState<{ n: number; doc: Text } | null>(null)
   const [focus, setFocus] = useState<string | null>(null)
@@ -543,28 +576,13 @@ function ActiveChange({
   const scrollRoot = useRef<HTMLDivElement>(null)
 
   // A draft that does not pass the check opens the text view, which stays until "Back to the list".
-  useEffect(() => {
-    if (!valid && yaml !== null) setTextOpen(true)
-  }, [valid, yaml])
+  if (!valid && yaml !== null && !textOpen) setTextOpen(true)
 
-  // An open task field follows its task through the list actions and keeps its position after any other change;
-  // it closes when its task, or its position, is gone.
-  const prevIds = useRef<string[]>(ids)
-  useEffect(() => {
-    const previous = prevIds.current
-    prevIds.current = ids
-    const wasList = listAction.current
-    listAction.current = false
-    setField((f) => {
-      if (f === null || (f.kind !== "task" && f.kind !== "below") || ids.includes(f.id)) return f
-      if (wasList) return null
-      const i = previous.indexOf(f.id)
-      return i >= 0 && i < ids.length ? { ...f, id: ids[i] as string } : null
-    })
-  }, [ids])
-
+  // The latest field, tasks and row ids, for the event handlers.
   const live = useRef({ field, tasks, description, ids })
-  live.current = { field, tasks, description, ids }
+  useLayoutEffect(() => {
+    live.current = { field, tasks, description, ids }
+  })
 
   /** Applies an edit to the draft as one undo step; a refusal shows in the action-error notice. */
   const runEdit = (edit: ChangeEdit, nextIds?: (ids: string[]) => string[]): boolean => {
@@ -577,9 +595,11 @@ function ActiveChange({
       return false
     }
     if (r.text === text) return true
-    if (nextIds !== undefined && idsRef.current !== null) {
-      idsRef.current = { text: r.text, epoch, ids: nextIds(idsRef.current.ids) }
-      listAction.current = true
+    if (nextIds !== undefined) {
+      // An open task field follows its task through a list action; it closes when its task is gone.
+      const next = nextIds(live.current.ids)
+      setRowIds({ text: r.text, epoch, ids: next })
+      setField((f) => (f !== null && (f.kind === "task" || f.kind === "below") && !next.includes(f.id) ? null : f))
     }
     yaml.store.dispatch({
       changes: { from: 0, to: state.doc.length, insert: r.text },
@@ -652,13 +672,10 @@ function ActiveChange({
     return true
   }
 
-  /** Whether the open field holds a text other than the draft's. */
+  /** Whether the open field holds a text other than the draft's, for the event handlers. */
   const fieldDiffers = useCallback((): boolean => {
     const { field: f, tasks: t, description: d, ids: list } = live.current
-    if (f === null) return false
-    if (f.kind === "add" || f.kind === "below") return f.value !== ""
-    if (f.kind === "description") return f.value !== d
-    return f.value !== t[list.indexOf(f.id)]?.text
+    return differs(f, t, d, list)
   }, [])
 
   const actions: TaskListActions = {
@@ -771,7 +788,7 @@ function ActiveChange({
       }),
     [projectKey, data.id, anyDirty, fieldDiffers],
   )
-  const pending = anyDirty() || fieldDiffers()
+  const pending = anyDirty() || differs(field, tasks, description, ids)
   useEffect(() => {
     if (!pending) return
     const onBeforeUnload = (event: BeforeUnloadEvent) => {

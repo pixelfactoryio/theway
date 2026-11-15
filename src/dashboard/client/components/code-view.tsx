@@ -183,6 +183,16 @@ export class DraftStore {
     else this.set(this.state.update(...(specs as TransactionSpec[])).state)
   }
 
+  /** Makes `v` the mounted view the store dispatches through. */
+  attach(v: EditorView): void {
+    this.view = v
+  }
+
+  /** Forgets `v` when it is still the mounted view. */
+  detach(v: EditorView): void {
+    if (this.view === v) this.view = null
+  }
+
   /** Takes a new state (Discard, Reload, Restore): an empty undo history. */
   replace(state: EditorState): void {
     this.generation += 1
@@ -242,9 +252,9 @@ export function EditableCodeView({
         draft.set(view.state)
       },
     })
-    draft.view = v
+    draft.attach(v)
     return () => {
-      if (draft.view === v) draft.view = null
+      draft.detach(v)
       v.destroy()
     }
   }, [draft])

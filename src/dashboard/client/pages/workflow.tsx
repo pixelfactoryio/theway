@@ -291,18 +291,18 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   // After Undo, Redo, a YAML tab edit or any edit: a selected step that no longer exists is cleared, a gone on-fail
   // card selects its step.
   const kept = keptSelection(selection, drawing)
-  useEffect(() => {
-    if (!sameSelection(kept, selection)) setSelection(kept)
-  }, [kept, selection])
+  if (!sameSelection(kept, selection)) setSelection(kept)
 
   // Any change of the draft other than the picker's own choice, and leaving the Editor tab, close the picker.
   const pickerText = useRef<string | null>(null)
   useEffect(() => {
     if (picker !== null && text !== pickerText.current) setPicker(null)
   }, [text, picker])
-  useEffect(() => {
+  const [shownTab, setShownTab] = useState(tab)
+  if (tab !== shownTab) {
+    setShownTab(tab)
     if (tab !== undefined) setPicker(null)
-  }, [tab])
+  }
   const openPicker = useCallback(
     (next: Picker) => {
       pickerText.current = text
