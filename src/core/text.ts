@@ -4,6 +4,9 @@ import { parse } from "yaml"
 /** `s` with its newlines and carriage returns written as `\n` and `\r`, for an error line. */
 export const escaped = (s: string): string => s.replaceAll("\n", "\\n").replaceAll("\r", "\\r")
 
+/** Compares two strings by UTF-16 code units, as `Array.prototype.sort` does by default. */
+export const byText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+
 /** The YAML root of `text`, maps as `Map`, or the first line of the parser's error. */
 export function parseYaml(text: string): { root: unknown } | { reason: string } {
   try {

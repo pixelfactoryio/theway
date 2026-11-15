@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import {
   copyFileSync,
   existsSync,
@@ -13,6 +12,7 @@ import {
 import { removeIfEmpty, writeAtomic } from "./io"
 import { parsePromptFile } from "./language"
 import { VERSION } from "./language-schema"
+import { sha256 } from "./store/files"
 import { parseYaml } from "./text"
 
 /**
@@ -48,8 +48,6 @@ const SCHEMAS = "schemas"
 const MANIFEST = ".shipped.json"
 
 type Manifest = Record<string, string>
-
-const sha256 = (data: Buffer) => createHash("sha256").update(data).digest("hex")
 
 /** The manifest of the previous install, or undefined when it is missing, unreadable or not valid JSON. */
 export function readManifest(home: string): Manifest | undefined {

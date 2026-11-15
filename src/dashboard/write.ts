@@ -4,17 +4,15 @@
  * restored; and a file of an active change saved in place. Every path is built from a listed project key, a listed
  * change, a listed file name, a name matching `NAME` and a version id matching its pattern, never taken from the request.
  */
-import { mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs"
+import { mkdirSync, readdirSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { diffLines } from "diff"
-import { isFile, writeAtomic } from "../core/io"
-import { NAME } from "../core/language-schema"
+import { isFile, readBytes, writeAtomic } from "../core/io"
 import type { Kind } from "../core/step-files"
 import type { ChangeStore } from "../core/store"
 import { sha256 } from "../core/store/files"
 import type { Version, VersionList, VersionText } from "./contract"
-import { absPath } from "./files"
-import { projectKeys } from "./projects"
+import { absPath, refused } from "./files"
 
 /** How many versions a file keeps: the newest. */
 export const KEPT = 20
@@ -24,23 +22,6 @@ export const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-
 
 /** What a write route answers. */
 export type Answer = { status: number; body: unknown }
-
-/** The bytes of a file, `null` when it cannot be read. */
-function readBytes(path: string): Buffer | null {
-  try {
-    return readFileSync(path)
-  } catch {
-    return null
-  }
-}
-
-/** The answer refusing an unlisted project or an invalid name, `null` when both are valid. */
-function refused(home: string, project: string | null, name: string): Answer | null {
-  if (project !== null && !projectKeys(home).includes(project))
-    return { status: 404, body: { error: "unknown project" } }
-  if (!NAME.test(name)) return { status: 404, body: { error: "unknown file" } }
-  return null
-}
 
 /** The folder of a file's versions: `<home>/history/global/<kind>/<name>` or `<home>/history/projects/<key>/<kind>/<name>`. */
 const historyDir = (home: string, kind: Kind, project: string | null, name: string): string =>
