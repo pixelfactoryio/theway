@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.20.0](https://github.com/pixelfactoryio/theway/compare/v0.19.0...v0.20.0) (2026-11-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* lint and format check the code in CI and require Node.js 22.13 ([#126](https://github.com/pixelfactoryio/theway/issues/126))
+
+### Features
+
+* **dashboard:** show a page render error in its place instead of a blank dashboard ([#123](https://github.com/pixelfactoryio/theway/issues/123)) ([5946186](https://github.com/pixelfactoryio/theway/commit/59461865f6c5ed8d6965e6b9cc199889305af814))
+
+
+### Bug Fixes
+
+* answer dashboard write failures as json and print uncaught cli errors as one line ([#118](https://github.com/pixelfactoryio/theway/issues/118)) ([0e71c2b](https://github.com/pixelfactoryio/theway/commit/0e71c2bf2328301091b1b160a453cf03ea7ff073))
+* check every write target before install and uninstall change anything ([#124](https://github.com/pixelfactoryio/theway/issues/124)) ([bf8cd02](https://github.com/pixelfactoryio/theway/commit/bf8cd02e0f5edff7b55d231ddbc56199f2be86e1))
+* prefix every cli error and warning with theway and print through one output module ([#125](https://github.com/pixelfactoryio/theway/issues/125)) ([9020649](https://github.com/pixelfactoryio/theway/commit/90206492f22b0002401cd950c77e1bf1b4d41b99))
+* refuse a second repository whose project key is already claimed ([#120](https://github.com/pixelfactoryio/theway/issues/120)) ([633ed39](https://github.com/pixelfactoryio/theway/commit/633ed39b3ac46049226bbd9b03d6d1bda12dbe1e))
+
+
+### Build System
+
+* lint and format check the code in CI and require Node.js 22.13 ([#126](https://github.com/pixelfactoryio/theway/issues/126)) ([f2aead2](https://github.com/pixelfactoryio/theway/commit/f2aead298f4f33f2322c8cc1d1e5e8d026f6b780))
+
 ## [0.19.0](https://github.com/pixelfactoryio/theway/compare/v0.18.0...v0.19.0) (2026-11-14)
 
 
