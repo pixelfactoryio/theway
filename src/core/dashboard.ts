@@ -3,7 +3,7 @@ import type { Server } from "node:http"
 import { serve } from "@hono/node-server"
 import { createApp } from "../dashboard/server"
 import { thewayHome } from "./io"
-import { error, print, warning } from "./output"
+import { error, info, print, warning } from "./output"
 import { claimKey, keyOf, projectRoot } from "./project"
 
 /**
@@ -40,7 +40,7 @@ export function cmdDashboard(port: number): Promise<number> {
   const home = thewayHome()
   const start = startKey(home)
   for (const w of start.warnings) warning(w)
-  const app = createApp(home, () => bound, start.key, token)
+  const app = createApp(home, () => bound, start.key, token, info)
   return new Promise((done) => {
     let server: Server
     try {

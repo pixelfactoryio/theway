@@ -75,6 +75,60 @@ test("an unknown path gets 404 not found", async () => {
   expect(await res.json()).toEqual({ error: "not found" })
 })
 
+test("each request answered 400 or more logs one line with its undecoded path; a 2xx logs nothing", async () => {
+  const home = temp()
+  const lines: string[] = []
+  const logged = createApp(
+    home,
+    () => 4870,
+    "",
+    TOKEN,
+    (m) => lines.push(m),
+  )
+  const at = (path: string, host = "127.0.0.1:4870") =>
+    logged.request(`http://${host}${path}`, { headers: { Host: host } })
+
+  expect((await at("/api/projects")).status).toBe(200)
+  expect(lines).toEqual([])
+
+  expect((await at("/nope")).status).toBe(404)
+  expect(lines).toHaveLength(1)
+  expect(lines[0]).toMatch(/^GET \/nope 404 \d+ms$/)
+
+  lines.length = 0
+  expect((await at("/%1B[2J")).status).toBe(404)
+  expect(lines).toHaveLength(1)
+  expect(lines[0]).toMatch(/^GET \/%1B\[2J 404 \d+ms$/)
+  expect(lines[0]).not.toContain("\x1b")
+
+  lines.length = 0
+  expect((await at("/", "example.com")).status).toBe(403)
+  expect(lines).toHaveLength(1)
+  expect(lines[0]).toMatch(/^GET \/ 403 \d+ms$/)
+
+  lines.length = 0
+  const icon = await at("/favicon.ico")
+  expect(icon.status).toBe(204)
+  expect(lines).toEqual([])
+})
+
+test("an app created without log writes nothing to stderr for a 404", async () => {
+  const chunks: string[] = []
+  const write = process.stderr.write
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"))
+    return true
+  }) as typeof process.stderr.write
+  let res: Response
+  try {
+    res = await get(temp(), "/nope")
+  } finally {
+    process.stderr.write = write
+  }
+  expect(res.status).toBe(404)
+  expect(chunks).toEqual([])
+})
+
 test("the page carries the policy, its nonce, the token and the version", async () => {
   const res = await get(temp(), "/")
   expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8")
