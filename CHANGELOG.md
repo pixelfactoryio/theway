@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/pixelfactoryio/theway/compare/v0.20.0...v0.21.0) (2026-11-15)
+
+
+### Features
+
+* **cli:** add --version and -V to print the package version ([#129](https://github.com/pixelfactoryio/theway/issues/129)) ([41cf859](https://github.com/pixelfactoryio/theway/commit/41cf8593a98de87f96f97a4da7fd202cd477031b))
+
 ## [0.20.0](https://github.com/pixelfactoryio/theway/compare/v0.19.0...v0.20.0) (2026-11-15)
 
 
