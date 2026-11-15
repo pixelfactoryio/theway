@@ -1890,7 +1890,7 @@ test("v1beta: NAME, MODELS and PARAM are defined in language-schema only; schema
   expect(schema.NAME).toBe(language.NAME);
   const text = readFileSync(join(import.meta.dirname, "..", "src", "core", "schema.ts"), "utf-8");
   expect(text).not.toMatch(/export const (NAME|MODELS|PARAM)\b/);
-  expect(text).toContain('export { MODELS, NAME, PARAM } from "./language-schema";');
+  expect(text).toContain('export { MODELS, NAME, PARAM } from "./language-schema"');
   const { resolveWorkflowFile, parsePromptFile } = await import("../src/core/language");
   expect([typeof resolveWorkflowFile, typeof parsePromptFile]).toEqual(["function", "function"]);
 });

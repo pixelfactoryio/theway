@@ -21,15 +21,24 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
+/**
+ * An `import`/`export … from "…"` statement, `import type` included: its clause (a default name, `* as x`, `{ … }`)
+ * is matched by its shape, so a match never runs into the next statement, with or without `;`.
+ */
+const FROM = /^(?:import|export)\s+(?:type\s+)?(?:[\w$]+\s*,?\s*)?(?:\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})?\s*from\s+"([^"]+)"/gm;
+
+/** The module names a text imports, `import type` and re-exports included. */
+const modulesOf = (text: string): string[] => [...text.matchAll(FROM)].map((m) => m[1] as string);
+
 /** The module names a source imports, `import type` and re-exports included. */
-const importsOf = (file: string): string[] =>
-  [...readFileSync(file, "utf-8").matchAll(/^(?:import|export)\b[^;]*?\bfrom\s+"([^"]+)"/gms)].map((m) => m[1] as string);
+const importsOf = (file: string): string[] => modulesOf(readFileSync(file, "utf-8"));
 
 test("change-text imports only yaml and ./text, and neither has an import from node:", () => {
   expect(importsOf(join(CORE, "change-text.ts")).sort()).toEqual(["./text", "yaml"]);
   expect(importsOf(join(CORE, "text.ts"))).toEqual(["yaml"]);
   // `import type` lines count too.
-  expect([...'import type { A } from "node:fs";\nimport { b } from "./x";\n'.matchAll(/^(?:import|export)\b[^;]*?\bfrom\s+"([^"]+)"/gms)].map((m) => m[1])).toEqual(["node:fs", "./x"]);
+  expect(modulesOf('import type { A } from "node:fs";\nimport { b } from "./x";\n')).toEqual(["node:fs", "./x"]);
+  expect(modulesOf('import type { A } from "node:fs"\nimport { b } from "./x"\n')).toEqual(["node:fs", "./x"]);
 });
 
 test("parseYaml and escaped live in text.ts and are still exported by language.ts and io.ts", async () => {
