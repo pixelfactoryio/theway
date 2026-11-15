@@ -14,6 +14,7 @@ import { cmdStandards } from "./core/standards"
 import { cmdValidateId } from "./core/validate-id"
 import { cmdWorkflow } from "./core/workflow"
 import { install, uninstall } from "./install"
+import { version } from "../package.json" with { type: "json" }
 
 const nonEmpty = (value: string): string => {
   if (value === "") throw new InvalidArgumentError("must not be empty")
@@ -34,6 +35,7 @@ const exit = (code: number): void => {
 
 export function buildProgram(): Command {
   const program = new Command("theway")
+  program.version(version)
   program
     .command("install")
     .option("--home <path>", "", nonEmpty)
