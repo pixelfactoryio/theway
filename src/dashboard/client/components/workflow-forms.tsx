@@ -35,19 +35,10 @@ import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
 import { findPrompt } from "@/lib/workflow"
 import {
   addInput,
-  INPUT_TYPES,
   type InputKey,
-  keyError,
-  matrixLines,
-  type InputForm,
-  type MatrixForm,
-  MODELS,
-  type Place,
-  placeLine,
   removeInput,
   renameInput,
   renameMatrixKey,
-  RUNS_ON,
   setDefault,
   setInputField,
   setMatrix,
@@ -59,12 +50,22 @@ import {
   setStepWith,
   setTries,
   setWorkflowKey,
+} from "@/lib/workflow-edit"
+import {
+  INPUT_TYPES,
+  type InputForm,
+  keyError,
+  type MatrixForm,
+  matrixLines,
+  MODELS,
+  RUNS_ON,
   stepForm,
-  stepPromptNames,
   type TextValue,
   type WithForm,
   workflowForm,
-} from "@/lib/workflow-edit"
+} from "@/lib/workflow-form"
+import { type Place, placeLine } from "@/lib/workflow-place"
+import { stepPromptNames } from "@/lib/step-prompts"
 import { useLabel } from "@/shell/files"
 
 /** How an edit joins the undo history: its own step (`full`), the first keystroke of a field (`before`), or typing (`null`). */
