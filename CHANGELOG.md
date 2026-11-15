@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.22.0](https://github.com/pixelfactoryio/theway/compare/v0.21.0...v0.22.0) (2026-11-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename the schema versions to v1beta1 ([#133](https://github.com/pixelfactoryio/theway/issues/133))
+
+### Bug Fixes
+
+* rename the schema versions to v1beta1 ([#133](https://github.com/pixelfactoryio/theway/issues/133)) ([2d093c3](https://github.com/pixelfactoryio/theway/commit/2d093c3b19f5951ceed5b392b903e3e434de1dfb))
+
 ## [0.21.0](https://github.com/pixelfactoryio/theway/compare/v0.20.0...v0.21.0) (2026-11-15)
 
 
