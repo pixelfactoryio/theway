@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { checkChangeText } from "../src/core/change-text"
-import { removeIfEmpty } from "../src/core/io"
+import { removeIfEmpty, writeAtomic } from "../src/core/io"
 import { changeIdReason } from "../src/core/path"
 import { projectReason } from "../src/core/project"
 import { seriesReason, standaloneReason } from "../src/core/validate-id"
@@ -1656,6 +1656,37 @@ test("removeIfEmpty removes only an empty folder and never follows a symlink", (
   expect(removeIfEmpty(link)).toBe(false)
   expect(lstatSync(link).isSymbolicLink()).toBe(true)
   expect(existsSync(target)).toBe(true)
+})
+
+test("writeAtomic writes, replaces and sets the mode, leaving no temp file", () => {
+  const dir = home()
+  const target = join(dir, "file")
+  const tmp = `${target}.tmp-${process.pid}`
+  writeAtomic(target, "one")
+  expect(readFileSync(target, "utf-8")).toBe("one")
+  expect(existsSync(tmp)).toBe(false)
+  writeAtomic(target, "two")
+  expect(readFileSync(target, "utf-8")).toBe("two")
+  const secret = join(dir, "secret")
+  writeAtomic(secret, "s", 0o600)
+  expect(readFileSync(secret, "utf-8")).toBe("s")
+  expect(statSync(secret).mode & 0o777).toBe(0o600)
+  expect(existsSync(`${secret}.tmp-${process.pid}`)).toBe(false)
+})
+
+test("writeAtomic throws and leaves no temp file when the rename fails", () => {
+  const dir = home()
+  const target = join(dir, "folder")
+  mkdirSync(target)
+  let code: string | undefined
+  try {
+    writeAtomic(target, "x")
+  } catch (e) {
+    code = (e as NodeJS.ErrnoException).code
+  }
+  expect(code).toBe("EISDIR")
+  expect(existsSync(`${target}.tmp-${process.pid}`)).toBe(false)
+  expect(statSync(target).isDirectory()).toBe(true)
 })
 
 // ---- theway.workflow/v1beta1 ----

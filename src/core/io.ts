@@ -1,6 +1,9 @@
 import {
-  chmodSync,
+  closeSync,
+  fchmodSync,
+  fsyncSync,
   lstatSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
@@ -10,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { homedir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 
 /** Where the data home came from: `THEWAY_HOME`, the pointer file, or the default `~/.theway`. */
 export type HomeSource = "env" | "pointer" | "default"
@@ -88,21 +91,46 @@ export function isFileIn(path: string, overlay?: Overlay): boolean {
 
 /**
  * Writes `data` to `target` through a temp file in the same folder, so an interrupted write never leaves a truncated
- * target. With `mode`, the target gets that mode.
+ * target. With `mode`, the target gets that mode. The data is flushed before the rename and the folder after it, so the
+ * new content is on disk when it returns.
  */
 export function writeAtomic(target: string, data: string | Buffer, mode?: number): void {
   const tmp = `${target}.tmp-${process.pid}`
   try {
-    if (mode === undefined) {
-      writeFileSync(tmp, data)
-    } else {
-      writeFileSync(tmp, data, { mode })
+    const fd = mode === undefined ? openSync(tmp, "w") : openSync(tmp, "w", mode)
+    try {
+      writeFileSync(fd, data)
       // The umask, or a stale tmp file, may have left another mode.
-      chmodSync(tmp, mode)
+      if (mode !== undefined) fchmodSync(fd, mode)
+      fsyncSync(fd)
+    } finally {
+      closeSync(fd)
     }
     renameSync(tmp, target)
   } finally {
     rmSync(tmp, { force: true })
+  }
+  syncDir(dirname(target))
+}
+
+/** Flushes the folder's entries to disk, ignoring any error: the caller's write has already succeeded. */
+function syncDir(dir: string): void {
+  let fd: number
+  try {
+    fd = openSync(dir, "r")
+  } catch {
+    return
+  }
+  try {
+    fsyncSync(fd)
+  } catch {
+    // The rename has already replaced the file.
+  } finally {
+    try {
+      closeSync(fd)
+    } catch {
+      // Nothing left to undo.
+    }
   }
 }
 
