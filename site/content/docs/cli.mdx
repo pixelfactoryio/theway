@@ -104,7 +104,7 @@ It ends with `; nothing was removed` when it removed nothing.
 theway list
 ```
 
-Prints a header line, `theway changes — <key>`, then the active changes of the project, then the archived change folders and a summary line. An active change is one line, `  <change-id> <files> files   <done>/<total> tasks done`, the ID padded to 20 characters: `<files>` counts every regular, non-hidden file directly in the change folder, and the tasks are those of its [`change.yaml`](#change). A change whose `change.yaml` is missing or invalid shows its first error in place of the count: `invalid: not found`, `invalid: version: must be theway.change/v1beta`. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
+Prints a header line, `theway changes — <key>`, then the active changes of the project, then the archived change folders and a summary line. An active change is one line, `  <change-id> <files> files   <done>/<total> tasks done`, the ID padded to 20 characters: `<files>` counts every regular, non-hidden file directly in the change folder, and the tasks are those of its [`change.yaml`](#change). A change whose `change.yaml` is missing or invalid shows its first error in place of the count: `invalid: not found`, `invalid: version: must be theway.change/v1beta1`. Used by [`/theway:list`](./commands/list.mdx) and [`/theway:archive`](./commands/archive.mdx).
 
 A `--project` value must follow the rule of [`project`](#project), and a derived key must be at most 200 characters; otherwise it exits 1 with one line on stderr.
 
@@ -148,7 +148,7 @@ theway change <change-id>
 Validates `<home>/projects/<key>/changes/<change-id>/change.yaml`, the file that holds a change's description and its tasks:
 
 ```yaml
-version: theway.change/v1beta
+version: theway.change/v1beta1
 description: Limit requests per API key with a token bucket
 tasks:
   - text: Add a token bucket per API key, kept in memory
@@ -161,7 +161,7 @@ tasks:
 |---|---|---|
 | file | exists and is a YAML map | `not found` · `invalid YAML: <reason>` · `must be a map` |
 | any node | no anchor (`&name`) and no alias (`*name`) | `anchors and aliases are not allowed` |
-| `version` | required, exactly `theway.change/v1beta` | `must be theway.change/v1beta` |
+| `version` | required, exactly `theway.change/v1beta1` | `must be theway.change/v1beta1` |
 | `description` | required, a non-empty string on one line | `must be a non-empty string on one line` |
 | `tasks` | required, a list with at least one item | `must be a list with at least one task` |
 | `tasks[i]` | a map | `must be a map` |
@@ -453,7 +453,7 @@ Which file:
 ```json
 {
   "name": "agents",
-  "version": "theway.workflow/v1beta",
+  "version": "theway.workflow/v1beta1",
   "description": "Implement, review and open the PR through agents",
   "file": "/home/you/.theway/workflows/agents.yaml",
   "default": false,
@@ -558,7 +558,7 @@ Which file:
 A file whose `version` is `theway.workflow/v1` is no longer read:
 
 ```text
-theway: workflows/<name>.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta
+theway: workflows/<name>.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1
 ```
 
 [Moving from v1](./concepts/workflows.mdx#moving-from-v1) says what replaces each of its parts.
@@ -568,7 +568,7 @@ Every mistake of the file and of the prompts it uses is one line on stderr, `the
 ```text
 theway: invalid workflow name '<name>'
 theway: workflows/w.yaml: not found in <home>/projects/<key>/workflows or <home>/workflows
-theway: workflows/w.yaml: version: must be theway.workflow/v1beta
+theway: workflows/w.yaml: version: must be theway.workflow/v1beta1
 theway: workflows/w.yaml: steps[0].uses: prompts/nope.md not found in <home>/projects/<key>/prompts or <home>/prompts
 theway: workflows/w.yaml: steps[1].with: required input change is not set
 theway: workflows/w.yaml: steps[2].on-fail: needs tries (an integer from 1 to 10)
@@ -647,7 +647,7 @@ The Workflows page lists every workflow file of the home in one table: the globa
 
 A click on a row opens the workflow's page:
 
-- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; a workflow opens zoomed to fit (never above 100%), and the percentage button fits it again. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta` map, cannot be drawn: the tab says why and links to YAML.
+- **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; a workflow opens zoomed to fit (never above 100%), and the percentage button fits it again. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta1` map, cannot be drawn: the tab says why and links to YAML.
 - **YAML** shows the file in a code editor, each error marked on its line. Ctrl or Cmd and F searches. You can edit it: see [Editing a file](#editing-a-file).
 - **History** lists the versions the dashboard kept: see [History](#history).
 - The errors stand in a strip under the tabs; a click on one selects its card on Editor, or puts the cursor on its line on YAML.
@@ -709,7 +709,7 @@ The Workflows page's "New workflow" button and the Prompts page's "New prompt" o
 - **Name**: lowercase letters and digits, in words joined by single hyphens, not taken where the file would be written.
 - **Applies to**: All projects (the home's folder), or One project (that project's folder, created when missing). A project's file of the name of a global file replaces the global one for that project; the dialog says so.
 - **Start from**: Empty, or a copy of any file of that kind, written unchanged.
-- **Description**, for Empty only. An Empty workflow is `version: theway.workflow/v1beta`, its description, `runs-on: agents` and `steps: []`, so the page then reports that its steps are missing; an Empty prompt is a header with its description and `model: opus`, and an empty body.
+- **Description**, for Empty only. An Empty workflow is `version: theway.workflow/v1beta1`, its description, `runs-on: agents` and `steps: []`, so the page then reports that its steps are missing; an Empty prompt is a header with its description and `model: opus`, and an empty body.
 
 On Create the new file's page opens.
 

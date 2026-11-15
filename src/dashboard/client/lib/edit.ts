@@ -1,5 +1,6 @@
 /** Editing a workflow or prompt file: the page an address is on, the times shown, and a new file's text. Pure: no React, no DOM. */
 import { stringify } from "yaml"
+import { VERSION } from "../../../core/language-schema"
 
 /** The file a file page shows: its kind, its project (`null`: global) and its name. */
 export type FilePageId = { kind: "workflows" | "prompts"; project: string | null; name: string }
@@ -42,7 +43,7 @@ export const yamlValue = (value: string): string => stringify(value, { lineWidth
 /** The text an Empty new file starts with. */
 export function emptyText(kind: "workflows" | "prompts", description: string): string {
   const d = yamlValue(description)
-  if (kind === "workflows") return `version: theway.workflow/v1beta\ndescription: ${d}\nruns-on: agents\nsteps: []\n`
+  if (kind === "workflows") return `version: ${VERSION}\ndescription: ${d}\nruns-on: agents\nsteps: []\n`
   return `---\ndescription: ${d}\nmodel: opus\n---\n`
 }
 

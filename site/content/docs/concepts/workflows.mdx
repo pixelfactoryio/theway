@@ -29,7 +29,7 @@ Answer `pass` with the entry. Answer `fail` with the git error, quoted, when the
 and a workflow that uses it, `<home>/workflows/develop-changelog.yaml`:
 
 ```yaml
-version: theway.workflow/v1beta
+version: theway.workflow/v1beta1
 description: Implement a change, then add it to the changelog
 inputs:
   change:
@@ -71,7 +71,7 @@ steps:
 ## Workflow files
 
 ```yaml
-version: theway.workflow/v1beta     # required
+version: theway.workflow/v1beta1     # required
 description: One line                # required
 default: true                        # optional: the workflow a run without --workflow uses
 inputs:                              # optional
@@ -86,7 +86,7 @@ steps:                               # required, a non-empty list
       change: ${{ inputs.change }}
 ```
 
-- `version` is `theway.workflow/v1beta`.
+- `version` is `theway.workflow/v1beta1`.
 - `default: true` marks the workflow [`theway workflow`](../cli.mdx#workflow) takes without a name. Exactly one of the project's workflows and the global ones it does not replace may set it: none, or two, is an error. The shipped `develop` sets it.
 - `inputs` declares what the workflow takes, each with a `description`, `required` (default `false`), a `default` (a string, refused together with `required: true`) and a `type`: `text` (the default) or `change`, whose value must be a valid change ID.
 - `runs-on` is where every step runs unless the step sets its own.
@@ -212,9 +212,9 @@ The prompts say what each step may do: `implement` commits on the feature branch
 
 ## Moving from v1
 
-theway no longer reads `theway.workflow/v1`: such a file fails with `theway: workflows/<name>.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta`, and the other workflows keep working. Rewrite it with this table:
+theway no longer reads `theway.workflow/v1`: such a file fails with `theway: workflows/<name>.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1`, and the other workflows keep working. Rewrite it with this table:
 
-| v1 | v1beta |
+| v1 | v1beta1 |
 |---|---|
 | A step file, `steps/<name>.yaml` (`theway.step/v1`), a tree of agents | One step per agent, in the workflow file, each using a prompt with a header; install keeps your step files and says so, and theway no longer reads `steps/` |
 | `foreach` over lenses | `matrix` |

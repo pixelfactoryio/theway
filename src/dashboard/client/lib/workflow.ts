@@ -173,7 +173,7 @@ function splitLines(lines: readonly string[]): {
 
 /**
  * Whether a workflow's text sets the default, as the Workflows table reads it: its YAML parses, its root is a map, its
- * `version` is `theway.workflow/v1beta` and its `default` is `true`, whatever its `steps`.
+ * `version` is `theway.workflow/v1beta1` and its `default` is `true`, whatever its `steps`.
  */
 export function isDefaultWorkflow(text: string): boolean {
   const doc = parseDocument(text, { logLevel: "silent" })
@@ -188,7 +188,7 @@ export function isDefaultWorkflow(text: string): boolean {
 
 /**
  * The drawing of a workflow's text, or the reason it cannot be drawn: its YAML does not parse
- * (`parseDocument(text).errors` not empty), its root is not a map, its `version` is not `theway.workflow/v1beta`, or its
+ * (`parseDocument(text).errors` not empty), its root is not a map, its `version` is not `theway.workflow/v1beta1`, or its
  * `steps` is present and not a list. `lines` are the file's check lines (each without its own file's prefix); `prompts`
  * the prompts list, `project` the workflow's project (`null` for a global one).
  */

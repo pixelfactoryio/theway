@@ -30,7 +30,7 @@ best_practices:
 The change's file, `<change-dir>/change.yaml`:
 
 ```yaml
-version: theway.change/v1beta
+version: theway.change/v1beta1
 description: Limit requests per API key with a token bucket
 tasks:
   - text: Add a token bucket per API key, kept in memory
@@ -40,7 +40,7 @@ tasks:
       and `rate_limit.burst`, with the defaults the spec gives
 ```
 
-- `version`: required, exactly `theway.change/v1beta`.
+- `version`: required, exactly `theway.change/v1beta1`.
 - `description`: required, one sentence on one line saying what the change does.
 - `tasks`: required, a list of at least one task, in the order they are done. A task's number is its position in the list, counted from 1.
 - `tasks[i].text`: required, a non-empty string: the task.

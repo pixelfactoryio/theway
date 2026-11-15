@@ -32,7 +32,7 @@ function put(path: string, text: string): void {
 
 const REVIEW = "---\ndescription: Review it\nmodel: opus\n---\nReview.\n"
 const flow = (description: string, extra = "") =>
-  `version: theway.workflow/v1beta\ndescription: ${description}\nruns-on: session\n${extra}steps:\n  - uses: prompts/review.md\n`
+  `version: theway.workflow/v1beta1\ndescription: ${description}\nruns-on: session\n${extra}steps:\n  - uses: prompts/review.md\n`
 
 /** A temporary home with one project (`-p`), the global prompt `review` and the global workflow `agents`. */
 function home(): string {
@@ -165,7 +165,7 @@ test("a body that is not JSON, misses a field or has one of the wrong type gets 
 test("check gives the file route's lines for the draft and writes nothing; 404 for an unlisted project or an invalid name", async () => {
   const h = home()
   const draft =
-    "version: theway.workflow/v1beta\ndescription: Draft\nruns-on: agents\nsteps:\n  - uses: prompts/review.md\n    tries: 99\n"
+    "version: theway.workflow/v1beta1\ndescription: Draft\nruns-on: agents\nsteps:\n  - uses: prompts/review.md\n    tries: 99\n"
   const before = readFileSync(join(h, "workflows", "agents.yaml"), "utf-8")
   const checked = await call(h, "POST", "/api/check", { kind: "workflows", project: null, name: "agents", text: draft })
   // The same file on disk gives the same lines through the file route.

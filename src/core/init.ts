@@ -267,8 +267,8 @@ function versionOf(text: string): unknown {
 
 /**
  * The line that follows "Kept your edited <dir>/<name>" when the kept file will no longer work: a workflow that is not
- * `theway.workflow/v1beta`, a prompt with no header whose shipped version has one, or an `interaction.md` that still has
- * the Authority section `standards/authority.md` now holds; else null.
+ * the current version, a prompt with no header whose shipped version has one, or an `interaction.md` that still has the
+ * Authority section `standards/authority.md` now holds; else null.
  */
 function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer): string | null {
   if (
@@ -283,7 +283,7 @@ function staleKept(dir: string, name: string, current: Buffer, shipped: Buffer):
   }
   if (dir === "workflows" && versionOf(current.toString("utf-8")) !== VERSION) {
     const stem = name.slice(0, -".yaml".length)
-    return `workflows/${name} is a theway.workflow/v1 file, which theway no longer reads: rewrite it from workflows/${stem}.default.yaml`
+    return `workflows/${name} is not a ${VERSION} file, so theway does not read it: rewrite it from workflows/${stem}.default.yaml`
   }
   if (
     dir === "prompts" &&

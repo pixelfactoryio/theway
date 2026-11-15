@@ -158,7 +158,7 @@ const steps: Step[] = [
         type: 'file',
         title: 'workflows/develop-secure.yaml',
         lines: [
-          { text: 'version: theway.workflow/v1beta' },
+          { text: 'version: theway.workflow/v1beta1' },
           { text: 'description: Implement, review with a security lens, audit and open the PR' },
           { text: 'inputs:' },
           { text: '  change: {description: The change to implement, required: true, type: change}' },

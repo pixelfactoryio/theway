@@ -1,4 +1,4 @@
-version: theway.workflow/v1beta
+version: theway.workflow/v1beta1
 description: Implement, review and open the PR through agents
 inputs:
   change:

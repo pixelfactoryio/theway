@@ -24,7 +24,7 @@ function home(): string {
 const changes = (h: string): string => join(h, "projects", KEY, "changes")
 
 const yaml = (description: string, done: boolean[]): string =>
-  `version: theway.change/v1beta\ndescription: ${description}\ntasks:\n${done.map((d, i) => `  - text: Task ${i + 1}\n    done: ${d}\n`).join("")}`
+  `version: theway.change/v1beta1\ndescription: ${description}\ntasks:\n${done.map((d, i) => `  - text: Task ${i + 1}\n    done: ${d}\n`).join("")}`
 
 /** A change folder under `changes/` (or `changes/archive/`) with its `change.yaml` and Markdown files. */
 function change(h: string, name: string, changeYaml: string | null, files: Record<string, string> = {}): string {
@@ -73,7 +73,7 @@ test("GET …/changes lists the active changes by ID with their status, and the 
   expect(active[2]).toMatchObject({ status: "ready", done: 2, total: 2 })
   expect(active[3]).toMatchObject({ description: null, status: "invalid", done: 0, total: 0 })
   expect((active[3] as unknown as { issues: string[] }).issues).toEqual([
-    "version: must be theway.change/v1beta",
+    "version: must be theway.change/v1beta1",
     "description: is required",
     "tasks: is required",
   ])
@@ -165,7 +165,7 @@ test("a change with no change.yaml has a null changeFile", async () => {
 
 test("an Invalid change has no description, tasks or counts, and its issues unchanged", async () => {
   const h = home()
-  change(h, "add-bad", "version: theway.change/v1beta\ndescription: ok\ntasks: []\n", { "spec.md": "S" })
+  change(h, "add-bad", "version: theway.change/v1beta1\ndescription: ok\ntasks: []\n", { "spec.md": "S" })
   const { body } = await get(h, `/api/projects/${KEY}/changes/add-bad`)
   expect(body).toMatchObject({
     description: null,

@@ -106,7 +106,7 @@ function promptRef(v: unknown): string | null {
 /**
  * The prompts a workflow's text uses, as written: a step's `uses` (`step`), its `on-fail` or its on-fail map's `uses`
  * (`on-fail`), a value of its `with`, of its on-fail map's `with` or of its `matrix` (`value`). Nothing when the root
- * is not a `theway.workflow/v1beta` map with a `steps` list.
+ * is not a `theway.workflow/v1beta1` map with a `steps` list.
  */
 export function usesOf(text: string): { prompt: string; step: number; as: Use["as"] }[] {
   const parsed = parseYaml(text)

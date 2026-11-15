@@ -1,5 +1,5 @@
 /**
- * The `theway.workflow/v1beta` vocabulary and the resolved-document types. This module imports nothing.
+ * The `theway.workflow/v1beta1` vocabulary and the resolved-document types. This module imports nothing.
  */
 
 /** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
@@ -12,7 +12,7 @@ export const MODELS = ["opus", "sonnet", "haiku"] as const
 export const PARAM = /^[a-z][a-z0-9_]*$/
 
 /** The `version` of a workflow file in this language. */
-export const VERSION = "theway.workflow/v1beta" as const
+export const VERSION = "theway.workflow/v1beta1" as const
 
 /** A `uses`, `on-fail` or value naming a prompt: `prompts/<name>.md`. */
 export const PROMPT_REF = /^prompts\/([^/]+)\.md$/
@@ -75,7 +75,7 @@ export type ResolvedStep = {
   tries: number | null
 }
 
-/** The document `theway workflow <name>` prints for a `theway.workflow/v1beta` file. */
+/** The document `theway workflow <name>` prints for a `theway.workflow/v1beta1` file. */
 export type ResolvedWorkflow = {
   name: string
   version: typeof VERSION

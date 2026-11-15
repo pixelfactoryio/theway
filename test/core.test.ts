@@ -61,10 +61,10 @@ test("--version and -V print the package version", () => {
 /** A `change.yaml` with one task per entry of `done`, ticked when true. */
 function changeYaml(done: boolean[]): string {
   const tasks = done.map((d, i) => `  - text: task ${i + 1}\n${d ? "    done: true\n" : ""}`).join("")
-  return `version: theway.change/v1beta\ndescription: Do the thing\ntasks:\n${tasks}`
+  return `version: theway.change/v1beta1\ndescription: Do the thing\ntasks:\n${tasks}`
 }
 
-const EXAMPLE = `version: theway.change/v1beta
+const EXAMPLE = `version: theway.change/v1beta1
 description: Limit requests per API key with a token bucket
 tasks:
   - text: Add a token bucket per API key, kept in memory
@@ -94,7 +94,7 @@ test("change prints the change of a valid change.yaml as JSON, tasks numbered fr
 test("change prints one error line per broken rule and exits 1 with nothing on stdout", () => {
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml")
-  const v = "version: theway.change/v1beta\n"
+  const v = "version: theway.change/v1beta1\n"
   const d = "description: Do it\n"
   const t = "tasks:\n  - text: a\n"
   const cases: [string | null, string[]][] = [
@@ -102,7 +102,8 @@ test("change prints one error line per broken rule and exits 1 with nothing on s
     ["a: [\n", ["invalid YAML: "]],
     ["- a\n", ["must be a map"]],
     ["", ["must be a map"]],
-    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta"]],
+    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
+    [`version: theway.change/v1beta\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
     [`${v}description: ""\n${t}`, ["description: must be a non-empty string on one line"]],
     [`${v}description: "a\\nb"\n${t}`, ["description: must be a non-empty string on one line"]],
     [`${v}${d}tasks: []\n`, ["tasks: must be a list with at least one task"]],
@@ -118,7 +119,7 @@ test("change prints one error line per broken rule and exits 1 with nothing on s
     [`${v}${d}`, ["tasks: is required"]],
     [
       `phase: 1\nversion: x\n${t}`,
-      ["phase: unknown key", "version: must be theway.change/v1beta", "description: is required"],
+      ["phase: unknown key", "version: must be theway.change/v1beta1", "description: is required"],
     ],
   ]
   for (const [text, issues] of cases) {
@@ -149,7 +150,7 @@ test("task done ticks the named tasks, keeps the rest of the file's text and ref
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml")
   const long = "Read the limit and the burst from the settings, then document both of them in the README of the service"
-  const text = `version: theway.change/v1beta
+  const text = `version: theway.change/v1beta1
 # The work, in order.
 description: Limit requests per API key
 tasks:
@@ -184,7 +185,7 @@ tasks:
   expect([again.status, again.stdout]).toEqual([0, "2/3 tasks done\n"])
   expect(readFileSync(file, "utf-8")).toBe(after)
 
-  const styles = `version: theway.change/v1beta
+  const styles = `version: theway.change/v1beta1
 description: Limit requests per API key
 tasks:
   - text: >-
@@ -214,7 +215,7 @@ tasks:
   const invalid = run(dir, "task", "done", "--project", "p", "add-x", "1")
   expect([invalid.status, invalid.stderr]).toEqual([
     1,
-    "theway: changes/add-x/change.yaml: version: must be theway.change/v1beta\ntheway: changes/add-x/change.yaml: description: is required\ntheway: changes/add-x/change.yaml: tasks: is required\n",
+    "theway: changes/add-x/change.yaml: version: must be theway.change/v1beta1\ntheway: changes/add-x/change.yaml: description: is required\ntheway: changes/add-x/change.yaml: tasks: is required\n",
   ])
   expect(readFileSync(file, "utf-8")).toBe("version: x\n")
 })
@@ -223,7 +224,7 @@ test("change, task done, list and archive refuse anchors and aliases, one line p
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "al", "change.yaml")
   const text =
-    "version: theway.change/v1beta\ndescription: Do a thing\ntasks:\n  - &t\n    text: one\n  - *t\n  - text: three\n"
+    "version: theway.change/v1beta1\ndescription: Do a thing\ntasks:\n  - &t\n    text: one\n  - *t\n  - text: three\n"
   put(file, text)
   const lines =
     "theway: changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\ntheway: changes/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n"
@@ -242,7 +243,7 @@ test("change, task done, list and archive refuse anchors and aliases, one line p
     "changes/al/change.yaml: tasks[0]: anchors and aliases are not allowed\nchanges/al/change.yaml: tasks[1]: anchors and aliases are not allowed\n",
   )
 
-  const v = "version: theway.change/v1beta\n"
+  const v = "version: theway.change/v1beta1\n"
   const cases: [string, string[]][] = [
     [`${v}description: Do it\ntasks: &s\n  - text: a\n`, ["tasks: anchors and aliases are not allowed"]],
     [`&r\n${v}description: Do it\ntasks:\n  - text: a\n`, ["anchors and aliases are not allowed"]],
@@ -251,7 +252,7 @@ test("change, task done, list and archive refuse anchors and aliases, one line p
     [`${v}description: Do it\ntasks:\n  - &k text: a\n`, ["tasks[0]: anchors and aliases are not allowed"]],
     [`${v}description: Do it\nfoo: {b: &a c}\ntasks:\n  - text: a\n`, ["foo: anchors and aliases are not allowed"]],
     [
-      `&k version: theway.change/v1beta\ndescription: *k\ntasks:\n  - text: a\n`,
+      `&k version: theway.change/v1beta1\ndescription: *k\ntasks:\n  - text: a\n`,
       ["anchors and aliases are not allowed", "description: anchors and aliases are not allowed"],
     ],
   ]
@@ -289,7 +290,7 @@ test("task done ends the inserted line as the line it follows", () => {
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml")
   const text =
-    "version: theway.change/v1beta\r\n# why\r\ndescription: x\r\ntasks:\r\n  # first\r\n  - text: one # one\r\n  - text: two\r\n"
+    "version: theway.change/v1beta1\r\n# why\r\ndescription: x\r\ntasks:\r\n  # first\r\n  - text: one # one\r\n  - text: two\r\n"
   put(file, text)
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0)
   const after = readFileSync(file, "utf-8")
@@ -299,7 +300,7 @@ test("task done ends the inserted line as the line it follows", () => {
   ])
   expect(commentsOf(after)).toEqual(commentsOf(text))
   expect(after.split("\r\n").every((l) => !l.includes("\n"))).toBe(true)
-  put(file, "version: theway.change/v1beta\r\ndescription: x\r\ntasks:\r\n  - text: one")
+  put(file, "version: theway.change/v1beta1\r\ndescription: x\r\ntasks:\r\n  - text: one")
   expect(run(dir, "task", "done", "--project", "p", "add-x", "1").status).toBe(0)
   const last = readFileSync(file, "utf-8")
   expect(tasksOf(last)).toEqual([{ text: "one", done: true }])
@@ -446,7 +447,7 @@ test("list prints the active and archived changes of a project", () => {
   const res = run(dir, "list", "--project", "p")
   expect(res.status).toBe(0)
   expect(res.stdout).toBe(
-    "theway changes — p\n\nActive changes\n\n  add-alpha            3 files   1/3 tasks done\n  update-beta          1 files   invalid: not found\n  update-gone          1 files   invalid: version: must be theway.change/v1beta\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 3 active change(s), 1 archived.\n",
+    "theway changes — p\n\nActive changes\n\n  add-alpha            3 files   1/3 tasks done\n  update-beta          1 files   invalid: not found\n  update-gone          1 files   invalid: version: must be theway.change/v1beta1\n\nArchived changes (1)\n\n  2026-01-10-add-gamma\n\nSummary: 3 active change(s), 1 archived.\n",
   )
 })
 
@@ -1657,7 +1658,7 @@ test("removeIfEmpty removes only an empty folder and never follows a symlink", (
   expect(existsSync(target)).toBe(true)
 })
 
-// ---- theway.workflow/v1beta ----
+// ---- theway.workflow/v1beta1 ----
 
 const FIXTURE_HOME = join(import.meta.dirname, "..", "plugin", "home")
 
@@ -1671,24 +1672,25 @@ function fixtureHome(): string {
   return dir
 }
 
-type V1betaRun = { label: string; with: Record<string, string>; prompt: string }
-type V1betaStep = {
+type V1beta1Run = { label: string; with: Record<string, string>; prompt: string }
+type V1beta1Step = {
   uses: string
   file: string
-  runs: V1betaRun[]
+  runs: V1beta1Run[]
   on_fail: { uses: string; with: Record<string, string>; prompt: string } | null
   tries: number | null
 }
-type V1betaDoc = { resolved: boolean; inputs: Record<string, { value: string | null }>; steps: V1betaStep[] }
+type V1beta1Doc = { resolved: boolean; inputs: Record<string, { value: string | null }>; steps: V1beta1Step[] }
 
-const v1beta = (dir: string, ...args: string[]) => run(dir, "workflow", "--project", "p", ...args)
-const v1betaDoc = (dir: string, ...args: string[]): V1betaDoc => JSON.parse(v1beta(dir, ...args).stdout) as V1betaDoc
+const v1beta1 = (dir: string, ...args: string[]) => run(dir, "workflow", "--project", "p", ...args)
+const v1beta1Doc = (dir: string, ...args: string[]): V1beta1Doc =>
+  JSON.parse(v1beta1(dir, ...args).stdout) as V1beta1Doc
 
-test("v1beta: agents without --input prints resolved false, six steps, the review matrix and the triage on-fail", () => {
+test("v1beta1: agents without --input prints resolved false, six steps, the review matrix and the triage on-fail", () => {
   const dir = fixtureHome()
-  const res = v1beta(dir, "agents")
+  const res = v1beta1(dir, "agents")
   expect([res.status, res.stderr]).toEqual([0, ""])
-  const doc = JSON.parse(res.stdout) as V1betaDoc
+  const doc = JSON.parse(res.stdout) as V1beta1Doc
   expect(doc.resolved).toBe(false)
   expect(doc.inputs.change?.value).toBeNull()
   expect(doc.steps.map((s) => s.uses)).toEqual([
@@ -1707,9 +1709,9 @@ test("v1beta: agents without --input prints resolved false, six steps, the revie
   expect(doc.steps[1]?.runs[0]?.prompt).toContain("${{ inputs.change }}")
 })
 
-test("v1beta: agents with --input substitutes every reference theway knows and keeps the lens as written", () => {
+test("v1beta1: agents with --input substitutes every reference theway knows and keeps the lens as written", () => {
   const dir = fixtureHome()
-  const doc = v1betaDoc(dir, "agents", "--input", "change=add-foo")
+  const doc = v1beta1Doc(dir, "agents", "--input", "change=add-foo")
   expect(doc.resolved).toBe(true)
   expect(doc.inputs.change?.value).toBe("add-foo")
   const substituted = JSON.stringify(doc.steps.map((s) => [s.runs, s.on_fail]))
@@ -1721,9 +1723,9 @@ test("v1beta: agents with --input substitutes every reference theway knows and k
   expect(doc.steps[3]?.on_fail?.with).toEqual({ change: "add-foo" })
 })
 
-test("v1beta: the resolved agents workflow matches test/fixtures/agents-resolved.json", () => {
+test("v1beta1: the resolved agents workflow matches test/fixtures/agents-resolved.json", () => {
   const dir = fixtureHome()
-  const res = v1beta(dir, "agents", "--input", "change=add-foo")
+  const res = v1beta1(dir, "agents", "--input", "change=add-foo")
   expect(res.status).toBe(0)
   const expected = readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8").replaceAll(
     "<home>",
@@ -1732,9 +1734,9 @@ test("v1beta: the resolved agents workflow matches test/fixtures/agents-resolved
   expect(res.stdout).toBe(expected)
 })
 
-test("v1beta: --compact prints the resolved workflow without prompt text, descriptions or the as-written with", () => {
+test("v1beta1: --compact prints the resolved workflow without prompt text, descriptions or the as-written with", () => {
   const dir = fixtureHome()
-  const res = v1beta(dir, "agents", "--input", "change=add-foo", "--compact")
+  const res = v1beta1(dir, "agents", "--input", "change=add-foo", "--compact")
   expect([res.status, res.stderr]).toEqual([0, ""])
   const doc = JSON.parse(res.stdout) as Record<string, unknown> & { steps: Record<string, unknown>[] }
   const full = JSON.parse(
@@ -1778,21 +1780,21 @@ test("v1beta: --compact prints the resolved workflow without prompt text, descri
   expect(res.stdout.length).toBeLessThan(full.steps.length * 1000)
 })
 
-test("v1beta: --compact checks the workflow as without it", () => {
+test("v1beta1: --compact checks the workflow as without it", () => {
   const dir = fixtureHome()
   for (const args of [["agents", "--input", "nope=1"], ["agents", "--input", "change=Bad ID"], ["missing"]]) {
-    const plain = v1beta(dir, ...args)
-    const compact = v1beta(dir, ...args, "--compact")
+    const plain = v1beta1(dir, ...args)
+    const compact = v1beta1(dir, ...args, "--compact")
     expect(plain.status).toBe(1)
     expect([compact.status, compact.stderr, compact.stdout]).toEqual([1, plain.stderr, ""])
   }
-  const unresolved = JSON.parse(v1beta(dir, "agents", "--compact").stdout) as V1betaDoc
+  const unresolved = JSON.parse(v1beta1(dir, "agents", "--compact").stdout) as V1beta1Doc
   expect([unresolved.resolved, unresolved.inputs.change?.value]).toEqual([false, null])
 })
 
-test("v1beta: prompt files with CRLF line endings or a leading BOM resolve like their LF version", () => {
+test("v1beta1: prompt files with CRLF line endings or a leading BOM resolve like their LF version", () => {
   const dir = fixtureHome()
-  const lf = v1beta(dir, "agents", "--input", "change=add-foo")
+  const lf = v1beta1(dir, "agents", "--input", "change=add-foo")
   expect([lf.status, lf.stderr]).toEqual([0, ""])
   const prompts = join(dir, "prompts")
   const originals = readdirSync(prompts).map(
@@ -1800,58 +1802,58 @@ test("v1beta: prompt files with CRLF line endings or a leading BOM resolve like 
   )
   for (const rewrite of [(t: string) => t.replaceAll("\n", "\r\n"), (t: string) => `\uFEFF${t}`]) {
     for (const [path, text] of originals) put(path, rewrite(text))
-    const res = v1beta(dir, "agents", "--input", "change=add-foo")
+    const res = v1beta1(dir, "agents", "--input", "change=add-foo")
     expect([res.status, res.stderr, res.stdout]).toEqual([0, "", lf.stdout])
   }
 })
 
-test("v1beta: workflow --help shows no default for --input", () => {
+test("v1beta1: workflow --help shows no default for --input", () => {
   const res = run(home(), "workflow", "--help")
   expect(res.status).toBe(0)
   expect(res.stdout).toContain("--input <name=value>")
   expect(res.stdout).not.toContain("(default: [])")
 })
 
-test("v1beta: other ${{ … }} text in a prompt body is kept as written", () => {
+test("v1beta1: other ${{ … }} text in a prompt body is kept as written", () => {
   const dir = fixtureHome()
   const ci = join(dir, "prompts", "ci.md")
   put(ci, `${readFileSync(ci, "utf-8")}\nThe commit is \${{ github.sha }}.\n`)
-  const res = v1beta(dir, "agents", "--input", "change=add-foo")
+  const res = v1beta1(dir, "agents", "--input", "change=add-foo")
   expect(res.status).toBe(0)
-  const doc = JSON.parse(res.stdout) as V1betaDoc
+  const doc = JSON.parse(res.stdout) as V1beta1Doc
   expect(doc.steps[5]?.runs[0]?.prompt).toContain("${{ github.sha }}")
 })
 
-test("v1beta: develop, engineering and engineering-light resolve", () => {
+test("v1beta1: develop, engineering and engineering-light resolve", () => {
   const dir = fixtureHome()
   for (const name of ["develop", "engineering", "engineering-light"]) {
-    expect([name, v1beta(dir, name).status]).toEqual([name, 0])
+    expect([name, v1beta1(dir, name).status]).toEqual([name, 0])
   }
-  const develop = v1betaDoc(dir, "develop", "--input", "change=add-foo")
+  const develop = v1beta1Doc(dir, "develop", "--input", "change=add-foo")
   expect(develop.steps[0]?.runs[0]?.with).toEqual({ change: "add-foo", commit: "no" })
 })
 
-test("v1beta: --input refuses an invalid change ID and an undeclared input", () => {
+test("v1beta1: --input refuses an invalid change ID and an undeclared input", () => {
   const dir = fixtureHome()
-  const bad = v1beta(dir, "agents", "--input", "change=Bad_ID")
+  const bad = v1beta1(dir, "agents", "--input", "change=Bad_ID")
   expect(bad.status).toBe(1)
   expect(bad.stderr.startsWith("theway: --input change:")).toBe(true)
-  const nope = v1beta(dir, "agents", "--input", "nope=x")
+  const nope = v1beta1(dir, "agents", "--input", "nope=x")
   expect(nope.status).toBe(1)
   expect(nope.stderr).toContain("theway: --input nope: workflows/agents.yaml declares no such input\n")
 })
 
 test("workflow with no name resolves the one workflow that sets default: true, the shipped develop", () => {
   const dir = fixtureHome()
-  const res = v1beta(dir)
+  const res = v1beta1(dir)
   expect([res.status, res.stderr]).toEqual([0, ""])
   expect((JSON.parse(res.stdout) as { name: string }).name).toBe("develop")
-  const given = v1beta(dir, "--input", "change=add-foo")
+  const given = v1beta1(dir, "--input", "change=add-foo")
   expect([given.status, given.stderr]).toEqual([0, ""])
-  expect(given.stdout).toBe(v1beta(dir, "develop", "--input", "change=add-foo").stdout)
+  expect(given.stdout).toBe(v1beta1(dir, "develop", "--input", "change=add-foo").stdout)
   const own = join(dir, "projects", "p", "workflows", "develop.yaml")
   put(own, readFileSync(join(dir, "workflows", "develop.yaml"), "utf-8").replace("default: true\n", ""))
-  const none = v1beta(dir)
+  const none = v1beta1(dir)
   expect([none.status, none.stdout, none.stderr]).toEqual([1, "", "theway: no workflow sets default: true\n"])
 })
 
@@ -1859,7 +1861,7 @@ test("workflow with no name exits 1 naming both files when two workflows set def
   const dir = fixtureHome()
   const agents = join(dir, "workflows", "agents.yaml")
   put(agents, readFileSync(agents, "utf-8").replace("inputs:\n", "default: true\ninputs:\n"))
-  const res = v1beta(dir)
+  const res = v1beta1(dir)
   expect([res.status, res.stdout, res.stderr]).toEqual([
     1,
     "",
@@ -1870,7 +1872,7 @@ test("workflow with no name exits 1 naming both files when two workflows set def
     join(dir, "projects", "p", "workflows", "mine.yaml"),
     readFileSync(join(dir, "workflows", "develop.yaml"), "utf-8"),
   )
-  const own = v1beta(dir)
+  const own = v1beta1(dir)
   expect([own.status, own.stdout, own.stderr]).toEqual([
     1,
     "",
@@ -1881,35 +1883,46 @@ test("workflow with no name exits 1 naming both files when two workflows set def
 test("workflow exits 1 on a v1 file with the line naming the new version, and the other workflows still resolve", () => {
   const dir = fixtureHome()
   put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1\ndescription: Old\nsteps:\n  - implement:\n")
-  const old = v1beta(dir, "old")
+  const old = v1beta1(dir, "old")
   expect([old.status, old.stdout, old.stderr]).toEqual([
     1,
     "",
-    "theway: workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta\n",
+    "theway: workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1\n",
   ])
-  const agents = v1beta(dir, "agents")
+  const agents = v1beta1(dir, "agents")
   expect([agents.status, agents.stderr]).toEqual([0, ""])
 })
 
-test("workflow with no name names the v1 files when no v1beta workflow sets default: true, and never takes a v1 file as the default", () => {
+test("workflow exits 1 on a file of the previous version with the line naming the current version", () => {
+  const dir = fixtureHome()
+  put(join(dir, "workflows", "old.yaml"), "version: theway.workflow/v1beta\ndescription: Old\nsteps:\n  - implement:\n")
+  const old = v1beta1(dir, "old")
+  expect([old.status, old.stdout, old.stderr]).toEqual([
+    1,
+    "",
+    "theway: workflows/old.yaml: version: must be theway.workflow/v1beta1\n",
+  ])
+})
+
+test("workflow with no name names the v1 files when no v1beta1 workflow sets default: true, and never takes a v1 file as the default", () => {
   const dir = fixtureHome()
   const develop = join(dir, "workflows", "develop.yaml")
-  // A kept v1 develop.yaml, with the v1beta text beside it as develop.default.yaml.
+  // A kept v1 develop.yaml, with the v1beta1 text beside it as develop.default.yaml.
   put(join(dir, "workflows", "develop.default.yaml"), readFileSync(develop, "utf-8"))
   put(develop, "version: theway.workflow/v1\ndescription: Old develop\nsteps:\n  - implement:\n")
-  const none = v1beta(dir)
+  const none = v1beta1(dir)
   expect([none.status, none.stdout, none.stderr]).toEqual([
     1,
     "",
-    "theway: workflows/develop.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta\n",
+    "theway: workflows/develop.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1\n",
   ])
-  // A v1 file with default: true is not a default: the v1beta one still runs, with no "both set" error.
+  // A v1 file with default: true is not a default: the v1beta1 one still runs, with no "both set" error.
   put(
     join(dir, "workflows", "old.yaml"),
     "version: theway.workflow/v1\ndefault: true\ndescription: Old\nsteps:\n  - implement:\n",
   )
   put(join(dir, "workflows", "mine.yaml"), readFileSync(join(dir, "workflows", "develop.default.yaml"), "utf-8"))
-  const one = v1beta(dir)
+  const one = v1beta1(dir)
   expect([one.status, one.stderr]).toEqual([0, ""])
   expect((JSON.parse(one.stdout) as { name: string }).name).toBe("mine")
 })
@@ -1920,7 +1933,7 @@ test("steps is no longer a command", () => {
   expect(res.stderr).toBe("error: unknown command 'steps'\n")
 })
 
-const T_HEAD = `version: theway.workflow/v1beta
+const T_HEAD = `version: theway.workflow/v1beta1
 description: t
 inputs:
   change: {description: c, required: true, type: change}
@@ -1931,7 +1944,7 @@ const OPEN_PR = "  - uses: prompts/open-pr.md\n    with:\n      change: ${{ inpu
 /** Writes `workflows/t.yaml` and runs `theway workflow t`. */
 function tWorkflow(dir: string, text: string) {
   put(join(dir, "workflows", "t.yaml"), text)
-  return v1beta(dir, "t")
+  return v1beta1(dir, "t")
 }
 
 /** Replaces `from` by `to` in the fixture prompt `name`. */
@@ -1942,7 +1955,7 @@ function editPrompt(dir: string, name: string, from: string, to: string): void {
   put(path, text.replace(from, to))
 }
 
-test("v1beta: each mistake gives one line naming its place, and nothing on stdout", () => {
+test("v1beta1: each mistake gives one line naming its place, and nothing on stdout", () => {
   const cases: [string, string, ((dir: string) => void)?][] = [
     [`${T_HEAD}steps:\n  - uses: prompts/nope.md\n`, "workflows/t.yaml: steps[0].uses: "],
     [`${T_HEAD}steps:\n${OPEN_PR}    on-fail: prompts/nope.md\n    tries: 1\n`, "workflows/t.yaml: steps[0].on-fail: "],
@@ -2020,7 +2033,7 @@ test("v1beta: each mistake gives one line naming its place, and nothing on stdou
   }
 })
 
-test("v1beta: two mistakes in one file give two lines, in file order", () => {
+test("v1beta1: two mistakes in one file give two lines, in file order", () => {
   const dir = fixtureHome()
   const res = tWorkflow(
     dir,
@@ -2032,7 +2045,7 @@ test("v1beta: two mistakes in one file give two lines, in file order", () => {
   )
 })
 
-test("v1beta: a required prompt input written empty or null is not set, never a type error", () => {
+test("v1beta1: a required prompt input written empty or null is not set, never a type error", () => {
   for (const value of [' ""', ""]) {
     const dir = fixtureHome()
     const res = tWorkflow(dir, `${T_HEAD}steps:\n  - uses: prompts/open-pr.md\n    with:\n      change:${value}\n`)
@@ -2044,27 +2057,27 @@ test("v1beta: a required prompt input written empty or null is not set, never a 
   }
 })
 
-test("v1beta: an optional prompt input written empty or null is the empty string, not its default", () => {
+test("v1beta1: an optional prompt input written empty or null is the empty string, not its default", () => {
   for (const value of [' ""', ""]) {
     const dir = fixtureHome()
     const path = join(dir, "workflows", "develop.yaml")
     const text = readFileSync(path, "utf-8")
     expect(text).toContain('commit: "no"')
     put(path, text.replace('commit: "no"', `commit:${value}`))
-    const doc = v1betaDoc(dir, "develop", "--input", "change=add-foo")
+    const doc = v1beta1Doc(dir, "develop", "--input", "change=add-foo")
     expect(doc.steps[0]?.runs[0]?.with).toEqual({ change: "add-foo", commit: "" })
   }
 })
 
-test("v1beta: a required workflow input given empty is not given", () => {
+test("v1beta1: a required workflow input given empty is not given", () => {
   const dir = fixtureHome()
-  const res = v1beta(dir, "engineering-light", "--input", "request=")
+  const res = v1beta1(dir, "engineering-light", "--input", "request=")
   expect([res.status, res.stdout, res.stderr]).toEqual([
     1,
     "",
     "theway: --input request: required input is not given\n",
   ])
-  const change = v1beta(dir, "agents", "--input", "change=")
+  const change = v1beta1(dir, "agents", "--input", "change=")
   expect([change.status, change.stdout, change.stderr]).toEqual([
     1,
     "",
@@ -2072,7 +2085,7 @@ test("v1beta: a required workflow input given empty is not given", () => {
   ])
 })
 
-test("v1beta: the default of a change input must be a valid change ID", () => {
+test("v1beta1: the default of a change input must be a valid change ID", () => {
   const dir = fixtureHome()
   const head = T_HEAD.replace(
     "{description: c, required: true, type: change}",
@@ -2085,9 +2098,9 @@ test("v1beta: the default of a change input must be a valid change ID", () => {
   )
 })
 
-test("v1beta: a name or key with a newline stays on one error line", () => {
+test("v1beta1: a name or key with a newline stays on one error line", () => {
   const dir = fixtureHome()
-  const input = v1beta(dir, "agents", "--input", "no\npe=x")
+  const input = v1beta1(dir, "agents", "--input", "no\npe=x")
   expect([input.status, input.stderr.split("\n")[0]]).toEqual([
     1,
     "theway: --input no\\npe: workflows/agents.yaml declares no such input",
@@ -2104,22 +2117,22 @@ test("v1beta: a name or key with a newline stays on one error line", () => {
   )
 })
 
-test("v1beta: a project copy of a prompt replaces the global one for that project only", () => {
+test("v1beta1: a project copy of a prompt replaces the global one for that project only", () => {
   const dir = fixtureHome()
   const own = join(dir, "projects", "p", "prompts", "review.md")
   put(own, readFileSync(join(dir, "prompts", "review.md"), "utf-8").replace("# Review", "# Project review"))
-  const mine = v1betaDoc(dir, "agents", "--input", "change=add-foo").steps[2] as V1betaStep
+  const mine = v1beta1Doc(dir, "agents", "--input", "change=add-foo").steps[2] as V1beta1Step
   expect([mine.file, mine.runs[0]?.prompt.startsWith("# Project review")]).toEqual([own, true])
   const other = JSON.parse(
     run(dir, "workflow", "--project", "q", "agents", "--input", "change=add-foo").stdout,
-  ) as V1betaDoc
+  ) as V1beta1Doc
   expect([other.steps[2]?.file, other.steps[2]?.runs[0]?.prompt.startsWith("# Review")]).toEqual([
     join(dir, "prompts", "review.md"),
     true,
   ])
 })
 
-test("v1beta: NAME, MODELS and PARAM are defined in language-schema only; schema re-exports them", async () => {
+test("v1beta1: NAME, MODELS and PARAM are defined in language-schema only; schema re-exports them", async () => {
   const schema = await import("../src/core/schema")
   const language = await import("../src/core/language-schema")
   expect([schema.NAME, schema.MODELS, schema.PARAM]).toEqual([language.NAME, language.MODELS, language.PARAM])
@@ -2131,7 +2144,7 @@ test("v1beta: NAME, MODELS and PARAM are defined in language-schema only; schema
   expect([typeof resolveWorkflowFile, typeof parsePromptFile]).toEqual(["function", "function"])
 })
 
-test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its error", async () => {
+test("v1beta1: listWorkflowFiles lists the four workflows, and a v1 file with its error", async () => {
   const { listWorkflowFiles } = await import("../src/core/language")
   const dir = fixtureHome()
   const warned: string[] = []
@@ -2175,14 +2188,14 @@ test("v1beta: listWorkflowFiles lists the four workflows, and a v1 file with its
     scope: "global",
     description: "Old",
     default: false,
-    error: "workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta",
-    errors: ["workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta"],
+    error: "workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1",
+    errors: ["workflows/old.yaml: theway.workflow/v1 is no longer read: rewrite it as theway.workflow/v1beta1"],
     doc: null,
   })
   expect(warned).toEqual([])
 })
 
-test("v1beta: listPromptFiles marks exactly the prompts the workflows use as steps", async () => {
+test("v1beta1: listPromptFiles marks exactly the prompts the workflows use as steps", async () => {
   const { listPromptFiles } = await import("../src/core/language")
   const dir = fixtureHome()
   const items = listPromptFiles(dir, "p")
@@ -2211,7 +2224,7 @@ test("v1beta: listPromptFiles marks exactly the prompts the workflows use as ste
     expect([p.name, p.scope, p.description === null]).toEqual([p.name, "global", !steps.includes(p.name)])
 })
 
-test("v1beta: the null key reads the global folders only; a key reads as before", async () => {
+test("v1beta1: the null key reads the global folders only; a key reads as before", async () => {
   const { dirsOf, fileOf, searched } = await import("../src/core/step-files")
   const { listPromptFiles, listWorkflowFiles, resolveWorkflowFile } = await import("../src/core/language")
   const { markedPath } = await import("../src/core/workflow")

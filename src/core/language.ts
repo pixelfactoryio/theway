@@ -600,7 +600,7 @@ function scopedNames(
   ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 }
 
-/** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta file can, a v1 file's `default:` is not read. */
+/** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta1 file can, a v1 file's `default:` is not read. */
 function isDefaultRoot(root: unknown): boolean {
   return isMap(root) && root.get("version") === VERSION && root.get("default") === true
 }
