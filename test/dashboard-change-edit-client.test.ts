@@ -104,14 +104,14 @@ test("the formatting keys take precedence, prevent the default and stop the even
   expect(editor).toContain("Prec.highest(")
   expect(editor).toContain("preventDefault: true, stopPropagation: true")
   for (const key of ["Mod-b", "Mod-i", "Mod-e", "Mod-k"]) expect(editor).toContain(`"${key}"`)
-  const page = readFileSync(join(CLIENT, "pages", "change.tsx"), "utf-8")
+  const page = readFileSync(join(CLIENT, "pages", "active-change.tsx"), "utf-8")
   expect(page).toContain('isolateHistory.of("full")')
   expect(page).not.toMatch(/sonner|toast/)
   expect(page).not.toContain("doc.toString()")
 })
 
 test("the client imports the check and the edits from src/core/change-text", () => {
-  const page = readFileSync(join(CLIENT, "pages", "change.tsx"), "utf-8")
+  const page = readFileSync(join(CLIENT, "pages", "active-change.tsx"), "utf-8")
   expect(page).toMatch(/from "\.\.\/\.\.\/\.\.\/core\/change-text"/)
   for (const name of ["checkChangeText", "changeTextErrors", "changeStatus", "editedChangeText"])
     expect(page).toContain(name)
