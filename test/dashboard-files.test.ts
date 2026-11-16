@@ -360,40 +360,47 @@ test("a prompt's file route gives its lines on the whole file's lines, and its u
   ])
 })
 
-test("the file routes answer 404 outside their own folder and 500 for a file that cannot be read", async () => {
-  const h = home()
-  expect(await get(h, `/api/workflows/projects/${KEY}/agents`)).toEqual({
-    status: 404,
-    body: { error: "unknown file" },
-  })
-  expect(await get(h, `/api/prompts/projects/${KEY}/review`)).toEqual({ status: 404, body: { error: "unknown file" } })
-  expect(await get(h, "/api/workflows/projects/-nope/agents")).toEqual({
-    status: 404,
-    body: { error: "unknown project" },
-  })
-  expect(await get(h, "/api/workflows/global/Agents")).toEqual({ status: 404, body: { error: "unknown file" } })
-  expect(await get(h, "/api/prompts/global/missing")).toEqual({ status: 404, body: { error: "unknown file" } })
-  expect(await get(h, "/api/workflows/global/%2E%2E%2Fprompts%2Freview")).toEqual({
-    status: 404,
-    body: { error: "unknown file" },
-  })
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32")(
+  "the file routes answer 404 outside their own folder and 500 for a file that cannot be read",
+  async () => {
+    const h = home()
+    expect(await get(h, `/api/workflows/projects/${KEY}/agents`)).toEqual({
+      status: 404,
+      body: { error: "unknown file" },
+    })
+    expect(await get(h, `/api/prompts/projects/${KEY}/review`)).toEqual({
+      status: 404,
+      body: { error: "unknown file" },
+    })
+    expect(await get(h, "/api/workflows/projects/-nope/agents")).toEqual({
+      status: 404,
+      body: { error: "unknown project" },
+    })
+    expect(await get(h, "/api/workflows/global/Agents")).toEqual({ status: 404, body: { error: "unknown file" } })
+    expect(await get(h, "/api/prompts/global/missing")).toEqual({ status: 404, body: { error: "unknown file" } })
+    expect(await get(h, "/api/workflows/global/%2E%2E%2Fprompts%2Freview")).toEqual({
+      status: 404,
+      body: { error: "unknown file" },
+    })
 
-  if (process.getuid?.() === 0) return
-  chmodSync(join(h, "workflows", "agents.yaml"), 0o000)
-  chmodSync(join(h, "prompts", "review.md"), 0o000)
-  expect(await get(h, "/api/workflows/global/agents")).toEqual({ status: 500, body: { error: "cannot be read" } })
-  expect(await get(h, "/api/prompts/global/review")).toEqual({ status: 500, body: { error: "cannot be read" } })
-  const review = ((await get(h, "/api/prompts")).body.prompts as Row[]).find((r) => r.name === "review")
-  expect(review).toMatchObject({
-    header: false,
-    errors: ["cannot be read"],
-    description: null,
-    model: null,
-    inputs: [],
-  })
-  chmodSync(join(h, "workflows", "agents.yaml"), 0o644)
-  chmodSync(join(h, "prompts", "review.md"), 0o644)
-})
+    if (process.getuid?.() === 0) return
+    chmodSync(join(h, "workflows", "agents.yaml"), 0o000)
+    chmodSync(join(h, "prompts", "review.md"), 0o000)
+    expect(await get(h, "/api/workflows/global/agents")).toEqual({ status: 500, body: { error: "cannot be read" } })
+    expect(await get(h, "/api/prompts/global/review")).toEqual({ status: 500, body: { error: "cannot be read" } })
+    const review = ((await get(h, "/api/prompts")).body.prompts as Row[]).find((r) => r.name === "review")
+    expect(review).toMatchObject({
+      header: false,
+      errors: ["cannot be read"],
+      description: null,
+      model: null,
+      inputs: [],
+    })
+    chmodSync(join(h, "workflows", "agents.yaml"), 0o644)
+    chmodSync(join(h, "prompts", "review.md"), 0o644)
+  },
+)
 
 test("an empty home lists no file", async () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "theway-files-")))

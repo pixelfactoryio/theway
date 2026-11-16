@@ -300,7 +300,8 @@ test("one project's fallback label is its key without the leading -", async () =
   expect(body.projects.map((p) => p.label)).toEqual(["no-such-folder-anywhere"])
 })
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "a project whose path holds an unreadable directory gets the fallback label",
   async () => {
     const home = temp()

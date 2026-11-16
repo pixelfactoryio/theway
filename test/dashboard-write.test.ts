@@ -457,7 +457,8 @@ test("restore writes the version's text, keeps the replaced text as a version, a
   })
 })
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "a workflow save that cannot write answers a JSON 500 and keeps no version",
   async () => {
     const h = home()

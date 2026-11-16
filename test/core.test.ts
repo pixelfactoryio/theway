@@ -309,7 +309,8 @@ test("task done ends the inserted line as the line it follows", () => {
   expect(last.split("\r\n").every((l) => !l.includes("\n"))).toBe(true)
 })
 
-test("task done keeps the file's mode", () => {
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")("task done keeps the file's mode", () => {
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml")
   put(file, changeYaml([false, false]))
@@ -318,7 +319,8 @@ test("task done keeps the file's mode", () => {
   expect(statSync(file).mode & 0o777).toBe(0o600)
 })
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "task done reports a file or folder it cannot write in one line and leaves the file as it was",
   () => {
     const dir = home()
@@ -349,7 +351,8 @@ test.skipIf(process.getuid?.() === 0)(
   },
 )
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a removed working directory.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "a command run from a removed directory prints one theway line and exits 1",
   () => {
     const dir = home()
@@ -794,20 +797,24 @@ test("standards warns on invalid YAML front matter that sets applies_to, and app
   }
 })
 
-test.skipIf(process.getuid?.() === 0)("standards skips an unreadable file with a warning and lists the others", () => {
-  const dir = home()
-  const p = join(dir, "projects", "p", "standards")
-  put(join(p, "a.md"), "x\n")
-  put(join(p, "b.md"), "x\n")
-  put(join(p, "c.md"), "x\n")
-  chmodSync(join(p, "b.md"), 0o000)
-  for (const phase of ["engineering", "develop"]) {
-    const res = run(dir, "standards", "--project", "p", phase)
-    expect(res.status).toBe(0)
-    expect(res.stdout).toBe(`${join(p, "a.md")}\n${join(p, "c.md")}\n`)
-    expect(res.stderr).toBe(`theway: warning: ${join(p, "b.md")}: cannot be read; skipped\n`)
-  }
-})
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "standards skips an unreadable file with a warning and lists the others",
+  () => {
+    const dir = home()
+    const p = join(dir, "projects", "p", "standards")
+    put(join(p, "a.md"), "x\n")
+    put(join(p, "b.md"), "x\n")
+    put(join(p, "c.md"), "x\n")
+    chmodSync(join(p, "b.md"), 0o000)
+    for (const phase of ["engineering", "develop"]) {
+      const res = run(dir, "standards", "--project", "p", phase)
+      expect(res.status).toBe(0)
+      expect(res.stdout).toBe(`${join(p, "a.md")}\n${join(p, "c.md")}\n`)
+      expect(res.stderr).toBe(`theway: warning: ${join(p, "b.md")}: cannot be read; skipped\n`)
+    }
+  },
+)
 
 test("standards ignores subfolders and non-.md files", () => {
   const dir = home()
@@ -1136,7 +1143,8 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
   }
 })
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "config exits 1 with nothing on stdout for a project file that cannot be read",
   () => {
     const dir = home()
@@ -1660,21 +1668,25 @@ test("removeIfEmpty removes only an empty folder and never follows a symlink", (
   expect(existsSync(target)).toBe(true)
 })
 
-test("writeAtomic writes, replaces and sets the mode, leaving no temp file", () => {
-  const dir = home()
-  const target = join(dir, "file")
-  const tmp = `${target}.tmp-${process.pid}`
-  writeAtomic(target, "one")
-  expect(readFileSync(target, "utf-8")).toBe("one")
-  expect(existsSync(tmp)).toBe(false)
-  writeAtomic(target, "two")
-  expect(readFileSync(target, "utf-8")).toBe("two")
-  const secret = join(dir, "secret")
-  writeAtomic(secret, "s", 0o600)
-  expect(readFileSync(secret, "utf-8")).toBe("s")
-  expect(statSync(secret).mode & 0o777).toBe(0o600)
-  expect(existsSync(`${secret}.tmp-${process.pid}`)).toBe(false)
-})
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")(
+  "writeAtomic writes, replaces and sets the mode, leaving no temp file",
+  () => {
+    const dir = home()
+    const target = join(dir, "file")
+    const tmp = `${target}.tmp-${process.pid}`
+    writeAtomic(target, "one")
+    expect(readFileSync(target, "utf-8")).toBe("one")
+    expect(existsSync(tmp)).toBe(false)
+    writeAtomic(target, "two")
+    expect(readFileSync(target, "utf-8")).toBe("two")
+    const secret = join(dir, "secret")
+    writeAtomic(secret, "s", 0o600)
+    expect(readFileSync(secret, "utf-8")).toBe("s")
+    expect(statSync(secret).mode & 0o777).toBe(0o600)
+    expect(existsSync(`${secret}.tmp-${process.pid}`)).toBe(false)
+  },
+)
 
 test("writeAtomic throws and leaves no temp file when the rename fails", () => {
   const dir = home()
