@@ -1,11 +1,12 @@
 import { readdirSync } from "node:fs"
 import { basename, dirname, join } from "node:path"
-import { isFileIn, NAME, type Overlay } from "./io"
+import { isFileIn, type Overlay } from "./io"
+import { NAME } from "./language-schema"
 import { projectDir } from "./project"
 
 /** The kinds of named files the resolver reads: workflows as `.yaml`, prompts as `.md`. */
 export type Kind = "workflows" | "prompts"
-const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" }
+export const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" }
 
 /** The project folder and the global folder of `kind`; the global folder alone for the `null` key (the global context). */
 export const dirsOf = (home: string, key: string | null, kind: Kind): string[] =>
@@ -50,39 +51,4 @@ export function namesIn(dir: string, kind: Kind, rejected?: (path: string) => vo
     else rejected?.(join(dir, n))
   }
   return out.sort()
-}
-
-/** The Levenshtein distance of two strings. */
-function distance(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, j) => j)
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i]
-    for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(
-        (prev[j] as number) + 1,
-        (cur[j - 1] as number) + 1,
-        (prev[j - 1] as number) + (a[i - 1] === b[j - 1] ? 0 : 1),
-      )
-    }
-    prev = cur
-  }
-  return prev[b.length] as number
-}
-
-/**
- * The suffix of an unknown-name line: `; did you mean '<x>'?` for the nearest known name within edit distance 2
- * (the first in `known` order on a tie), else the valid set in parentheses, ` (<noun>: a, b)`.
- */
-export function suggest(wanted: string, known: string[], noun: string): string {
-  let best: string | null = null
-  let bestDistance = 3
-  for (const k of known) {
-    const d = distance(wanted, k)
-    if (d < bestDistance) {
-      best = k
-      bestDistance = d
-    }
-  }
-  if (best !== null) return `; did you mean '${best}'?`
-  return ` (${noun}: ${known.join(", ")})`
 }

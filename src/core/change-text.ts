@@ -17,7 +17,7 @@ import {
   type YAMLMap,
   type YAMLSeq,
 } from "yaml"
-import { escaped, parseYaml, yamlErrorLine } from "./text"
+import { escaped, parseYaml, pathSegments, yamlErrorLine } from "./text"
 
 export const CHANGE_VERSION = "theway.change/v1beta1"
 export const CHANGE_FILE = "change.yaml"
@@ -159,16 +159,6 @@ export function changeStatus(result: ChangeCheck): ActiveStatus {
   return "in-progress"
 }
 
-/** The segments of an issue's path: keys and list indexes. */
-function segmentsOf(path: string): (string | number)[] {
-  const out: (string | number)[] = []
-  const re = /\[(\d+)\]|\.?([^.[\]]+)/y
-  let m: RegExpExecArray | null
-  while (re.lastIndex < path.length && (m = re.exec(path)) !== null)
-    out.push(m[1] !== undefined ? Number(m[1]) : (m[2] as string))
-  return out
-}
-
 /** The start offset of the node `segments` names in `root`: a key's start, a list item's start; `null` when absent. */
 function startOf(root: unknown, segments: (string | number)[], map: boolean): number | null {
   let node: unknown = root
@@ -205,7 +195,7 @@ export function changeTextErrors(text: string): { text: string; line: number | n
     if (issue.startsWith("invalid YAML")) return { text: issue, line: yamlErrorLine(text) }
     const colon = issue.indexOf(": ")
     if (colon === -1) return { text: issue, line: null }
-    const segments = segmentsOf(issue.slice(0, colon))
+    const segments = pathSegments(issue.slice(0, colon))
     if (issue.slice(colon + 2) === "is required")
       return { text: issue, line: lineOf(startOf(doc.contents, segments.slice(0, -1), true)) }
     return { text: issue, line: lineOf(startOf(doc.contents, segments, false)) }
@@ -245,12 +235,6 @@ const crlf = (text: string): boolean => {
 }
 
 /**
- * `text` with one edit applied, or the reason it is refused. The text is loaded with `parseDocument`, the edit changes
- * the Document's nodes, and the Document is printed with `lineWidth: 0` and `flowCollectionPadding: false`, every line
- * break `\r\n` when the source's first one is. An edit that changes no node returns the source text unprinted; a printed
- * text equal to the source returns the source. The source and the result must pass the check.
- */
-/**
  * Double-quotes a plain one-line scalar whose new value cannot stay plain, in a block (or, with `inFlow`, a flow)
  * mapping: left plain, the `yaml` package would fall back to single quotes for a value holding `"`.
  */
@@ -262,6 +246,12 @@ function quoteUnlessPlain(node: unknown, value: string, inFlow: boolean): void {
   if (!isScalar(read) || read.type !== Scalar.PLAIN || read.value !== value) node.type = Scalar.QUOTE_DOUBLE
 }
 
+/**
+ * `text` with one edit applied, or the reason it is refused. The text is loaded with `parseDocument`, the edit changes
+ * the Document's nodes, and the Document is printed with `lineWidth: 0` and `flowCollectionPadding: false`, every line
+ * break `\r\n` when the source's first one is. An edit that changes no node returns the source text unprinted; a printed
+ * text equal to the source returns the source. The source and the result must pass the check.
+ */
 export function editedChangeText(text: string, edit: ChangeEdit): { text: string } | { reason: string } {
   if ("issues" in checkChangeText(text)) return { reason: REFUSAL.check }
   const doc = parseDocument(text)

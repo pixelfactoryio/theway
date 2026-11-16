@@ -52,12 +52,7 @@ const archiveDirs = (dir: string): string[] => subdirs(join(dir, "changes", "arc
 
 /** The names of the Markdown files directly in `dir`: `spec.md`, `design.md`, `notes.md` when present, then the others by name. */
 function markdownNames(dir: string): string[] {
-  let names: string[]
-  try {
-    names = readdirSync(dir).filter((n) => n.endsWith(".md") && !n.startsWith(".") && isFile(join(dir, n)))
-  } catch {
-    return []
-  }
+  const names = visibleNames(dir).filter((n) => n.endsWith(".md") && isFile(join(dir, n)))
   const first = FIRST.filter((n) => names.includes(n))
   const rest = names.filter((n) => !FIRST.includes(n)).sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }))
   return [...first, ...rest]
@@ -104,13 +99,9 @@ export function fileStore(home: string): ChangeStore {
   return {
     projectKeys() {
       const dir = join(home, "projects")
-      let names: string[]
-      try {
-        names = readdirSync(dir)
-      } catch {
-        return []
-      }
-      return names.filter((n) => !n.startsWith(".") && projectReason(n) === "" && isDir(join(dir, n))).sort(byText)
+      return visibleNames(dir)
+        .filter((n) => projectReason(n) === "" && isDir(join(dir, n)))
+        .sort(byText)
     },
 
     activeIds: (key) => activeIds(project(key)),
@@ -124,13 +115,7 @@ export function fileStore(home: string): ChangeStore {
     fileCount(key, change) {
       const dir = listed(key, change)
       if (dir === null) return 0
-      let names: string[]
-      try {
-        names = readdirSync(dir)
-      } catch {
-        return 0
-      }
-      return names.filter((n) => !n.startsWith(".") && isFile(join(dir, n))).length
+      return visibleNames(dir).filter((n) => isFile(join(dir, n))).length
     },
 
     readFile(key, change, name): FileRead | null {
@@ -145,7 +130,7 @@ export function fileStore(home: string): ChangeStore {
 
     writeFile(key, id, name, bytes, base): WriteResult {
       const change: ChangeRef = { kind: "active", id }
-      if (!fileNames(key, change).includes(name)) throw new StoreError("missing", `${name} of ${id} not found`, null)
+      if (!fileNames(key, change).includes(name)) throw new StoreError("missing", `${name} of ${id} not found`)
       const path = join(dirOf(key, change), name)
       let current: Buffer
       try {
@@ -172,11 +157,11 @@ export function fileStore(home: string): ChangeStore {
         } catch {
           // An ID that is not one path segment has no folder.
         }
-        throw new StoreError("missing", `${path ?? id} not found`, path)
+        throw new StoreError("missing", `${path ?? id} not found`)
       }
       const ref = archiveRef(key, id, date)
       const dst = dirOf(key, { kind: "archived", ref })
-      if (existsSync(dst)) throw new StoreError("exists", `${dst} already exists`, dst)
+      if (existsSync(dst)) throw new StoreError("exists", `${dst} already exists`)
       mkdirSync(join(changesDir(key), "archive"), { recursive: true })
       renameSync(src, dst)
       return ref
@@ -184,7 +169,7 @@ export function fileStore(home: string): ChangeStore {
 
     updated(key, change) {
       const dir = listed(key, change)
-      if (dir === null) throw new StoreError("missing", "change not found", null)
+      if (dir === null) throw new StoreError("missing", "change not found")
       const file = join(dir, CHANGE_FILE)
       try {
         return statSync(isFile(file) ? file : dir).mtime.toISOString()

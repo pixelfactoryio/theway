@@ -1,8 +1,9 @@
-import { escaped, invalidName, thewayHome } from "./io"
+import { invalidName, thewayHome } from "./io"
 import { listWorkflowFiles, resolveWorkflowFile, v1Line } from "./language"
 import type { ResolvedWorkflow } from "./language-schema"
-import { error, print, type Warn, warning, warnLoud } from "./output"
-import { resolveKey } from "./project"
+import { error, print, type Warn, warnLoud } from "./output"
+import { projectKeyOrExit } from "./project"
+import { escaped } from "./text"
 
 /**
  * The `--input <name>=<value>` options as a record, or the line that refuses one: a value without `=`, an empty name,
@@ -96,9 +97,8 @@ export function cmdWorkflow(
   given: string[] = [],
   compact = false,
 ): number {
-  const project = resolveKey(override)
-  if ("error" in project) return error(project.error)
-  if (project.warning !== null) warning(project.warning)
+  const project = projectKeyOrExit(override)
+  if (typeof project === "number") return project
   const key = project.key
   const invalid = invalidName("workflow", wanted)
   if (invalid !== null) return error(invalid)

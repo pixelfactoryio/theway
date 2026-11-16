@@ -23,25 +23,22 @@ function subfolders(dir: string): string[] {
 /**
  * The folder whose project key is `key`, found depth first from `dir`: at each level, the subfolders whose `-` + key of
  * their name starts what is left of the key, longest match first, backtracking to the next shorter one when a branch
- * ends before the key is used up. `null` when no folder uses it all. Without `dir` and `rest`, the walk starts at `/`
- * with the whole key; on Windows, a drive key (`C--Users-x`) starts at its drive root (`C:\`) with the rest (`-Users-x`).
+ * ends before the key is used up. `null` when no folder uses it all. The walk starts at `/` with the whole key; on
+ * Windows, a drive key (`C--Users-x`) starts at its drive root (`C:\`) with the rest (`-Users-x`).
  */
-export function folderOf(key: string, dir?: string, rest?: string): string | null {
-  if (dir === undefined && rest === undefined) {
-    const drive = process.platform === "win32" && /^[A-Za-z]--/.test(key)
-    return drive ? walk(key, `${key[0]}:\\`, key.slice(2)) : walk(key, "/", key)
-  }
-  return walk(key, dir ?? "/", rest ?? key)
+export function folderOf(key: string): string | null {
+  const drive = process.platform === "win32" && /^[A-Za-z]--/.test(key)
+  return drive ? walk(`${key[0]}:\\`, key.slice(2)) : walk("/", key)
 }
 
-function walk(key: string, dir: string, rest: string): string | null {
+function walk(dir: string, rest: string): string | null {
   if (rest === "") return dir
   const matches = subfolders(dir)
     .map((name) => ({ name, part: `-${keyOf(name)}` }))
     .filter(({ part }) => rest.startsWith(part))
     .sort((a, b) => b.part.length - a.part.length || byText(a.name, b.name))
   for (const { name, part } of matches) {
-    const found = walk(key, join(dir, name), rest.slice(part.length))
+    const found = walk(join(dir, name), rest.slice(part.length))
     if (found !== null) return found
   }
   return null
@@ -71,7 +68,7 @@ const isRoot = (folder: string): boolean => parse(folder).root === folder
  * The label of each key: the name of its project's folder; the fallback label when the folder is not found, is a root,
  * or another project's folder has the same name.
  */
-export function labels(keys: string[], find: (key: string) => string | null = folderOf): string[] {
+function labels(keys: string[], find: (key: string) => string | null): string[] {
   const fallback = prefixLabels(keys)
   const names = keys.map((key) => {
     const folder = find(key)

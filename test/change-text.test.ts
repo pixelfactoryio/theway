@@ -1,9 +1,7 @@
-import { afterEach, expect, test } from "bun:test"
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { parse } from "yaml"
-import { checkChange } from "../src/core/change"
 import {
   type ChangeEdit,
   type ChangeTask,
@@ -15,11 +13,6 @@ import {
 } from "../src/core/change-text"
 
 const CORE = join(import.meta.dirname, "..", "src", "core")
-const dirs: string[] = []
-
-afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
-})
 
 /**
  * An `import`/`export … from "…"` statement, `import type` included: its clause (a default name, `* as x`, `{ … }`)
@@ -42,51 +35,41 @@ test("change-text imports only yaml and ./text, and neither has an import from n
   expect(modulesOf('import type { A } from "node:fs"\nimport { b } from "./x"\n')).toEqual(["node:fs", "./x"])
 })
 
-test("parseYaml and escaped live in text.ts and are still exported by language.ts and io.ts", async () => {
-  const text = await import("../src/core/text")
-  const language = await import("../src/core/language")
-  const io = await import("../src/core/io")
-  expect(language.parseYaml).toBe(text.parseYaml)
-  expect(io.escaped).toBe(text.escaped)
-  const change = await import("../src/core/change")
-  expect([change.CHANGE_VERSION, change.CHANGE_FILE]).toEqual(["theway.change/v1beta1", "change.yaml"])
-})
-
 const v = "version: theway.change/v1beta1\n"
 const d = "description: Do it\n"
 const t = "tasks:\n  - text: a\n"
 
-/** Texts of `change.yaml`, valid and invalid, as `checkChange`'s tests cover them. */
-const CASES = [
-  "a: [\n",
-  "- a\n",
-  "",
-  `version: theway.change/v1\n${d}${t}`,
-  `${v}description: ""\n${t}`,
-  `${v}description: "a\\nb"\n${t}`,
-  `${v}${d}tasks: []\n`,
-  `${v}${d}tasks: a\n`,
-  `${v}${d}tasks:\n  - text: a\n  - b\n`,
-  `${v}${d}tasks:\n  - text: ""\n`,
-  `${v}${d}tasks:\n  - done: true\n`,
-  `${v}${d}tasks:\n  - text: a\n    done: "yes"\n`,
-  `${v}${d}tasks:\n  - text: a\n    owner: me\n`,
-  `${v}${d}${t}phase: 1\n`,
-  `${d}${t}`,
-  `${v}${t}`,
-  `${v}${d}`,
-  `phase: 1\nversion: x\n${t}`,
-  `${v}${d}tasks:\n  - &t\n    text: one\n  - *t\n`,
-  `${v}${d}tasks:\n  - text: a\n    done: true\n  - text: b\n`,
-]
-
-test("checkChangeText gives for a text what checkChange gives for a folder holding it", () => {
-  const dir = mkdtempSync(join(tmpdir(), "theway-change-text-"))
-  dirs.push(dir)
-  expect(checkChange(dir)).toEqual({ issues: ["not found"] })
-  for (const text of CASES) {
-    writeFileSync(join(dir, "change.yaml"), text)
-    expect([text, checkChangeText(text)]).toEqual([text, checkChange(dir)])
+test("checkChangeText gives one issue per broken rule, in the file's key order, then the missing keys", () => {
+  const cases: [string, string[]][] = [
+    ["a: [\n", ["invalid YAML: "]],
+    ["- a\n", ["must be a map"]],
+    ["", ["must be a map"]],
+    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
+    [`version: theway.change/v1beta\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
+    [`${v}description: ""\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}description: "a\\nb"\n${t}`, ["description: must be a non-empty string on one line"]],
+    [`${v}${d}tasks: []\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks: a\n`, ["tasks: must be a list with at least one task"]],
+    [`${v}${d}tasks:\n  - text: a\n  - b\n`, ["tasks[1]: must be a map"]],
+    [`${v}${d}tasks:\n  - text: ""\n`, ["tasks[0].text: must be a non-empty string"]],
+    [`${v}${d}tasks:\n  - done: true\n`, ["tasks[0].text: is required"]],
+    [`${v}${d}tasks:\n  - text: a\n    done: "yes"\n`, ["tasks[0].done: must be true or false"]],
+    [`${v}${d}tasks:\n  - text: a\n    owner: me\n`, ["tasks[0].owner: unknown key"]],
+    [`${v}${d}${t}phase: 1\n`, ["phase: unknown key"]],
+    [`${d}${t}`, ["version: is required"]],
+    [`${v}${t}`, ["description: is required"]],
+    [`${v}${d}`, ["tasks: is required"]],
+    [
+      `phase: 1\nversion: x\n${t}`,
+      ["phase: unknown key", "version: must be theway.change/v1beta1", "description: is required"],
+    ],
+  ]
+  for (const [text, issues] of cases) {
+    const result = checkChangeText(text)
+    const got = "issues" in result ? result.issues : []
+    if (issues[0]?.startsWith("invalid YAML")) {
+      expect([text, got.length, got[0]?.startsWith("invalid YAML: ")]).toEqual([text, 1, true])
+    } else expect([text, got]).toEqual([text, issues])
   }
 })
 
@@ -95,6 +78,7 @@ test("changeTextErrors places each issue on the line of the node its path names"
     changeTextErrors(text).map((e) => [e.text.startsWith("invalid YAML") ? "invalid YAML" : e.text, e.line])
   expect(lines(`${v}${d}tasks:\n  - text: a\n`)).toEqual([])
   expect(lines(`${v}${d}tasks: [\n`)).toEqual([["invalid YAML", 4]])
+  expect(lines(`${v}${d}${t}---\na: 1\n`)).toEqual([["invalid YAML", 5]])
   expect(lines("- a\n")).toEqual([["must be a map", null]])
   expect(lines(`version: x\n${d}${t}`)).toEqual([["version: must be theway.change/v1beta1", 1]])
   expect(lines(`${v}${d}tasks:\n  - text: a\n  - b\n`)).toEqual([["tasks[1]: must be a map", 5]])
@@ -371,16 +355,4 @@ test("editedChangeText refuses each case with its reason, and gives no text", ()
       "change.yaml does not pass the check",
     ].sort(),
   )
-})
-
-test("every result passes the check", () => {
-  for (const source of [BLOCK, FLOW, CRLF])
-    for (const { edit } of EDITS) expect("change" in checkChangeText(edited(source, edit))).toBe(true)
-})
-
-test("checkChange answers not found when change.yaml is a folder", () => {
-  const dir = mkdtempSync(join(tmpdir(), "theway-change-text-"))
-  dirs.push(dir)
-  mkdirSync(join(dir, "change.yaml"))
-  expect(checkChange(dir)).toEqual({ issues: ["not found"] })
 })

@@ -25,7 +25,6 @@ export class StoreError extends Error {
   constructor(
     readonly code: "missing" | "exists" | "invalid",
     message: string,
-    readonly path: string | null = null,
   ) {
     super(message)
     this.name = "StoreError"

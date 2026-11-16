@@ -188,6 +188,7 @@ test("GET …/changes/archive/:dir gives an archived change; one with only a tas
   expect(a.body).toMatchObject({
     id: "add-z-02",
     archived: "2026-02-03",
+    ref: "2026-02-03-add-z-02",
     description: "Zed",
     status: "archived",
     done: 2,
@@ -199,8 +200,16 @@ test("GET …/changes/archive/:dir gives an archived change; one with only a tas
     series: {
       id: "add-z",
       members: [
-        { ordinal: "01", active: null, archived: null, status: null, done: null, total: null },
-        { ordinal: "02", active: null, archived: "2026-02-03-add-z-02", status: "archived", done: null, total: null },
+        { ordinal: "01", id: "add-z-01", active: null, archived: null, status: null, done: null, total: null },
+        {
+          ordinal: "02",
+          id: "add-z-02",
+          active: null,
+          archived: "2026-02-03-add-z-02",
+          status: "archived",
+          done: null,
+          total: null,
+        },
       ],
     },
   })
@@ -247,34 +256,6 @@ test("a series ordinal is filled by its active folder before archived ones, else
     },
     { ordinal: "03", id: "add-s-03", active: "add-s-03", archived: null, status: "not-started", done: 0, total: 1 },
   ])
-})
-
-test("a change gives its archive reference, null when active, and each series member its change ID", async () => {
-  const h = home()
-  change(h, "archive/2026-02-03-add-z-02", yaml("Zed", [true]))
-  change(h, "archive/2026-04-05-add-z-03", yaml("Zed three", [true]))
-  change(h, "add-z-04", yaml("Four", [false]))
-
-  const archived = await get(h, `/api/projects/${KEY}/changes/archive/2026-02-03-add-z-02`)
-  expect([archived.body.id, archived.body.archived, archived.body.ref]).toEqual([
-    "add-z-02",
-    "2026-02-03",
-    "2026-02-03-add-z-02",
-  ])
-  const members = (
-    archived.body.series as {
-      members: { ordinal: string; id: string; active: string | null; archived: string | null }[]
-    }
-  ).members
-  expect(members.map((m) => [m.ordinal, m.id, m.active, m.archived])).toEqual([
-    ["01", "add-z-01", null, null],
-    ["02", "add-z-02", null, "2026-02-03-add-z-02"],
-    ["03", "add-z-03", null, "2026-04-05-add-z-03"],
-    ["04", "add-z-04", "add-z-04", null],
-  ])
-
-  const active = await get(h, `/api/projects/${KEY}/changes/add-z-04`)
-  expect([active.body.archived, active.body.ref]).toEqual([null, null])
 })
 
 test("unknown targets answer 404 with their error, encoded / and .. included", async () => {

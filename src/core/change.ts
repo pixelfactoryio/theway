@@ -1,41 +1,17 @@
 /** A change's `change.yaml`: its description and ordered tasks, validated on every read; `theway change` and `theway task done`. */
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-import {
-  CHANGE_FILE,
-  type Change,
-  type ChangeCheck,
-  type ChangeTask,
-  checkChangeText,
-  editedChangeText,
-} from "./change-text"
-import { escaped, isFile, thewayHome } from "./io"
-import { error, print, warning } from "./output"
-import { changeIdReason } from "./path"
-import { resolveKey } from "./project"
+import { CHANGE_FILE, type ChangeCheck, type ChangeTask, checkChangeText, editedChangeText } from "./change-text"
+import { thewayHome } from "./io"
+import { error, print } from "./output"
+import { invalidChangeId } from "./path"
+import { projectKeyOrExit } from "./project"
 import type { ChangeStore, FileRead } from "./store"
 import { fileStore } from "./store/files"
+import { escaped } from "./text"
 
-export { CHANGE_FILE, CHANGE_VERSION, type Change, type ChangeTask } from "./change-text"
+export { CHANGE_FILE } from "./change-text"
 
 /** The path of a change's file relative to its project folder, as error lines name it. */
-export const changeRel = (id: string): string => `changes/${id}/${CHANGE_FILE}`
-
-/**
- * The change of the folder `dir`, or every reason its `change.yaml` is invalid: `<where>: <message>`, or `<message>`
- * alone for a file-level rule; collected in the file's key order, then the missing keys.
- */
-export function checkChange(dir: string): { change: Change } | { issues: string[] } {
-  const path = join(dir, CHANGE_FILE)
-  let text: string
-  try {
-    if (!isFile(path)) return { issues: ["not found"] }
-    text = readFileSync(path, "utf-8")
-  } catch {
-    return { issues: ["not found"] }
-  }
-  return checkChangeText(text)
-}
+const changeRel = (id: string): string => `changes/${id}/${CHANGE_FILE}`
 
 /** The check of a `change.yaml` read through the store: `not found` when it is `null`. */
 export const checkRead = (read: FileRead | null): ChangeCheck =>
@@ -51,7 +27,7 @@ export const issueLines = (id: string, issues: string[]): string[] =>
  * nothing when the file is invalid, an argument is not a task number or names no task, an edit is refused, the file
  * changed since it was read, or it cannot be written. Returns the error lines, or the counts after.
  */
-export function tickTasks(
+function tickTasks(
   store: ChangeStore,
   key: string,
   id: string,
@@ -90,12 +66,11 @@ export function tickTasks(
 
 /** `theway change <change-id> [--project <key>]`: validates `change.yaml` and prints the change as JSON. */
 export function cmdChange(changeId: string, override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
-  const reason = changeIdReason(changeId)
-  if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`)
+  const invalid = invalidChangeId(changeId)
+  if (invalid !== null) return error(invalid)
   const store = fileStore(thewayHome())
   const change = { kind: "active", id: changeId } as const
   const c = checkRead(store.readFile(key, change, CHANGE_FILE))
@@ -111,12 +86,11 @@ export function cmdChange(changeId: string, override: string | undefined): numbe
 
 /** `theway task done <change-id> <n>... [--project <key>]`: ticks the tasks numbered `<n>`. */
 export function cmdTaskDone(changeId: string, numbers: string[], override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
-  const reason = changeIdReason(changeId)
-  if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`)
+  const invalid = invalidChangeId(changeId)
+  if (invalid !== null) return error(invalid)
   const r = tickTasks(fileStore(thewayHome()), key, changeId, numbers)
   if ("errors" in r) {
     for (const line of r.errors) error(line)

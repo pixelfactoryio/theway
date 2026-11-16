@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, realpathSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import type { z } from "zod"
 import {
   ChangeDetailSchema,
@@ -17,6 +17,7 @@ import {
   WorkflowListSchema,
 } from "../src/dashboard/contract"
 import { createApp } from "../src/dashboard/server"
+import { pageToken, put } from "./helpers"
 
 const TOKEN = "ef".repeat(32)
 const PORT = 4870
@@ -27,11 +28,6 @@ const temps: string[] = []
 afterEach(() => {
   for (const d of temps.splice(0)) rmSync(d, { recursive: true, force: true })
 })
-
-function put(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, text)
-}
 
 const REVIEW = `---
 description: Review the change
@@ -80,14 +76,6 @@ function home(): string {
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex")
 
-/** The token the page carries, read from its `<meta name="theway-token">`. */
-async function pageToken(h: string): Promise<string> {
-  const html = await (
-    await createApp(h, () => PORT, "", TOKEN).request(`${ORIGIN}/`, { headers: { Host: `127.0.0.1:${PORT}` } })
-  ).text()
-  return /<meta name="theway-token" content="([^"]+)">/.exec(html)?.[1] as string
-}
-
 /** A request as the page sends it: this server's Origin and the page's token. */
 async function call(h: string, method: string, path: string, body?: unknown): Promise<unknown> {
   const init: RequestInit = {
@@ -95,7 +83,10 @@ async function call(h: string, method: string, path: string, body?: unknown): Pr
     headers: {
       Host: `127.0.0.1:${PORT}`,
       Origin: ORIGIN,
-      "X-Theway-Token": await pageToken(h),
+      "X-Theway-Token": await pageToken(
+        createApp(h, () => PORT, "", TOKEN),
+        PORT,
+      ),
       "Content-Type": "application/json",
     },
   }

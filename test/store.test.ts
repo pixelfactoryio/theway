@@ -11,12 +11,12 @@ import {
   rmSync,
   statSync,
   utimesSync,
-  writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { StoreError } from "../src/core/store"
 import { fileStore, sha256 } from "../src/core/store/files"
+import { put } from "./helpers"
 
 const KEY = "-p"
 const temps: string[] = []
@@ -32,11 +32,6 @@ function home(): string {
 }
 
 const changes = (h: string, key = KEY): string => join(h, "projects", key, "changes")
-
-function put(path: string, text: string): void {
-  mkdirSync(join(path, ".."), { recursive: true })
-  writeFileSync(path, text)
-}
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex")
 
@@ -180,13 +175,13 @@ test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     const file = join(changes(h), "add-a", "spec.md")
     put(file, "S")
     chmodSync(file, 0o444)
-    let message = ""
+    let code: string | undefined
     try {
       fileStore(h).writeFile(KEY, "add-a", "spec.md", Buffer.from("T"), sha("S"))
     } catch (e) {
-      message = (e as Error).message
+      code = (e as NodeJS.ErrnoException).code
     }
-    expect(message).toStartWith("EACCES: permission denied, access '")
+    expect(code).toBe("EACCES")
     expect(readFileSync(file, "utf-8")).toBe("S")
     expect(statSync(file).mode & 0o777).toBe(0o444)
   },
@@ -206,7 +201,7 @@ test("archive moves an active change to its reference, and refuses a missing cha
   } catch (e) {
     error = e as StoreError
   }
-  expect([error?.code, error?.path]).toEqual(["exists", join(changes(h), "archive", "2026-11-13-add-a")])
+  expect(error?.code).toBe("exists")
   expect(existsSync(join(changes(h), "add-a"))).toBe(true)
 
   expect(s.archive(KEY, "add-a", "2026-11-14")).toBe("2026-11-14-add-a")

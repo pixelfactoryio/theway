@@ -2,23 +2,20 @@
  * The home's workflow and prompt files as the dashboard reads them: `GET /api/workflows`, `GET /api/prompts` and each
  * file's route. A global file is read with the global folders only; a project's file as that project resolves it.
  */
-import { homedir } from "node:os"
 import { join } from "node:path"
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml"
 import { isFile, type Overlay, readBytes } from "../core/io"
-import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language"
+import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile, splitHeader } from "../core/language"
 import { FILE_PREFIX, matrixOf, NAME, promptRef, VERSION, type WorkflowFileItem } from "../core/language-schema"
 import { warnQuiet } from "../core/output"
 import { projectDir } from "../core/project"
-import type { Kind } from "../core/step-files"
+import { EXT, type Kind } from "../core/step-files"
 import { sha256 } from "../core/store/files"
-import { byText, parseYaml, yamlErrorLine } from "../core/text"
+import { byText, parseYaml, pathSegments, yamlErrorLine } from "../core/text"
 import { joinAnd, markedPath } from "../core/workflow"
 import { tildePath } from "./changes"
 import type { CheckBody, FileBody, FileError, PromptList, PromptRow, Use, WorkflowList, WorkflowRow } from "./contract"
 import { projectKeys } from "./projects"
-
-const EXT: Record<Kind, string> = { workflows: ".yaml", prompts: ".md" }
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"]
 
@@ -28,7 +25,7 @@ const byFile = (a: { name: string; project: string | null }, b: { name: string; 
   (a.project === null ? (b.project === null ? 0 : -1) : b.project === null ? 1 : byText(a.project, b.project))
 
 /** The home-relative path of a file: `<kind>/<name>.<ext>` or `projects/<key>/<kind>/<name>.<ext>`. */
-export const relPath = (kind: Kind, project: string | null, name: string): string =>
+const relPath = (kind: Kind, project: string | null, name: string): string =>
   project === null ? `${kind}/${name}${EXT[kind]}` : `projects/${project}/${kind}/${name}${EXT[kind]}`
 
 export const absPath = (home: string, kind: Kind, project: string | null, name: string): string =>
@@ -63,11 +60,7 @@ function workflowFiles(home: string): ListedWorkflow[] {
  * so does another workflow of its own context (`context`: the global files for a global file, its project's files and
  * the global ones they leave for a project's), without its `theway: ` prefix; `null` otherwise.
  */
-export function secondDefault(
-  context: readonly WorkflowFileItem[],
-  project: string | null,
-  name: string,
-): string | null {
+function secondDefault(context: readonly WorkflowFileItem[], project: string | null, name: string): string | null {
   const marked = context.filter((w) => w.default)
   const scope = project === null ? "global" : "project"
   if (marked.length < 2 || !marked.some((w) => w.name === name && w.scope === scope)) return null
@@ -81,7 +74,7 @@ function runsOnOf(steps: { runs_on: "agents" | "session" }[]): WorkflowRow["runs
 }
 
 /** The body of `GET /api/workflows`. */
-export function listWorkflows(home: string, userHome: string = homedir()): WorkflowList {
+export function listWorkflows(home: string): WorkflowList {
   const workflows = workflowFiles(home).map(({ name, project, item, context }): WorkflowRow => {
     const second = secondDefault(context, project, name)
     return {
@@ -94,7 +87,7 @@ export function listWorkflows(home: string, userHome: string = homedir()): Workf
       errors: [...item.errors.map((l) => own(l, `workflows/${name}.yaml: `)), ...(second === null ? [] : [second])],
     }
   })
-  return { folder: tildePath(join(home, "workflows"), userHome), workflows }
+  return { folder: tildePath(join(home, "workflows")), workflows }
 }
 
 /**
@@ -102,7 +95,7 @@ export function listWorkflows(home: string, userHome: string = homedir()): Workf
  * (`on-fail`), a value of its `with`, of its on-fail map's `with` or of its valid `matrix` (`value`). Nothing when the
  * root is not a `theway.workflow/v1beta1` map with a `steps` list.
  */
-export function usesOf(text: string): { prompt: string; step: number; as: Use["as"] }[] {
+function usesOf(text: string): { prompt: string; step: number; as: Use["as"] }[] {
   const parsed = parseYaml(text)
   if ("reason" in parsed) return []
   const root = parsed.root
@@ -191,7 +184,7 @@ function promptFiles(home: string): { name: string; project: string | null }[] {
 }
 
 /** The body of `GET /api/prompts`. */
-export function listPrompts(home: string, userHome: string = homedir()): PromptList {
+export function listPrompts(home: string): PromptList {
   const files = promptFiles(home)
   const uses = usesByPrompt(home, files)
   const workflows = new Map<string | null, ReturnType<typeof contextWorkflows>>()
@@ -227,18 +220,7 @@ export function listPrompts(home: string, userHome: string = homedir()): PromptL
       usedBy,
     }
   })
-  return { folder: tildePath(join(home, "prompts"), userHome), prompts }
-}
-
-/** The segments of a line's path (its text before the first `: `): keys and list indexes, as far as they read. */
-export function pathSegments(path: string): (string | number)[] {
-  const out: (string | number)[] = []
-  const re = /\[(\d+)\]|\.?([^.[\]]+)/y
-  let m: RegExpExecArray | null
-  while (re.lastIndex < path.length && (m = re.exec(path)) !== null) {
-    out.push(m[1] !== undefined ? Number(m[1]) : (m[2] as string))
-  }
-  return out
+  return { folder: tildePath(join(home, "prompts")), prompts }
 }
 
 /**
@@ -285,7 +267,7 @@ function dashLine(text: string, counter: LineCounter, item: Node | null, list: N
 }
 
 /** The line of a workflow's check line, its own prefix already removed. */
-export function workflowLine(text: string, line: string): number | null {
+function workflowLine(text: string, line: string): number | null {
   if (FILE_PREFIX.test(line) || line.startsWith("version: ")) return null
   if (line.startsWith("invalid YAML")) return yamlErrorLine(text)
   const at = line.indexOf(": ")
@@ -294,16 +276,11 @@ export function workflowLine(text: string, line: string): number | null {
 }
 
 /** The line of a prompt's check line, its own prefix already removed: a header key's line in the whole file. */
-export function promptLine(text: string, line: string): number | null {
+function promptLine(text: string, line: string): number | null {
   if (line === "cannot be read" || line.startsWith("body:") || line.startsWith("header:")) return null
   const at = line.indexOf(": ")
   if (at === -1) return null
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .replaceAll("\r\n", "\n")
-    .split("\n")
-  if (lines[0] !== "---") return null
-  const end = lines.findIndex((l, i) => i > 0 && l === "---")
+  const { lines, end } = splitHeader(text)
   if (end === -1) return null
   const found = lineOfPath(lines.slice(1, end).join("\n"), pathSegments(line.slice(0, at)))
   return found === null ? null : found + 1
@@ -340,7 +317,7 @@ function readListed(home: string, kind: Kind, project: string | null, name: stri
  * `resolveWorkflowFile` without the file's own prefix, then the second-default line on the `default` key's line. With
  * `overlay`, the files it holds are read from it.
  */
-export function workflowErrors(
+function workflowErrors(
   home: string,
   project: string | null,
   name: string,
@@ -356,7 +333,7 @@ export function workflowErrors(
 }
 
 /** The check lines of the prompt `name` of `project` if it held `text`, each on its line; `overlay` as in `workflowErrors`. */
-export function promptErrors(
+function promptErrors(
   home: string,
   project: string | null,
   name: string,
@@ -370,7 +347,7 @@ export function promptErrors(
 }
 
 /** The header fields a row of `GET /api/prompts` gives for a prompt holding `text`. */
-export function promptHeader(text: string): Pick<PromptRow, "header" | "description" | "model" | "inputs"> {
+function promptHeader(text: string): Pick<PromptRow, "header" | "description" | "model" | "inputs"> {
   const { header } = parsePromptFile(text)
   return {
     header: header !== null,

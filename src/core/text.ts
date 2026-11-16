@@ -1,5 +1,5 @@
 /** Text helpers with no `node:` import, shared by the CLI and the dashboard's client bundle. */
-import { parse } from "yaml"
+import { parse, YAMLParseError } from "yaml"
 
 /** `s` with its newlines and carriage returns written as `\n` and `\r`, for an error line. */
 export const escaped = (s: string): string => s.replaceAll("\n", "\\n").replaceAll("\r", "\\r")
@@ -13,7 +13,7 @@ export function parseYaml(text: string): { root: unknown } | { reason: string } 
     return { root: parse(text, { mapAsMap: true, logLevel: "error" }) }
   } catch (e) {
     const first = (e instanceof Error ? e.message : String(e)).split("\n")[0] ?? ""
-    const line = (e as { linePos?: { line: number }[] }).linePos?.[0]?.line
+    const line = e instanceof YAMLParseError ? e.linePos?.[0].line : undefined
     const failing = line === undefined ? "" : (text.split("\n")[line - 1] ?? "")
     const hint = failing.includes("${{") ? "; quote a ${{ … }} reference written inside {…}" : ""
     return { reason: `invalid YAML: ${first.replace(/:$/, "")}${hint}` }
@@ -26,6 +26,16 @@ export function yamlErrorLine(text: string): number | null {
     parse(text, { mapAsMap: true, logLevel: "error" })
     return null
   } catch (e) {
-    return (e as { linePos?: { line: number }[] }).linePos?.[0]?.line ?? null
+    return e instanceof YAMLParseError ? (e.linePos?.[0].line ?? null) : null
   }
+}
+
+/** The segments of a path such as `steps[0].with.x`: keys and list indexes, as far as they read. */
+export function pathSegments(path: string): (string | number)[] {
+  const out: (string | number)[] = []
+  const re = /\[(\d+)\]|\.?([^.[\]]+)/y
+  let m: RegExpExecArray | null
+  while (re.lastIndex < path.length && (m = re.exec(path)) !== null)
+    out.push(m[1] !== undefined ? Number(m[1]) : (m[2] as string))
+  return out
 }

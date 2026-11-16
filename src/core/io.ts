@@ -14,9 +14,11 @@ import {
 } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
+import { NAME } from "./language-schema"
+import { escaped } from "./text"
 
 /** Where the data home came from: `THEWAY_HOME`, the pointer file, or the default `~/.theway`. */
-export type HomeSource = "env" | "pointer" | "default"
+type HomeSource = "env" | "pointer" | "default"
 
 /** `~/.theway`, the data home when neither `THEWAY_HOME` nor the pointer names one. */
 export function defaultHome(): string {
@@ -147,14 +149,6 @@ export function removeIfEmpty(dir: string): boolean {
     return (e as NodeJS.ErrnoException).code === "ENOENT"
   }
 }
-
-import { MODELS, NAME } from "./schema"
-
-export { MODELS, NAME }
-
-import { escaped } from "./text"
-
-export { escaped }
 
 /** The message `invalid <kind> name '<wanted>'` when `wanted` is given and not a name; `null` otherwise. */
 export function invalidName(kind: string, wanted: string | undefined): string | null {

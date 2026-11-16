@@ -1,8 +1,8 @@
 import { CHANGE_FILE, checkRead, issueLines } from "./change"
-import { escaped, thewayHome } from "./io"
+import { thewayHome } from "./io"
 import { detail, error, print, warning } from "./output"
-import { changeIdReason } from "./path"
-import { resolveKey } from "./project"
+import { invalidChangeId } from "./path"
+import { projectKeyOrExit } from "./project"
 import { StoreError } from "./store"
 import { fileStore } from "./store/files"
 
@@ -14,12 +14,11 @@ function localDate(): string {
 
 /** `theway archive <change-id> [--project <key>] [--force]`: moves a change to `changes/archive/<date>-<change-id>`. */
 export function cmdArchive(changeId: string, override: string | undefined, force: boolean): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
-  const reason = changeIdReason(changeId)
-  if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`)
+  const invalid = invalidChangeId(changeId)
+  if (invalid !== null) return error(invalid)
   const store = fileStore(thewayHome())
   const change = { kind: "active", id: changeId } as const
   const date = localDate()

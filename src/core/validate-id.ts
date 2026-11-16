@@ -1,5 +1,5 @@
-import { escaped } from "./io"
 import { error } from "./output"
+import { escaped } from "./text"
 
 const VERB = /^(add|update|refactor|remove|fix)-/
 const KEBAB = /^(add|update|refactor|remove|fix)-[a-z0-9]+(-[a-z0-9]+)*$/

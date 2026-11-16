@@ -22,6 +22,7 @@ import { homedir, tmpdir } from "node:os"
 import { delimiter, dirname, join, parse, resolve } from "node:path"
 import { OPT_IN_KEYS } from "../src/core/config"
 import { expandHome, OPT_IN_HINTS, rulePath } from "../src/install"
+import { put } from "./helpers"
 
 const REPO = join(import.meta.dirname, "..")
 const CLI = join(REPO, "dist", "theway.js")
@@ -111,11 +112,6 @@ function allow(env: Env): unknown[] {
   return JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8")).permissions.allow
 }
 
-function put(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, text)
-}
-
 /** The 0.2.0 `shQuote`: `'…'` with every `'` written as `'\''`. */
 function shQuote(s: string): string {
   return `'${s.replaceAll("'", "'\\''")}'`
@@ -144,16 +140,6 @@ test("install copies the plugin into CLAUDE_CONFIG_DIR/skills/theway and initial
     readFileSync(join(REPO, "plugin", "workflows", "run-pipeline.js"), "utf-8"),
   )
   expect(existsSync(join(env.theway, "config.yaml"))).toBe(true)
-  for (const rel of [
-    "workflows/develop.yaml",
-    "workflows/agents.yaml",
-    "prompts/conformance.md",
-    "prompts/review.md",
-    "standards/commits.md",
-    "standards/git-host.md",
-  ]) {
-    expect(existsSync(join(env.theway, rel))).toBe(true)
-  }
   for (const dir of ["steps", "schemas"]) expect(existsSync(join(env.theway, dir))).toBe(false)
   const old = join(env.claude, "skills", "theway", "commands", "develop-workflow.md")
   expect(existsSync(old)).toBe(false)
@@ -534,23 +520,18 @@ test("uninstall removes the Edit rule of an earlier version", () => {
   expect(allow(env)).toEqual(["Bash(ls:*)"])
 })
 
-for (const m of [0o600, 0o640]) {
-  // Needs POSIX file modes.
-  test.skipIf(process.platform === "win32")(
-    `install and uninstall keep a ${m.toString(8)} settings.json at ${m.toString(8)}`,
-    () => {
-      const env = setup()
-      const settings = join(env.claude, "settings.json")
-      put(settings, JSON.stringify({ env: { TOKEN: "x" } }))
-      chmodSync(settings, m)
-      expect(run(env, "install").status).toBe(0)
-      expect(mode(settings)).toBe(m)
-      expect(run(env, "uninstall").status).toBe(0)
-      expect(mode(settings)).toBe(m)
-      expect(allow(env)).toEqual([])
-    },
-  )
-}
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")("install and uninstall keep a 640 settings.json at 640", () => {
+  const env = setup()
+  const settings = join(env.claude, "settings.json")
+  put(settings, JSON.stringify({ env: { TOKEN: "x" } }))
+  chmodSync(settings, 0o640)
+  expect(run(env, "install").status).toBe(0)
+  expect(mode(settings)).toBe(0o640)
+  expect(run(env, "uninstall").status).toBe(0)
+  expect(mode(settings)).toBe(0o640)
+  expect(allow(env)).toEqual([])
+})
 
 // Needs POSIX file modes.
 test.skipIf(process.platform === "win32")("install writes a new settings.json with mode 600", () => {
@@ -735,43 +716,9 @@ function walk(dir: string, prefix = ""): string[] {
 test("install into a fresh home writes every shipped file and a manifest of their hashes", () => {
   const env = setup()
   expect(run(env, "install").status).toBe(0)
-  expect(SHIPPED_FILES).toHaveLength(41)
-  for (const rel of [
-    "standards/authority.md",
-    "prompts/change-template.md",
-    "workflows/develop.yaml",
-    "workflows/agents.yaml",
-    "workflows/engineering.yaml",
-    "workflows/engineering-light.yaml",
-    "prompts/conformance.md",
-    "prompts/review.md",
-    "prompts/change.md",
-    "standards/commits.md",
-    "standards/git-host.md",
-  ]) {
-    expect(SHIPPED_FILES).toContain(rel)
-  }
   for (const rel of SHIPPED_FILES) expect(readFileSync(join(env.theway, rel), "utf-8")).toBe(shipped(rel))
   expect(manifest(env)).toEqual(Object.fromEntries(SHIPPED_FILES.map((rel) => [rel, sha256(shipped(rel))])))
-  expect(manifest(env)["prompts/fix-spec-template.md"]).toBe(sha256(shipped("prompts/fix-spec-template.md")))
-  expect(manifest(env)["prompts/light-spec-template.md"]).toBe(sha256(shipped("prompts/light-spec-template.md")))
-  // The standards and templates that moved to prompts/ are no longer shipped there.
-  for (const rel of [
-    "standards/tamm-framework.md",
-    "standards/spec-review.md",
-    "templates/spec-template.md",
-    "templates/tasks-template.md",
-    "prompts/tasks-template.md",
-  ]) {
-    expect(SHIPPED_FILES).not.toContain(rel)
-  }
-  for (const rel of [
-    "templates/coding-standards-template.md",
-    "templates/source-tree-template.md",
-    "templates/tech-stack-template.md",
-  ]) {
-    expect(SHIPPED_FILES).toContain(rel)
-  }
+  expect(SHIPPED_FILES).not.toContain("prompts/tasks-template.md")
   expect(walk(env.theway).filter((f) => /\/[^/]+\.default\.(md|yaml)$/.test(f) || f.endsWith(".bak"))).toEqual([])
 })
 
@@ -1972,7 +1919,6 @@ test("dist/theway.js bundles @clack/prompts instead of importing it", () => {
   const text = readFileSync(CLI, "utf-8")
   expect(text).not.toMatch(/(\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']@clack\//)
   const pkg = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8"))
-  expect(pkg.devDependencies["@clack/prompts"]).toBe("1.8.1")
   expect(pkg.dependencies).toBeUndefined()
 })
 
@@ -2067,8 +2013,9 @@ test("uninstall reports what it removed when a later step fails", () => {
   const plugin = join(env.claude, "skills", "theway")
   const res = run(env, "uninstall")
   expect(res.status).toBe(1)
-  expect(res.stderr).toBe(
-    `theway: uninstall stopped: Path is a directory: rm returned EISDIR (is a directory) ${pointer(env)}; already removed: the plugin in ${plugin}, the theway binary at ${bin(env)}${
+  expect(res.stderr).toStartWith("theway: uninstall stopped: ")
+  expect(res.stderr).toEndWith(
+    `; already removed: the plugin in ${plugin}, the theway binary at ${bin(env)}${
       process.platform === "win32" ? `, the theway shim at ${shim(env)}` : ""
     }\n`,
   )

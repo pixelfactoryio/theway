@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { execFileSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { escapeRegExp } from "./helpers"
 
 const ROOT = join(import.meta.dirname, "..")
 const COMMANDS = join(ROOT, "plugin", "commands")
@@ -18,20 +19,17 @@ const PIPELINE = "plugin/workflows/run-pipeline.js"
 const WORKFLOW = "plugin/commands/workflow.md"
 const ENGINEERING = "plugin/commands/engineering.md"
 
-/** A term matched literally. */
-const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-
 /** Each term's literal is built by concatenation, so this file never matches itself. */
 const ENTRIES: Entry[] = [
-  { term: literal("theway:" + "setup"), flags: "", files: ["plugin/", "src/", "test/", "site/"], allow: [] },
+  { term: escapeRegExp("theway:" + "setup"), flags: "", files: ["plugin/", "src/", "test/", "site/"], allow: [] },
   {
     // Engineering is a workflow: its standards and templates moved to prompts/.
     term: [
-      literal("engineering." + "review"),
-      literal("standards/" + "spec-review.md"),
-      literal("standards/" + "spec-investigation.md"),
-      literal("standards/" + "tamm-framework.md"),
-      literal("templates/" + "spec-template.md"),
+      escapeRegExp("engineering." + "review"),
+      escapeRegExp("standards/" + "spec-review.md"),
+      escapeRegExp("standards/" + "spec-investigation.md"),
+      escapeRegExp("standards/" + "tamm-framework.md"),
+      escapeRegExp("templates/" + "spec-template.md"),
     ].join("|"),
     flags: "",
     files: REPOSITORY,
@@ -43,14 +41,14 @@ const ENTRIES: Entry[] = [
     ],
   },
   {
-    term: literal("develop" + "-workflow"),
+    term: escapeRegExp("develop" + "-workflow"),
     flags: "",
     files: REPOSITORY,
     // The legacy uninstall test removes the old command file.
     allow: [{ file: "test/install.test.ts" }],
   },
   {
-    term: literal("/theway:" + "develop") + "([^-]|$)",
+    term: escapeRegExp("/theway:" + "develop") + "([^-]|$)",
     flags: "",
     files: REPOSITORY,
     allow: [
@@ -60,13 +58,13 @@ const ENTRIES: Entry[] = [
       { file: "site/app/(home)/page.tsx", contains: "aria-label" },
     ],
   },
-  { term: literal("~/" + ".theway"), flags: "", files: ["plugin/"], allow: [] },
+  { term: escapeRegExp("~/" + ".theway"), flags: "", files: ["plugin/"], allow: [] },
   {
     term: [
-      literal("<home>/" + "<project>"),
+      escapeRegExp("<home>/" + "<project>"),
       "theway (list|archive|path|config|standards|context|workflow|next-id) (<project>|" + "my-[a-z]+)",
-      literal(".theway/" + "my-"),
-      literal("<home>/" + "my-"),
+      escapeRegExp(".theway/" + "my-"),
+      escapeRegExp("<home>/" + "my-"),
       "my-" + "repo",
       "my-" + "site",
       "my-" + "project",
@@ -76,36 +74,36 @@ const ENTRIES: Entry[] = [
     files: ["plugin/"],
     allow: [],
   },
-  { term: literal("architecture" + "-principles"), flags: "", files: ["plugin/"], allow: [] },
+  { term: escapeRegExp("architecture" + "-principles"), flags: "", files: ["plugin/"], allow: [] },
   {
-    term: literal("interaction" + ".default.md"),
+    term: escapeRegExp("interaction" + ".default.md"),
     flags: "",
     files: ["plugin/commands/", "plugin/home/standards/"],
     allow: [],
   },
   {
-    term: literal("user " + "standard"),
+    term: escapeRegExp("user " + "standard"),
     flags: "",
     files: ["plugin/commands/", "plugin/home/standards/develop.md"],
     allow: [],
   },
   {
     term: ["core-principles", "sre", "web-development", "quality"]
-      .map((n) => literal("<home>/" + "standards/" + n + ".md"))
+      .map((n) => escapeRegExp("<home>/" + "standards/" + n + ".md"))
       .join("|"),
     flags: "",
     files: [ENGINEERING, "plugin/commands/document.md"],
     allow: [],
   },
-  { term: literal("<home>/" + "config.yaml"), flags: "", files: ["plugin/commands/"], allow: [] },
+  { term: escapeRegExp("<home>/" + "config.yaml"), flags: "", files: ["plugin/commands/"], allow: [] },
   { term: "\\bworkflow" + "\\.[a-z_]", flags: "", files: [WORKFLOW], allow: [] },
   {
     term: [
-      literal("workflow." + "review_rounds"),
+      escapeRegExp("workflow." + "review_rounds"),
       "open" + "_pr",
-      literal("workflow." + "models"),
-      literal("engineering." + "review_rounds"),
-      literal("models." + "critic"),
+      escapeRegExp("workflow." + "models"),
+      escapeRegExp("engineering." + "review_rounds"),
+      escapeRegExp("models." + "critic"),
     ].join("|"),
     flags: "",
     files: REPOSITORY,
@@ -115,23 +113,23 @@ const ENTRIES: Entry[] = [
   { term: "Esti" + "mated|Target " + "Completion", flags: "", files: ["plugin/home/templates/"], allow: [] },
   {
     term: [
-      literal("changes/" + "archive/*-"),
-      literal("validate-id <change-id> " + "--series"),
-      literal("min" + "("),
+      escapeRegExp("changes/" + "archive/*-"),
+      escapeRegExp("validate-id <change-id> " + "--series"),
+      escapeRegExp("min" + "("),
     ].join("|"),
     flags: "",
     files: [ENGINEERING],
     allow: [],
   },
   {
-    term: [literal("min" + "("), literal("light `" + "fix-`"), literal("phases" + ":")].join("|"),
+    term: [escapeRegExp("min" + "("), escapeRegExp("light `" + "fix-`"), escapeRegExp("phases" + ":")].join("|"),
     flags: "",
     files: [PIPELINE],
     allow: [],
   },
   {
     term: [
-      literal("--" + "admin"),
+      escapeRegExp("--" + "admin"),
       "(^|[^a-z])" + "gh ",
       "git " + "push",
       "--" + "squash",
@@ -148,7 +146,7 @@ const ENTRIES: Entry[] = [
   },
   {
     // Review lenses are prompts now, and a one-off agent is a step file.
-    term: literal("lenses" + "/") + "|" + literal("workflow.defaults." + "agent"),
+    term: escapeRegExp("lenses" + "/") + "|" + escapeRegExp("workflow.defaults." + "agent"),
     flags: "",
     files: ["site/content/", "README.md", "SECURITY.md", "plugin/"],
     allow: [],
@@ -156,10 +154,10 @@ const ENTRIES: Entry[] = [
   {
     // v1 is removed: no step file, and no condition of a typed result.
     term: [
-      literal("theway.step" + "/v1"),
-      literal("no-" + "confirmed"),
-      literal("no-" + "findings"),
-      literal("no-" + "decision"),
+      escapeRegExp("theway.step" + "/v1"),
+      escapeRegExp("no-" + "confirmed"),
+      escapeRegExp("no-" + "findings"),
+      escapeRegExp("no-" + "decision"),
     ].join("|"),
     flags: "",
     files: REPOSITORY,
@@ -171,7 +169,7 @@ const ENTRIES: Entry[] = [
     ],
   },
   {
-    term: literal("ai-" + "marketplace") + "|" + literal("github:" + "pixelfactoryio"),
+    term: escapeRegExp("ai-" + "marketplace") + "|" + escapeRegExp("github:" + "pixelfactoryio"),
     flags: "",
     files: ["README.md", "plugin/commands/"],
     allow: [],
