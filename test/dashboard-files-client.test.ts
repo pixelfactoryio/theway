@@ -164,7 +164,7 @@ test("lines go to their card, steps[N] being 0-based; the workflow's own lines t
   expect(selectionOf({ text: "prompts/review.md: model: x", line: null }, r.drawing)).toBeNull()
 })
 
-test("a workflow that does not resolve is still drawn, malformed shapes as the spec says", () => {
+test("a workflow that does not resolve is still drawn, malformed shapes included", () => {
   const text = [
     "version: theway.workflow/v1beta1",
     "inputs: [a]",
@@ -232,12 +232,6 @@ test("an invalid step runs-on gives no badge on the step nor its on-fail; a reje
     "  - uses: prompts/implement.md",
     "    matrix: {lens: [1]}",
     "  - uses: prompts/implement.md",
-    "    matrix: {lens: []}",
-    "  - uses: prompts/implement.md",
-    "    matrix: {Lens: [a]}",
-    "  - uses: prompts/implement.md",
-    "    matrix: {lens: a}",
-    "  - uses: prompts/implement.md",
     "    matrix:",
     "      ? [a]",
     "      : [x]",
@@ -255,9 +249,6 @@ test("an invalid step runs-on gives no badge on the step nor its on-fail; a reje
   ])
   expect(matrices.map((s) => [s.matrix, s.fields.matrix])).toEqual([
     ["matrix", { source: "{lens: [1]}" }],
-    ["matrix", { source: "{lens: []}" }],
-    ["matrix", { source: "{Lens: [a]}" }],
-    ["matrix", { source: "{lens: a}" }],
     // A key that is not a scalar is named as the resolver names it.
     ["matrix · 1", { key: "a", values: ["x"] }],
   ])

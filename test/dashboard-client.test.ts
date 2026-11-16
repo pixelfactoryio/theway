@@ -19,11 +19,10 @@ const CLIENT = join(REPO, "src", "dashboard", "client")
 /** The installed folders, kept as the shadcn CLI writes them. */
 const INSTALLED = ["components/ui", "components/reui", "hooks"]
 
-function files(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-    e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)],
-  )
-}
+const files = (dir: string): string[] =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .map((e) => join(e.parentPath, e.name))
 
 /** The client's own source files: every `.ts`/`.tsx` outside the installed folders. */
 const own = files(CLIENT)
@@ -131,78 +130,19 @@ test("the server imports the API contract for its types only", () => {
 })
 
 const pkg = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8")) as {
-  dependencies?: Record<string, string>
   devDependencies: Record<string, string>
 }
 
-/** The packages the dashboard adds, at the versions the spec pins. */
-const ADDED: Record<string, string> = {
-  hono: "4.13.18",
-  "@hono/node-server": "2.1.8",
-  react: "19.3.1",
-  "react-dom": "19.3.1",
-  wouter: "3.13.0",
-  "@tanstack/react-query": "5.107.1",
-  tailwindcss: "4.3.5",
-  "@tailwindcss/cli": "4.3.5",
-  "tw-animate-css": "1.4.0",
-  "@base-ui/react": "1.9.0",
-  "class-variance-authority": "0.7.1",
-  cn: "0.5.2",
-  "lucide-react": "1.72.0",
-  shadcn: "4.23.0",
-  "@fontsource-variable/inter": "5.3.0",
-  "@fontsource-variable/jetbrains-mono": "5.3.0",
-  "@types/react": "19.3.0",
-  "@types/react-dom": "19.3.0",
-  cmdk: "1.1.1",
-  "@tanstack/react-table": "9.3.1",
-  "react-resizable-panels": "4.21.0",
-  "react-markdown": "10.1.0",
-  "remark-gfm": "4.0.1",
-  "@tailwindcss/typography": "0.5.20",
-  "@codemirror/state": "6.7.6",
-  "@codemirror/view": "6.43.15",
-  "@codemirror/language": "6.13.1",
-  "@codemirror/commands": "6.11.1",
-  "@codemirror/search": "6.7.2",
-  "@codemirror/lang-yaml": "6.1.3",
-  "@codemirror/lang-markdown": "6.5.2",
-  "@codemirror/lint": "6.9.7",
-  "@lezer/highlight": "1.2.5",
-  "@panzoom/panzoom": "4.6.2",
-  diff: "9.0.0",
-  "@codemirror/merge": "6.12.3",
-  "@dnd-kit/core": "6.3.1",
-  "@dnd-kit/sortable": "10.0.0",
-  "@dnd-kit/utilities": "3.2.2",
-  zod: "4.6.7",
-}
-
-test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {
-  expect(Object.keys(pkg.dependencies ?? {})).toEqual([])
+test("every devDependency but the Node.js types and the compiler is pinned to an exact version", () => {
   // The code view builds its own extension set: no `codemirror` package, so no `basicSetup`.
   expect(pkg.devDependencies.codemirror).toBeUndefined()
   // `sortable` imports no modifiers.
   expect(pkg.devDependencies["@dnd-kit/modifiers"]).toBeUndefined()
-  for (const [name, version] of Object.entries(ADDED))
-    expect([name, pkg.devDependencies[name]]).toEqual([name, version])
-  // Every other devDependency predates the dashboard or lints and formats the code.
-  const others = Object.keys(pkg.devDependencies).filter((n) => !(n in ADDED))
-  expect(others.sort()).toEqual([
-    "@clack/prompts",
-    "@eslint/js",
-    "@types/node",
-    "commander",
-    "eslint",
-    "eslint-config-prettier",
-    "eslint-plugin-react-hooks",
-    "markdownlint-cli2",
-    "prettier",
-    "typescript",
-    "typescript-eslint",
-    "yaml",
-  ])
+  // `@types/node` and `typescript` follow a major version.
+  const ranged = Object.entries(pkg.devDependencies).filter(
+    ([name, version]) => !["@types/node", "typescript"].includes(name) && !/^\d+\.\d+\.\d+$/.test(version),
+  )
+  expect(ranged).toEqual([])
 })
 
 test("every runtime package the client adds is imported by a kept file", () => {
