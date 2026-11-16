@@ -52,11 +52,11 @@ Other environment variables:
 npx --yes @pixelfactoryio/theway@latest install
 ```
 
-Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway`, sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, always dropping the `Edit` rule earlier versions added for the new and the previous home, and dropping the previous home's `Read` rule when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break. It prints the `export PATH=…` line when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
+Copies the plugin to `~/.claude/skills/theway`, the CLI to `~/.local/bin/theway` (and `theway.cmd` beside it on Windows), sets up the data home (`--home`, else `THEWAY_HOME`, else the home the pointer names, else `~/.theway`), writes or removes the pointer file and adds the two permission rules to `~/.claude/settings.json`, always dropping the `Edit` rule earlier versions added for the new and the previous home, and dropping the previous home's `Read` rule when the home changed. It stops and changes nothing when `~/.local/bin/theway` is another program, not a theway binary. It also stops and changes nothing when the data home is your home folder or one of its parents, or a custom home containing a glob character or a line break, or, on Windows, a home not on a drive letter. It prints the `export PATH=…` line (a PowerShell `$env:Path = …` line on Windows) when the install folder is not on `PATH`, and warns when another `theway` comes first on `PATH`. Run it through `npx`, which carries the plugin files; the installed `theway install` exits 1 and prints the `npx` command. See [What install writes](./installation.mdx#what-install-writes).
 
 On a first install from a terminal (stdin and stdout), it asks where to keep the data home, only when theway was never installed, then which opt-in standards to enable, only when the data home has no `config.yaml`. The options answer without a question:
 
-- `--home <path>`: the data home, an absolute path or one starting with `~/`.
+- `--home <path>`: the data home, an absolute path or one starting with `~/` (or `~\` on Windows).
 - `--standards <keys>`: the opt-in standards to enable in a new `config.yaml`, comma-separated (`core_principles`, `sre`, `web_development`, `quality`), or `none`.
 
 It exits 1 and changes nothing when:
@@ -88,7 +88,7 @@ With no terminal and no `--standards`, a first install leaves the opt-in standar
 npx --yes @pixelfactoryio/theway@latest uninstall
 ```
 
-Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary, the pointer file and the permission rules of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`. The data home is kept.
+Removes `~/.claude/skills/theway`, `~/.local/bin/theway` when it is a theway binary (and `theway.cmd` on Windows, each when it is theway's), the pointer file and the permission rules of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`. The data home is kept.
 
 Before it removes anything, it checks `~/.claude/settings.json` and that it can write the folders it removes from. It exits 1 and changes nothing when the settings file is not writable (`theway: cannot write <path>: <reason>; nothing was changed`), cannot be read (`theway: cannot read <path>: <reason>; nothing was changed`) or is not valid settings JSON (`theway: <path> is not valid settings JSON; nothing was changed`), and when `~/.claude/skills`, the plugin folder or a folder below it, the binary folder or the pointer folder is not writable (`theway: cannot write <path>: <reason>; nothing was changed`). A failure while it removes stops it without restoring anything, with one line that names what it already removed:
 
