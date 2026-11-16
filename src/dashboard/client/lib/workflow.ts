@@ -2,7 +2,7 @@
  * A workflow file drawn as cards: read from its text as written (so a file that does not resolve is still drawn),
  * with the prompts list for each card's description and model. Pure: no React, no DOM.
  */
-import { type Document, isMap, isScalar, isSeq, type Node, parseDocument, type YAMLMap } from "yaml"
+import { type Document, isAlias, isMap, isScalar, isSeq, type Node, parseDocument, type YAMLMap } from "yaml"
 import {
   FILE_PREFIX,
   isDefaultWorkflow,
@@ -132,13 +132,20 @@ const badgeOf = (runsOn: string | null, model: string | null): string | null =>
       : null
 
 /**
- * A map's `runs-on` as `stepRunsOn` reads it: `undefined` without the key, the value of a scalar node, `null` for any
- * other node (a key-only pair included).
+ * A map's `runs-on` as `stepRunsOn` reads it: `undefined` without the key, the value of a scalar node, the resolved
+ * value of an alias (as the resolver's parse resolves it; `null` when it cannot be resolved), `null` for any other node
+ * (a key-only pair included).
  */
-const runsOnInput = (map: YAMLMap): unknown => {
+const runsOnInput = (doc: Document.Parsed, map: YAMLMap): unknown => {
   if (!has(map, "runs-on")) return undefined
   const node = get(map, "runs-on")
-  return isScalar(node) ? node.value : null
+  if (isScalar(node)) return node.value
+  if (!isAlias(node)) return null
+  try {
+    return node.toJS(doc)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -148,19 +155,17 @@ const runsOnInput = (map: YAMLMap): unknown => {
  */
 function matrixEntries(doc: Document.Parsed, node: unknown): [unknown, unknown][] {
   if (!isMap(node)) return []
-  // Too many aliases make `toJS` throw, as they make the resolver's parse fail: the matrix then draws as its source.
-  const js = (n: Node): unknown => {
-    try {
-      return n.toJS(doc, { mapAsMap: true })
-    } catch {
-      return null
-    }
+  const js = (n: Node | null): unknown => (n === null ? null : n.toJS(doc, { mapAsMap: true }))
+  try {
+    return node.items.map((p): [unknown, unknown] => {
+      const key = p.key as Node | null
+      return [isScalar(key) ? key.value : js(key), js(p.value as Node | null)]
+    })
+  } catch {
+    // Too many aliases in a key or a value make `toJS` throw, as they make the resolver's parse fail: no entries, so
+    // `matrixOf` rejects the matrix and it draws as its source.
+    return []
   }
-  return node.items.map((p): [unknown, unknown] => {
-    const key = p.key as Node | null
-    const value = p.value as Node | null
-    return [isScalar(key) ? key.value : key === null ? null : js(key), value === null ? null : js(value)]
-  })
 }
 
 /** A `with` value as the panel shows it: one row per key with its source text, or the whole source text. */
@@ -244,7 +249,7 @@ export function drawWorkflow(
     return { reason: first ?? "steps: must be a non-empty list" }
 
   const split = splitLines(lines)
-  const workflowRunsOn = stepRunsOn(runsOnInput(root), null)
+  const workflowRunsOn = stepRunsOn(runsOnInput(doc, root), null)
   const prompt = (name: string | null) => (name === null ? null : findPrompt(prompts, project, name))
 
   const inputsNode = get(root, "inputs")
@@ -284,7 +289,7 @@ export function drawWorkflow(
     const uses = named(text, get(raw, "uses"), "No prompt")
     const p = prompt(uses.prompt)
     const stepRunsOnRaw = str(get(raw, "runs-on"))
-    const runsOn: RunsOn | null = stepRunsOn(runsOnInput(raw), workflowRunsOn)
+    const runsOn: RunsOn | null = stepRunsOn(runsOnInput(doc, raw), workflowRunsOn)
     const stepModel = str(get(raw, "model"))
     const matrixNode = get(raw, "matrix")
     let matrix: string | null = null

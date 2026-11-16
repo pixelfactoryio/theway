@@ -263,6 +263,38 @@ test("an invalid step runs-on gives no badge on the step nor its on-fail; a reje
   ])
 })
 
+test("an aliased runs-on draws as the resolver resolves it; a matrix with too many aliases draws as its source", () => {
+  const tens = (s: string) => `[${Array(10).fill(s).join(", ")}]`
+  const text = [
+    "version: theway.workflow/v1beta1",
+    "description: &r agents",
+    "runs-on: &s session",
+    "x: &a [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    `y: &b ${tens("*a")}`,
+    "steps:",
+    "  - uses: prompts/implement.md",
+    "    runs-on: *r",
+    "  - uses: prompts/implement.md",
+    "  - uses: prompts/implement.md",
+    "    matrix:",
+    `      ? ${tens("*b")}`,
+    "      : [x]",
+    "  - uses: prompts/implement.md",
+    "    matrix:",
+    `      lens: ${tens("*b")}`,
+    "",
+  ].join("\n")
+  const r = drawWorkflow(text, [], PROMPTS, null)
+  if (!("drawing" in r)) throw new Error(r.reason)
+  const [aliased, inherited, bombKey, bombValue] = r.drawing.steps
+  expect([aliased, inherited].map((s) => [s?.badge, s?.target])).toEqual([
+    ["agents · opus", "agents"],
+    ["session", "session"],
+  ])
+  expect([bombKey, bombValue].map((s) => s?.matrix)).toEqual(["matrix", "matrix"])
+  expect(bombKey?.fields.matrix).toEqual({ source: `? ${tens("*b")}\n      : [x]\n` })
+})
+
 test("a file is the default from its text, whatever its steps", () => {
   expect(isDefaultText("version: theway.workflow/v1beta1\ndefault: true\nsteps: 5\n")).toBe(true)
   expect(isDefaultText("version: theway.workflow/v1beta1\ndefault: false\nsteps: []\n")).toBe(false)
