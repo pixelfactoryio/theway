@@ -18,7 +18,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { delimiter, dirname, join, resolve } from "node:path"
 import { OPT_IN_KEYS } from "../src/core/config"
 import { OPT_IN_HINTS } from "../src/install"
 
@@ -39,7 +39,7 @@ const SHIPPED_FILES = (
     .map((n) => `${d}/${n}`),
 )
 const NODE_DIR = dirname(spawnSync("node", ["-p", "process.execPath"], { encoding: "utf-8" }).stdout.trim())
-const BASE_PATH = `${NODE_DIR}:/usr/bin:/bin`
+const BASE_PATH = [NODE_DIR, "/usr/bin", "/bin"].join(delimiter)
 
 type Env = {
   root: string
@@ -270,7 +270,7 @@ test("install prints the export PATH line and exits 0 when the install dir is no
   expect(res.stdout).toContain(`Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`)
   expect(res.stderr).toBe("")
 
-  env.path = `${dir}:${BASE_PATH}`
+  env.path = [dir, BASE_PATH].join(delimiter)
   const again = run(env, "install")
   expect(again.status).toBe(0)
   expect(again.stdout).not.toContain("to your PATH")
@@ -282,7 +282,7 @@ test("install warns naming another theway that comes first on PATH", () => {
   const other = join(env.root, "other", "theway")
   put(other, "#!/bin/sh\necho other\n")
   chmodSync(other, 0o755)
-  env.path = `${dirname(other)}:${dirname(bin(env))}:${BASE_PATH}`
+  env.path = [dirname(other), dirname(bin(env)), BASE_PATH].join(delimiter)
   const res = run(env, "install")
   expect(res.status).toBe(0)
   expect(res.stderr).toContain(`theway: warning: ${other} comes before ${bin(env)} on PATH`)
@@ -502,20 +502,25 @@ test("uninstall removes the Edit rule of an earlier version", () => {
 })
 
 for (const m of [0o600, 0o640]) {
-  test(`install and uninstall keep a ${m.toString(8)} settings.json at ${m.toString(8)}`, () => {
-    const env = setup()
-    const settings = join(env.claude, "settings.json")
-    put(settings, JSON.stringify({ env: { TOKEN: "x" } }))
-    chmodSync(settings, m)
-    expect(run(env, "install").status).toBe(0)
-    expect(mode(settings)).toBe(m)
-    expect(run(env, "uninstall").status).toBe(0)
-    expect(mode(settings)).toBe(m)
-    expect(allow(env)).toEqual([])
-  })
+  // Needs POSIX file modes.
+  test.skipIf(process.platform === "win32")(
+    `install and uninstall keep a ${m.toString(8)} settings.json at ${m.toString(8)}`,
+    () => {
+      const env = setup()
+      const settings = join(env.claude, "settings.json")
+      put(settings, JSON.stringify({ env: { TOKEN: "x" } }))
+      chmodSync(settings, m)
+      expect(run(env, "install").status).toBe(0)
+      expect(mode(settings)).toBe(m)
+      expect(run(env, "uninstall").status).toBe(0)
+      expect(mode(settings)).toBe(m)
+      expect(allow(env)).toEqual([])
+    },
+  )
 }
 
-test("install writes a new settings.json with mode 600", () => {
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")("install writes a new settings.json with mode 600", () => {
   const env = setup()
   expect(run(env, "install").status).toBe(0)
   expect(mode(join(env.claude, "settings.json"))).toBe(0o600)
@@ -540,76 +545,88 @@ test("install and uninstall write through a symlinked settings.json", () => {
   expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual(["Bash(ls:*)"])
 })
 
-test("install creates the target of a dangling settings.json symlink with mode 600", () => {
-  const env = setup()
-  const target = join(env.root, "dotfiles", "claude", "settings.json")
-  const link = join(env.claude, "settings.json")
-  mkdirSync(env.claude, { recursive: true })
-  symlinkSync(target, link)
-  expect(run(env, "install").status).toBe(0)
-  expect(lstatSync(link).isSymbolicLink()).toBe(true)
-  expect(mode(target)).toBe(0o600)
-  expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
-    "Bash(theway:*)",
-    `Read(/${env.theway}/**)`,
-  ])
-})
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")(
+  "install creates the target of a dangling settings.json symlink with mode 600",
+  () => {
+    const env = setup()
+    const target = join(env.root, "dotfiles", "claude", "settings.json")
+    const link = join(env.claude, "settings.json")
+    mkdirSync(env.claude, { recursive: true })
+    symlinkSync(target, link)
+    expect(run(env, "install").status).toBe(0)
+    expect(lstatSync(link).isSymbolicLink()).toBe(true)
+    expect(mode(target)).toBe(0o600)
+    expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
+      "Bash(theway:*)",
+      `Read(/${env.theway}/**)`,
+    ])
+  },
+)
 
-test("install and uninstall refuse a settings.json symlinked into a read-only folder, and change nothing", () => {
-  const env = setup()
-  const dir = join(env.root, "ro")
-  const target = join(dir, "settings.json")
-  const link = join(env.claude, "settings.json")
-  put(target, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }))
-  mkdirSync(env.claude, { recursive: true })
-  symlinkSync(target, link)
-  const line = `theway: cannot write ${link}: ${dir} is not writable; nothing was changed\n`
-  chmodSync(target, 0o444)
-  chmodSync(dir, 0o555)
-  try {
-    const res = run(env, "install")
-    expect(res.status).toBe(1)
-    expect(res.stderr).toBe(line)
-    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false)
-    expect(existsSync(bin(env))).toBe(false)
-    expect(existsSync(pointer(env))).toBe(false)
-    expect(existsSync(join(env.theway, "config.yaml"))).toBe(false)
-  } finally {
-    chmodSync(dir, 0o755)
-    chmodSync(target, 0o644)
-  }
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32")(
+  "install and uninstall refuse a settings.json symlinked into a read-only folder, and change nothing",
+  () => {
+    const env = setup()
+    const dir = join(env.root, "ro")
+    const target = join(dir, "settings.json")
+    const link = join(env.claude, "settings.json")
+    put(target, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }))
+    mkdirSync(env.claude, { recursive: true })
+    symlinkSync(target, link)
+    const line = `theway: cannot write ${link}: ${dir} is not writable; nothing was changed\n`
+    chmodSync(target, 0o444)
+    chmodSync(dir, 0o555)
+    try {
+      const res = run(env, "install")
+      expect(res.status).toBe(1)
+      expect(res.stderr).toBe(line)
+      expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false)
+      expect(existsSync(bin(env))).toBe(false)
+      expect(existsSync(pointer(env))).toBe(false)
+      expect(existsSync(join(env.theway, "config.yaml"))).toBe(false)
+    } finally {
+      chmodSync(dir, 0o755)
+      chmodSync(target, 0o644)
+    }
 
-  expect(run(env, "install").status).toBe(0)
-  chmodSync(target, 0o444)
-  chmodSync(dir, 0o555)
-  try {
-    const res = run(env, "uninstall")
-    expect(res.status).toBe(1)
-    expect(res.stderr).toBe(line)
-    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(true)
-    expect(existsSync(bin(env))).toBe(true)
-    expect(existsSync(pointer(env))).toBe(true)
-  } finally {
-    chmodSync(dir, 0o755)
-    chmodSync(target, 0o644)
-  }
-})
+    expect(run(env, "install").status).toBe(0)
+    chmodSync(target, 0o444)
+    chmodSync(dir, 0o555)
+    try {
+      const res = run(env, "uninstall")
+      expect(res.status).toBe(1)
+      expect(res.stderr).toBe(line)
+      expect(existsSync(join(env.claude, "skills", "theway"))).toBe(true)
+      expect(existsSync(bin(env))).toBe(true)
+      expect(existsSync(pointer(env))).toBe(true)
+    } finally {
+      chmodSync(dir, 0o755)
+      chmodSync(target, 0o644)
+    }
+  },
+)
 
-test("install follows a multi-hop dangling settings.json symlink chain to its end", () => {
-  const env = setup()
-  const mid = join(env.root, "mid")
-  const final = join(env.root, "dot", "final.json")
-  mkdirSync(env.claude, { recursive: true })
-  symlinkSync(mid, join(env.claude, "settings.json"))
-  symlinkSync(final, mid)
-  expect(run(env, "install").status).toBe(0)
-  expect(lstatSync(mid).isSymbolicLink()).toBe(true)
-  expect(mode(final)).toBe(0o600)
-  expect(JSON.parse(readFileSync(final, "utf-8")).permissions.allow).toEqual([
-    "Bash(theway:*)",
-    `Read(/${env.theway}/**)`,
-  ])
-})
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")(
+  "install follows a multi-hop dangling settings.json symlink chain to its end",
+  () => {
+    const env = setup()
+    const mid = join(env.root, "mid")
+    const final = join(env.root, "dot", "final.json")
+    mkdirSync(env.claude, { recursive: true })
+    symlinkSync(mid, join(env.claude, "settings.json"))
+    symlinkSync(final, mid)
+    expect(run(env, "install").status).toBe(0)
+    expect(lstatSync(mid).isSymbolicLink()).toBe(true)
+    expect(mode(final)).toBe(0o600)
+    expect(JSON.parse(readFileSync(final, "utf-8")).permissions.allow).toEqual([
+      "Bash(theway:*)",
+      `Read(/${env.theway}/**)`,
+    ])
+  },
+)
 
 test("install refuses a settings.json symlink loop and changes nothing", () => {
   const env = setup()
@@ -1809,30 +1826,34 @@ test("dist/theway.js bundles @clack/prompts instead of importing it", () => {
   expect(pkg.dependencies).toBeUndefined()
 })
 
-test.skipIf(process.getuid?.() === 0)("install refuses a plugin folder it cannot move and changes nothing", () => {
-  const env = setup()
-  expect(run(env, "install").status).toBe(0)
-  const plugin = join(env.claude, "skills", "theway")
-  const defaults = join(env.theway, "config.default.yaml")
-  const binTime = statSync(bin(env)).mtimeMs
-  const defaultsTime = statSync(defaults).mtimeMs
-  chmodSync(plugin, 0o555)
-  try {
-    const res = run(env, "install")
-    expect(res.status).toBe(1)
-    expect(res.stderr).toStartWith(`theway: cannot write ${plugin}: EACCES`)
-    expect(res.stderr).toEndWith("; nothing was changed\n")
-    expect(res.stderr.split("\n").length).toBe(2)
-    expect(statSync(bin(env)).mtimeMs).toBe(binTime)
-    expect(statSync(defaults).mtimeMs).toBe(defaultsTime)
-    expect(existsSync(plugin)).toBe(true)
-    expect(
-      readdirSync(env.claude).filter((n) => n.startsWith(".theway-old-") || n.startsWith(".theway-install-")),
-    ).toEqual([])
-  } finally {
-    chmodSync(plugin, 0o755)
-  }
-})
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "install refuses a plugin folder it cannot move and changes nothing",
+  () => {
+    const env = setup()
+    expect(run(env, "install").status).toBe(0)
+    const plugin = join(env.claude, "skills", "theway")
+    const defaults = join(env.theway, "config.default.yaml")
+    const binTime = statSync(bin(env)).mtimeMs
+    const defaultsTime = statSync(defaults).mtimeMs
+    chmodSync(plugin, 0o555)
+    try {
+      const res = run(env, "install")
+      expect(res.status).toBe(1)
+      expect(res.stderr).toStartWith(`theway: cannot write ${plugin}: EACCES`)
+      expect(res.stderr).toEndWith("; nothing was changed\n")
+      expect(res.stderr.split("\n").length).toBe(2)
+      expect(statSync(bin(env)).mtimeMs).toBe(binTime)
+      expect(statSync(defaults).mtimeMs).toBe(defaultsTime)
+      expect(existsSync(plugin)).toBe(true)
+      expect(
+        readdirSync(env.claude).filter((n) => n.startsWith(".theway-old-") || n.startsWith(".theway-install-")),
+      ).toEqual([])
+    } finally {
+      chmodSync(plugin, 0o755)
+    }
+  },
+)
 
 test("install reports what it wrote when the data home cannot be written", () => {
   const env = setup()
@@ -1865,22 +1886,26 @@ test("uninstall refuses invalid settings and removes nothing", () => {
   expect(existsSync(pointer(env))).toBe(true)
 })
 
-test.skipIf(process.getuid?.() === 0)("install refuses an unreadable settings file", () => {
-  const env = setup()
-  const settings = join(env.claude, "settings.json")
-  put(settings, "{}\n")
-  chmodSync(settings, 0o000)
-  try {
-    const res = run(env, "install")
-    expect(res.status).toBe(1)
-    expect(res.stderr).toStartWith(`theway: cannot read ${settings}: EACCES`)
-    expect(res.stderr).toEndWith("; nothing was changed\n")
-    expect(res.stderr.split("\n").length).toBe(2)
-    nothingWritten(env)
-  } finally {
-    chmodSync(settings, 0o644)
-  }
-})
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "install refuses an unreadable settings file",
+  () => {
+    const env = setup()
+    const settings = join(env.claude, "settings.json")
+    put(settings, "{}\n")
+    chmodSync(settings, 0o000)
+    try {
+      const res = run(env, "install")
+      expect(res.status).toBe(1)
+      expect(res.stderr).toStartWith(`theway: cannot read ${settings}: EACCES`)
+      expect(res.stderr).toEndWith("; nothing was changed\n")
+      expect(res.stderr.split("\n").length).toBe(2)
+      nothingWritten(env)
+    } finally {
+      chmodSync(settings, 0o644)
+    }
+  },
+)
 
 test("uninstall reports what it removed when a later step fails", () => {
   const env = setup({ defaultHome: true })

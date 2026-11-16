@@ -121,50 +121,59 @@ test("readFile gives a listed file's bytes and version, null for an absent, unli
   expect(s.readFile(KEY, active("add-x"), "change.yaml")).toBeNull()
 })
 
-test.skipIf(process.getuid?.() === 0)("readFile is null on a file it cannot read", () => {
-  const h = home()
-  const file = join(changes(h), "add-a", "spec.md")
-  put(file, "S")
-  chmodSync(file, 0o000)
-  try {
-    expect(fileStore(h).readFile(KEY, active("add-a"), "spec.md")).toBeNull()
-  } finally {
-    chmodSync(file, 0o644)
-  }
-})
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "readFile is null on a file it cannot read",
+  () => {
+    const h = home()
+    const file = join(changes(h), "add-a", "spec.md")
+    put(file, "S")
+    chmodSync(file, 0o000)
+    try {
+      expect(fileStore(h).readFile(KEY, active("add-a"), "spec.md")).toBeNull()
+    } finally {
+      chmodSync(file, 0o644)
+    }
+  },
+)
 
-test("writeFile writes on the current base, keeps the mode, writes nothing for the same bytes and reports a conflict", () => {
-  const h = home()
-  const s = fileStore(h)
-  const file = join(changes(h), "add-a", "change.yaml")
-  put(file, "one")
-  chmodSync(file, 0o640)
-  expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("two"), sha("one"))).toEqual({
-    status: "written",
-    version: sha("two"),
-  })
-  expect(readFileSync(file, "utf-8")).toBe("two")
-  expect(statSync(file).mode & 0o777).toBe(0o640)
-  expect(readdirSync(join(changes(h), "add-a"))).toEqual(["change.yaml"])
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")(
+  "writeFile writes on the current base, keeps the mode, writes nothing for the same bytes and reports a conflict",
+  () => {
+    const h = home()
+    const s = fileStore(h)
+    const file = join(changes(h), "add-a", "change.yaml")
+    put(file, "one")
+    chmodSync(file, 0o640)
+    expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("two"), sha("one"))).toEqual({
+      status: "written",
+      version: sha("two"),
+    })
+    expect(readFileSync(file, "utf-8")).toBe("two")
+    expect(statSync(file).mode & 0o777).toBe(0o640)
+    expect(readdirSync(join(changes(h), "add-a"))).toEqual(["change.yaml"])
 
-  utimesSync(file, 1000, 1000)
-  expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("two"), sha("two"))).toEqual({
-    status: "unchanged",
-    version: sha("two"),
-  })
-  expect(statSync(file).mtimeMs).toBe(1000000)
+    utimesSync(file, 1000, 1000)
+    expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("two"), sha("two"))).toEqual({
+      status: "unchanged",
+      version: sha("two"),
+    })
+    expect(statSync(file).mtimeMs).toBe(1000000)
 
-  expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("three"), sha("one"))).toEqual({
-    status: "conflict",
-    version: sha("two"),
-  })
-  expect(readFileSync(file, "utf-8")).toBe("two")
+    expect(s.writeFile(KEY, "add-a", "change.yaml", Buffer.from("three"), sha("one"))).toEqual({
+      status: "conflict",
+      version: sha("two"),
+    })
+    expect(readFileSync(file, "utf-8")).toBe("two")
 
-  expect(codeOf(() => s.writeFile(KEY, "add-x", "change.yaml", Buffer.from("x"), sha("two")))).toBe("missing")
-  expect(codeOf(() => s.writeFile(KEY, "add-a", "spec.md", Buffer.from("x"), sha("two")))).toBe("missing")
-})
+    expect(codeOf(() => s.writeFile(KEY, "add-x", "change.yaml", Buffer.from("x"), sha("two")))).toBe("missing")
+    expect(codeOf(() => s.writeFile(KEY, "add-a", "spec.md", Buffer.from("x"), sha("two")))).toBe("missing")
+  },
+)
 
-test.skipIf(process.getuid?.() === 0)(
+// Needs a chmod-based permission error.
+test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
   "writeFile throws the native error on a read-only file and leaves it as it was",
   () => {
     const h = home()

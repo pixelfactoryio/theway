@@ -121,7 +121,8 @@ test("the same text with the current base answers 200 and writes nothing", async
   expect(statSync(join(dir, "spec.md")).mtimeMs).toBe(before)
 })
 
-test("a save keeps the file's mode", async () => {
+// Needs POSIX file modes.
+test.skipIf(process.platform === "win32")("a save keeps the file's mode", async () => {
   const { h, dir } = home()
   chmodSync(join(dir, "change.yaml"), 0o640)
   const next = YAML.replace("Do it", "Do it now")

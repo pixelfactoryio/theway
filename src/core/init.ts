@@ -9,6 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs"
+import { join } from "node:path"
 import { removeIfEmpty, writeAtomic } from "./io"
 import { parsePromptFile } from "./language"
 import { VERSION } from "./language-schema"
@@ -52,7 +53,7 @@ type Manifest = Record<string, string>
 /** The manifest of the previous install, or undefined when it is missing, unreadable or not valid JSON. */
 export function readManifest(home: string): Manifest | undefined {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(`${home}/${MANIFEST}`, "utf-8"))
+    const parsed: unknown = JSON.parse(readFileSync(join(home, MANIFEST), "utf-8"))
     if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return undefined
     return parsed as Manifest
   } catch {
@@ -61,15 +62,15 @@ export function readManifest(home: string): Manifest | undefined {
 }
 
 function writeManifest(home: string, manifest: Manifest): void {
-  writeAtomic(`${home}/${MANIFEST}`, `${JSON.stringify(manifest, null, 2)}\n`)
+  writeAtomic(join(home, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`)
 }
 
 /** `<rel>.bak` when it is free or already holds `current`, else the first free `<rel>.bak.<n>`. */
 function backupPath(home: string, rel: string, current: Buffer): string {
   const bak = `${rel}.bak`
-  if (!existsSync(`${home}/${bak}`) || readFileSync(`${home}/${bak}`).equals(current)) return bak
+  if (!existsSync(join(home, bak)) || readFileSync(join(home, bak)).equals(current)) return bak
   for (let n = 1; ; n++) {
-    if (!existsSync(`${home}/${bak}.${n}`)) return `${bak}.${n}`
+    if (!existsSync(join(home, `${bak}.${n}`))) return `${bak}.${n}`
   }
 }
 
@@ -90,24 +91,24 @@ function migrateDataStandards(src: string, home: string, out: string[]): void {
     for (const key of keys) {
       const name = key.slice(prefix.length)
       const hash = previous[key] as string
-      const oldPath = `${home}/data/standards/${name}`
+      const oldPath = join(home, "data", "standards", name)
       const newRel = `standards/${name}`
-      const newPath = `${home}/${newRel}`
+      const newPath = join(home, newRel)
       const oldExists = existsSync(oldPath)
       const newExists = existsSync(newPath)
-      const oldDefault = `${home}/data/standards/${baseOf(name)}.default.md`
-      const newDefault = `${home}/standards/${baseOf(name)}.default.md`
+      const oldDefault = join(home, "data", "standards", `${baseOf(name)}.default.md`)
+      const newDefault = join(home, "standards", `${baseOf(name)}.default.md`)
       if (!oldExists && newExists) {
         if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault)
         manifest[newRel] = hash
       } else if (!oldExists) {
         // The user deleted it: drop the key.
-      } else if (!existsSync(`${src}/standards/${name}`)) {
+      } else if (!existsSync(join(src, "standards", name))) {
         out.push(`Left data/standards/${name}: theway no longer ships it\n`)
       } else if (newExists) {
         out.push(`Left data/standards/${name}: standards/${name} already exists\n`)
       } else {
-        mkdirSync(`${home}/standards`, { recursive: true })
+        mkdirSync(join(home, "standards"), { recursive: true })
         renameSync(oldPath, newPath)
         if (existsSync(oldDefault) && !existsSync(newDefault)) renameSync(oldDefault, newDefault)
         manifest[newRel] = hash
@@ -115,7 +116,7 @@ function migrateDataStandards(src: string, home: string, out: string[]): void {
     }
     writeManifest(home, manifest)
   }
-  const dataGone = removeIfEmpty(`${home}/data/standards`) && removeIfEmpty(`${home}/data`)
+  const dataGone = removeIfEmpty(join(home, "data", "standards")) && removeIfEmpty(join(home, "data"))
   if (keys.length > 0 && !dataGone) out.push("Left data/: it still holds files theway does not ship\n")
 }
 
@@ -125,7 +126,7 @@ function migrateDataStandards(src: string, home: string, out: string[]): void {
  * user's own) is kept with a message, and the folder is removed when it is left empty.
  */
 function retireLenses(home: string, previous: Manifest | undefined, out: string[]): void {
-  const dir = `${home}/${LENSES}`
+  const dir = join(home, LENSES)
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return
   const move = (name: string) => `theway no longer reads ${LENSES}/; move it to prompts/${name}`
   const listed = new Set<string>()
@@ -133,7 +134,7 @@ function retireLenses(home: string, previous: Manifest | undefined, out: string[
     if (!rel.startsWith(`${LENSES}/`)) continue
     const name = rel.slice(LENSES.length + 1)
     listed.add(name)
-    const path = `${home}/${rel}`
+    const path = join(home, rel)
     if (!existsSync(path)) continue
     if (sha256(readFileSync(path)) === hash) {
       rmSync(path)
@@ -146,7 +147,7 @@ function retireLenses(home: string, previous: Manifest | undefined, out: string[
     const name = entry.name
     if (!entry.isFile() || !name.endsWith(".md") || listed.has(name)) continue
     if (name.endsWith(".default.md")) {
-      rmSync(`${dir}/${name}`, { force: true })
+      rmSync(join(dir, name), { force: true })
       continue
     }
     out.push(`Kept ${LENSES}/${name}: ${move(name)}\n`)
@@ -164,13 +165,13 @@ const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? 
  */
 function retireSteps(home: string, previous: Manifest | undefined, out: string[]): void {
   const why = "theway no longer reads steps/; write its steps in a workflow file"
-  const dir = `${home}/${STEPS}`
+  const dir = join(home, STEPS)
   if (existsSync(dir) && statSync(dir).isDirectory()) {
     const listed = new Set<string>()
     for (const [rel, hash] of Object.entries(previous ?? {})) {
       if (!rel.startsWith(`${STEPS}/`)) continue
       listed.add(rel.slice(STEPS.length + 1))
-      const path = `${home}/${rel}`
+      const path = join(home, rel)
       if (!existsSync(path)) continue
       if (sha256(readFileSync(path)) === hash) {
         rmSync(path)
@@ -183,17 +184,17 @@ function retireSteps(home: string, previous: Manifest | undefined, out: string[]
       const name = entry.name
       if (!entry.isFile() || !name.endsWith(".yaml") || listed.has(name)) continue
       if (name.endsWith(".default.yaml")) {
-        rmSync(`${dir}/${name}`, { force: true })
+        rmSync(join(dir, name), { force: true })
         continue
       }
       out.push(`Kept ${STEPS}/${name}: ${why}\n`)
     }
     removeIfEmpty(dir)
   }
-  const projects = `${home}/projects`
+  const projects = join(home, "projects")
   if (!existsSync(projects) || !statSync(projects).isDirectory()) return
   for (const project of readdirSync(projects, { withFileTypes: true }).sort(byName)) {
-    const own = `${projects}/${project.name}/${STEPS}`
+    const own = join(projects, project.name, STEPS)
     if (!project.isDirectory() || !existsSync(own) || !statSync(own).isDirectory()) continue
     for (const entry of readdirSync(own, { withFileTypes: true }).sort(byName)) {
       if (entry.isFile() && entry.name.endsWith(".yaml")) {
@@ -210,11 +211,11 @@ function retireSteps(home: string, previous: Manifest | undefined, out: string[]
  * folder is removed when it is left empty.
  */
 function retireSchemas(home: string, previous: Manifest | undefined, out: string[]): void {
-  const dir = `${home}/${SCHEMAS}`
+  const dir = join(home, SCHEMAS)
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return
   for (const [rel, hash] of Object.entries(previous ?? {})) {
     if (!rel.startsWith(`${SCHEMAS}/`)) continue
-    const path = `${home}/${rel}`
+    const path = join(home, rel)
     if (!existsSync(path)) continue
     if (sha256(readFileSync(path)) === hash) {
       rmSync(path)
@@ -224,7 +225,7 @@ function retireSchemas(home: string, previous: Manifest | undefined, out: string
     }
   }
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith(".default.json")) rmSync(`${dir}/${entry.name}`, { force: true })
+    if (entry.isFile() && entry.name.endsWith(".default.json")) rmSync(join(dir, entry.name), { force: true })
   }
   removeIfEmpty(dir)
 }
@@ -238,7 +239,7 @@ function retireMoved(home: string, out: string[]): void {
   const previous = readManifest(home)
   let changed = false
   for (const [rel, now] of Object.entries(MOVED)) {
-    const path = `${home}/${rel}`
+    const path = join(home, rel)
     if (existsSync(path) && statSync(path).isFile()) {
       const current = readFileSync(path)
       if (previous?.[rel] === sha256(current)) {
@@ -246,11 +247,11 @@ function retireMoved(home: string, out: string[]): void {
         out.push(`Removed ${rel}: theway no longer ships it\n`)
       } else {
         const bak = backupPath(home, rel, current)
-        renameSync(path, `${home}/${bak}`)
+        renameSync(path, join(home, bak))
         out.push(`Moved your edited ${rel} to ${bak}: theway now reads ${now}\n`)
       }
     }
-    rmSync(`${home}/${rel.slice(0, -".md".length)}.default.md`, { force: true })
+    rmSync(join(home, `${rel.slice(0, -".md".length)}.default.md`), { force: true })
     if (previous !== undefined && rel in previous) {
       delete previous[rel]
       changed = true
@@ -312,15 +313,15 @@ function copyShipped(src: string, home: string, out: string[]): void {
     const isShared = shared !== undefined
     const stemOf = (name: string) => name.slice(0, -ext.length)
     const defaultExt = `.default${ext}`
-    mkdirSync(`${home}/${dir}`, { recursive: true })
-    const names = readdirSync(`${src}/${dir}`, { withFileTypes: true })
+    mkdirSync(join(home, dir), { recursive: true })
+    const names = readdirSync(join(src, dir), { withFileTypes: true })
       .filter((e) => e.isFile() && e.name.endsWith(ext))
       .map((e) => e.name)
       .sort()
     for (const name of names) {
       const rel = `${dir}/${name}`
-      const dst = `${home}/${rel}`
-      const shipped = readFileSync(`${src}/${rel}`)
+      const dst = join(home, rel)
+      const shipped = readFileSync(join(src, rel))
       const old = previous?.[rel]
       const sibling = `${dir}/${stemOf(name)}${defaultExt}`
       let removeSibling = true
@@ -338,7 +339,7 @@ function copyShipped(src: string, home: string, out: string[]): void {
           ) {
             // Without a manifest, an `authority.md` is the user's own: theway first shipped it long after `.shipped.json`.
             removeSibling = false
-            writeAtomic(`${home}/${sibling}`, shipped)
+            writeAtomic(join(home, sibling), shipped)
             out.push(`Kept your edited ${rel} (shipped version: ${sibling})\n`)
             const stale = staleKept(dir, name, current, shipped)
             if (stale !== null) out.push(`${stale}\n`)
@@ -350,24 +351,24 @@ function copyShipped(src: string, home: string, out: string[]): void {
           } else if (isShared) {
             removeSibling = false
             record = false
-            writeAtomic(`${home}/${sibling}`, shipped)
+            writeAtomic(join(home, sibling), shipped)
             out.push(`Kept your ${rel}: theway now ships a file with that name (its version: ${sibling})\n`)
           } else {
             removeSibling = false
             const bak = backupPath(home, rel, current)
-            copyFileSync(dst, `${home}/${bak}`)
+            copyFileSync(dst, join(home, bak))
             writeAtomic(dst, shipped)
             out.push(`Replaced ${rel}; your previous version is in ${bak}\n`)
           }
         }
       }
-      if (removeSibling) rmSync(`${home}/${sibling}`, { force: true })
+      if (removeSibling) rmSync(join(home, sibling), { force: true })
       if (record) manifest[rel] = sha256(shipped)
     }
     if (isShared) {
       for (const [rel, hash] of Object.entries(previous ?? {})) {
         if (!rel.startsWith(`${dir}/`) || names.includes(rel.slice(dir.length + 1))) continue
-        const path = `${home}/${rel}`
+        const path = join(home, rel)
         if (!existsSync(path)) continue
         if (sha256(readFileSync(path)) === hash) {
           rmSync(path)
@@ -376,11 +377,11 @@ function copyShipped(src: string, home: string, out: string[]): void {
           out.push(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your ${shared}\n`)
         }
       }
-      for (const entry of readdirSync(`${home}/${dir}`, { withFileTypes: true })) {
+      for (const entry of readdirSync(join(home, dir), { withFileTypes: true })) {
         const file = entry.name
         if (!entry.isFile() || !file.endsWith(defaultExt)) continue
         if (!names.includes(`${file.slice(0, -defaultExt.length)}${ext}`))
-          rmSync(`${home}/${dir}/${file}`, { force: true })
+          rmSync(join(home, dir, file), { force: true })
       }
     }
   }
@@ -432,14 +433,17 @@ export function init(
   const lines: string[] = []
   try {
     mkdirSync(home, { recursive: true })
-    copyFileSync(`${src}/config.yaml`, `${home}/config.default.yaml`)
-    if (existsSync(`${home}/config.yaml`)) {
+    copyFileSync(join(src, "config.yaml"), join(home, "config.default.yaml"))
+    if (existsSync(join(home, "config.yaml"))) {
       lines.push("Kept existing config.yaml (shipped defaults: config.default.yaml)\n")
-      reportRetiredKeys(`${home}/config.yaml`, lines)
+      reportRetiredKeys(join(home, "config.yaml"), lines)
     } else if (enabled.length === 0) {
-      copyFileSync(`${src}/config.yaml`, `${home}/config.yaml`)
+      copyFileSync(join(src, "config.yaml"), join(home, "config.yaml"))
     } else {
-      writeFileSync(`${home}/config.yaml`, enableStandards(readFileSync(`${src}/config.yaml`, "utf-8"), enabled))
+      writeFileSync(
+        join(home, "config.yaml"),
+        enableStandards(readFileSync(join(src, "config.yaml"), "utf-8"), enabled),
+      )
     }
     migrateDataStandards(src, home, lines)
     retireMoved(home, lines)

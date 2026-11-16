@@ -38,17 +38,17 @@ function visibleNames(dir: string): string[] {
 /** The names matched by the glob `<dir>/*` + `/`: non-hidden directories, symlinks followed. */
 function subdirs(dir: string): string[] {
   return visibleNames(dir)
-    .filter((n) => isDir(`${dir}/${n}`))
+    .filter((n) => isDir(join(dir, n)))
     .sort()
 }
 
 /** The active change IDs of the project folder `dir`, sorted (archive excluded). */
 export function activeIds(dir: string): string[] {
-  return subdirs(`${dir}/changes`).filter((n) => n !== "archive")
+  return subdirs(join(dir, "changes")).filter((n) => n !== "archive")
 }
 
 /** The archive folder names of the project folder `dir`, sorted. */
-const archiveDirs = (dir: string): string[] => subdirs(`${dir}/changes/archive`)
+const archiveDirs = (dir: string): string[] => subdirs(join(dir, "changes", "archive"))
 
 /** The names of the Markdown files directly in `dir`: `spec.md`, `design.md`, `notes.md` when present, then the others by name. */
 function markdownNames(dir: string): string[] {
