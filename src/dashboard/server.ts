@@ -78,14 +78,29 @@ function page(nonce: string, token: string): string {
 
 /**
  * The app for the home `home`. `port` is read on every request, since with port 0 it is known only once listening;
- * `startKey` is the key of the project the command was started in; `token` is the process's write token.
+ * `startKey` is the key of the project the command was started in; `token` is the process's write token; `log` receives
+ * one line for each request answered with a status of 400 or more.
  */
-export function createApp(home: string, port: () => number, startKey: string, token: string): Hono<Env> {
+export function createApp(
+  home: string,
+  port: () => number,
+  startKey: string,
+  token: string,
+  log: (message: string) => void = () => {},
+): Hono<Env> {
   const app = new Hono<Env>()
   const store = fileStore(home)
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } })
 
+  // First, so it sees every final status, the guards' and onError's included. The path is the URL's own, still
+  // percent-encoded, so no control character reaches the terminal; the query string is left out.
+  app.use("*", async (c, next) => {
+    const start = performance.now()
+    await next()
+    if (c.res.status >= 400)
+      log(`${c.req.method} ${new URL(c.req.url).pathname} ${c.res.status} ${Math.round(performance.now() - start)}ms`)
+  })
   app.use(
     "*",
     secureHeaders({
@@ -153,6 +168,8 @@ export function createApp(home: string, port: () => number, startKey: string, to
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }))
   for (const [path, bytes] of Object.entries(FONTS))
     app.get(path, (c) => c.body(bytes, 200, { "Content-Type": "font/woff2" }))
+  // The page declares no icon: a browser's own request for one gets an empty answer, not a 404.
+  app.get("/favicon.ico", () => new Response(null, { status: 204 }))
 
   app.get("/api/projects", () => {
     const list = projects(home, store)

@@ -482,11 +482,17 @@ test.skipIf(process.getuid?.() === 0)(
 )
 
 test("an error thrown past a route answers a JSON 500 and one escaped theway line", async () => {
-  const app = createApp(home(), () => PORT, "", TOKEN)
+  const chunks: string[] = []
+  const app = createApp(
+    home(),
+    () => PORT,
+    "",
+    TOKEN,
+    (m) => chunks.push(`theway: ${m}\n`),
+  )
   app.get("/api/boom", () => {
     throw new Error("first\nsecond")
   })
-  const chunks: string[] = []
   const write = process.stderr.write
   process.stderr.write = ((chunk: string | Uint8Array) => {
     chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"))
@@ -502,5 +508,5 @@ test("an error thrown past a route answers a JSON 500 and one escaped theway lin
   expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8")
   expect(res.headers.get("cache-control")).toBe("no-store")
   expect(await res.json()).toEqual({ error: "first\nsecond" })
-  expect(chunks.join("")).toBe("theway: GET /api/boom: first\\nsecond\n")
+  expect(chunks.join("")).toMatch(/^theway: GET \/api\/boom: first\\nsecond\ntheway: GET \/api\/boom 500 \d+ms\n$/)
 })
