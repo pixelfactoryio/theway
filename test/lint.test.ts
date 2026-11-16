@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, relative } from "node:path"
+import { join, relative, sep } from "node:path"
 import { checkChange } from "../src/core/change"
 import { compactWorkflow } from "../src/core/workflow"
 import { buildProgram } from "../src/program"
@@ -199,7 +199,7 @@ test("the shipped config has no dead sections", () => {
 test("plugin/home holds only what install reads", () => {
   const HOME = join(PLUGIN, "home")
   const unused = files(HOME)
-    .map((f) => relative(HOME, f))
+    .map((f) => relative(HOME, f).split(sep).join("/"))
     .filter(
       (f) =>
         !/^(config\.yaml|standards\/[^/]+\.md|templates\/[^/]+\.md|workflows\/[^/]+\.yaml|prompts\/[^/]+\.md)$/.test(f),

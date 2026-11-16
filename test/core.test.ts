@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve, sep } from "node:path"
 import { checkChangeText } from "../src/core/change-text"
 import { removeIfEmpty, writeAtomic } from "../src/core/io"
 import { matrixOf } from "../src/core/language-schema"
@@ -416,7 +416,7 @@ test("archive refuses open tasks and an invalid change.yaml, and archives either
   put(join(changes, "add-z", "change.yaml"), changeYaml([true]))
   const done = run(dir, "archive", "--project", "p", "add-z")
   expect([done.status, done.stderr]).toEqual([0, ""])
-  expect(done.stdout).toStartWith(`Archived: ${join(changes, "archive")}/`)
+  expect(done.stdout).toStartWith(`Archived: ${join(changes, "archive")}${sep}`)
 })
 
 test("archive refuses an id already archived today", () => {
@@ -486,7 +486,7 @@ test("validate-id prints a theway-prefixed error", () => {
   )
 })
 
-/** Runs the CLI with only HOME, PATH, XDG_CONFIG_HOME and the given THEWAY_HOME set. */
+/** Runs the CLI with only HOME (and USERPROFILE), PATH, XDG_CONFIG_HOME and the given THEWAY_HOME set. */
 function runPath(root: string, opts: { env?: string; pointer?: string }, ...args: string[]) {
   const config = join(root, "config")
   if (opts.pointer !== undefined) put(join(config, "theway", "home"), `${opts.pointer}\n`)
@@ -494,6 +494,7 @@ function runPath(root: string, opts: { env?: string; pointer?: string }, ...args
     encoding: "utf-8",
     env: {
       HOME: join(root, "home"),
+      USERPROFILE: join(root, "home"),
       PATH: process.env.PATH,
       XDG_CONFIG_HOME: config,
       ...(opts.env !== undefined ? { THEWAY_HOME: opts.env } : {}),
@@ -504,9 +505,9 @@ function runPath(root: string, opts: { env?: string; pointer?: string }, ...args
 test("path resolves the home from env, then the pointer, then ~/.theway", () => {
   const root = home()
   const cases: [{ env?: string; pointer?: string }, string, string][] = [
-    [{ env: "/env/home" }, "/env/home", "env"],
-    [{ pointer: "/pointer/home" }, "/pointer/home", "pointer"],
-    [{ env: "/same", pointer: "/same" }, "/same", "env"],
+    [{ env: "/env/home" }, resolve("/env/home"), "env"],
+    [{ pointer: "/pointer/home" }, resolve("/pointer/home"), "pointer"],
+    [{ env: "/same", pointer: "/same" }, resolve("/same"), "env"],
     [{}, join(root, "home", ".theway"), "default"],
   ]
   for (const [opts, expected, source] of cases) {
@@ -529,24 +530,25 @@ test("path warns when THEWAY_HOME and the pointer differ, naming both sources, a
   const root = home()
   const res = runPath(root, { env: "/env/home", pointer: "/pointer/home" })
   expect(res.status).toBe(0)
-  expect(res.stdout).toBe("/env/home\n")
+  expect(res.stdout).toBe(`${resolve("/env/home")}\n`)
   const lines = res.stderr.trimEnd().split("\n")
   expect(lines.length).toBe(1)
-  expect(lines[0]).toContain("/env/home (from env)")
-  expect(lines[0]).toContain("/pointer/home (from pointer)")
+  expect(lines[0]).toContain(`${resolve("/env/home")} (from env)`)
+  expect(lines[0]).toContain(`${resolve("/pointer/home")} (from pointer)`)
 })
 
 test("path prints the home without a change id and the change folder with one, on one stdout line", () => {
   const root = home()
-  expect(runPath(root, { env: "/h" }).stdout).toBe("/h\n")
-  expect(runPath(root, { env: "/h" }, "--project", "proj").stdout).toBe("/h\n")
+  const h = resolve("/h")
+  expect(runPath(root, { env: "/h" }).stdout).toBe(`${h}\n`)
+  expect(runPath(root, { env: "/h" }, "--project", "proj").stdout).toBe(`${h}\n`)
   const res = runPath(root, { env: "/h" }, "--project", "proj", "add-x")
   expect(res.status).toBe(0)
-  expect(res.stdout).toBe("/h/projects/proj/changes/add-x\n")
+  expect(res.stdout).toBe(`${join(h, "projects", "proj", "changes", "add-x")}\n`)
   expect(res.stderr).toBe("")
   const verbose = runPath(root, { pointer: "/p" }, "--project", "proj", "add-x", "--verbose")
-  expect(verbose.stdout).toBe("/p/projects/proj/changes/add-x\n")
-  expect(verbose.stderr).toBe("theway: home /p (from pointer)\n")
+  expect(verbose.stdout).toBe(`${join(resolve("/p"), "projects", "proj", "changes", "add-x")}\n`)
+  expect(verbose.stderr).toBe(`theway: home ${resolve("/p")} (from pointer)\n`)
 })
 
 const CHANGE_ID_REASON = "must be lowercase letters and digits in words separated by single hyphens"
@@ -590,7 +592,7 @@ test("path treats a single argument as a change id of the project", () => {
   const root = home()
   const res = runPath(root, { env: "/h" }, "--project", "My-Repo-v2", "theway")
   expect(res.status).toBe(0)
-  expect(res.stdout).toBe("/h/projects/My-Repo-v2/changes/theway\n")
+  expect(res.stdout).toBe(`${join(resolve("/h"), "projects", "My-Repo-v2", "changes", "theway")}\n`)
   expect(res.stderr).toBe("")
 })
 
@@ -612,7 +614,12 @@ test("list reads the home the pointer names when THEWAY_HOME is unset", () => {
   put(join(root, "config", "theway", "home"), `${data}\n`)
   const res = spawnSync("node", [CLI, "list", "--project", "p"], {
     encoding: "utf-8",
-    env: { HOME: join(root, "home"), PATH: process.env.PATH, XDG_CONFIG_HOME: join(root, "config") },
+    env: {
+      HOME: join(root, "home"),
+      USERPROFILE: join(root, "home"),
+      PATH: process.env.PATH,
+      XDG_CONFIG_HOME: join(root, "config"),
+    },
   })
   expect(res.stdout).toContain("add-x                1 files   1/1 tasks done")
 })
@@ -1008,7 +1015,7 @@ test("standards exits 1 with config's message for invalid YAML in either config"
   expect([res.status, res.stdout, res.stderr]).toEqual([
     1,
     "",
-    "theway: projects/p/config.yaml: invalid YAML: Map keys must be unique at line 3, column 3\n",
+    `theway: ${join("projects", "p", "config.yaml")}: invalid YAML: Map keys must be unique at line 3, column 3\n`,
   ])
   put(join(dir, "config.yaml"), "a: [1\n")
   const bad = run(dir, "standards", "--project", "other", "develop")
@@ -1073,9 +1080,9 @@ test("config warns about the removed engineering section and the retired enginee
   expect(res.stderr).toBe(
     [
       "theway: warning: config.yaml: unknown key engineering; ignored",
-      "theway: warning: projects/p/config.yaml: standards.tamm_framework has no standard file; ignored",
-      "theway: warning: projects/p/config.yaml: standards.spec_review has no standard file; ignored",
-      "theway: warning: projects/p/config.yaml: standards.spec_investigation has no standard file; ignored",
+      `theway: warning: ${join("projects", "p", "config.yaml")}: standards.tamm_framework has no standard file; ignored`,
+      `theway: warning: ${join("projects", "p", "config.yaml")}: standards.spec_review has no standard file; ignored`,
+      `theway: warning: ${join("projects", "p", "config.yaml")}: standards.spec_investigation has no standard file; ignored`,
       "",
     ].join("\n"),
   )
@@ -1092,7 +1099,7 @@ test("config ignores an unknown key once at its highest level, a section that is
     [
       "theway: warning: config.yaml: unknown key changes; ignored",
       "theway: warning: config.yaml: standards must be a map; ignored",
-      "theway: warning: projects/p/config.yaml: not a map; ignored",
+      `theway: warning: ${join("projects", "p", "config.yaml")}: not a map; ignored`,
       "",
     ].join("\n"),
   )
@@ -1135,7 +1142,7 @@ test("config exits 1 with nothing on stdout for an invalid project, a missing gl
   cases.push([
     badProject,
     "p",
-    "theway: projects/p/config.yaml: invalid YAML: Map keys must be unique at line 3, column 3\n",
+    `theway: ${join("projects", "p", "config.yaml")}: invalid YAML: Map keys must be unique at line 3, column 3\n`,
   ])
   for (const [dir, project, stderr] of cases) {
     const res = run(dir, "config", "--project", project)
@@ -1152,7 +1159,11 @@ test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
     put(join(dir, "projects", "p", "config.yaml"), "standards:\n  sre:\n    enabled: false\n")
     chmodSync(join(dir, "projects", "p", "config.yaml"), 0o000)
     const res = run(dir, "config", "--project", "p")
-    expect([res.status, res.stdout, res.stderr]).toEqual([1, "", "theway: projects/p/config.yaml: cannot be read\n"])
+    expect([res.status, res.stdout, res.stderr]).toEqual([
+      1,
+      "",
+      `theway: ${join("projects", "p", "config.yaml")}: cannot be read\n`,
+    ])
   },
 )
 
@@ -1201,8 +1212,8 @@ test("config lists every switchable standard after the opt-in keys, with its eff
     [
       "theway: warning: config.yaml: standards.nofile has no standard file; ignored",
       "theway: warning: config.yaml: standards.develop cannot be switched; ignored",
-      "theway: warning: projects/p/config.yaml: standards.interaction cannot be switched; ignored",
-      "theway: warning: projects/p/config.yaml: standards.missing has no standard file; ignored",
+      `theway: warning: ${join("projects", "p", "config.yaml")}: standards.interaction cannot be switched; ignored`,
+      `theway: warning: ${join("projects", "p", "config.yaml")}: standards.missing has no standard file; ignored`,
       "",
     ].join("\n"),
   )
@@ -1238,7 +1249,7 @@ test("config reads a project named data, templates or standards from its own fol
       ]),
     )
     expect(res.stderr).toBe(
-      `theway: warning: projects/${project}/config.yaml: standards.gone has no standard file; ignored\n`,
+      `theway: warning: ${join("projects", project, "config.yaml")}: standards.gone has no standard file; ignored\n`,
     )
   }
 })
@@ -1263,7 +1274,7 @@ test("a project file with a core name is a user standard that the project config
   expect([other.status, other.stdout, other.stderr]).toEqual([
     0,
     effective(),
-    "theway: warning: projects/q/config.yaml: standards.develop cannot be switched; ignored\n",
+    `theway: warning: ${join("projects", "q", "config.yaml")}: standards.develop cannot be switched; ignored\n`,
   ])
 })
 
@@ -1552,9 +1563,12 @@ function git(cwd: string, ...args: string[]): void {
 
 const keyFor = (root: string): string => root.replace(/[^A-Za-z0-9]/g, "-")
 
+/** The physical path of `p` as the project root takes it: the long-name form on Windows. */
+const physical = (p: string): string => (process.platform === "win32" ? realpathSync.native(p) : realpathSync(p))
+
 test("project derives one key for a repository, its subfolder and a linked worktree", () => {
   const dir = home()
-  const tmp = realpathSync(home())
+  const tmp = physical(home())
   const main = join(tmp, "my.repo")
   mkdirSync(join(main, "sub"), { recursive: true })
   git(main, "init", "-q")
@@ -1569,9 +1583,26 @@ test("project derives one key for a repository, its subfolder and a linked workt
   expect(key).toMatch(/^[A-Za-z0-9-]+-my-repo$/)
 })
 
+test.skipIf(process.platform !== "win32")(
+  "project derives one key from a repository's 8.3 temp path and its subfolder: the long-name form's",
+  () => {
+    const dir = home()
+    // Under os.tmpdir(), which holds the 8.3 form (C:\Users\RUNNER~1\…) on the Windows runner.
+    const repo = home()
+    mkdirSync(join(repo, "sub"))
+    git(repo, "init", "-q")
+    const key = keyFor(realpathSync.native(repo))
+    const expected = `key: ${key}\ndir: ${join(dir, "projects", key)}\n`
+    for (const cwd of [repo, join(repo, "sub")]) {
+      const res = runIn(cwd, dir, "project")
+      expect([res.status, res.stdout, res.stderr]).toEqual([0, expected, ""])
+    }
+  },
+)
+
 test("project derives the key from the current directory outside git", () => {
   const dir = home()
-  const cwd = join(realpathSync(home()), "not_git")
+  const cwd = join(physical(home()), "not_git")
   mkdirSync(cwd, { recursive: true })
   const key = keyFor(cwd)
   const res = runIn(cwd, dir, "project")
@@ -1591,7 +1622,7 @@ test("project takes --project over the derived key and exits 1 for an invalid or
     "",
     `theway: invalid project '${long}': ${PROJECT_REASON}\n`,
   ])
-  let cwd = realpathSync(home())
+  let cwd = physical(home())
   while (cwd.length <= 200) cwd = join(cwd, "d".repeat(40))
   mkdirSync(cwd, { recursive: true })
   for (const args of [["project"], ["list"], ["path", "add-x"], ["context", "develop", "Add_X"]]) {
@@ -1608,7 +1639,7 @@ test("project takes --project over the derived key and exits 1 for an invalid or
 
 test("list, path and archive without --project use the derived key's folder under projects/", () => {
   const dir = home()
-  const cwd = realpathSync(home())
+  const cwd = physical(home())
   git(cwd, "init", "-q")
   const key = keyFor(cwd)
   put(join(dir, "projects", key, "changes", "add-x", "change.yaml"), changeYaml([true]))
@@ -1616,11 +1647,11 @@ test("list, path and archive without --project use the derived key's folder unde
   expect(runIn(cwd, dir, "path", "add-x").stdout).toBe(`${join(dir, "projects", key, "changes", "add-x")}\n`)
   const res = runIn(cwd, dir, "archive", "add-x")
   expect(res.status).toBe(0)
-  expect(res.stdout).toStartWith(`Archived: ${join(dir, "projects", key, "changes", "archive")}/`)
+  expect(res.stdout).toStartWith(`Archived: ${join(dir, "projects", key, "changes", "archive")}${sep}`)
 })
 
 test("a second repository whose key is already claimed is refused", () => {
-  const tmp = realpathSync(home())
+  const tmp = physical(home())
   const first = join(tmp, "x", "a-b")
   const second = join(tmp, "x", "a", "b")
   for (const repo of [first, second]) {
@@ -1698,7 +1729,7 @@ test("writeAtomic throws and leaves no temp file when the rename fails", () => {
   } catch (e) {
     code = (e as NodeJS.ErrnoException).code
   }
-  expect(code).toBe("EISDIR")
+  expect(code).toBe(process.platform === "win32" ? "EPERM" : "EISDIR")
   expect(existsSync(`${target}.tmp-${process.pid}`)).toBe(false)
   expect(statSync(target).isDirectory()).toBe(true)
 })
@@ -1768,15 +1799,20 @@ test("v1beta1: agents with --input substitutes every reference theway knows and 
   expect(doc.steps[3]?.on_fail?.with).toEqual({ change: "add-foo" })
 })
 
+/** `test/fixtures/agents-resolved.json` with each `<home>/<a>/<b>` string value as `join(dir, "<a>", "<b>")`. */
+function agentsResolved(dir: string): { name: unknown; file: unknown; inputs: unknown; steps: unknown[] } {
+  const text = readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8")
+  return JSON.parse(text, (_, v: unknown) => {
+    const m = typeof v === "string" ? /^<home>\/([^/]+)\/([^/]+)$/.exec(v) : null
+    return m !== null ? join(dir, m[1] as string, m[2] as string) : v
+  })
+}
+
 test("v1beta1: the resolved agents workflow matches test/fixtures/agents-resolved.json", () => {
   const dir = fixtureHome()
   const res = v1beta1(dir, "agents", "--input", "change=add-foo")
   expect(res.status).toBe(0)
-  const expected = readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8").replaceAll(
-    "<home>",
-    dir,
-  )
-  expect(res.stdout).toBe(expected)
+  expect(res.stdout).toBe(`${JSON.stringify(agentsResolved(dir), null, 2)}\n`)
 })
 
 test("v1beta1: --compact prints the resolved workflow without prompt text, descriptions or the as-written with", () => {
@@ -1784,9 +1820,7 @@ test("v1beta1: --compact prints the resolved workflow without prompt text, descr
   const res = v1beta1(dir, "agents", "--input", "change=add-foo", "--compact")
   expect([res.status, res.stderr]).toEqual([0, ""])
   const doc = JSON.parse(res.stdout) as Record<string, unknown> & { steps: Record<string, unknown>[] }
-  const full = JSON.parse(
-    readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8").replaceAll("<home>", dir),
-  )
+  const full = agentsResolved(dir)
   expect(Object.keys(doc)).toEqual(["name", "file", "resolved", "runs_on", "inputs", "steps"])
   expect([doc.name, doc.file, doc.resolved, doc.runs_on, doc.inputs]).toEqual([
     full.name,

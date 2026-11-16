@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, sep } from "node:path"
 import { tildePath } from "../src/dashboard/changes"
 import { createApp } from "../src/dashboard/server"
 
@@ -318,11 +318,11 @@ test("unknown targets answer 404 with their error, encoded / and .. included", a
 })
 
 test("the folder is written with ~ when under the user's home directory", () => {
-  expect(tildePath("/home/me/.theway/projects/-p/changes/add-a", "/home/me")).toBe(
-    "~/.theway/projects/-p/changes/add-a",
-  )
-  expect(tildePath("/home/me", "/home/me")).toBe("~")
-  expect(tildePath("/home/media/x", "/home/me")).toBe("/home/media/x")
-  expect(tildePath("/srv/theway/x", "/home/me/")).toBe("/srv/theway/x")
-  expect(tildePath("/home/me/x", "/home/me/")).toBe("~/x")
+  const me = join(sep, "home", "me")
+  const change = [".theway", "projects", "-p", "changes", "add-a"]
+  expect(tildePath(join(me, ...change), me)).toBe(join("~", ...change))
+  expect(tildePath(me, me)).toBe("~")
+  expect(tildePath(join(sep, "home", "media", "x"), me)).toBe(join(sep, "home", "media", "x"))
+  expect(tildePath(join(sep, "srv", "theway", "x"), `${me}${sep}`)).toBe(join(sep, "srv", "theway", "x"))
+  expect(tildePath(join(me, "x"), `${me}${sep}`)).toBe(join("~", "x"))
 })

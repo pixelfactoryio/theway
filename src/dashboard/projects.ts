@@ -1,6 +1,6 @@
 /** The projects of a home as the dashboard lists them: key, label, number of active changes and folder. */
 import { readdirSync } from "node:fs"
-import { basename, join } from "node:path"
+import { basename, join, parse } from "node:path"
 import { isDir } from "../core/io"
 import { keyOf, recordedRoot } from "../core/project"
 import type { ChangeStore } from "../core/store"
@@ -23,16 +23,25 @@ function subfolders(dir: string): string[] {
 /**
  * The folder whose project key is `key`, found depth first from `dir`: at each level, the subfolders whose `-` + key of
  * their name starts what is left of the key, longest match first, backtracking to the next shorter one when a branch
- * ends before the key is used up. `null` when no folder uses it all.
+ * ends before the key is used up. `null` when no folder uses it all. Without `dir` and `rest`, the walk starts at `/`
+ * with the whole key; on Windows, a drive key (`C--Users-x`) starts at its drive root (`C:\`) with the rest (`-Users-x`).
  */
-export function folderOf(key: string, dir = "/", rest = key): string | null {
+export function folderOf(key: string, dir?: string, rest?: string): string | null {
+  if (dir === undefined && rest === undefined) {
+    const drive = process.platform === "win32" && /^[A-Za-z]--/.test(key)
+    return drive ? walk(key, `${key[0]}:\\`, key.slice(2)) : walk(key, "/", key)
+  }
+  return walk(key, dir ?? "/", rest ?? key)
+}
+
+function walk(key: string, dir: string, rest: string): string | null {
   if (rest === "") return dir
   const matches = subfolders(dir)
     .map((name) => ({ name, part: `-${keyOf(name)}` }))
     .filter(({ part }) => rest.startsWith(part))
     .sort((a, b) => b.part.length - a.part.length || byText(a.name, b.name))
   for (const { name, part } of matches) {
-    const found = folderOf(key, join(dir, name), rest.slice(part.length))
+    const found = walk(key, join(dir, name), rest.slice(part.length))
     if (found !== null) return found
   }
   return null
@@ -55,15 +64,18 @@ function prefixLabels(keys: string[]): string[] {
   return keys.map((key) => key.slice(cut) || key)
 }
 
+/** True when `folder` is its own root (`/`, or a drive root such as `C:\` on Windows): it counts as no folder. */
+const isRoot = (folder: string): boolean => parse(folder).root === folder
+
 /**
- * The label of each key: the name of its project's folder; the fallback label when the folder is not found or another
- * project's folder has the same name.
+ * The label of each key: the name of its project's folder; the fallback label when the folder is not found, is a root,
+ * or another project's folder has the same name.
  */
 export function labels(keys: string[], find: (key: string) => string | null = folderOf): string[] {
   const fallback = prefixLabels(keys)
   const names = keys.map((key) => {
     const folder = find(key)
-    return folder === null || folder === "/" ? null : basename(folder)
+    return folder === null || isRoot(folder) ? null : basename(folder)
   })
   return keys.map((_, i) => {
     const name = names[i]
@@ -89,7 +101,7 @@ export function projects(home: string, store: ChangeStore): Project[] {
       key,
       label: names[i] as string,
       active: store.activeIds(key).length,
-      path: folder === "/" ? null : folder,
+      path: folder === null || isRoot(folder) ? null : folder,
     }
   })
 }
