@@ -68,6 +68,8 @@ The versions are listed on [npm](https://www.npmjs.com/package/@pixelfactoryio/t
 npx --yes @pixelfactoryio/theway@latest uninstall
 ```
 
+On Windows, use this `npx` command. Running the installed `theway uninstall` from cmd or PowerShell removes the `theway.cmd` it runs through: the uninstall completes, then cmd prints `The batch file cannot be found.` and the command exits 1.
+
 Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the one install wrote, the pointer file and the permission rules: those of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`, and the rules of 0.2.0. The data home (`~/.theway`, or your custom home) is kept, with your changes and your config.
 
 Uninstall first checks `~/.claude/settings.json` and that it can write the folders it removes from: when the settings file cannot be read or is not valid settings JSON, or one of those folders is not writable, it stops and changes nothing. A failure while it removes stops it without restoring anything, with one line that names what it already removed (`theway: uninstall stopped: <reason>; already removed: …`); see [uninstall](./cli.mdx#uninstall).
