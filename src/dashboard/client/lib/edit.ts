@@ -1,9 +1,10 @@
 /** Editing a workflow or prompt file: the page an address is on, the times shown, and a new file's text. Pure: no React, no DOM. */
 import { stringify } from "yaml"
 import { VERSION } from "../../../core/language-schema"
+import { errorCount } from "./files"
 
 /** The file a file page shows: its kind, its project (`null`: global) and its name. */
-export type FilePageId = { kind: "workflows" | "prompts"; project: string | null; name: string }
+type FilePageId = { kind: "workflows" | "prompts"; project: string | null; name: string }
 
 /** A file page's address path: `/<kind>/global/<name>[/<tab>]` or `/<kind>/projects/<key>/<name>[/<tab>]`. */
 const FILE_PAGE = /^\/(workflows|prompts)\/(?:global\/([^/?]+)|projects\/([^/?]+)\/([^/?]+))(?:\/[^/?]*)?\/?$/
@@ -48,7 +49,7 @@ export function emptyText(kind: "workflows" | "prompts", description: string): s
 }
 
 /** The line `Save with N errors?` (`1 error`). */
-export const saveWithErrors = (n: number): string => `Save with ${n === 1 ? "1 error" : `${n} errors`}?`
+export const saveWithErrors = (n: number): string => `Save with ${errorCount(n)}?`
 
 /** A line count of the versions list: `+N −M lines`. */
 export const lineCounts = (added: number, removed: number): string => `+${added} −${removed} lines`

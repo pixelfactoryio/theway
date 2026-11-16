@@ -1,16 +1,11 @@
 /** The changes of a project as the Changes page and the change page show them. Pure: no React, no DOM. */
 import type { ActiveChange, ArchivedChange, ChangeDetail, ChangeTask, Status } from "../../contract"
 import { MEMBER } from "../../../core/change-text"
+import { byText } from "../../../core/text"
+import { localTime } from "./edit"
+import { fileMatches } from "./files"
 
-export type {
-  ActiveChange,
-  ArchivedChange,
-  ChangeDetail,
-  ChangeList,
-  ChangeTask,
-  SeriesMember,
-  Status,
-} from "../../contract"
+export type { ActiveChange, ArchivedChange, ChangeDetail, ChangeList, SeriesMember, Status } from "../../contract"
 export { ChangeDetailSchema, ChangeListSchema } from "../../contract"
 
 /** The statuses of an active change, in the order the page sorts and filters them. */
@@ -25,8 +20,6 @@ export const STATUS_LABEL: Record<Status, string> = {
   archived: "Archived",
 }
 
-const byId = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
-
 /** The series ID and ordinal of a change ID ending in `-NN`, `null` otherwise. */
 export function memberOf(id: string): { series: string; ordinal: string } | null {
   const m = MEMBER.exec(id)
@@ -34,7 +27,7 @@ export function memberOf(id: string): { series: string; ordinal: string } | null
 }
 
 /** A row of the Active grid: one change, or a series of two or more active changes with its members. */
-export type ChangeRow = {
+type ChangeRow = {
   kind: "change"
   id: string
   change: ActiveChange
@@ -68,11 +61,8 @@ export function seriesProgress(members: readonly ActiveChange[]): { done: number
 }
 
 /** Whether a change's ID or description holds `q`, ignoring case; every change when `q` is empty. */
-export function matches(change: { id: string; description?: string | null }, q: string): boolean {
-  const needle = q.trim().toLowerCase()
-  if (needle === "") return true
-  return change.id.toLowerCase().includes(needle) || (change.description ?? "").toLowerCase().includes(needle)
-}
+const matches = (change: { id: string; description?: string | null }, q: string): boolean =>
+  fileMatches({ name: change.id, description: change.description }, q)
 
 /** The number of active changes of each status among those the search keeps. */
 export function statusCounts(active: readonly ActiveChange[], q: string): Record<ActiveStatus, number> {
@@ -106,7 +96,7 @@ export function activeRows(active: readonly ActiveChange[], q: string, statuses:
     seen.add(series)
     const children = members
       .filter(kept)
-      .sort((a, b) => byId(memberOf(a.id)?.ordinal ?? "", memberOf(b.id)?.ordinal ?? "") || byId(a.id, b.id))
+      .sort((a, b) => byText(memberOf(a.id)?.ordinal ?? "", memberOf(b.id)?.ordinal ?? "") || byText(a.id, b.id))
       .map((m): ChangeRow => ({ kind: "change", id: m.id, change: m }))
     if (children.length === 0) continue
     rows.push({
@@ -123,7 +113,7 @@ export function activeRows(active: readonly ActiveChange[], q: string, statuses:
 }
 
 /** Which series rows are open: `true` (every row) or one flag per series ID, as the grid's expanded state. */
-export type SeriesOpen = true | Record<string, boolean>
+type SeriesOpen = true | Record<string, boolean>
 
 /**
  * The series rows' open state, kept apart for the view no search or filter narrows (`whole`) and for the narrowing in
@@ -170,14 +160,14 @@ export type SortColumn = "change" | "status" | "progress" | "updated"
 export function sortRows(rows: readonly ActiveRow[], sort: { column: SortColumn; desc: boolean } | null): ActiveRow[] {
   const rank = (r: ActiveRow): number => ACTIVE_STATUSES.indexOf(rowStatus(r))
   const compare = (a: ActiveRow, b: ActiveRow): number => {
-    if (sort === null) return rank(a) - rank(b) || byId(a.id, b.id)
+    if (sort === null) return rank(a) - rank(b) || byText(a.id, b.id)
     const sign = sort.desc ? -1 : 1
     let v: number
-    if (sort.column === "change") v = byId(a.id, b.id)
+    if (sort.column === "change") v = byText(a.id, b.id)
     else if (sort.column === "status") v = rank(a) - rank(b)
     else if (sort.column === "progress") v = rowFraction(a) - rowFraction(b)
-    else v = byId(rowUpdated(a), rowUpdated(b))
-    return sign * v || byId(a.id, b.id)
+    else v = byText(rowUpdated(a), rowUpdated(b))
+    return sign * v || byText(a.id, b.id)
   }
   return [...rows].sort(compare)
 }
@@ -185,12 +175,6 @@ export function sortRows(rows: readonly ActiveRow[], sort: { column: SortColumn;
 /** The number of changes `rows` hold: a series row counts its listed members. */
 export const changeCount = (rows: readonly ActiveRow[]): number =>
   rows.reduce((n, r) => n + (r.kind === "series" ? r.children.length : 1), 0)
-
-/** The toolbar's count: `N changes`, or `N of M changes` while narrowed. */
-export function countText(shown: number, all: number, narrowed: boolean): string {
-  const noun = (n: number): string => (n === 1 ? "change" : "changes")
-  return narrowed ? `${shown} of ${all} ${noun(all)}` : `${shown} ${noun(shown)}`
-}
 
 /** The archived changes whose ID holds `q`, ignoring case. */
 export const archivedRows = (archived: readonly ArchivedChange[], q: string): ArchivedChange[] =>
@@ -253,17 +237,13 @@ export function shownPage(page: number, rows: number, size: number): number {
 }
 
 /** The browser's local date of an ISO time, `YYYY-MM-DD`. */
-export function localDate(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number): string => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+export const localDate = (iso: string): string => localTime(iso).slice(0, 10)
 
 /** One tab of the change page: a Markdown file or the Tasks. */
 export type ChangeTab = { slug: string; label: string; file: string | null }
 
 /** A Markdown file's tab: its name without `.md` (`tasks-md` for `tasks.md`), labelled with a capital first letter. */
-export function fileTab(name: string): ChangeTab {
+function fileTab(name: string): ChangeTab {
   const base = name.replace(/\.md$/, "")
   return {
     slug: name === "tasks.md" ? "tasks-md" : base,
@@ -308,7 +288,7 @@ export function runCommand(change: Pick<ChangeDetail, "id" | "status" | "done" |
 export function nextCommand(row: ActiveRow, active: readonly ActiveChange[]): string | null {
   if (rowStatus(row) === "invalid") return null
   if (row.kind === "change") return runCommand(row.change).command
-  const members = active.filter((c) => memberOf(c.id)?.series === row.id).sort((a, b) => byId(a.id, b.id))
+  const members = active.filter((c) => memberOf(c.id)?.series === row.id).sort((a, b) => byText(a.id, b.id))
   if (row.status === "ready") return `/theway:archive ${(members[0] as ActiveChange).id}`
   const next = members.find((m) => m.status !== "ready") ?? (members[0] as ActiveChange)
   return `/theway:workflow ${next.id}`

@@ -15,8 +15,8 @@ import { useChanges } from "@/shell/changes"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { useCurrentKey, useProjects } from "@/shell/projects"
 
-/** Whether the platform is Apple's: ⌘ then, Ctrl elsewhere. */
-export const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent)
+/** Whether the platform is Apple's: ⌘ then, Ctrl elsewhere. Read from `navigator.platform`, as CodeMirror resolves `Mod-`. */
+export const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
 
 /** The search's open state, provided by the shell so the sidebar entry and the shortcut share it. */
 export const SearchOpen = createContext<{ open: boolean; setOpen: Dispatch<SetStateAction<boolean>> }>({

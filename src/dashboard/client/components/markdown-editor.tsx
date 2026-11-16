@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { FileError } from "@/lib/files"
 import { blockAt, type LinePrefix, linked, prefixed, type Replace, shortcutTip, wrapped } from "@/lib/change-edit"
+import { MAC } from "@/shell/search"
 
 /** A Replace computed on the text around the selection, then placed in the document. */
 function replaceAround(
@@ -109,8 +110,6 @@ export const formattingKeymap = Prec.highest(
   ),
 )
 
-const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
-
 type Tool = { label: string; icon: ReactNode; run: Command; key?: string }
 
 const GROUPS: Tool[][] = [
@@ -172,7 +171,7 @@ function Toolbar({ store }: { store: DraftStore }) {
 /** The cursor's line (from 1) of a state. */
 const cursorLine = (state: EditorState): number => state.doc.lineAt(state.selection.main.head).number
 
-/** The preview of the draft: member 02's Markdown view, its checkboxes disabled, kept on the block of the cursor's line. */
+/** The preview of the draft: its Markdown view, checkboxes disabled, kept on the block of the cursor's line. */
 function Preview({ store, name }: { store: DraftStore; name: string }) {
   const pane = useRef<HTMLDivElement>(null)
   const state = useSyncExternalStore(store.subscribe, store.getState)

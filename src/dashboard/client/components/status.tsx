@@ -6,10 +6,13 @@ import {
   CircleDotIcon,
   type LucideIcon,
 } from "lucide-react"
+import { cn } from "cn"
 
 import { Badge } from "@/components/reui/badge"
+import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { STATUS_LABEL, type Status } from "@/lib/changes"
+import { errorCount } from "@/lib/files"
 
 const VARIANT = {
   invalid: "destructive-light",
@@ -60,12 +63,12 @@ export function StatusIcon({ status }: { status: Status }) {
   )
 }
 
-/** The series' `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`), the first line in its tooltip. */
+/** The `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`), the first line in its tooltip. */
 export function ErrorsBadge({ errors }: { errors: readonly string[] }) {
   const badge = (
     <Badge variant="destructive-light" className="tabular-nums">
       <CircleAlertIcon aria-hidden="true" />
-      {errors.length === 1 ? "1 error" : `${errors.length} errors`}
+      {errorCount(errors.length)}
     </Badge>
   )
   if (errors.length === 0) return null
@@ -74,5 +77,39 @@ export function ErrorsBadge({ errors }: { errors: readonly string[] }) {
       <TooltipTrigger render={<span className="inline-flex" />}>{badge}</TooltipTrigger>
       <TooltipContent className="max-w-md">{errors[0]}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * The tasks done as a bar, then `done/total`: the bar `width` wide, green once every task is done, else blue; the count
+ * with `countClassName`.
+ */
+export function TaskProgress({
+  done,
+  total,
+  width,
+  countClassName,
+}: {
+  done: number
+  total: number
+  width: string
+  countClassName: string
+}) {
+  return (
+    <>
+      <Progress
+        value={total === 0 ? 0 : (done / total) * 100}
+        className={cn(
+          width,
+          total > 0 && done === total
+            ? "[&_[data-slot=progress-indicator]]:bg-success"
+            : "[&_[data-slot=progress-indicator]]:bg-info",
+        )}
+        aria-label={`${done} of ${total} tasks done`}
+      />
+      <span className={countClassName}>
+        {done}/{total}
+      </span>
+    </>
   )
 }

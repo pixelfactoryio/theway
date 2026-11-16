@@ -1,7 +1,7 @@
 /** Editing a change on its page: the page an address is on, row ids, Markdown checkboxes and formatting. Pure: no React, no DOM. */
 
 /** The active change a page shows: its project key and its ID. */
-export type ChangePageId = { key: string; id: string }
+type ChangePageId = { key: string; id: string }
 
 /**
  * Whether going to `target` (an address path, with or without its search part) leaves the page of the change `page`:
@@ -18,14 +18,6 @@ export function leavesChange(page: ChangePageId, target: string): boolean {
 /** The ids of `count` rows after a change of the draft that is not a list action: the first min(old, new) kept by position. */
 export function keptIds(old: readonly string[], count: number, make: () => string): string[] {
   return Array.from({ length: count }, (_, i) => (i < old.length ? (old[i] as string) : make()))
-}
-
-/** `list` with the item at `from` moved to `to`, the list `arrayMove` gives. */
-export function moved<T>(list: readonly T[], from: number, to: number): T[] {
-  const out = [...list]
-  const [item] = out.splice(from, 1)
-  out.splice(to, 0, item as T)
-  return out
 }
 
 /** A task row's accessible name: `Task N: <text>`, or `Task N, done: <text>`. */
@@ -96,13 +88,7 @@ export function prefixed(lines: readonly string[], kind: LinePrefix): string[] {
 }
 
 /** The index of the block that holds `line`: the last of `lines` (each block's first line, in document order) at or before it. */
-export function blockAt(lines: readonly number[], line: number): number {
-  let found = -1
-  lines.forEach((l, i) => {
-    if (l <= line) found = i
-  })
-  return found
-}
+export const blockAt = (lines: readonly number[], line: number): number => lines.findLastIndex((l) => l <= line)
 
 /** A toolbar tooltip: `<label> (⌘B)` on macOS, `<label> (Ctrl+B)` elsewhere. */
 export const shortcutTip = (label: string, key: string, mac: boolean): string =>

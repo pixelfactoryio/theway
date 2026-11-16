@@ -1,22 +1,8 @@
 /** The home's workflow and prompt files as the Workflows and Prompts pages show them. Pure: no React, no DOM. */
 import type { PromptRow, Use } from "../../contract"
+import { byText } from "../../../core/text"
 
-export type {
-  CheckBody,
-  ErrorBody,
-  FileBody,
-  FileError,
-  PromptInputRow,
-  PromptList,
-  PromptRow,
-  Saved,
-  Use,
-  Version,
-  VersionList,
-  VersionText,
-  WorkflowList,
-  WorkflowRow,
-} from "../../contract"
+export type { CheckBody, FileBody, FileError, PromptInputRow, PromptRow, Use, WorkflowRow } from "../../contract"
 export {
   CheckBodySchema,
   ErrorBodySchema,
@@ -64,7 +50,7 @@ export const kindOfChecked = (checked: readonly PromptKind[]): PromptKind | null
   checked.length === 1 ? (checked[0] as PromptKind) : null
 
 /** Whether a file's name or description holds `q`, ignoring case; every file when `q` is empty. */
-export function fileMatches(file: { name: string; description: string | null }, q: string): boolean {
+export function fileMatches(file: { name: string; description?: string | null }, q: string): boolean {
   const needle = q.trim().toLowerCase()
   if (needle === "") return true
   return file.name.toLowerCase().includes(needle) || (file.description ?? "").toLowerCase().includes(needle)
@@ -114,7 +100,7 @@ export function compareText(a: string | null, b: string | null): number {
   if (a === b) return 0
   if (a === null) return 1
   if (b === null) return -1
-  return a < b ? -1 : a > b ? 1 : 0
+  return byText(a, b)
 }
 
 /** Name, then a global file before a project's, then project key. */

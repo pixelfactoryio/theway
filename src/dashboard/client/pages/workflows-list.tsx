@@ -18,13 +18,13 @@ import {
   type WorkflowRow,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
+import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import {
   FilesToolbar,
   NameCell,
   NoFile,
   NoFileMatch,
-  None,
   STATUS_HEADER,
   StatusCell,
   useFilesQuery,
@@ -96,7 +96,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         id: "steps",
         accessorFn: (row) => row.steps,
         header: ({ column }) => <DataGridColumnHeader title="Steps" column={column} />,
-        cell: ({ row }) => (row.original.steps === null ? <None /> : row.original.steps),
+        cell: ({ row }) => (row.original.steps === null ? <Dash /> : row.original.steps),
         size: 90,
         enableSorting: true,
         meta: {
@@ -109,7 +109,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         id: "runsOn",
         accessorFn: (row) => row.runsOn,
         header: ({ column }) => <DataGridColumnHeader title="Runs on" column={column} />,
-        cell: ({ row }) => (row.original.runsOn === null ? <None /> : row.original.runsOn),
+        cell: ({ row }) => (row.original.runsOn === null ? <Dash /> : row.original.runsOn),
         size: 120,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-16") },

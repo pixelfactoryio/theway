@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { emptyText, NAME } from "@/lib/edit"
 import { FileBodySchema, fileApi, filePath, rowId, SavedSchema } from "@/lib/files"
-import { sendJson } from "@/shell/api"
+import { failureOf, sendJson } from "@/shell/api"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { getJson, useCurrentKey, useProjects } from "@/shell/projects"
 
@@ -104,7 +104,7 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
       return
     }
     if (res.status === 409) setConflict(true)
-    else setFailure(res.error !== "" ? res.error : `${res.status}`)
+    else setFailure(failureOf(res))
   }
 
   return (

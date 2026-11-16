@@ -34,13 +34,13 @@ import {
   describeUse,
 } from "@/lib/files"
 import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
+import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import {
   FilesToolbar,
   NameCell,
   NoFile,
   NoFileMatch,
-  None,
   STATUS_HEADER,
   StatusCell,
   useFilesQuery,
@@ -90,7 +90,7 @@ function UseLink({ use, children, className }: { use: Use; children: string; cla
 function UsedByCell({ row }: { row: PromptRow }) {
   const label = useLabel()
   const first = row.usedBy[0]
-  if (first === undefined) return <None />
+  if (first === undefined) return <Dash />
   const name = first.project === null ? first.workflow : `${first.workflow} · ${label(first.project)}`
   return (
     <div className="flex items-center gap-1">
@@ -215,7 +215,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         id: "model",
         accessorFn: (row) => row.model,
         header: ({ column }) => <DataGridColumnHeader title="Model" column={column} />,
-        cell: ({ row }) => (row.original.model === null ? <None /> : row.original.model),
+        cell: ({ row }) => (row.original.model === null ? <Dash /> : row.original.model),
         size: 100,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-12") },

@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, ExpandedState, PaginationState, SortingState, Updater } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
-import { cn } from "cn"
 import { ListChecksIcon, SearchIcon } from "lucide-react"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useLocation, useSearch } from "wouter"
@@ -13,11 +12,11 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination"
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable, DataGridTableRowExpand } from "@/components/reui/data-grid/data-grid-table"
-import { ICON, StatusBadge } from "@/components/status"
+import { Dash } from "@/components/file-page"
+import { ICON, StatusBadge, TaskProgress } from "@/components/status"
 import { CopyField, OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
@@ -30,7 +29,6 @@ import {
   type ActiveStatus,
   type ArchivedChange,
   type ChangesQuery,
-  countText,
   localDate,
   keepSeriesOpen,
   nextCommand,
@@ -48,9 +46,11 @@ import {
   statusCounts,
   switchView,
 } from "@/lib/changes"
+import { fileCountText } from "@/lib/files"
+import { changePath } from "@/lib/projects"
 import { useChanges } from "@/shell/changes"
 import { LoadError } from "@/shell/load-error"
-import { None } from "@/pages/files-table"
+import { FilesToolbar } from "@/pages/files-table"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** The Changes page's state in the address, and the navigation that changes it. */
@@ -96,41 +96,18 @@ function StatusChips({
   )
 }
 
-function Toolbar({ children, count }: { children: ReactNode; count: string | null }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-y px-4 py-2">
-      {children}
-      <span className="ml-auto text-sm text-muted-foreground tabular-nums" aria-live="polite">
-        {count}
-      </span>
-    </div>
-  )
-}
-
 function ProgressCell({ progress }: { progress: { done: number; total: number } | null }) {
-  if (progress === null) return <span className="text-muted-foreground">–</span>
-  const { done, total } = progress
+  if (progress === null) return <Dash />
   return (
     <div className="flex items-center gap-2">
-      <Progress
-        value={total === 0 ? 0 : (done / total) * 100}
-        className={cn(
-          "w-24",
-          total > 0 && done === total
-            ? "[&_[data-slot=progress-indicator]]:bg-success"
-            : "[&_[data-slot=progress-indicator]]:bg-info",
-        )}
-        aria-label={`${done} of ${total} tasks done`}
+      <TaskProgress
+        done={progress.done}
+        total={progress.total}
+        width="w-24"
+        countClassName="text-muted-foreground tabular-nums"
       />
-      <span className="text-muted-foreground tabular-nums">
-        {done}/{total}
-      </span>
     </div>
   )
-}
-
-function changeHref(key: string, id: string): string {
-  return `/${key}/changes/${id}?`
 }
 
 /** The Active view: the grid of the changes the search and the status filter keep, series as tree rows. */
@@ -192,7 +169,7 @@ function ActiveGrid({
                   <span className="truncate font-medium">{item.id}</span>
                 ) : (
                   <Link
-                    href={changeHref(projectKey, item.id)}
+                    href={changePath(projectKey, item.id)}
                     onClick={(e) => e.stopPropagation()}
                     className="truncate font-medium text-foreground hover:underline"
                   >
@@ -244,7 +221,7 @@ function ActiveGrid({
         header: ({ column }) => <DataGridColumnHeader title="Next" column={column} />,
         cell: ({ row }) => {
           const command = nextCommand(row.original, active)
-          if (command === null) return <None />
+          if (command === null) return <Dash />
           // The row opens the change or toggles the series on click; a Copy click does neither.
           return (
             <div onClick={(e) => e.stopPropagation()}>
@@ -305,7 +282,7 @@ function ActiveGrid({
             ...(old as Record<string, boolean>),
             [row.id]: !(old as Record<string, boolean>)[row.id],
           }))
-        else navigate(changeHref(projectKey, row.id))
+        else navigate(changePath(projectKey, row.id))
       }}
     >
       <GridFrame>
@@ -490,14 +467,17 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
       const shown = changeCount(rows)
       body = (
         <>
-          <Toolbar count={list === undefined ? null : countText(shown, list.active.length, narrowedActive)}>
+          <FilesToolbar
+            border="border-y"
+            count={list === undefined ? null : fileCountText(shown, list.active.length, narrowedActive, "change")}
+          >
             {search}
             <StatusChips
               pressed={query.statuses}
               counts={counts}
               onChange={(statuses) => setQuery({ ...query, statuses, page: 1 }, true)}
             />
-          </Toolbar>
+          </FilesToolbar>
           {list !== undefined && rows.length === 0 ? (
             <NoMatch description="Nothing in this project matches the search and the status filter." clear={clear} />
           ) : (
@@ -521,9 +501,14 @@ export function ChangesPage({ projectKey }: { projectKey: string }) {
   } else {
     body = (
       <>
-        <Toolbar count={list === undefined ? null : countText(archived.length, list.archived.length, narrowedArchived)}>
+        <FilesToolbar
+          border="border-y"
+          count={
+            list === undefined ? null : fileCountText(archived.length, list.archived.length, narrowedArchived, "change")
+          }
+        >
           {search}
-        </Toolbar>
+        </FilesToolbar>
         {list === undefined ? (
           <ArchivedLoading />
         ) : archived.length === 0 ? (

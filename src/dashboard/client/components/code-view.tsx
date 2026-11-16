@@ -100,7 +100,7 @@ const LANGUAGE: Record<CodeLanguage, () => Extension> = {
  * selection, indentation on input, history, search at the top, the keymaps, the language, the highlight style, the
  * theme, wrapped lines, the lint gutter, the accessible name, the file's line separator and the style nonce.
  */
-export function sharedExtensions({
+function sharedExtensions({
   language,
   name,
   separator,

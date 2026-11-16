@@ -1,10 +1,32 @@
 import { cn } from "cn"
 import { CheckIcon, CopyIcon } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type RefObject } from "react"
 
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { inlineCode } from "@/lib/changes"
+
+/**
+ * Whether the text of the returned ref's span is cut: wider (`width`) or taller (`height`) than the span shows,
+ * measured again on each resize.
+ */
+export function useCut(text: string, axis: "width" | "height"): [RefObject<HTMLSpanElement | null>, boolean] {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [cut, setCut] = useState(false)
+
+  useEffect(() => {
+    const node = ref.current
+    if (node === null) return
+    const measure = () =>
+      setCut(axis === "width" ? node.scrollWidth > node.clientWidth : node.scrollHeight > node.clientHeight)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [text, axis])
+
+  return [ref, cut]
+}
 
 /** One line of text, cut with an ellipsis; the full text in a tooltip only while it is cut. */
 export function OneLine({
@@ -16,18 +38,7 @@ export function OneLine({
   className?: string
   tooltipClassName?: string
 }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [cut, setCut] = useState(false)
-
-  useEffect(() => {
-    const node = ref.current
-    if (node === null) return
-    const measure = () => setCut(node.scrollWidth > node.clientWidth)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [text])
+  const [ref, cut] = useCut(text, "width")
 
   // One stable span for the observer: the tooltip is turned off, not unmounted, while the text fits.
   return (

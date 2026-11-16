@@ -1,13 +1,11 @@
 import { CircleAlertIcon } from "lucide-react"
-import { cn } from "cn"
 import type { ReactNode } from "react"
 
 import { type OpenField, TextField } from "@/components/change-fields"
 import { Badge } from "@/components/reui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
-import { StatusBadge } from "@/components/status"
+import { StatusBadge, TaskProgress } from "@/components/status"
 import { OneLine } from "@/components/text"
-import { Progress } from "@/components/ui/progress"
 import { type ChangeDetail, localDate } from "@/lib/changes"
 
 /** The issues of a change that cannot be read, in a destructive alert. */
@@ -47,19 +45,7 @@ function StatusRow({ change, invalid }: { change: ChangeDetail; invalid: boolean
       </StatusItem>
       {invalid ? null : (
         <StatusItem label="Tasks">
-          <Progress
-            value={total === 0 ? 0 : (done / total) * 100}
-            className={cn(
-              "w-16",
-              total > 0 && done === total
-                ? "[&_[data-slot=progress-indicator]]:bg-success"
-                : "[&_[data-slot=progress-indicator]]:bg-info",
-            )}
-            aria-label={`${done} of ${total} tasks done`}
-          />
-          <span className="tabular-nums">
-            {done}/{total}
-          </span>
+          <TaskProgress done={done} total={total} width="w-16" countClassName="tabular-nums" />
         </StatusItem>
       )}
       {change.archived === null ? (

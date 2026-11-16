@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
-/** The tasks of an archived change, read-only, as member 02 built them. */
+/** The tasks of an archived change, read-only. */
 function Tasks({ change }: { change: ChangeDetail }) {
   if (change.issues.length > 0) return <IssuesAlert issues={change.issues} className="max-w-[80ch]" />
   return (
@@ -33,7 +33,7 @@ function Tasks({ change }: { change: ChangeDetail }) {
   )
 }
 
-/** The page of an archived change: member 02's read-only page. */
+/** The page of an archived change, read-only. */
 export function ArchivedChange({
   projectKey,
   data,

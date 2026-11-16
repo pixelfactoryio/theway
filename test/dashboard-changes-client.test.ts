@@ -6,7 +6,6 @@ import {
   archivedRows,
   changeCount,
   changeTabs,
-  countText,
   inlineCode,
   keepSeriesOpen,
   isLinkTarget,
@@ -27,6 +26,7 @@ import {
   statusCounts,
   switchView,
 } from "../src/dashboard/client/lib/changes"
+import { fileCountText } from "../src/dashboard/client/lib/files"
 
 const c = (
   id: string,
@@ -141,9 +141,9 @@ test("a column sort orders rows by their own values, ties by ID, Invalid lowest 
 })
 
 test("the count reads N changes, or N of M changes while narrowed", () => {
-  expect(countText(24, 24, false)).toBe("24 changes")
-  expect(countText(1, 1, false)).toBe("1 change")
-  expect(countText(3, 24, true)).toBe("3 of 24 changes")
+  expect(fileCountText(24, 24, false, "change")).toBe("24 changes")
+  expect(fileCountText(1, 1, false, "change")).toBe("1 change")
+  expect(fileCountText(3, 24, true, "change")).toBe("3 of 24 changes")
 })
 
 test("the archived search matches the ID only", () => {

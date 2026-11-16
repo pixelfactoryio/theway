@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import { navigate as hashNavigate, useHashLocation } from "wouter/use-hash-location"
 
 import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "@/lib/location"
@@ -7,7 +7,7 @@ import { locationAction, type Moving, positionOf, positionState, pushedPosition,
  * The page holding unsaved changes: whether an address path leaves it, whether it has unsaved changes now, and how it
  * asks before leaving (`proceed` leaves).
  */
-export type LeaveGuard = {
+type LeaveGuard = {
   leaves: (target: string) => boolean
   isDirty: () => boolean
   ask: (proceed: () => void) => void
@@ -21,6 +21,19 @@ export function setLeaveGuard(next: LeaveGuard): () => void {
   return () => {
     if (guard === next) guard = null
   }
+}
+
+/** While `pending`, closing or reloading the browser tab gets the browser's prompt. */
+export function useBeforeUnload(pending: boolean): void {
+  useEffect(() => {
+    if (!pending) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    addEventListener("beforeunload", onBeforeUnload)
+    return () => removeEventListener("beforeunload", onBeforeUnload)
+  }, [pending])
 }
 
 /** The address path of the hash, as `useHashLocation` reads it. */

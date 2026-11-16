@@ -12,14 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import { dataTheme, THEME_KEY, type Theme, themeOf } from "@/lib/theme"
+import { readStored, writeStored } from "@/shell/storage"
 
-function readTheme(): Theme {
-  try {
-    return themeOf(localStorage.getItem(THEME_KEY))
-  } catch {
-    return "system"
-  }
-}
+const readTheme = (): Theme => themeOf(readStored(THEME_KEY))
 
 /** Sets or removes `data-theme` on the root element; System leaves the page to `prefers-color-scheme`. */
 function applyTheme(theme: Theme): void {
@@ -44,12 +39,7 @@ export function ThemeMenu() {
     const next = themeOf(typeof value === "string" ? value : null)
     setTheme(next)
     applyTheme(next)
-    try {
-      if (next === "system") localStorage.removeItem(THEME_KEY)
-      else localStorage.setItem(THEME_KEY, next)
-    } catch {
-      // The choice still applies to this page.
-    }
+    writeStored(THEME_KEY, next === "system" ? null : next)
   }
 
   return (

@@ -11,6 +11,9 @@ import { keyLabel } from "@/lib/workflow"
 /** One line of an error alert: its text, and what clicking it does (`null`: plain text). */
 export type AlertLine = { text: string; onClick: (() => void) | null }
 
+/** A full-width strip under the tabs: no rounding, the bottom border only. */
+export const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
+
 /** How many lines an alert shows before "Show all". */
 const FIRST = 3
 
@@ -46,7 +49,7 @@ export function ErrorStrip({ lines }: { lines: readonly AlertLine[] }) {
   if (lines.length === 0) return null
   const shown = all ? lines : lines.slice(0, FIRST)
   return (
-    <Alert variant="destructive" className="shrink-0 rounded-none border-x-0 border-t-0">
+    <Alert variant="destructive" className={STRIP}>
       <CircleAlertIcon aria-hidden="true" />
       <AlertTitle>{errorCount(lines.length)}</AlertTitle>
       <AlertDescription>

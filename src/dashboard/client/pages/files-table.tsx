@@ -21,9 +21,18 @@ export function useFilesQuery(
 }
 
 /** The toolbar above a table: its controls, then the count at the right. */
-export function FilesToolbar({ children, count }: { children: ReactNode; count: string | null }) {
+export function FilesToolbar({
+  children,
+  count,
+  border = "border-b",
+}: {
+  children: ReactNode
+  count: string | null
+  /** Its border: the bottom one, or the top and bottom ones above the Changes grid. */
+  border?: "border-b" | "border-y"
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
+    <div className={`flex flex-wrap items-center gap-2 ${border} px-4 py-2`}>
       {children}
       <span className="ml-auto text-sm text-muted-foreground tabular-nums" aria-live="polite">
         {count}
@@ -64,7 +73,7 @@ export function NameCell({
 /** The Status column's header: it does not sort, and reads as the sortable headers' buttons do. */
 export const STATUS_HEADER = "text-sm font-medium text-foreground"
 
-/** The Status cell: the `Valid` badge, or the series' `N errors` badge. */
+/** The Status cell: the `Valid` badge, or the `N errors` badge. */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
   if (errors.length === 0) {
     return (
@@ -76,9 +85,6 @@ export function StatusCell({ errors }: { errors: readonly string[] }) {
   }
   return <ErrorsBadge errors={errors} />
 }
-
-/** A missing value: `–` in the secondary colour. */
-export const None = () => <span className="text-muted-foreground">–</span>
 
 /** A home with no file of the section, with the section's New button (`outline`). */
 export function NoFile({

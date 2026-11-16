@@ -14,26 +14,15 @@ import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 import { SearchDialog, SearchOpen } from "@/shell/search"
 import { SiteHeader } from "@/shell/site-header"
+import { readStored, writeStored } from "@/shell/storage"
 import { TopBarSlot } from "@/shell/top-bar"
 
 /** The `localStorage` key of the sidebar's state: `open` or `closed`; open (expanded) when absent. */
 const SIDEBAR_KEY = "theway-sidebar"
 
-function readSidebar(): boolean {
-  try {
-    return localStorage.getItem(SIDEBAR_KEY) !== "closed"
-  } catch {
-    return true
-  }
-}
+const readSidebar = (): boolean => readStored(SIDEBAR_KEY) !== "closed"
 
-function writeSidebar(open: boolean): void {
-  try {
-    localStorage.setItem(SIDEBAR_KEY, open ? "open" : "closed")
-  } catch {
-    // The state still applies to this page.
-  }
-}
+const writeSidebar = (open: boolean): void => writeStored(SIDEBAR_KEY, open ? "open" : "closed")
 
 /** "Skip to content": the first focusable element, focusing `main#content` without touching the hash route. */
 function SkipLink() {
