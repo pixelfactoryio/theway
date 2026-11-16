@@ -1,7 +1,7 @@
 import { EditorState, type Extension, type Text } from "@codemirror/state"
 
 import { type CodeLanguage, DraftStore, editableExtensions } from "@/components/code-view"
-import { lineSeparatorOf } from "@/lib/files"
+import { lineSeparatorOf, SavedSchema } from "@/lib/files"
 import { sendJson } from "@/shell/api"
 
 /** One file of a change as the page loaded it, or last saved it. */
@@ -128,8 +128,16 @@ export class ChangeDrafts {
     const state = d.store.state
     const text = state.sliceDoc()
     this.update(name, { saving: true, saveFailure: null })
-    const res = await sendJson("PUT", `${this.api}/files/${encodeURIComponent(name)}`, { text, base: d.loaded.version })
-    if (res.status === 200 && typeof res.body.version === "string") {
+    const res = await sendJson(
+      "PUT",
+      `${this.api}/files/${encodeURIComponent(name)}`,
+      {
+        text,
+        base: d.loaded.version,
+      },
+      SavedSchema,
+    )
+    if (res.status === 200 && res.body !== null) {
       this.update(name, {
         saving: false,
         loaded: { text, version: res.body.version },

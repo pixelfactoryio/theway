@@ -22,6 +22,9 @@ import { escaped, parseYaml, yamlErrorLine } from "./text"
 export const CHANGE_VERSION = "theway.change/v1beta1"
 export const CHANGE_FILE = "change.yaml"
 
+/** A series member's ID: the series ID, `-`, then a two-digit ordinal. */
+export const MEMBER = /^(.+)-(\d{2})$/
+
 export const ROOT_KEYS = ["version", "description", "tasks"]
 export const TASK_KEYS = ["text", "done"]
 

@@ -1,6 +1,6 @@
 /** The changes of a project as the Changes page and the change page show them. Pure: no React, no DOM. */
 import type { ActiveChange, ArchivedChange, ChangeDetail, ChangeTask, Status } from "../../contract"
-import { MEMBER } from "../../contract"
+import { MEMBER } from "../../../core/change-text"
 
 export type {
   ActiveChange,
@@ -11,6 +11,7 @@ export type {
   SeriesMember,
   Status,
 } from "../../contract"
+export { ChangeDetailSchema, ChangeListSchema } from "../../contract"
 
 /** The statuses of an active change, in the order the page sorts and filters them. */
 export const ACTIVE_STATUSES = ["invalid", "in-progress", "not-started", "ready"] as const

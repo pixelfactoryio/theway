@@ -2,17 +2,9 @@
 import { homedir } from "node:os"
 import { sep } from "node:path"
 import { CHANGE_FILE, checkRead } from "../core/change"
-import { changeStatus } from "../core/change-text"
+import { changeStatus, MEMBER } from "../core/change-text"
 import type { ArchiveEntry, ChangeRef, ChangeStore } from "../core/store"
-import {
-  type ActiveChange,
-  type ArchivedChange,
-  type ChangeDetail,
-  type ChangeList,
-  type ChangeTask,
-  MEMBER,
-  type SeriesMember,
-} from "./contract"
+import type { ActiveChange, ArchivedChange, ChangeDetail, ChangeList, ChangeTask, SeriesMember } from "./contract"
 
 /** A dated archive entry: the only kind the dashboard lists. */
 type Dated = ArchiveEntry & { id: string; date: string }

@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { lineCounts, localTime } from "@/lib/edit"
-import { fileApi, type VersionList, type VersionText } from "@/lib/files"
+import { fileApi, VersionListSchema, VersionTextSchema } from "@/lib/files"
 import { LoadError } from "@/shell/load-error"
 import { getJson } from "@/shell/projects"
 
@@ -79,7 +79,7 @@ export function useHistoryTab({
   const api = fileApi(kind, project, name)
   const versions = useQuery({
     queryKey: ["history", api],
-    queryFn: () => getJson<VersionList>(`${api}/history`),
+    queryFn: () => getJson(`${api}/history`, VersionListSchema),
     enabled: active,
   })
   const [chosen, setChosen] = useState<string | null>(null)
@@ -94,7 +94,7 @@ export function useHistoryTab({
   const version = list.find((v) => v.id === selected) ?? null
   const text = useQuery({
     queryKey: ["version", api, selected],
-    queryFn: () => getJson<VersionText>(`${api}/history/${selected}`),
+    queryFn: () => getJson(`${api}/history/${selected}`, VersionTextSchema),
     enabled: active && version !== null,
     staleTime: Infinity,
   })

@@ -16,7 +16,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { leavesPage, saveWithErrors } from "@/lib/edit"
-import { type CheckBody, type FileBody, type FileError, fileApi, type PromptRow } from "@/lib/files"
+import {
+  type CheckBody,
+  CheckBodySchema,
+  type FileBody,
+  FileBodySchema,
+  type FileError,
+  fileApi,
+  type PromptRow,
+  SavedSchema,
+} from "@/lib/files"
 import { sendJson } from "@/shell/api"
 import { setLeaveGuard } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
@@ -44,11 +53,11 @@ const CHECK_DELAY = 400
 
 const noop = (): (() => void) => () => undefined
 
-const headerOf = (body: Record<string, unknown>): HeaderFields => ({
+const headerOf = (body: CheckBody): HeaderFields => ({
   header: body.header === true,
-  description: typeof body.description === "string" ? body.description : null,
-  model: typeof body.model === "string" ? body.model : null,
-  inputs: Array.isArray(body.inputs) ? (body.inputs as HeaderFields["inputs"]) : [],
+  description: body.description ?? null,
+  model: body.model ?? null,
+  inputs: body.inputs ?? [],
 })
 
 /**
@@ -146,10 +155,11 @@ export function useFileDraft({
     (checked: string): Promise<Outcome> => {
       const running = inFlight.current.get(checked)
       if (running !== undefined) return running
-      const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }).then((r): Outcome =>
-        r.status === 200 && Array.isArray(r.body.errors)
-          ? { ok: true, errors: (r.body as CheckBody).errors, header: kind === "prompts" ? headerOf(r.body) : null }
-          : { ok: false, error: r.error !== "" ? r.error : `${r.status}` },
+      const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }, CheckBodySchema).then(
+        (r): Outcome =>
+          r.status === 200 && r.body !== null
+            ? { ok: true, errors: r.body.errors, header: kind === "prompts" ? headerOf(r.body) : null }
+            : { ok: false, error: r.error !== "" ? r.error : `${r.status}` },
       )
       inFlight.current.set(checked, p)
       void p.then((outcome) => {
@@ -203,8 +213,8 @@ export function useFileDraft({
         }
       }
       setSaveFailure(null)
-      const res = await sendJson("PUT", api, { text: draft, base: l.version })
-      if (res.status === 200 && typeof res.body.version === "string") {
+      const res = await sendJson("PUT", api, { text: draft, base: l.version }, SavedSchema)
+      if (res.status === 200 && res.body !== null) {
         const r = refs.current.result
         const lines: CheckResult =
           outcome !== null && outcome.ok
@@ -261,7 +271,7 @@ export function useFileDraft({
   const doReload = useCallback(async (): Promise<boolean> => {
     let fresh: FileBody
     try {
-      fresh = await getJson<FileBody>(api)
+      fresh = await getJson(api, FileBodySchema)
     } catch {
       return false
     }
@@ -283,8 +293,8 @@ export function useFileDraft({
       const l = refs.current.loaded
       if (l === null) return false
       setSaveFailure(null)
-      const res = await sendJson("POST", `${api}/history/${id}/restore`, { base: l.version })
-      if (res.status === 200) {
+      const res = await sendJson("POST", `${api}/history/${id}/restore`, { base: l.version }, SavedSchema)
+      if (res.status === 200 && res.body !== null) {
         await doReload()
         invalidate()
         return true

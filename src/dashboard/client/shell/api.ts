@@ -1,3 +1,7 @@
+import type { z } from "zod"
+
+import { ErrorBodySchema } from "@/lib/files"
+
 /** The write token of this page's response, which every request that is not a read carries. */
 const token = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-token"]')?.content ?? ""
 
@@ -8,11 +12,26 @@ export const version = (): string =>
 /** In place of the server's `error` when a request got no JSON answer. */
 export const NO_ANSWER = "The server did not answer."
 
-/** A write's answer: its status and JSON body; `error` is the body's `error`, or `NO_ANSWER` without a JSON answer. */
-export type Sent = { status: number; body: Record<string, unknown>; error: string }
+/** The error of an answer that does not parse with its schema: the path, then where and what its first issue is. */
+export function unexpectedAnswer(path: string, error: z.ZodError): string {
+  const issue = error.issues[0]
+  const where = issue.path.length === 0 ? "(root)" : issue.path.map(String).join(".")
+  return `${path}: unexpected answer: ${where}: ${issue.message}`
+}
 
-/** Sends `body` as JSON with this page's Origin and token; a failed request answers status 0. */
-export async function sendJson(method: "POST" | "PUT", path: string, body: unknown): Promise<Sent> {
+/**
+ * A write's answer: its status, the 200 body parsed with the write's schema (`null` otherwise) and `error`: for a 200,
+ * `""` or the parse failure; else the answer's `error`, `""` without one, or `NO_ANSWER` without a JSON answer.
+ */
+export type Sent<T> = { status: number; body: T | null; error: string }
+
+/** Sends `body` as JSON with this page's Origin and token, and parses a 200 with `schema`; a failed request answers status 0. */
+export async function sendJson<S extends z.ZodType>(
+  method: "POST" | "PUT",
+  path: string,
+  body: unknown,
+  schema: S,
+): Promise<Sent<z.infer<S>>> {
   let res: Response
   try {
     res = await fetch(path, {
@@ -21,11 +40,17 @@ export async function sendJson(method: "POST" | "PUT", path: string, body: unkno
       body: JSON.stringify(body),
     })
   } catch {
-    return { status: 0, body: {}, error: NO_ANSWER }
+    return { status: 0, body: null, error: NO_ANSWER }
   }
   const json: unknown = await res.json().catch(() => null)
+  if (res.status === 200) {
+    const parsed = schema.safeParse(json)
+    return parsed.success
+      ? { status: 200, body: parsed.data, error: "" }
+      : { status: 200, body: null, error: unexpectedAnswer(path, parsed.error) }
+  }
   if (json === null || typeof json !== "object" || Array.isArray(json))
-    return { status: res.status, body: {}, error: NO_ANSWER }
-  const record = json as Record<string, unknown>
-  return { status: res.status, body: record, error: typeof record.error === "string" ? record.error : "" }
+    return { status: res.status, body: null, error: NO_ANSWER }
+  const failure = ErrorBodySchema.safeParse(json)
+  return { status: res.status, body: null, error: failure.success ? failure.data.error : "" }
 }

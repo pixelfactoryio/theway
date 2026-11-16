@@ -3,7 +3,7 @@ import { Link } from "wouter"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import type { ChangeDetail } from "@/lib/changes"
+import { ChangeDetailSchema } from "@/lib/changes"
 import { changesPath } from "@/lib/projects"
 import { ActiveChange } from "@/pages/active-change"
 import { ArchivedChange } from "@/pages/archived-change"
@@ -53,7 +53,7 @@ export function ChangePage({
     dir !== undefined
       ? `/api/projects/${projectKey}/changes/archive/${dir}`
       : `/api/projects/${projectKey}/changes/${id}`
-  const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson<ChangeDetail>(path) })
+  const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson(path, ChangeDetailSchema) })
 
   const name = dir ?? id ?? ""
   const crumbs = (label: string): TopBarItem[] => [

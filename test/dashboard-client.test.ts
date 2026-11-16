@@ -106,14 +106,28 @@ test("the client's helpers import neither React, the DOM nor the @/ alias", () =
   }
 })
 
-test("the API contract imports only types from core/change-text, nothing from node:", () => {
+test("the API contract imports only zod and types from core/change-text, nothing from node:", () => {
   const text = readFileSync(join(REPO, "src", "dashboard", "contract.ts"), "utf-8")
   const specifiers = [...new Set([...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1] as string))]
-  expect(specifiers).toEqual(["../core/change-text"])
+  expect(specifiers.sort()).toEqual(["../core/change-text", "zod"])
   const naming = text.split("\n").filter((l) => l.includes('"../core/change-text"'))
   expect(naming.length).toBeGreaterThan(0)
   for (const l of naming) expect([l, /^(?:import|export) type\b/.test(l)]).toEqual([l, true])
   expect(specifiers.filter((s) => s.startsWith("node:"))).toEqual([])
+})
+
+test("the server imports the API contract for its types only", () => {
+  const server = readdirSync(join(REPO, "src", "dashboard"))
+    .filter((f) => f.endsWith(".ts"))
+    .map((f) => join(REPO, "src", "dashboard", f))
+  const statements = server.flatMap((f) =>
+    [...readFileSync(f, "utf-8").matchAll(/^import\b(?:(?!^import\b)[\s\S])*?\bfrom\s+"\.\/contract"/gm)].map((m) => [
+      relative(REPO, f),
+      m[0],
+    ]),
+  )
+  expect(statements.length).toBeGreaterThan(0)
+  for (const [f, statement] of statements) expect([f, statement?.startsWith("import type {")]).toEqual([f, true])
 })
 
 const pkg = JSON.parse(readFileSync(join(REPO, "package.json"), "utf-8")) as {
@@ -162,6 +176,7 @@ const ADDED: Record<string, string> = {
   "@dnd-kit/core": "6.3.1",
   "@dnd-kit/sortable": "10.0.0",
   "@dnd-kit/utilities": "3.2.2",
+  zod: "4.6.7",
 }
 
 test("every package the dashboard adds is a devDependency at its exact version, none a dependency", () => {

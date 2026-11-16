@@ -48,7 +48,7 @@ import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { keptIds, leavesChange, moved, oneLine, taskBox, taskBoxColumn, unsavedTitle } from "@/lib/change-edit"
-import { type ChangeDetail, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
+import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { setLeaveGuard } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
@@ -342,7 +342,7 @@ export function ActiveChange({
   const reload = async (file: string) => {
     let fresh: ChangeDetail
     try {
-      fresh = await getJson<ChangeDetail>(api)
+      fresh = await getJson(api, ChangeDetailSchema)
     } catch (e) {
       drafts.fail(file, e instanceof Error ? e.message : String(e))
       return

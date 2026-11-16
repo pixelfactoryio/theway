@@ -3,17 +3,29 @@ import type { PromptRow, Use } from "../../contract"
 
 export type {
   CheckBody,
+  ErrorBody,
   FileBody,
   FileError,
   PromptInputRow,
   PromptList,
   PromptRow,
+  Saved,
   Use,
   Version,
   VersionList,
   VersionText,
   WorkflowList,
   WorkflowRow,
+} from "../../contract"
+export {
+  CheckBodySchema,
+  ErrorBodySchema,
+  FileBodySchema,
+  PromptListSchema,
+  SavedSchema,
+  VersionListSchema,
+  VersionTextSchema,
+  WorkflowListSchema,
 } from "../../contract"
 
 /** The kinds of the Prompts page's Kind filter, in its order. */
