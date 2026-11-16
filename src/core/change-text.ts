@@ -17,7 +17,7 @@ import {
   type YAMLMap,
   type YAMLSeq,
 } from "yaml"
-import { escaped, parseYaml, pathSegments } from "./text"
+import { escaped, parseYaml, pathSegments, yamlErrorLine } from "./text"
 
 export const CHANGE_VERSION = "theway.change/v1beta1"
 export const CHANGE_FILE = "change.yaml"
@@ -192,7 +192,7 @@ export function changeTextErrors(text: string): { text: string; line: number | n
   const doc = parseDocument(text, { lineCounter: counter, logLevel: "silent" })
   const lineOf = (offset: number | null): number | null => (offset === null ? null : counter.linePos(offset).line)
   return result.issues.map((issue) => {
-    if (issue.startsWith("invalid YAML")) return { text: issue, line: doc.errors[0]?.linePos?.[0].line ?? null }
+    if (issue.startsWith("invalid YAML")) return { text: issue, line: yamlErrorLine(text) }
     const colon = issue.indexOf(": ")
     if (colon === -1) return { text: issue, line: null }
     const segments = pathSegments(issue.slice(0, colon))

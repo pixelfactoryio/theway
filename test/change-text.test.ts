@@ -78,6 +78,7 @@ test("changeTextErrors places each issue on the line of the node its path names"
     changeTextErrors(text).map((e) => [e.text.startsWith("invalid YAML") ? "invalid YAML" : e.text, e.line])
   expect(lines(`${v}${d}tasks:\n  - text: a\n`)).toEqual([])
   expect(lines(`${v}${d}tasks: [\n`)).toEqual([["invalid YAML", 4]])
+  expect(lines(`${v}${d}${t}---\na: 1\n`)).toEqual([["invalid YAML", 5]])
   expect(lines("- a\n")).toEqual([["must be a map", null]])
   expect(lines(`version: x\n${d}${t}`)).toEqual([["version: must be theway.change/v1beta1", 1]])
   expect(lines(`${v}${d}tasks:\n  - text: a\n  - b\n`)).toEqual([["tasks[1]: must be a map", 5]])
