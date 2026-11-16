@@ -1,25 +1,32 @@
 import { useQuery } from "@tanstack/react-query"
 import { useRoute } from "wouter"
+import type { z } from "zod"
 
-import { currentKey, type ProjectList } from "@/lib/projects"
+import { currentKey, ProjectListSchema } from "@/lib/projects"
+import { unexpectedAnswer } from "@/shell/api"
 
 /** The `localStorage` key of the last chosen project. */
 const PROJECT_KEY = "theway-project"
 
-/** A JSON read of the API; a non-2xx answer throws its `error` text. */
-export async function getJson<T>(path: string): Promise<T> {
+/**
+ * A JSON read of the API, parsed with `schema`: a non-2xx answer throws its `error` text, an answer `schema` does not
+ * parse throws where and how it differs.
+ */
+export async function getJson<S extends z.ZodType>(path: string, schema: S): Promise<z.infer<S>> {
   const res = await fetch(path, { headers: { Accept: "application/json" } })
   const body: unknown = await res.json().catch(() => null)
   if (!res.ok) {
     const error = body !== null && typeof body === "object" && "error" in body ? String(body.error) : ""
     throw new Error(error !== "" ? error : `${res.status} ${res.statusText}`)
   }
-  return body as T
+  const parsed = schema.safeParse(body)
+  if (!parsed.success) throw new Error(unexpectedAnswer(path, parsed.error))
+  return parsed.data
 }
 
 /** `GET /api/projects`. */
 export function useProjects() {
-  return useQuery({ queryKey: ["projects"], queryFn: () => getJson<ProjectList>("/api/projects") })
+  return useQuery({ queryKey: ["projects"], queryFn: () => getJson("/api/projects", ProjectListSchema) })
 }
 
 export function storedProject(): string | null {

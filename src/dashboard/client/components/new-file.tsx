@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { emptyText, NAME } from "@/lib/edit"
-import { type FileBody, fileApi, filePath, rowId } from "@/lib/files"
+import { FileBodySchema, fileApi, filePath, rowId, SavedSchema } from "@/lib/files"
 import { sendJson } from "@/shell/api"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { getJson, useCurrentKey, useProjects } from "@/shell/projects"
@@ -88,16 +88,16 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
     else {
       const source = files.find((f) => rowId(f) === from)
       try {
-        text = (await getJson<FileBody>(fileApi(kind, source?.project ?? null, source?.name ?? ""))).text
+        text = (await getJson(fileApi(kind, source?.project ?? null, source?.name ?? ""), FileBodySchema)).text
       } catch (e) {
         setFailure((e as Error).message)
         setBusy(false)
         return
       }
     }
-    const res = await sendJson("PUT", fileApi(kind, target, name), { text, base: null })
+    const res = await sendJson("PUT", fileApi(kind, target, name), { text, base: null }, SavedSchema)
     setBusy(false)
-    if (res.status === 200) {
+    if (res.status === 200 && res.body !== null) {
       for (const key of [["workflows"], ["prompts"]]) void queryClient.invalidateQueries({ queryKey: key })
       close()
       navigate(`${filePath(kind, target, name)}?`)

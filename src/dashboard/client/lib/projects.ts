@@ -2,6 +2,7 @@
 import type { Project, ProjectList } from "../../contract"
 
 export type { Project, ProjectList } from "../../contract"
+export { ProjectListSchema } from "../../contract"
 
 /** Orders projects by label (`localeCompare`, `"en"`, `sensitivity: "base"`), ties broken by key. */
 export function byLabel(projects: readonly Project[]): Project[] {

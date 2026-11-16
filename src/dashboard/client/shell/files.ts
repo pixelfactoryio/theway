@@ -1,24 +1,23 @@
 import { useQuery } from "@tanstack/react-query"
 import { useCallback } from "react"
 
-import type { FileBody, PromptList, WorkflowList } from "@/lib/files"
-import { fileApi } from "@/lib/files"
+import { FileBodySchema, fileApi, PromptListSchema, WorkflowListSchema } from "@/lib/files"
 import { getJson, useProjects } from "@/shell/projects"
 
 /** `GET /api/workflows`. */
 export function useWorkflows() {
-  return useQuery({ queryKey: ["workflows"], queryFn: () => getJson<WorkflowList>("/api/workflows") })
+  return useQuery({ queryKey: ["workflows"], queryFn: () => getJson("/api/workflows", WorkflowListSchema) })
 }
 
 /** `GET /api/prompts`. */
 export function usePrompts() {
-  return useQuery({ queryKey: ["prompts"], queryFn: () => getJson<PromptList>("/api/prompts") })
+  return useQuery({ queryKey: ["prompts"], queryFn: () => getJson("/api/prompts", PromptListSchema) })
 }
 
 /** A file's route: `GET /api/<kind>/global/<name>` or `…/projects/<key>/<name>`. */
 export function useFile(kind: "workflows" | "prompts", project: string | null, name: string) {
   const path = fileApi(kind, project, name)
-  return useQuery({ queryKey: ["file", path], queryFn: () => getJson<FileBody>(path) })
+  return useQuery({ queryKey: ["file", path], queryFn: () => getJson(path, FileBodySchema) })
 }
 
 /**
