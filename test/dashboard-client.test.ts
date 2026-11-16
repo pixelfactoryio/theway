@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
-import { join, relative } from "node:path"
+import { join, relative, sep } from "node:path"
 import { byLabel, changesPath, currentKey, overviewPath, type Project } from "../src/dashboard/client/lib/projects"
 import {
   locationAction,
@@ -28,7 +28,7 @@ function files(dir: string): string[] {
 /** The client's own source files: every `.ts`/`.tsx` outside the installed folders. */
 const own = files(CLIENT)
   .filter((f) => /\.tsx?$/.test(f))
-  .filter((f) => !INSTALLED.some((d) => relative(CLIENT, f).startsWith(`${d}/`)))
+  .filter((f) => !INSTALLED.some((d) => relative(CLIENT, f).split(sep).join("/").startsWith(`${d}/`)))
 
 const SPACING = "-?(?:p|px|py|pt|pr|pb|pl|ps|pe|m|mx|my|mt|mr|mb|ml|ms|me|gap|gap-x|gap-y|space-x|space-y)"
 const PALETTE =

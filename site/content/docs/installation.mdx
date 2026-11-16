@@ -7,8 +7,12 @@ description: Install, update, pin and uninstall theway.
 
 - `~/.local/bin` on your `PATH`, or another install folder that is (see [Other locations](#other-locations)). The commands call the CLI as plain `theway`, so they fail with `theway: command not found` when its folder is not on `PATH`. On macOS it is not there by default: add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile, then start Claude Code from a new shell.
 - Node.js 22.13 or later.
-- macOS or Linux.
+- macOS, Linux or Windows.
 - Claude Code.
+
+### Windows
+
+Install writes `theway` and `theway.cmd` to `%USERPROFILE%\.local\bin`: cmd and PowerShell run `theway.cmd`, Git Bash runs `theway`. When that folder is not on `PATH`, install prints a PowerShell `$env:Path = …` line to add it. `--home` and the home question accept `~\` as well as `~/`. A custom home's `Read` rule uses Claude Code's Windows form, such as `Read(//c/tw/**)` for `C:\tw`. A home not on a drive letter, such as `\\server\share\…`, is refused.
 
 ## Install and update
 
@@ -20,14 +24,14 @@ Every run fetches the latest release from npm, so running the command again upda
 
 On a first install from a terminal, install asks two questions before it writes anything:
 
-1. **Where should theway keep its data?** Asked only when theway was never installed (no `THEWAY_HOME`, no pointer file and no `~/.theway/config.yaml`). Press Enter for `~/.theway`, or type an absolute path or one starting with `~/`. A path install would refuse (see [Other locations](#other-locations)) is rejected and asked again.
+1. **Where should theway keep its data?** Asked only when theway was never installed (no `THEWAY_HOME`, no pointer file and no `~/.theway/config.yaml`). Press Enter for `~/.theway`, or type an absolute path or one starting with `~/` (or `~\` on Windows). A path install would refuse (see [Other locations](#other-locations)) is rejected and asked again.
 2. **Enable opt-in standards.** Asked only when the chosen data home has no `config.yaml`. Pick any of `core_principles`, `sre`, `web_development` and `quality` with Space, or none, then press Enter.
 
 Ctrl-C at either question exits 1 with `theway: install cancelled; nothing was changed`.
 
 Two options give the same choices without a question, and win over the terminal:
 
-- `--home <path>`: the data home, an absolute path or one starting with `~/`. It takes precedence over the pointer file. When `THEWAY_HOME` is set to another path, install exits 1 and changes nothing.
+- `--home <path>`: the data home, an absolute path or one starting with `~/` (or `~\` on Windows). It takes precedence over the pointer file. When `THEWAY_HOME` is set to another path, install exits 1 and changes nothing.
 - `--standards <keys>`: a comma-separated list of opt-in keys, such as `sre,quality`, or `none`. It applies only to a first install: when the data home already has a `config.yaml`, install exits 1 and changes nothing, so set `standards.<key>.enabled` there instead. An unknown key, or `none` combined with a key, also exits 1.
 
 ```bash
@@ -64,6 +68,8 @@ The versions are listed on [npm](https://www.npmjs.com/package/@pixelfactoryio/t
 npx --yes @pixelfactoryio/theway@latest uninstall
 ```
 
+On Windows, use this `npx` command. Running the installed `theway uninstall` from cmd or PowerShell removes the `theway.cmd` it runs through: the uninstall completes, then cmd prints `The batch file cannot be found.` and the command exits 1.
+
 Uninstall removes `~/.claude/skills/theway`, the `theway` binary when it is the one install wrote, the pointer file and the permission rules: those of `THEWAY_HOME`, of the home the pointer names and of `~/.theway`, and the rules of 0.2.0. The data home (`~/.theway`, or your custom home) is kept, with your changes and your config.
 
 Uninstall first checks `~/.claude/settings.json` and that it can write the folders it removes from: when the settings file cannot be read or is not valid settings JSON, or one of those folders is not writable, it stops and changes nothing. A failure while it removes stops it without restoring anything, with one line that names what it already removed (`theway: uninstall stopped: <reason>; already removed: …`); see [uninstall](./cli.mdx#uninstall).
@@ -92,7 +98,7 @@ Uninstall first checks `~/.claude/settings.json` and that it can write the folde
   - `Bash(theway:*)`: runs the CLI without a prompt.
   - `Read(~/.theway/**)`: reads the data home.
 
-  For a custom home, the `Read` rule names its absolute path, such as `Read(//data/tw/**)`.
+  For a custom home, the `Read` rule names its absolute path, such as `Read(//data/tw/**)`. On Windows it is the drive path in that form, such as `Read(//c/tw/**)` for `C:\tw`.
 
   Writing change files (`spec.md`, `change.yaml`, `notes.md`) goes through Claude Code's normal permission prompt; ticking a task with `theway task done` runs under `Bash(theway:*)`. Earlier versions also added `Edit(~/.theway/*/changes/**)`; install and uninstall remove it.
 
@@ -116,7 +122,7 @@ Earlier versions installed the standards in `data/standards/`. On its first run 
 
 The CLI looks for the data home in this order: `THEWAY_HOME` when it is set in its environment, then the pointer file, then `~/.theway`. To change the home, run install again with the new value in `--home` or `THEWAY_HOME`: it rewrites the pointer, adds the rules of the new home and drops the `Read` and `Edit` rules of the previous one. Your existing data is not moved. Until then, `theway path` warns that `THEWAY_HOME` and the pointer differ.
 
-Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break, whether it comes from `--home` or `THEWAY_HOME`: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
+Install refuses a data home that is your home folder or one of its parents, or a custom home that contains a glob character (`*?[]{}`) or a line break, or, on Windows, a home not on a drive letter, whether it comes from `--home` or `THEWAY_HOME`: the permission rules it writes would cover far more than theway's files. It exits 1 and changes nothing.
 
 Install finds the data home the same way, with `--home` first. Without `--home` or `THEWAY_HOME`, it updates the home the pointer names, so a reinstall from a shell that does not export `THEWAY_HOME` keeps a custom home. To go back to `~/.theway`, run install with `--home ~/.theway` or `THEWAY_HOME=~/.theway`.
 

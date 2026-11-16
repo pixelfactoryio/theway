@@ -12,8 +12,9 @@ import {
 } from "node:fs"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, parse } from "node:path"
 import { keyOf } from "../src/core/project"
+import { folderOf } from "../src/dashboard/projects"
 import { createApp } from "../src/dashboard/server"
 import { buildProgram } from "../src/program"
 
@@ -24,8 +25,11 @@ const VERSION = (JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")) as
 const temps: string[] = []
 const locked: string[] = []
 
+/** The physical path of `p`: the long-name form on Windows, where the project root and the folder walk use it. */
+const physical = (p: string): string => (process.platform === "win32" ? realpathSync.native(p) : realpathSync(p))
+
 function temp(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "theway-dash-")))
+  const dir = physical(mkdtempSync(join(tmpdir(), "theway-dash-")))
   temps.push(dir)
   return dir
 }
@@ -293,6 +297,24 @@ test("GET /api/projects returns the recorded root as path when the root file nam
   expect(body.projects).toEqual([{ key, label: "a.b", active: 0, path: recorded }])
 })
 
+test("GET /api/projects lists a project whose recorded root is a drive or filesystem root with no path", async () => {
+  const home = temp()
+  const root = parse(tmpdir()).root
+  const key = keyOf(root)
+  project(home, key, 0)
+  writeFileSync(join(home, "projects", key, "root"), `${root}\n`)
+  const body = (await (await get(home, "/api/projects")).json()) as {
+    projects: { key: string; label: string; path: string | null }[]
+  }
+  expect(body.projects).toEqual([{ key, label: key, active: 0, path: null }])
+})
+
+test.skipIf(process.platform !== "win32")("folderOf finds a folder from its drive key alone", () => {
+  const folder = join(temp(), "my.repo")
+  mkdirSync(folder)
+  expect(folderOf(keyOf(folder))).toBe(folder)
+})
+
 test("one project's fallback label is its key without the leading -", async () => {
   const home = temp()
   project(home, "-no-such-folder-anywhere", 0)
@@ -353,11 +375,13 @@ test("dashboard --port 0 prints the bound address, serves, and exits 0 on SIGTER
   const res = await fetch(`http://127.0.0.1:${port}/api/projects`)
   expect(await res.json()).toEqual({ projects: [], start: null })
   run.child.kill("SIGTERM")
-  expect(await run.exited).toBe(0)
+  // Windows terminates the child on a signal: no exit code.
+  const code = await run.exited
+  if (process.platform !== "win32") expect(code).toBe(0)
 })
 
 test("dashboard whose derived key is claimed by another root warns and has no start project", async () => {
-  const work = realpathSync(temp())
+  const work = physical(temp())
   const first = join(work, "x", "a-b")
   const second = join(work, "x", "a", "b")
   for (const dir of [first, second]) mkdirSync(dir, { recursive: true })
@@ -394,7 +418,9 @@ test("dashboard whose derived key is claimed by another root warns and has no st
   expect(body.start).toBeNull()
   expect(body.projects.map((p) => p.key)).toEqual([key])
   child.kill("SIGTERM")
-  expect(await exited).toBe(0)
+  // Windows terminates the child on a signal: no exit code.
+  const code = await exited
+  if (process.platform !== "win32") expect(code).toBe(0)
 })
 
 test("dashboard defaults to port 4870", () => {
@@ -408,7 +434,9 @@ test("dashboard on --port 0 stops on SIGINT with exit 0", async () => {
   await run.ready
   expect([/^theway dashboard: http:\/\/127\.0\.0\.1:\d+\/\n$/.test(run.out()), run.err()]).toEqual([true, ""])
   run.child.kill("SIGINT")
-  expect(await run.exited).toBe(0)
+  // Windows terminates the child on a signal: no exit code.
+  const code = await run.exited
+  if (process.platform !== "win32") expect(code).toBe(0)
 })
 
 test("dashboard rejects a port that is not an integer from 0 to 65535", () => {

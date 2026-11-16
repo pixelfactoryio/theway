@@ -11,9 +11,9 @@ export function projectReason(v: string): string {
   return KEY.test(v) ? "" : 'must be letters, digits and "-", at most 200 characters'
 }
 
-/** The trimmed stdout of `git rev-parse <flag>` in the current directory, `null` when git fails or is missing. */
-function revParse(flag: string): string | null {
-  const res = spawnSync("git", ["rev-parse", flag], {
+/** The trimmed stdout of `git rev-parse <flags>` in the current directory, `null` when git fails or is missing. */
+function revParse(...flags: string[]): string | null {
+  const res = spawnSync("git", ["rev-parse", ...flags], {
     cwd: process.cwd(),
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -27,6 +27,7 @@ function revParse(flag: string): string | null {
  * worktree root of a bare repository or a separate git dir; the current directory outside git. Physical path.
  */
 export function projectRoot(): string {
+  if (process.platform === "win32") return windowsRoot()
   const cwd = process.cwd()
   let root = cwd
   const common = revParse("--git-common-dir")
@@ -42,6 +43,29 @@ export function projectRoot(): string {
     return realpathSync(root)
   } catch {
     return root
+  }
+}
+
+/**
+ * `projectRoot` on Windows: git's absolute paths, then the long-name form (`C:\Users\runneradmin`, never the 8.3
+ * `C:\Users\RUNNER~1`), so one repository has one key whatever form the current directory takes.
+ */
+function windowsRoot(): string {
+  const cwd = process.cwd()
+  let root = cwd
+  const common = revParse("--path-format=absolute", "--git-common-dir")
+  if (common !== null) {
+    if (basename(common) === ".git") root = dirname(common)
+    else {
+      const top = revParse("--path-format=absolute", "--show-toplevel")
+      root = top !== null && top !== "" ? top : cwd
+    }
+  }
+  try {
+    return realpathSync.native(root)
+  } catch {
+    // git prints C:/…: resolve gives the native separators.
+    return resolve(root)
   }
 }
 

@@ -29,7 +29,7 @@ npx --yes @pixelfactoryio/theway@X.Y.Z install
 ## Requirements
 
 - Node.js 22.13 or later
-- macOS or Linux
+- macOS, Linux or Windows
 - Claude Code
 
 ## Contributing

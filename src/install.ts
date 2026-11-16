@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { homedir } from "node:os"
-import { delimiter, dirname, isAbsolute, join, resolve, sep } from "node:path"
+import { delimiter, dirname, isAbsolute, join, parse, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { isCancel, multiselect, text } from "@clack/prompts"
 import { OPT_IN_KEYS } from "./core/config"
@@ -41,6 +41,8 @@ const plugin = join(pkgRoot, "plugin")
 const PLUGIN_DIRS = [".claude-plugin", "commands", "workflows"]
 /** Present in every theway CLI bundle: tells the copy install wrote from another program named `theway`. */
 const BINARY_MARKER = "theway-cli-binary:pixelfactoryio/theway"
+/** On Windows, cmd and PowerShell run `theway.cmd`, which runs the `theway` file beside it with node. */
+const WINDOWS = process.platform === "win32"
 
 function claudeHome(): string {
   const dir = (process.env.CLAUDE_CONFIG_DIR ?? "").trim()
@@ -58,10 +60,19 @@ function shownHome(home: string): string {
   return resolve(home) === resolve(defaultHome()) ? "~/.theway" : resolve(home)
 }
 
-/** `<home>` as a permission-rule root: `~/.theway`, or `//<abs>` for a custom home. */
+/**
+ * An absolute path as a permission-rule path: `/<abs>` (`//data/tw`); on Windows, Claude Code's POSIX form of a drive
+ * path, `//<drive>/<rest>` (`C:\Users\a\theway` is `//c/Users/a/theway`).
+ */
+export function rulePath(abs: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform !== "win32") return `/${abs}`
+  return `//${abs.slice(0, 1).toLowerCase()}${abs.slice(2).replaceAll("\\", "/")}`
+}
+
+/** `<home>` as a permission-rule root: `~/.theway`, or `rulePath` of a custom home. */
 function ruleRoot(home: string): string {
   const at = shownHome(home)
-  return at.startsWith("~/") ? at : `/${at}`
+  return at.startsWith("~/") ? at : rulePath(at)
 }
 
 /** The rules that name a data home: reading it. */
@@ -306,6 +317,19 @@ function writeBinary(dir: string): string {
   return dest
 }
 
+/** Writes `<dir>/theway.cmd`, the shim that runs `<dir>/theway` with node, replacing any previous one in one rename. */
+function writeShim(dir: string): string {
+  const dest = join(dir, "theway.cmd")
+  const tmp = join(dir, `.theway-cmd-${process.pid}`)
+  try {
+    writeFileSync(tmp, `@rem ${BINARY_MARKER}\r\n@node "%~dp0theway" %*\r\n`)
+    renameSync(tmp, dest)
+  } finally {
+    rmSync(tmp, { force: true })
+  }
+  return dest
+}
+
 /** True when something (a file, a folder, a link, even a broken one) is at `path`. */
 function occupied(path: string): boolean {
   try {
@@ -327,6 +351,22 @@ function isThewayBinary(path: string): boolean {
   }
 }
 
+/** True when `path` is a theway shim, as install writes it on Windows. */
+function isThewayShim(path: string): boolean {
+  if (!isFile(path)) return false
+  try {
+    return readFileSync(path, "utf-8").includes(BINARY_MARKER)
+  } catch {
+    return false
+  }
+}
+
+/** The files install writes to the install dir and uninstall removes: `theway`, and `theway.cmd` on Windows. */
+function installedFiles(dir: string): { path: string; label: string; ours: (path: string) => boolean }[] {
+  const binary = { path: join(dir, "theway"), label: "the theway binary", ours: isThewayBinary }
+  return WINDOWS ? [binary, { path: join(dir, "theway.cmd"), label: "the theway shim", ours: isThewayShim }] : [binary]
+}
+
 /** Writes the pointer to `home` for a custom home, removes it for the default home. */
 function writePointer(home: string, custom: boolean): void {
   const path = pointerPath()
@@ -346,12 +386,27 @@ function realpathOr(path: string): string {
   }
 }
 
+/**
+ * What a path is compared by: its physical path; on Windows its long-name form (never 8.3), lowercased, since paths
+ * there are case-insensitive.
+ */
+function identity(path: string): string {
+  if (!WINDOWS) return realpathOr(path)
+  try {
+    return realpathSync.native(path).toLowerCase()
+  } catch {
+    return resolve(path).toLowerCase()
+  }
+}
+
 /** Why install must not write rules for `tHome`, `""` when it may: the rules would cover far more than theway's files. */
 function unsafeHomeReason(tHome: string, custom: boolean): string {
   const home = resolve(tHome)
-  const real = realpathOr(home)
-  const user = realpathOr(homedir())
-  if (real === user || user.startsWith(real + sep) || real === "/") {
+  // Checked before any realpath, so a network host is never contacted: Claude Code's rules name only drive paths.
+  if (WINDOWS && !/^[A-Za-z]:\\/.test(home)) return "it is not on a drive letter"
+  const real = identity(home)
+  const user = identity(homedir())
+  if (real === user || user.startsWith(real + sep) || real === parse(real).root) {
     return "it is your home folder or one of its parents"
   }
   // The default home goes into the rules as the literal ~/.theway, whatever $HOME holds.
@@ -359,21 +414,38 @@ function unsafeHomeReason(tHome: string, custom: boolean): string {
   return ""
 }
 
-/** Every executable `theway` on `PATH`, in `PATH` order, without the npx copy running this install. */
+/** True when `dir` is an npm `node_modules/.bin` folder, where npm puts its local and npx shims. */
+function isNpmBin(dir: string): boolean {
+  const parts = dir.split(/[\\/]+/).filter((p) => p !== "")
+  return (
+    parts
+      .slice(-2)
+      .map((p) => p.toLowerCase())
+      .join("/") === "node_modules/.bin"
+  )
+}
+
+/**
+ * Every executable `theway` on `PATH`, in `PATH` order, without the npx copy running this install; on Windows every
+ * `theway.cmd`, outside npm's `node_modules/.bin` folders.
+ */
 function copiesOnPath(): string[] {
-  const running = realpathOr(self)
+  const running = identity(self)
   const seen = new Set<string>()
   const copies: string[] = []
   for (const dir of (process.env.PATH ?? "").split(delimiter)) {
     if (dir === "") continue
-    const candidate = join(dir, "theway")
+    if (WINDOWS && isNpmBin(dir)) continue
+    const candidate = join(dir, WINDOWS ? "theway.cmd" : "theway")
     if (!isFile(candidate)) continue
-    try {
-      accessSync(candidate, constants.X_OK)
-    } catch {
-      continue
+    if (!WINDOWS) {
+      try {
+        accessSync(candidate, constants.X_OK)
+      } catch {
+        continue
+      }
     }
-    const real = realpathOr(candidate)
+    const real = identity(candidate)
     if (real === running || seen.has(real)) continue
     seen.add(real)
     copies.push(candidate)
@@ -381,18 +453,24 @@ function copiesOnPath(): string[] {
   return copies
 }
 
-/** How to put `dir` on `PATH` when it is missing, and the warning when another `theway` comes first. */
-function checkPath(dir: string, binary: string): { hint: string | null; warning: string | null } {
+/**
+ * How to put `dir` on `PATH` when it is missing, and the warning when another `theway` comes first. `installed` is the
+ * copy the commands run: the binary, or the shim on Windows.
+ */
+function checkPath(dir: string, installed: string): { hint: string | null; warning: string | null } {
   const dirs = (process.env.PATH ?? "").split(delimiter).filter((d) => d !== "")
-  const hint = dirs.some((d) => resolve(d) === dir)
+  const onPath = WINDOWS ? dirs.some((d) => identity(d) === identity(dir)) : dirs.some((d) => resolve(d) === dir)
+  const hint = onPath
     ? null
-    : `Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`
+    : WINDOWS
+      ? `Add ${dir} to your PATH, e.g.: $env:Path = "${dir};$env:Path"\n`
+      : `Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`
   const copies = copiesOnPath()
-  const shadowed = copies.length > 0 && realpathOr(copies[0]) !== realpathOr(binary)
+  const shadowed = copies.length > 0 && identity(copies[0] as string) !== identity(installed)
   return {
     hint,
     warning: shadowed
-      ? `${copies[0]} comes before ${binary} on PATH, so the commands run it; theway copies on PATH: ${copies.join(", ")}`
+      ? `${copies[0]} comes before ${installed} on PATH, so the commands run it; theway copies on PATH: ${copies.join(", ")}`
       : null,
   }
 }
@@ -407,12 +485,15 @@ export const OPT_IN_HINTS: Record<string, string> = {
 
 const CANCELLED = "install cancelled; nothing was changed"
 
-/** `value` as an absolute path: `~` and `~/<rest>` under the user's home, an absolute path resolved; anything else is an error. */
+/**
+ * `value` as an absolute path: `~` and `~/<rest>` (and `~\<rest>` on Windows) under the user's home, an absolute path
+ * resolved; anything else is an error.
+ */
 export function expandHome(value: string): string | { error: string } {
   const v = value.trim()
   if (v === "") return { error: "must not be empty" }
   if (v === "~") return homedir()
-  if (v.startsWith("~/")) return resolve(homedir(), v.slice(2))
+  if (v.startsWith("~/") || (WINDOWS && v.startsWith("~\\"))) return resolve(homedir(), v.slice(2))
   if (isAbsolute(v)) return resolve(v)
   return { error: "must be an absolute path or start with ~/" }
 }
@@ -557,11 +638,12 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   const settings = read.settings
 
   // Never replace another program that happens to be called theway: uninstall would not remove it either.
-  const target = join(dir, "theway")
-  if (occupied(target) && !isThewayBinary(target)) {
-    return error(
-      `${target} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder`,
-    )
+  for (const { path: target, ours } of installedFiles(dir)) {
+    if (occupied(target) && !ours(target)) {
+      return error(
+        `${target} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder`,
+      )
+    }
   }
 
   const config = join(resolve(tHome), "config.yaml")
@@ -591,12 +673,17 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   }
   let dest: string
   let binary: string
+  let shim: string | null = null
   try {
     dest = copyPlugin(cHome, written)
     const cleared = removeLegacyBin(tHome)
     if (cleared.length > 0) written.push(`removed the old launchers in ${cleared.join(", ")}`)
     binary = writeBinary(dir)
     written.push(`the theway binary at ${binary}`)
+    if (WINDOWS) {
+      shim = writeShim(dir)
+      written.push(`the theway shim at ${shim}`)
+    }
     // init's progress lines, then its error, then the stop line.
     const initialized = init(join(plugin, "home"), tHome, enabled)
     print(initialized.lines.join(""))
@@ -639,13 +726,14 @@ export async function install(opts: { home?: string; standards?: string }): Prom
     return error(stopped((e as Error).message))
   }
 
-  const onPath = checkPath(dir, binary)
+  const onPath = checkPath(dir, shim ?? binary)
   if (onPath.hint !== null) print(onPath.hint)
   if (onPath.warning !== null) warning(onPath.warning)
 
   const version = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf-8")).version
+  const files = shim !== null ? `${binary}, ${shim}` : binary
   print(
-    `Installed theway ${version} to ${dest} (theway@skills-dir), ${binary} and ${tHome}. Start a new Claude Code session or run /reload-plugins.\n`,
+    `Installed theway ${version} to ${dest} (theway@skills-dir), ${files} and ${tHome}. Start a new Claude Code session or run /reload-plugins.\n`,
   )
   return 0
 }
@@ -671,14 +759,13 @@ export function uninstall(): number {
 
   const plugin = join(cHome, "skills", "theway")
   const hadPlugin = occupied(plugin)
-  // Only a theway binary is removed, never another program that happens to be called theway.
-  const binary = join(installDir(), "theway")
-  const removed = isThewayBinary(binary)
+  // Only a theway binary or shim is removed, never another program that happens to be called theway.
+  const removed = installedFiles(installDir()).filter(({ path, ours }) => ours(path))
   const pointer = pointerPath()
   const hadPointer = occupied(pointer)
   const targets = [
     ...(hadPlugin ? [join(cHome, "skills"), ...foldersIn(plugin)] : []),
-    ...(removed ? [installDir()] : []),
+    ...(removed.length > 0 ? [installDir()] : []),
     ...(hadPointer ? [dirname(pointer)] : []),
   ]
   const unwritable = writeCheck(targets)
@@ -689,9 +776,9 @@ export function uninstall(): number {
   try {
     rmSync(plugin, { recursive: true, force: true })
     if (hadPlugin) gone.push(`the plugin in ${plugin}`)
-    if (removed) {
-      rmSync(binary, { force: true })
-      gone.push(`the theway binary at ${binary}`)
+    for (const { path, label } of removed) {
+      rmSync(path, { force: true })
+      gone.push(`${label} at ${path}`)
     }
     rmSync(pointer, { force: true })
     removeIfEmpty(dirname(pointer))
@@ -712,7 +799,7 @@ export function uninstall(): number {
     return error(`uninstall stopped: ${(e as Error).message}; ${done}`)
   }
 
-  const bin = removed ? ` and ${binary}` : ""
+  const bin = removed.map(({ path }) => ` and ${path}`).join("")
   print(`Removed theway from ${cHome}${bin}. ${tHome} was kept.\n`)
   return 0
 }

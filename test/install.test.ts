@@ -11,16 +11,17 @@ import {
   lstatSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs"
-import { tmpdir } from "node:os"
-import { delimiter, dirname, join, resolve } from "node:path"
+import { homedir, tmpdir } from "node:os"
+import { delimiter, dirname, join, parse, resolve } from "node:path"
 import { OPT_IN_KEYS } from "../src/core/config"
-import { OPT_IN_HINTS } from "../src/install"
+import { expandHome, OPT_IN_HINTS, rulePath } from "../src/install"
 
 const REPO = join(import.meta.dirname, "..")
 const CLI = join(REPO, "dist", "theway.js")
@@ -70,11 +71,15 @@ function setup({ defaultHome = false }: { defaultHome?: boolean } = {}): Env {
 }
 
 const bin = (env: Env) => join(env.installDir ?? join(env.home, ".local", "bin"), "theway")
+/** The shim install writes beside the binary on Windows. */
+const shim = (env: Env) => join(dirname(bin(env)), "theway.cmd")
 const pointer = (env: Env) => join(env.home, ".config", "theway", "home")
 
 function vars(env: Env, home = env.home): Record<string, string> {
   return {
     HOME: home,
+    // os.homedir() reads USERPROFILE on Windows.
+    USERPROFILE: home,
     CLAUDE_CONFIG_DIR: env.claude,
     PATH: env.path,
     ...(env.thewayHome !== undefined ? { THEWAY_HOME: env.thewayHome } : {}),
@@ -86,10 +91,19 @@ function run(env: Env, ...args: string[]) {
   return spawnSync("node", [CLI, ...args], { encoding: "utf-8", env: vars(env) })
 }
 
-/** Runs the installed binary itself, from `env.root`, without THEWAY_HOME. */
+/** Runs the installed binary itself (its shim on Windows), from `env.root`, without THEWAY_HOME. */
 function runInstalled(env: Env, ...args: string[]) {
   const rest = vars(env)
   delete rest.THEWAY_HOME
+  if (process.platform === "win32") {
+    // Node spawns neither the extensionless file nor a .cmd without a shell; cmd.exe and the shim's node need these.
+    for (const name of ["SystemRoot", "PATHEXT", "ComSpec"]) {
+      const value = process.env[name]
+      if (value !== undefined) rest[name] = value
+    }
+    const line = [shim(env), ...args].map((a) => `"${a}"`).join(" ")
+    return spawnSync(line, { encoding: "utf-8", env: rest, cwd: env.root, shell: true })
+  }
   return spawnSync(bin(env), args, { encoding: "utf-8", env: rest, cwd: env.root })
 }
 
@@ -169,7 +183,7 @@ test("install with a custom home writes the pointer, leaves no ~/.theway and nam
   expect(run(env, "install").status).toBe(0)
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`)
   expect(existsSync(join(env.home, ".theway"))).toBe(false)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(env.theway)}/**)`])
 
   put(
     join(env.theway, "projects", "proj", "changes", "add-x", "change.yaml"),
@@ -205,7 +219,7 @@ test("install without THEWAY_HOME keeps the home the pointer names, as a reinsta
   expect(res.stdout).not.toContain(join(env.home, ".theway"))
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.theway}\n`)
   expect(existsSync(join(env.home, ".theway"))).toBe(false)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.theway}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(env.theway)}/**)`])
   const path = runInstalled(env, "path", "--verbose")
   expect(path.stdout).toBe(`${env.theway}\n`)
   expect(path.stderr).toBe(`theway: home ${env.theway} (from pointer)\n`)
@@ -219,7 +233,7 @@ test("install with a new THEWAY_HOME drops the Read rule of the previous home", 
   env.thewayHome = join(env.root, "other")
   expect(run(env, "install").status).toBe(0)
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${env.thewayHome}\n`)
-  expect(allow(env)).toEqual(["Bash(ls:*)", "Bash(theway:*)", `Read(/${env.thewayHome}/**)`])
+  expect(allow(env)).toEqual(["Bash(ls:*)", "Bash(theway:*)", `Read(${rulePath(env.thewayHome)}/**)`])
   expect(existsSync(join(first, "config.yaml"))).toBe(true)
 })
 
@@ -228,7 +242,7 @@ test("install from the default home to a custom one drops the ~/.theway rules", 
   expect(run(env, "install").status).toBe(0)
   env.thewayHome = join(env.root, "custom")
   expect(run(env, "install").status).toBe(0)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(env.thewayHome)}/**)`])
 })
 
 test("install refuses to replace a theway in the install dir that it did not write, and changes nothing", () => {
@@ -267,7 +281,11 @@ test("install prints the export PATH line and exits 0 when the install dir is no
   const res = run(env, "install")
   expect(res.status).toBe(0)
   const dir = dirname(bin(env))
-  expect(res.stdout).toContain(`Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`)
+  expect(res.stdout).toContain(
+    process.platform === "win32"
+      ? `Add ${dir} to your PATH, e.g.: $env:Path = "${dir};$env:Path"\n`
+      : `Add ${dir} to your PATH, e.g.: export PATH="${dir}:$PATH"\n`,
+  )
   expect(res.stderr).toBe("")
 
   env.path = [dir, BASE_PATH].join(delimiter)
@@ -279,13 +297,14 @@ test("install prints the export PATH line and exits 0 when the install dir is no
 
 test("install warns naming another theway that comes first on PATH", () => {
   const env = setup()
-  const other = join(env.root, "other", "theway")
-  put(other, "#!/bin/sh\necho other\n")
+  const windows = process.platform === "win32"
+  const other = join(env.root, "other", windows ? "theway.cmd" : "theway")
+  put(other, windows ? "@echo other\r\n" : "#!/bin/sh\necho other\n")
   chmodSync(other, 0o755)
   env.path = [dirname(other), dirname(bin(env)), BASE_PATH].join(delimiter)
   const res = run(env, "install")
   expect(res.status).toBe(0)
-  expect(res.stderr).toContain(`theway: warning: ${other} comes before ${bin(env)} on PATH`)
+  expect(res.stderr).toContain(`theway: warning: ${other} comes before ${windows ? shim(env) : bin(env)} on PATH`)
 })
 
 test("install keeps an existing config.yaml and writes config.default.yaml", () => {
@@ -395,14 +414,16 @@ for (const [label, name] of [
     put(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"), "# x\n")
     put(
       join(env.claude, "settings.json"),
-      JSON.stringify({ permissions: { allow: [`Read(/${env.theway}/**)`, `Bash(${env.theway}/bin/theway:*)`] } }),
+      JSON.stringify({
+        permissions: { allow: [`Read(${rulePath(env.theway)}/**)`, `Bash(${env.theway}/bin/theway:*)`] },
+      }),
     )
     expect(run(env, "install").status).toBe(0)
     expect(existsSync(join(env.theway, "bin", "theway"))).toBe(false)
     expect(existsSync(join(env.theway, "bin", "theway.js"))).toBe(false)
     expect(existsSync(join(env.theway, "bin", "mine.sh"))).toBe(true)
     expect(existsSync(join(env.theway, "projects", "proj", "changes", "add-x", "spec.md"))).toBe(true)
-    expect(allow(env)).toEqual([`Read(/${env.theway}/**)`, "Bash(theway:*)"])
+    expect(allow(env)).toEqual([`Read(${rulePath(env.theway)}/**)`, "Bash(theway:*)"])
   })
 }
 
@@ -417,7 +438,10 @@ test("install keeps a <home>/bin/theway and theway.js that 0.2.0 did not write",
 
 test("uninstall removes the plugin, the binary, the pointer and the rules, and keeps the home", () => {
   const env = setup()
-  put(join(env.claude, "settings.json"), `{"permissions":{"allow":["Bash(ls:*)","Bash(${env.theway}/bin/theway:*)"]}}`)
+  put(
+    join(env.claude, "settings.json"),
+    JSON.stringify({ permissions: { allow: ["Bash(ls:*)", `Bash(${env.theway}/bin/theway:*)`] } }),
+  )
   expect(run(env, "install").status).toBe(0)
   // THEWAY_HOME unset: uninstall finds the custom home through the pointer.
   env.thewayHome = undefined
@@ -472,30 +496,39 @@ test("install over the Edit rule of an earlier version removes it and keeps unre
     join(env.claude, "settings.json"),
     JSON.stringify({
       permissions: {
-        allow: ["Bash(ls:*)", `Read(/${env.theway}/**)`, `Edit(/${env.theway}/*/changes/**)`, "Edit(src/**)"],
+        allow: [
+          "Bash(ls:*)",
+          `Read(${rulePath(env.theway)}/**)`,
+          `Edit(${rulePath(env.theway)}/*/changes/**)`,
+          "Edit(src/**)",
+        ],
       },
     }),
   )
   expect(run(env, "install").status).toBe(0)
-  expect(allow(env)).toEqual(["Bash(ls:*)", `Read(/${env.theway}/**)`, "Edit(src/**)", "Bash(theway:*)"])
+  expect(allow(env)).toEqual(["Bash(ls:*)", `Read(${rulePath(env.theway)}/**)`, "Edit(src/**)", "Bash(theway:*)"])
 })
 
 test("install to a new home removes the Edit rule an earlier version wrote for the previous home", () => {
   const env = setup()
   expect(run(env, "install").status).toBe(0)
   const settings = JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8"))
-  settings.permissions.allow.push(`Edit(/${env.theway}/*/changes/**)`)
+  settings.permissions.allow.push(`Edit(${rulePath(env.theway)}/*/changes/**)`)
   put(join(env.claude, "settings.json"), JSON.stringify(settings))
   env.thewayHome = join(env.root, "other")
   expect(run(env, "install").status).toBe(0)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${env.thewayHome}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(env.thewayHome)}/**)`])
 })
 
 test("uninstall removes the Edit rule of an earlier version", () => {
   const env = setup()
   expect(run(env, "install").status).toBe(0)
   const settings = JSON.parse(readFileSync(join(env.claude, "settings.json"), "utf-8"))
-  settings.permissions.allow.push(`Edit(/${env.theway}/*/changes/**)`, "Edit(~/.theway/*/changes/**)", "Bash(ls:*)")
+  settings.permissions.allow.push(
+    `Edit(${rulePath(env.theway)}/*/changes/**)`,
+    "Edit(~/.theway/*/changes/**)",
+    "Bash(ls:*)",
+  )
   put(join(env.claude, "settings.json"), JSON.stringify(settings))
   expect(run(env, "uninstall").status).toBe(0)
   expect(allow(env)).toEqual(["Bash(ls:*)"])
@@ -538,7 +571,7 @@ test("install and uninstall write through a symlinked settings.json", () => {
   expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
     "Bash(ls:*)",
     "Bash(theway:*)",
-    `Read(/${env.theway}/**)`,
+    `Read(${rulePath(env.theway)}/**)`,
   ])
   expect(run(env, "uninstall").status).toBe(0)
   expect(lstatSync(link).isSymbolicLink()).toBe(true)
@@ -559,7 +592,7 @@ test.skipIf(process.platform === "win32")(
     expect(mode(target)).toBe(0o600)
     expect(JSON.parse(readFileSync(target, "utf-8")).permissions.allow).toEqual([
       "Bash(theway:*)",
-      `Read(/${env.theway}/**)`,
+      `Read(${rulePath(env.theway)}/**)`,
     ])
   },
 )
@@ -623,7 +656,7 @@ test.skipIf(process.platform === "win32")(
     expect(mode(final)).toBe(0o600)
     expect(JSON.parse(readFileSync(final, "utf-8")).permissions.allow).toEqual([
       "Bash(theway:*)",
-      `Read(/${env.theway}/**)`,
+      `Read(${rulePath(env.theway)}/**)`,
     ])
   },
 )
@@ -1614,7 +1647,7 @@ test("install finishes a partial migration and drops a key whose files are both 
 })
 
 const OFF_LINE = (home: string) =>
-  `Opt-in standards are off (core_principles, sre, web_development, quality): set standards.<key>.enabled: true in ${home}/config.yaml to enable one\n`
+  `Opt-in standards are off (core_principles, sre, web_development, quality): set standards.<key>.enabled: true in ${join(home, "config.yaml")} to enable one\n`
 
 /** True when install wrote nothing: no data home, plugin, binary or pointer. */
 function nothingWritten(env: Env, home = env.theway): void {
@@ -1632,7 +1665,7 @@ test("install --home writes the data home there and the pointer names it, with n
   expect(existsSync(join(data, "config.yaml"))).toBe(true)
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${data}\n`)
   expect(existsSync(join(env.home, ".theway"))).toBe(false)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${data}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(data)}/**)`])
 })
 
 test("install --home ~/data expands under HOME", () => {
@@ -1659,7 +1692,7 @@ test("install --home overrides the home the pointer names", () => {
   const data = join(env.root, "data")
   expect(run(env, "install", "--home", data).status).toBe(0)
   expect(readFileSync(pointer(env), "utf-8")).toBe(`${data}\n`)
-  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(/${data}/**)`])
+  expect(allow(env)).toEqual(["Bash(theway:*)", `Read(${rulePath(data)}/**)`])
 })
 
 test("install --home with a relative path exits 1 and writes nothing", () => {
@@ -1700,6 +1733,123 @@ test("install --home set to HOME is refused with the --home message and writes n
   )
   nothingWritten(env)
   expect(existsSync(join(env.home, "config.yaml"))).toBe(false)
+})
+
+test("rulePath is /<abs> on POSIX and //<drive>/<rest> on Windows", () => {
+  expect(rulePath("/data/tw", "linux")).toBe("//data/tw")
+  expect(rulePath("/data/tw", "darwin")).toBe("//data/tw")
+  expect(rulePath("C:\\Users\\a\\theway", "win32")).toBe("//c/Users/a/theway")
+  expect(rulePath("D:\\tw", "win32")).toBe("//d/tw")
+})
+
+const SHIM_TEXT = '@rem theway-cli-binary:pixelfactoryio/theway\r\n@node "%~dp0theway" %*\r\n'
+
+test.skipIf(process.platform !== "win32")(
+  "install writes theway.cmd beside the binary and the installed copy runs through it",
+  () => {
+    const env = setup()
+    const res = run(env, "install")
+    expect(res.status).toBe(0)
+    expect(readFileSync(shim(env), "utf-8")).toBe(SHIM_TEXT)
+    expect(res.stdout).toContain(`, ${bin(env)}, ${shim(env)} and ${env.theway}. `)
+    const path = runInstalled(env, "path", "--verbose")
+    expect([path.status, path.stdout, path.stderr]).toEqual([
+      0,
+      `${env.theway}\n`,
+      `theway: home ${env.theway} (from pointer)\n`,
+    ])
+  },
+)
+
+test.skipIf(process.platform !== "win32")(
+  "install refuses a theway.cmd in the install dir that it did not write, and changes nothing",
+  () => {
+    const env = setup({ defaultHome: true })
+    put(shim(env), "@echo another tool\r\n")
+    const res = run(env, "install")
+    expect(res.status).toBe(1)
+    expect(res.stderr).toBe(
+      `theway: ${shim(env)} exists and is not a theway binary; nothing was changed. Remove it, or set THEWAY_INSTALL_DIR to another folder\n`,
+    )
+    expect(readFileSync(shim(env), "utf-8")).toBe("@echo another tool\r\n")
+    expect(existsSync(bin(env))).toBe(false)
+    expect(existsSync(join(env.claude, "skills", "theway"))).toBe(false)
+    expect(existsSync(join(env.claude, "settings.json"))).toBe(false)
+    expect(existsSync(env.theway)).toBe(false)
+  },
+)
+
+test.skipIf(process.platform !== "win32")("uninstall removes the theway.cmd install wrote and keeps another", () => {
+  const env = setup({ defaultHome: true })
+  expect(run(env, "install").status).toBe(0)
+  const res = run(env, "uninstall")
+  expect(res.status).toBe(0)
+  expect(res.stdout).toBe(
+    `Removed theway from ${env.claude} and ${bin(env)} and ${shim(env)}. ${env.theway} was kept.\n`,
+  )
+  expect(existsSync(bin(env))).toBe(false)
+  expect(existsSync(shim(env))).toBe(false)
+
+  expect(run(env, "install").status).toBe(0)
+  writeFileSync(shim(env), "@echo another tool\r\n")
+  const again = run(env, "uninstall")
+  expect(again.status).toBe(0)
+  expect(again.stdout).toBe(`Removed theway from ${env.claude} and ${bin(env)}. ${env.theway} was kept.\n`)
+  expect(existsSync(bin(env))).toBe(false)
+  expect(readFileSync(shim(env), "utf-8")).toBe("@echo another tool\r\n")
+})
+
+test.skipIf(process.platform !== "win32")(
+  "install does not warn about a theway.cmd in node_modules\\.bin, and warns about one elsewhere on PATH",
+  () => {
+    const env = setup()
+    const npm = join(env.root, "proj", "node_modules", ".bin")
+    put(join(npm, "theway.cmd"), "@echo npx\r\n")
+    env.path = [npm, dirname(bin(env)), BASE_PATH].join(delimiter)
+    const quiet = run(env, "install")
+    expect([quiet.status, quiet.stderr]).toEqual([0, ""])
+    const other = join(env.root, "other", "theway.cmd")
+    put(other, "@echo other\r\n")
+    env.path = [npm, dirname(other), dirname(bin(env)), BASE_PATH].join(delimiter)
+    const warned = run(env, "install")
+    expect(warned.status).toBe(0)
+    expect(warned.stderr).toContain(`theway: warning: ${other} comes before ${shim(env)} on PATH`)
+  },
+)
+
+const refusedHome = (home: string, reason: string) =>
+  `theway: refusing data home ${home}: ${reason}; set THEWAY_HOME or --home to a dedicated folder\n`
+
+test.skipIf(process.platform !== "win32")("install refuses a --home that is not on a drive letter", () => {
+  const env = setup({ defaultHome: true })
+  const home = "\\\\localhost\\c$\\theway-test"
+  const res = run(env, "install", "--home", home)
+  expect([res.status, res.stderr]).toEqual([1, refusedHome(home, "it is not on a drive letter")])
+  nothingWritten(env)
+})
+
+test.skipIf(process.platform !== "win32")("install refuses a drive root as --home", () => {
+  const env = setup({ defaultHome: true })
+  const root = parse(tmpdir()).root
+  const res = run(env, "install", "--home", root)
+  expect([res.status, res.stderr]).toEqual([1, refusedHome(root, "it is your home folder or one of its parents")])
+  nothingWritten(env)
+})
+
+test.skipIf(process.platform !== "win32")(
+  "install refuses another case or the long-name form of the home or a parent as --home",
+  () => {
+    const env = setup({ defaultHome: true })
+    for (const home of [env.home.toUpperCase(), realpathSync.native(env.root)]) {
+      const res = run(env, "install", "--home", home)
+      expect([res.status, res.stderr]).toEqual([1, refusedHome(home, "it is your home folder or one of its parents")])
+      nothingWritten(env)
+    }
+  },
+)
+
+test.skipIf(process.platform !== "win32")("expandHome expands ~\\ under the user's home", () => {
+  expect(expandHome("~\\x")).toBe(join(homedir(), "x"))
 })
 
 test("install --standards sre,quality turns on exactly those two keys and keeps config.default.yaml shipped", () => {
@@ -1918,7 +2068,9 @@ test("uninstall reports what it removed when a later step fails", () => {
   const res = run(env, "uninstall")
   expect(res.status).toBe(1)
   expect(res.stderr).toBe(
-    `theway: uninstall stopped: Path is a directory: rm returned EISDIR (is a directory) ${pointer(env)}; already removed: the plugin in ${plugin}, the theway binary at ${bin(env)}\n`,
+    `theway: uninstall stopped: Path is a directory: rm returned EISDIR (is a directory) ${pointer(env)}; already removed: the plugin in ${plugin}, the theway binary at ${bin(env)}${
+      process.platform === "win32" ? `, the theway shim at ${shim(env)}` : ""
+    }\n`,
   )
   expect(existsSync(plugin)).toBe(false)
   expect(existsSync(bin(env))).toBe(false)
