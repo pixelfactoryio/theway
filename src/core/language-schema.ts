@@ -1,5 +1,6 @@
 /**
- * The `theway.workflow/v1beta1` vocabulary and the resolved-document types. This module imports nothing.
+ * The `theway.workflow/v1beta1` vocabulary, the rules every reader of a workflow file shares, and the resolved-document
+ * types. This module imports nothing.
  */
 
 /** A workflow, step or prompt name: lowercase letters and digits in words separated by single hyphens. */
@@ -27,6 +28,46 @@ export type RunsOn = (typeof RUNS_ON)[number]
 /** The types of a workflow input: free text, or a change ID. */
 export const WORKFLOW_INPUT_TYPES = ["text", "change"] as const
 export type WorkflowInputType = (typeof WORKFLOW_INPUT_TYPES)[number]
+
+/** The keys of a workflow file's root map. */
+export const WORKFLOW_KEYS = ["version", "description", "default", "inputs", "runs-on", "steps"] as const
+/** The keys of a step map. */
+export const STEP_KEYS = ["uses", "with", "matrix", "on-fail", "tries", "runs-on", "model"] as const
+/** The keys of an on-fail map. */
+export const ON_FAIL_KEYS = ["uses", "with", "model"] as const
+
+/** The name a value names when it is a prompt reference, else `null`. */
+export function promptRef(v: unknown): string | null {
+  const m = typeof v === "string" ? PROMPT_REF.exec(v) : null
+  return m !== null && NAME.test(m[1] as string) ? (m[1] as string) : null
+}
+
+/** Whether a workflow file's `version` and `default` values set the default: only a file of this version can. */
+export function isDefaultWorkflow(version: unknown, def: unknown): boolean {
+  return version === VERSION && def === true
+}
+
+/**
+ * Where a step runs from its `runs-on` value: the workflow's (`workflow`) when it is `undefined` (no `runs-on` key),
+ * the value when it is a member of `RUNS_ON`, else `null`.
+ */
+export function stepRunsOn(value: unknown, workflow: RunsOn | null): RunsOn | null {
+  if (value === undefined) return workflow
+  return (RUNS_ON as readonly unknown[]).includes(value) ? (value as RunsOn) : null
+}
+
+/**
+ * A step's matrix from its map's entries: exactly one entry, its key (as `String` gives it) a param name, its value a
+ * non-empty list of strings; else `null`.
+ */
+export function matrixOf(entries: readonly (readonly [unknown, unknown])[]): { key: string; values: string[] } | null {
+  if (entries.length !== 1) return null
+  const [key, value] = entries[0] as readonly [unknown, unknown]
+  const name = String(key)
+  if (!PARAM.test(name)) return null
+  if (!Array.isArray(value) || value.length === 0 || !value.every((x) => typeof x === "string")) return null
+  return { key: name, values: value as string[] }
+}
 
 /** A prompt input as its header declares it. */
 export type PromptInput = { description: string; required: boolean; default: string | null }

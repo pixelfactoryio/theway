@@ -3,10 +3,12 @@ import { join, relative } from "node:path"
 import type { Warn } from "./output"
 import { escaped, type Overlay } from "./io"
 import {
+  isDefaultWorkflow,
   MODELS,
   NAME,
+  ON_FAIL_KEYS,
   PARAM,
-  PROMPT_REF,
+  promptRef,
   type PromptFileItem,
   type PromptHeader,
   type PromptInput,
@@ -16,8 +18,11 @@ import {
   type ResolvedWorkflow,
   RUNS_ON,
   type RunsOn,
+  STEP_KEYS,
+  stepRunsOn,
   VERSION,
   WORKFLOW_INPUT_TYPES,
+  WORKFLOW_KEYS,
   type WorkflowFileItem,
   type WorkflowInputType,
   type WithValue,
@@ -31,10 +36,6 @@ const V1 = "theway.workflow/v1"
 
 /** The error line of a `theway.workflow/v1` file at `rel`. */
 export const v1Line = (rel: string) => `${rel}: ${V1} is no longer read: rewrite it as ${VERSION}`
-
-const WORKFLOW_KEYS = ["version", "description", "default", "inputs", "runs-on", "steps"]
-const STEP_KEYS = ["uses", "with", "matrix", "on-fail", "tries", "runs-on", "model"]
-const ON_FAIL_KEYS = ["uses", "with", "model"]
 
 const RULE = {
   nonEmpty: "must be a non-empty string",
@@ -203,9 +204,8 @@ type Ctx = {
  * `prompts/<name>.md`. `null` when the prompt cannot be used.
  */
 function promptOf(ctx: Ctx, v: unknown, where: string, out: string[]): Prompt | null {
-  const m = typeof v === "string" ? PROMPT_REF.exec(v) : null
-  const name = m?.[1]
-  if (name === undefined || !NAME.test(name)) {
+  const name = promptRef(v)
+  if (name === null) {
     out.push(`${ctx.rel}: ${where}: ${RULE.uses}`)
     return null
   }
@@ -343,7 +343,8 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     const o = lines("on-fail")
     if (isMap(v)) {
       for (const k of v.keys()) {
-        if (!ON_FAIL_KEYS.includes(String(k))) o.push(`${ctx.rel}: ${at}.on-fail: unknown key ${escaped(String(k))}`)
+        if (!(ON_FAIL_KEYS as readonly unknown[]).includes(String(k)))
+          o.push(`${ctx.rel}: ${at}.on-fail: unknown key ${escaped(String(k))}`)
       }
       const p = v.has("uses") ? promptOf(ctx, v.get("uses"), `${at}.on-fail.uses`, o) : null
       if (!v.has("uses")) o.push(`${ctx.rel}: ${at}.on-fail: uses is required`)
@@ -367,15 +368,8 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     if (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 10) tries = v
     else err("tries", RULE.tries)
   }
-  let runsOn: RunsOn | null = workflowRunsOn
-  if (has("runs-on")) {
-    const v = raw.get("runs-on")
-    if (isRunsOn(v)) runsOn = v
-    else {
-      runsOn = null
-      err("runs-on", RULE.runsOn)
-    }
-  }
+  const runsOn = stepRunsOn(has("runs-on") ? raw.get("runs-on") : undefined, workflowRunsOn)
+  if (has("runs-on") && runsOn === null) err("runs-on", RULE.runsOn)
   let model: string | null = null
   let modelBad = false
   if (has("model")) {
@@ -386,7 +380,8 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
     }
   }
   for (const k of raw.keys()) {
-    if (!STEP_KEYS.includes(String(k))) lines(String(k)).push(`${ctx.rel}: ${at}.${escaped(String(k))}: unknown key`)
+    if (!(STEP_KEYS as readonly unknown[]).includes(String(k)))
+      lines(String(k)).push(`${ctx.rel}: ${at}.${escaped(String(k))}: unknown key`)
   }
 
   if (!has("uses")) tail.push(`${ctx.rel}: ${at}: uses is required`)
@@ -487,7 +482,8 @@ export function resolveWorkflowFile(
     else list.forEach((raw, i) => steps.push(checkStep(ctx, raw, i, runsOn, lines("steps"))))
   }
   for (const k of root.keys()) {
-    if (!WORKFLOW_KEYS.includes(String(k))) lines(String(k)).push(`${rel}: ${escaped(String(k))}: unknown key`)
+    if (!(WORKFLOW_KEYS as readonly unknown[]).includes(String(k)))
+      lines(String(k)).push(`${rel}: ${escaped(String(k))}: unknown key`)
   }
   const errors: string[] = []
   for (const k of root.keys()) errors.push(...(byKey.get(String(k)) ?? []))
@@ -602,7 +598,7 @@ function scopedNames(
 
 /** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta1 file can, a v1 file's `default:` is not read. */
 function isDefaultRoot(root: unknown): boolean {
-  return isMap(root) && root.get("version") === VERSION && root.get("default") === true
+  return isMap(root) && isDefaultWorkflow(root.get("version"), root.get("default"))
 }
 
 /**

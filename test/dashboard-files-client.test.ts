@@ -15,7 +15,7 @@ import {
   drawWorkflow,
   findPrompt,
   fitScale,
-  isDefaultWorkflow,
+  isDefaultText,
   keyLabel,
   percent,
   selectionOf,
@@ -216,12 +216,59 @@ test("a workflow that does not resolve is still drawn, malformed shapes as the s
   }
 })
 
+test("an invalid step runs-on gives no badge on the step nor its on-fail; a rejected matrix draws as its source", () => {
+  const text = [
+    "version: theway.workflow/v1beta1",
+    "runs-on: agents",
+    "steps:",
+    "  - uses: prompts/implement.md",
+    "    runs-on: bogus",
+    "    tries: 2",
+    "    on-fail: prompts/review.md",
+    "  - uses: prompts/implement.md",
+    "    runs-on: [agents]",
+    "  - uses: prompts/implement.md",
+    "    ? runs-on",
+    "  - uses: prompts/implement.md",
+    "    matrix: {lens: [1]}",
+    "  - uses: prompts/implement.md",
+    "    matrix: {lens: []}",
+    "  - uses: prompts/implement.md",
+    "    matrix: {Lens: [a]}",
+    "  - uses: prompts/implement.md",
+    "    matrix: {lens: a}",
+    "  - uses: prompts/implement.md",
+    "    matrix:",
+    "      ? [a]",
+    "      : [x]",
+    "",
+  ].join("\n")
+  const r = drawWorkflow(text, [], PROMPTS, null)
+  if (!("drawing" in r)) throw new Error(r.reason)
+  const [bogus, list, keyOnly, ...matrices] = r.drawing.steps
+  expect(bogus).toMatchObject({ badge: null, target: null })
+  expect(bogus?.fields.runsOn).toBe("bogus")
+  expect(bogus?.onFail).toMatchObject({ name: "review", badge: null })
+  expect([list, keyOnly].map((s) => [s?.badge, s?.target])).toEqual([
+    [null, null],
+    [null, null],
+  ])
+  expect(matrices.map((s) => [s.matrix, s.fields.matrix])).toEqual([
+    ["matrix", { source: "{lens: [1]}" }],
+    ["matrix", { source: "{lens: []}" }],
+    ["matrix", { source: "{Lens: [a]}" }],
+    ["matrix", { source: "{lens: a}" }],
+    // A key that is not a scalar is named as the resolver names it.
+    ["matrix · 1", { key: "a", values: ["x"] }],
+  ])
+})
+
 test("a file is the default from its text, whatever its steps", () => {
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: true\nsteps: 5\n")).toBe(true)
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: false\nsteps: []\n")).toBe(false)
-  expect(isDefaultWorkflow("version: theway.workflow/v1\ndefault: true\n")).toBe(false)
-  expect(isDefaultWorkflow("version: theway.workflow/v1beta1\ndefault: true\nsteps: [\n")).toBe(false)
-  expect(isDefaultWorkflow("- a\n")).toBe(false)
+  expect(isDefaultText("version: theway.workflow/v1beta1\ndefault: true\nsteps: 5\n")).toBe(true)
+  expect(isDefaultText("version: theway.workflow/v1beta1\ndefault: false\nsteps: []\n")).toBe(false)
+  expect(isDefaultText("version: theway.workflow/v1\ndefault: true\n")).toBe(false)
+  expect(isDefaultText("version: theway.workflow/v1beta1\ndefault: true\nsteps: [\n")).toBe(false)
+  expect(isDefaultText("- a\n")).toBe(false)
 })
 
 test("a file that cannot be drawn gives its first line as the reason", () => {

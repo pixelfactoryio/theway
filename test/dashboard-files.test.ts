@@ -294,6 +294,34 @@ test("GET /api/prompts gives the header, the deduplicated lines and the uses; a 
   ])
 })
 
+test("a matrix the CLI rejects adds no use of the prompts its values name", async () => {
+  const h = home()
+  put(join(h, "prompts", "notes.md"), "# Notes\n")
+  const step = (matrix: string[]) => ["  - uses: prompts/review.md", "    matrix:", ...matrix.map((l) => `      ${l}`)]
+  put(
+    join(h, "workflows", "rejected.yaml"),
+    [
+      "version: theway.workflow/v1beta1",
+      "description: Rejected matrices",
+      "runs-on: session",
+      "steps:",
+      ...step(["a: [prompts/notes.md]", "b: [prompts/notes.md]"]),
+      ...step(["k: prompts/notes.md"]),
+      ...step(["K: [prompts/notes.md]"]),
+      ...step(["k: [prompts/notes.md, 1]"]),
+      ...step(["k: [prompts/implement.md]"]),
+      "",
+    ].join("\n"),
+  )
+  const rows = (await get(h, "/api/prompts")).body.prompts as Row[]
+  const usedBy = (name: string) => rows.find((r) => r.name === name)?.usedBy
+  expect(usedBy("notes")).toEqual([])
+  expect(usedBy("implement")).toEqual([
+    { workflow: "agents", project: null, step: 1, as: "step" },
+    { workflow: "rejected", project: null, step: 5, as: "value" },
+  ])
+})
+
 test("a prompt's file route gives its lines on the whole file's lines, and its uses", async () => {
   const h = home()
   const text = "---\ndescription: Bad\nmodel: gpt\ninputs:\n  x:\n    required: true\n---\n\n"

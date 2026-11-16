@@ -2,8 +2,16 @@
  * A workflow file drawn as cards: read from its text as written (so a file that does not resolve is still drawn),
  * with the prompts list for each card's description and model. Pure: no React, no DOM.
  */
-import { isMap, isScalar, isSeq, type Node, parseDocument, type YAMLMap } from "yaml"
-import { FILE_PREFIX, NAME, PROMPT_REF, VERSION } from "../../../core/language-schema"
+import { type Document, isMap, isScalar, isSeq, type Node, parseDocument, type YAMLMap } from "yaml"
+import {
+  FILE_PREFIX,
+  isDefaultWorkflow,
+  matrixOf,
+  promptRef,
+  type RunsOn,
+  stepRunsOn,
+  VERSION,
+} from "../../../core/language-schema"
 import type { PromptRow } from "./files"
 
 /** A line about step N (0-based), and whether it is about its on-fail. */
@@ -36,7 +44,10 @@ export type StepCard = {
   code: boolean
   description: string | null
   badge: string | null
-  /** Where the step runs: its valid `runs-on`, else the workflow's; `null` for an invalid step or when neither names one. */
+  /**
+   * Where the step runs: its `runs-on` when valid, the workflow's when absent; `null` for an invalid value, an invalid
+   * step, or when neither names one.
+   */
   target: "session" | "agents" | null
   /** `matrix · N`, `matrix`, or `null` without one. */
   matrix: string | null
@@ -73,12 +84,6 @@ export type Drawing = {
 
 /** What a card selection names. */
 export type Selection = { kind: "inputs" } | { kind: "step"; index: number } | { kind: "on-fail"; index: number }
-
-/** The name a value names when it is a prompt reference, else `null`. */
-export function promptRef(v: unknown): string | null {
-  const m = typeof v === "string" ? PROMPT_REF.exec(v) : null
-  return m !== null && NAME.test(m[1] as string) ? (m[1] as string) : null
-}
 
 /** The prompt of `name` in a workflow's context: its project's own when it has one, else the global one. */
 export function findPrompt(prompts: readonly PromptRow[], project: string | null, name: string): PromptRow | null {
@@ -126,7 +131,37 @@ const badgeOf = (runsOn: string | null, model: string | null): string | null =>
         : "agents"
       : null
 
-const validRunsOn = (v: string | null): "session" | "agents" | null => (v === "agents" || v === "session" ? v : null)
+/**
+ * A map's `runs-on` as `stepRunsOn` reads it: `undefined` without the key, the value of a scalar node, `null` for any
+ * other node (a key-only pair included).
+ */
+const runsOnInput = (map: YAMLMap): unknown => {
+  if (!has(map, "runs-on")) return undefined
+  const node = get(map, "runs-on")
+  return isScalar(node) ? node.value : null
+}
+
+/**
+ * A matrix node's entries, as the resolver's `Map` holds them (`mapAsMap`, aliases resolved): none for a node that is
+ * not a map; else per pair, the key's value for a scalar key (else its JS value, `null` for none), and the value's JS
+ * value (`null` for none).
+ */
+function matrixEntries(doc: Document.Parsed, node: unknown): [unknown, unknown][] {
+  if (!isMap(node)) return []
+  // Too many aliases make `toJS` throw, as they make the resolver's parse fail: the matrix then draws as its source.
+  const js = (n: Node): unknown => {
+    try {
+      return n.toJS(doc, { mapAsMap: true })
+    } catch {
+      return null
+    }
+  }
+  return node.items.map((p): [unknown, unknown] => {
+    const key = p.key as Node | null
+    const value = p.value as Node | null
+    return [isScalar(key) ? key.value : key === null ? null : js(key), value === null ? null : js(value)]
+  })
+}
 
 /** A `with` value as the panel shows it: one row per key with its source text, or the whole source text. */
 function withOf(text: string, node: unknown): { key: string; value: string }[] | { source: string } | null {
@@ -175,14 +210,13 @@ function splitLines(lines: readonly string[]): {
  * Whether a workflow's text sets the default, as the Workflows table reads it: its YAML parses, its root is a map, its
  * `version` is `theway.workflow/v1beta1` and its `default` is `true`, whatever its `steps`.
  */
-export function isDefaultWorkflow(text: string): boolean {
+export function isDefaultText(text: string): boolean {
   const doc = parseDocument(text, { logLevel: "silent" })
   const root = doc.contents
   return (
     doc.errors.length === 0 &&
     isMap(root) &&
-    str(get(root, "version")) === VERSION &&
-    scalar(get(root, "default")) === true
+    isDefaultWorkflow(scalar(get(root, "version")), scalar(get(root, "default")))
   )
 }
 
@@ -210,7 +244,7 @@ export function drawWorkflow(
     return { reason: first ?? "steps: must be a non-empty list" }
 
   const split = splitLines(lines)
-  const workflowRunsOn = validRunsOn(str(get(root, "runs-on")))
+  const workflowRunsOn = stepRunsOn(runsOnInput(root), null)
   const prompt = (name: string | null) => (name === null ? null : findPrompt(prompts, project, name))
 
   const inputsNode = get(root, "inputs")
@@ -250,17 +284,16 @@ export function drawWorkflow(
     const uses = named(text, get(raw, "uses"), "No prompt")
     const p = prompt(uses.prompt)
     const stepRunsOnRaw = str(get(raw, "runs-on"))
-    const runsOn = validRunsOn(stepRunsOnRaw) ?? workflowRunsOn
+    const runsOn: RunsOn | null = stepRunsOn(runsOnInput(raw), workflowRunsOn)
     const stepModel = str(get(raw, "model"))
     const matrixNode = get(raw, "matrix")
     let matrix: string | null = null
     let matrixField: StepCard["fields"]["matrix"] = null
     if (matrixNode !== undefined) {
-      const only = isMap(matrixNode) && matrixNode.items.length === 1 ? matrixNode.items[0] : undefined
-      if (only !== undefined && isSeq(only.value)) {
-        const values = only.value.items.map((v) => (isScalar(v) ? String(v.value) : sourceOf(text, v)))
-        matrix = `matrix · ${values.length}`
-        matrixField = { key: String(isScalar(only.key) ? only.key.value : sourceOf(text, only.key)), values }
+      const valid = matrixOf(matrixEntries(doc, matrixNode))
+      if (valid !== null) {
+        matrix = `matrix · ${valid.values.length}`
+        matrixField = valid
       } else {
         matrix = "matrix"
         matrixField = { source: sourceOf(text, matrixNode) }

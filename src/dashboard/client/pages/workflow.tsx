@@ -34,7 +34,7 @@ import {
   type Drawing,
   drawWorkflow,
   findPrompt,
-  isDefaultWorkflow,
+  isDefaultText,
   type Selection,
   selectionOf,
   type Shown,
@@ -275,7 +275,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   )
   const drawing = drawn !== null && "drawing" in drawn ? drawn.drawing : null
   // From the text, not the drawing: a default file that cannot be drawn still carries its badge.
-  const isDefault = useMemo(() => text !== null && isDefaultWorkflow(text), [text])
+  const isDefault = useMemo(() => text !== null && isDefaultText(text), [text])
 
   const [picker, setPicker] = useState<Picker | null>(null)
   const anchors = useMemo(() => text !== null && hasAnchors(text), [text])
