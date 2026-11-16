@@ -1,10 +1,10 @@
 import { cn } from "cn"
 import { ArrowDownIcon, ArrowUpIcon, CircleAlertIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react"
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react"
+import { type ReactNode, type Ref } from "react"
 
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
-import { OneLine } from "@/components/text"
+import { OneLine, useCut } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -33,17 +33,7 @@ export const toneTile = (tone: Tone): { variant: "soft" | "outline"; className?:
 
 /** A second row: at most two lines, the full text in a tooltip while it is cut. */
 function TwoLines({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const [cut, setCut] = useState(false)
-  useEffect(() => {
-    const node = ref.current
-    if (node === null) return
-    const measure = () => setCut(node.scrollHeight > node.clientHeight)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [text])
+  const [ref, cut] = useCut(text, "height")
   return (
     <Tooltip disabled={!cut}>
       <TooltipTrigger render={<span ref={ref} className="line-clamp-2 text-xs text-muted-foreground" />}>

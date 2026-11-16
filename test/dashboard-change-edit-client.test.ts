@@ -6,7 +6,6 @@ import {
   keptIds,
   leavesChange,
   linked,
-  moved,
   oneLine,
   prefixed,
   shortcutTip,
@@ -48,8 +47,6 @@ test("row ids are kept by position for the first min(old, new) tasks, the rest n
   expect(keptIds(["a", "b", "c"], 2, make)).toEqual(["a", "b"])
   expect(keptIds(["a", "b"], 4, make)).toEqual(["a", "b", "n1", "n2"])
   expect(keptIds([], 1, make)).toEqual(["n3"])
-  expect(moved(["a", "b", "c", "d"], 1, 3)).toEqual(["a", "c", "d", "b"])
-  expect(moved(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"])
 })
 
 test("a task row's name, a one-line description and the unsaved bar's title", () => {

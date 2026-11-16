@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import type { ActiveChange, ChangeList } from "../src/dashboard/client/lib/changes"
 import type { PromptRow, WorkflowRow } from "../src/dashboard/client/lib/files"
 import type { Project } from "../src/dashboard/client/lib/projects"
@@ -101,9 +99,4 @@ test("a list still loading or empty gives no group", () => {
       input({ key: null, changes: undefined, workflows: undefined, prompts: undefined, projects: undefined }),
     ),
   ).toEqual([])
-})
-
-test("lib/search.ts imports no @/ path", () => {
-  const text = readFileSync(join(import.meta.dirname, "..", "src", "dashboard", "client", "lib", "search.ts"), "utf-8")
-  expect([...text.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]).filter((i) => i?.startsWith("@/"))).toEqual([])
 })

@@ -13,6 +13,7 @@ import {
   VERSION,
 } from "../../../core/language-schema"
 import type { PromptRow } from "./files"
+import { isNull, node, sourceOf } from "./yaml-nodes"
 
 /** A line about step N (0-based), and whether it is about its on-fail. */
 const STEP_LINE = /^steps\[(\d+)\](\.on-fail(?![\w-]))?/
@@ -21,7 +22,7 @@ const STEP_LINE = /^steps\[(\d+)\](\.on-fail(?![\w-]))?/
 export type Shown = { prompt: string } | { source: string }
 
 /** The on-fail card of a step. */
-export type OnFailCard = {
+type OnFailCard = {
   /** The on-fail prompt's name, or the YAML source text naming the card. */
   name: string
   /** Whether `name` is YAML source text (shown in the code font). */
@@ -67,7 +68,7 @@ export type StepCard = {
 }
 
 /** A workflow input as the Workflow panel lists it. */
-export type InputField = { name: string; type: string; required: boolean; default: string | null; description: string }
+type InputField = { name: string; type: string; required: boolean; default: string | null; description: string }
 
 /** A workflow file drawn: its Inputs card, its steps, and its workflow-level fields. */
 export type Drawing = {
@@ -85,6 +86,14 @@ export type Drawing = {
 /** What a card selection names. */
 export type Selection = { kind: "inputs" } | { kind: "step"; index: number } | { kind: "on-fail"; index: number }
 
+/** Whether two selections name the same card. */
+export const sameSelection = (a: Selection | null, b: Selection | null): boolean =>
+  a === b ||
+  (a !== null &&
+    b !== null &&
+    a.kind === b.kind &&
+    (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
+
 /** The prompt of `name` in a workflow's context: its project's own when it has one, else the global one. */
 export function findPrompt(prompts: readonly PromptRow[], project: string | null, name: string): PromptRow | null {
   return (
@@ -95,22 +104,10 @@ export function findPrompt(prompts: readonly PromptRow[], project: string | null
 }
 
 /** Whether a line is the workflow's own: it starts neither with `steps[` nor with another file's prefix. */
-export const isWorkflowLine = (line: string): boolean => !line.startsWith("steps[") && !FILE_PREFIX.test(line)
+const isWorkflowLine = (line: string): boolean => !line.startsWith("steps[") && !FILE_PREFIX.test(line)
 
-/** The YAML source text of a node. */
-const sourceOf = (text: string, node: unknown): string => {
-  const range = (node as Node | null)?.range
-  return range === undefined || range === null ? String(node ?? "") : text.slice(range[0], range[1])
-}
-
-/** A map's value for `key`, as a node. */
-function get(map: YAMLMap, key: string): unknown {
-  const pair = map.items.find((p) => isScalar(p.key) && String(p.key.value) === key)
-  return pair === undefined ? undefined : (pair.value ?? null)
-}
-
-const has = (map: YAMLMap, key: string): boolean =>
-  map.items.some((p) => isScalar(p.key) && String(p.key.value) === key)
+/** A map's value for `key`, as a node: `null` for a key with no value, `undefined` when absent. */
+const get = (map: YAMLMap, key: string): unknown => (map.has(key) ? (node(map, key) ?? null) : undefined)
 
 /** A scalar node's value, `undefined` for anything else. */
 const scalar = (node: unknown): unknown => (isScalar(node) ? node.value : undefined)
@@ -137,7 +134,7 @@ const badgeOf = (runsOn: string | null, model: string | null): string | null =>
  * (a key-only pair included).
  */
 const runsOnInput = (doc: Document.Parsed, map: YAMLMap): unknown => {
-  if (!has(map, "runs-on")) return undefined
+  if (!map.has("runs-on")) return undefined
   const node = get(map, "runs-on")
   if (isScalar(node)) return node.value
   if (!isAlias(node)) return null
@@ -244,8 +241,8 @@ export function drawWorkflow(
   if (!isMap(root) || str(get(root, "version")) !== VERSION) return { reason: first ?? `version: must be ${VERSION}` }
   const stepsNode = get(root, "steps")
   // `steps:` with no value parses as a null scalar, not a missing value: it draws as empty steps.
-  const emptySteps = stepsNode === null || (isScalar(stepsNode) && stepsNode.value === null)
-  if (has(root, "steps") && !emptySteps && !isSeq(stepsNode))
+  const emptySteps = isNull(stepsNode)
+  if (root.has("steps") && !emptySteps && !isSeq(stepsNode))
     return { reason: first ?? "steps: must be a non-empty list" }
 
   const split = splitLines(lines)
@@ -316,7 +313,7 @@ export function drawWorkflow(
       if (ref !== null) {
         card = named(text, onFailNode, "No prompt")
         onFailShown = { prompt: ref }
-      } else if (isMap(onFailNode) && has(onFailNode, "uses")) {
+      } else if (isMap(onFailNode) && onFailNode.has("uses")) {
         card = named(text, get(onFailNode, "uses"), "No prompt")
         onFailWith = withOf(text, get(onFailNode, "with"))
         onFailModel = str(get(onFailNode, "model"))

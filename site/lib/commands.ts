@@ -1,16 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { frontmatter } from 'fumadocs-core/content/md/frontmatter';
 
 // Paths are relative to site/, where `next build` runs.
 const commandsDir = join(process.cwd(), '..', 'plugin', 'commands');
 const docsDir = join(process.cwd(), 'content', 'docs', 'commands');
 
 function frontmatterDescription(path: string): string {
-  const match = /^---\n[\s\S]*?^description: (.+)$[\s\S]*?^---$/m.exec(readFileSync(path, 'utf-8'));
-  if (!match) throw new Error(`${path} has no frontmatter description`);
-  const value = match[1].trim();
-  // A double-quoted value (needed when the text holds `: `) is unquoted as YAML does.
-  return value.startsWith('"') ? (JSON.parse(value) as string) : value;
+  const { data } = frontmatter(readFileSync(path, 'utf-8'));
+  const description = (data as { description?: unknown }).description;
+  if (typeof description !== 'string') throw new Error(`${path} has no frontmatter description`);
+  return description;
 }
 
 /**

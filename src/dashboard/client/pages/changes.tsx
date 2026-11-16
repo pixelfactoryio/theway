@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, type ReactNode } from "react"
 import { Redirect, useRoute } from "wouter"
 
 import { overviewPath } from "@/lib/projects"
@@ -52,8 +52,11 @@ export function HomeRoute() {
   return <Redirect to={overviewPath(current)} replace />
 }
 
-/** `#/<key>`: a listed key's Overview; an unknown key goes to `#/` with `replace`. */
-export function OverviewRoute({ routeKey }: { routeKey: string }) {
+/**
+ * The gate of a project's route: `ProjectsGate` until the projects are known, the no-project page with none, `#/` with
+ * `replace` for a key not listed; `null` once the key is listed, which is kept as the last chosen project.
+ */
+function useListedGate(routeKey: string, label: string): ReactNode {
   const projects = useProjects()
   const listed = projects.data?.projects.some((p) => p.key === routeKey) === true
 
@@ -61,9 +64,16 @@ export function OverviewRoute({ routeKey }: { routeKey: string }) {
     if (listed) storeProject(routeKey)
   }, [listed, routeKey])
 
-  if (projects.data === undefined) return <ProjectsGate label="Overview" />
+  if (projects.data === undefined) return <ProjectsGate label={label} />
   if (projects.data.projects.length === 0) return <NoProjectPage />
   if (!listed) return <Redirect to="/?" replace />
+  return null
+}
+
+/** `#/<key>`: a listed key's Overview; an unknown key goes to `#/` with `replace`. */
+export function OverviewRoute({ routeKey }: { routeKey: string }) {
+  const gate = useListedGate(routeKey, "Overview")
+  if (gate !== null) return gate
   return <OverviewPage projectKey={routeKey} />
 }
 
@@ -72,18 +82,10 @@ export function OverviewRoute({ routeKey }: { routeKey: string }) {
  * `…/<id>[/<tab>]`); an unknown key goes to `#/` with `replace`.
  */
 export function ChangesRoute({ routeKey }: { routeKey: string }) {
-  const projects = useProjects()
+  const gate = useListedGate(routeKey, "Changes")
   const [archived, a] = useRoute<{ dir: string; tab?: string }>("/:key/changes/archive/:dir/:tab?")
   const [active, c] = useRoute<{ id: string; tab?: string }>("/:key/changes/:id/:tab?")
-  const listed = projects.data?.projects.some((p) => p.key === routeKey) === true
-
-  useEffect(() => {
-    if (listed) storeProject(routeKey)
-  }, [listed, routeKey])
-
-  if (projects.data === undefined) return <ProjectsGate label="Changes" />
-  if (projects.data.projects.length === 0) return <NoProjectPage />
-  if (!listed) return <Redirect to="/?" replace />
+  if (gate !== null) return gate
   if (archived) return <ChangePage key={`${routeKey}/archive/${a.dir}`} projectKey={routeKey} dir={a.dir} tab={a.tab} />
   if (active) return <ChangePage key={`${routeKey}/${c.id}`} projectKey={routeKey} id={c.id} tab={c.tab} />
   return <ChangesPage projectKey={routeKey} />

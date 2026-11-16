@@ -5,7 +5,7 @@
  * one it has (a reload) or takes 0, an entry the app pushes takes the current one plus 1, a replace keeps it. A held
  * Back or Forward is undone by `history.go` over the distance between two positions, so no entry is rewritten.
  */
-export type PositionState = { position: number }
+type PositionState = { position: number }
 
 /** The position an entry's `history.state` holds, `null` for an entry the app has not marked yet. */
 export function positionOf(state: unknown): number | null {
@@ -44,7 +44,7 @@ export type Moving = { kind: "undo" } | { kind: "pass"; to: number } | null
  * - `ask`: one that leaves a page with unsaved changes: undone by `history.go(acceptedPosition - position)`, then
  *   asked; leaving goes `history.go(position - acceptedPosition)`.
  */
-export type LocationAction = "own" | "seen" | "returned" | "accept" | "ask"
+type LocationAction = "own" | "seen" | "returned" | "accept" | "ask"
 
 export function locationAction(event: {
   own: boolean

@@ -7,6 +7,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { type PanelPage, panelToggleLabel } from "@/lib/panel"
+import { readStored, writeStored } from "@/shell/storage"
 
 /** The `localStorage` key of the docked panel's hidden state: `hidden`, removed when shown. */
 const PANEL_KEY = "theway-panel"
@@ -16,22 +17,9 @@ const LAYOUT_ID = "theway-record-panel"
 
 const WIDE = "(min-width: 1024px)"
 
-function readHidden(): boolean {
-  try {
-    return localStorage.getItem(PANEL_KEY) === "hidden"
-  } catch {
-    return false
-  }
-}
+const readHidden = (): boolean => readStored(PANEL_KEY) === "hidden"
 
-function writeHidden(hidden: boolean): void {
-  try {
-    if (hidden) localStorage.setItem(PANEL_KEY, "hidden")
-    else localStorage.removeItem(PANEL_KEY)
-  } catch {
-    // The state still applies to this page.
-  }
-}
+const writeHidden = (hidden: boolean): void => writeStored(PANEL_KEY, hidden ? "hidden" : null)
 
 const subscribeWide = (onChange: () => void): (() => void) => {
   const query = window.matchMedia(WIDE)
@@ -40,7 +28,7 @@ const subscribeWide = (onChange: () => void): (() => void) => {
 }
 
 /** Whether the window is 1024px wide or wider, where the panel is docked. */
-export function useWide(): boolean {
+function useWide(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches)
 }
 

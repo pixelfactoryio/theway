@@ -25,7 +25,7 @@ function inputLine(line: string, inputs: readonly string[]): { name: string; res
   return at === -1 ? null : { name: tail.slice(0, at), rest: tail.slice(at + 2) }
 }
 
-/** Where `line` is shown, by the first row of the spec's table that matches it. */
+/** Where `line` is shown: the first rule below that matches it. */
 export function placeLine(line: string, inputs: readonly string[] = []): Place {
   const m = STEP.exec(line)
   if (m !== null) {

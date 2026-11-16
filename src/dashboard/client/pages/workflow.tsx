@@ -12,6 +12,7 @@ import {
   LinesAlert,
   PanelRow,
   SavedStatus,
+  STRIP,
   UnknownFile,
 } from "@/components/file-page"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
@@ -35,6 +36,7 @@ import {
   drawWorkflow,
   findPrompt,
   isDefaultText,
+  sameSelection,
   type Selection,
   selectionOf,
   type Shown,
@@ -202,16 +204,6 @@ function keptSelection(selection: Selection | null, drawing: Drawing | null): Se
   if (selection.kind === "on-fail" && step.onFail === null) return { kind: "step", index: selection.index }
   return selection
 }
-
-const sameSelection = (a: Selection | null, b: Selection | null): boolean =>
-  a === b ||
-  (a !== null &&
-    b !== null &&
-    a.kind === b.kind &&
-    (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
-
-/** A full-width strip under the tabs: no rounding, the bottom border only. */
-const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
 
 /** In place of the canvas when the file cannot be drawn. */
 function CannotDraw({ reason, openYaml }: { reason: string; openYaml: () => void }) {

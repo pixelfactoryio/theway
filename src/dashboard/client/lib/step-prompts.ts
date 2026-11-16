@@ -1,15 +1,16 @@
 /** The step prompts the step picker and the on-fail select offer. Pure: no React, no DOM. */
+import { byText } from "../../../core/text"
 import { fileMatches, type PromptRow } from "./files"
 
 // ---------------------------------------------------------------------------------------------------------------------
 // The step picker
 
 /** The step prompts of a workflow's context: the project's own, and the global ones no project prompt hides. */
-export function contextPrompts(
+function contextPrompts(
   prompts: readonly PromptRow[],
   project: string | null,
 ): { own: PromptRow[]; global: PromptRow[] } {
-  const byName = (a: PromptRow, b: PromptRow) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+  const byName = (a: PromptRow, b: PromptRow) => byText(a.name, b.name)
   const steps = prompts.filter((p) => p.header)
   const own = project === null ? [] : steps.filter((p) => p.project === project).sort(byName)
   // Every project prompt hides the global one of its name, step prompt or not: `prompts/<name>.md` resolves to it.

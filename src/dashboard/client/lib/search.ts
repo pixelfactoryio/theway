@@ -2,13 +2,13 @@
 
 import type { ChangeList } from "./changes"
 import { appliesTo, filePath, type PromptRow, type WorkflowRow } from "./files"
-import { byLabel, overviewPath, type Project } from "./projects"
+import { byLabel, changePath, overviewPath, type Project } from "./projects"
 
 /** One entry: its cmdk `value` (unique), the text shown, the text beside it, and the page it opens. */
 export type SearchEntry = { value: string; label: string; detail: string; href: string }
 
 /** A group of entries under its heading. */
-export type SearchGroup = { heading: string; entries: SearchEntry[] }
+type SearchGroup = { heading: string; entries: SearchEntry[] }
 
 /**
  * What the search lists: the current project's key (`null`: no Changes group), the lists loaded so far (`undefined`
@@ -48,7 +48,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
             value: `change:${c.id}`,
             label: c.id,
             detail: c.description ?? "",
-            href: `/${key}/changes/${c.id}?`,
+            href: changePath(key, c.id),
           })),
           ...changes.archived.map((a) => ({
             value: `archived:${a.dir}`,

@@ -23,7 +23,10 @@ export function unexpectedAnswer(path: string, error: z.ZodError): string {
  * A write's answer: its status, the 200 body parsed with the write's schema (`null` otherwise) and `error`: for a 200,
  * `""` or the parse failure; else the answer's `error`, `""` without one, or `NO_ANSWER` without a JSON answer.
  */
-export type Sent<T> = { status: number; body: T | null; error: string }
+type Sent<T> = { status: number; body: T | null; error: string }
+
+/** A failed write's text: its `error`, else its status. */
+export const failureOf = (res: Sent<unknown>): string => (res.error !== "" ? res.error : `${res.status}`)
 
 /** Sends `body` as JSON with this page's Origin and token, and parses a 200 with `schema`; a failed request answers status 0. */
 export async function sendJson<S extends z.ZodType>(

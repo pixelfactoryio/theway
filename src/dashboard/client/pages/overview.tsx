@@ -18,7 +18,7 @@ import {
   STATUS_LABEL,
   statusCounts,
 } from "@/lib/changes"
-import { changesPath } from "@/lib/projects"
+import { changePath, changesPath } from "@/lib/projects"
 import { NoChange } from "@/pages/changes-list"
 import { useChanges } from "@/shell/changes"
 import { LoadError } from "@/shell/load-error"
@@ -132,7 +132,7 @@ function ActionRow({
   row: ActiveRow
   active: readonly ActiveChange[]
 }) {
-  const href = row.kind === "change" ? `/${projectKey}/changes/${row.id}?` : `/${projectKey}/changes?q=${row.id}`
+  const href = row.kind === "change" ? changePath(projectKey, row.id) : `/${projectKey}/changes?q=${row.id}`
   const command = nextCommand(row, active)
   return (
     <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-4">

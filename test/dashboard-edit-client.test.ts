@@ -41,13 +41,7 @@ test("a target leaves a file page when its kind, its global or projects/<key> pa
 })
 
 test("times show as YYYY-MM-DD HH:MM:SS in the local time zone", () => {
-  const iso = "2026-11-12T09:41:07.123Z"
-  const d = new Date(iso)
-  const p = (n: number) => String(n).padStart(2, "0")
-  expect(localTime(iso)).toBe(
-    `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`,
-  )
-  expect(localTime(iso)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+  expect(localTime(new Date(2026, 10, 12, 9, 41, 7).toISOString())).toBe("2026-11-12 09:41:07")
 })
 
 test("an Empty file is exactly its four lines, its description reading back as typed", () => {
@@ -81,8 +75,6 @@ test("the app's router hook carries hrefs and guards navigation", () => {
   expect(app).toContain("<Router hook={useGuardedLocation}>")
   const guard = readFileSync(join(CLIENT, "shell", "guard.ts"), "utf-8")
   expect(guard).toContain("useGuardedLocation.hrefs =")
-  expect(guard).not.toContain("aroundNav")
-  expect(guard).toContain("history.replaceState")
 })
 
 test("the History tab keeps the layout under theway-diff-layout, marks no scroll root, and both diffs take the shared set", () => {

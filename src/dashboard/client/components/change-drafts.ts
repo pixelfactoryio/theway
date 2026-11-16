@@ -1,8 +1,9 @@
-import { EditorState, type Extension, type Text } from "@codemirror/state"
+import { EditorState, type Text } from "@codemirror/state"
 
 import { type CodeLanguage, DraftStore, editableExtensions } from "@/components/code-view"
+import { formattingKeymap } from "@/components/markdown-editor"
 import { lineSeparatorOf, SavedSchema } from "@/lib/files"
-import { sendJson } from "@/shell/api"
+import { failureOf, sendJson } from "@/shell/api"
 
 /** One file of a change as the page loaded it, or last saved it. */
 export type Loaded = { text: string; version: string }
@@ -39,8 +40,6 @@ export class ChangeDrafts {
   constructor(
     /** `/api/projects/<key>/changes/<id>`. */
     private readonly api: string,
-    /** The extensions a file's state holds beside the editable set: the Markdown formatting keys. */
-    private readonly extra: (name: string) => Extension[],
   ) {}
 
   subscribe = (l: () => void): (() => void) => {
@@ -55,13 +54,16 @@ export class ChangeDrafts {
     for (const l of this.listeners) l()
   }
 
-  /** A new state of `text` for the file `name`, with an empty undo history and the file's line separator. */
+  /**
+   * A new state of `text` for the file `name`, with an empty undo history and the file's line separator; a Markdown
+   * file's state also holds the formatting keys.
+   */
   stateOf(name: string, text: string): EditorState {
     return EditorState.create({
       doc: text,
       extensions: [
         ...editableExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }),
-        ...this.extra(name),
+        ...(languageOf(name) === "markdown" ? [formattingKeymap] : []),
       ],
     })
   }
@@ -147,7 +149,7 @@ export class ChangeDrafts {
       return true
     }
     if (res.status === 409) this.update(name, { saving: false, conflict: true })
-    else this.update(name, { saving: false, saveFailure: res.error !== "" ? res.error : `${res.status}` })
+    else this.update(name, { saving: false, saveFailure: failureOf(res) })
     return false
   }
 

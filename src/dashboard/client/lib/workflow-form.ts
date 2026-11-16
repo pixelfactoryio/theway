@@ -1,9 +1,9 @@
 /** What the workflow page's panels read from a workflow's text, and the values their selects offer. Pure: no React, no DOM. */
-import { isMap, isScalar, isSeq, type Node, type Pair, parseDocument, type YAMLMap } from "yaml"
+import { isMap, isScalar, isSeq, type Pair, parseDocument, type YAMLMap } from "yaml"
 import { promptRef, type RunsOn } from "../../../core/language-schema"
 import type { PromptRow } from "./files"
 import { findPrompt } from "./workflow"
-import { isNull, keyOf, node } from "./yaml-nodes"
+import { isNull, keyOf, node, sourceOf } from "./yaml-nodes"
 
 /** The places a step runs, in the order the selects offer them. */
 export const RUNS_ON_ORDER = ["session", "agents"] as const satisfies readonly RunsOn[]
@@ -13,12 +13,6 @@ export const RUNS_ON_ORDER = ["session", "agents"] as const satisfies readonly R
 
 /** A text control's value: its text, or `null` when the control cannot show it (disabled, written by nothing). */
 export type TextValue = string | null
-
-/** The YAML source text of a node. */
-function sourceOf(text: string, node: unknown): string {
-  const range = (node as Node | null)?.range
-  return range === undefined || range === null ? String(node ?? "") : text.slice(range[0], range[1])
-}
 
 /** A select's value: `null` when absent, else the value as written (a scalar's text, or the node's source). */
 function selectValue(text: string, node: unknown, present: boolean): string | null {
@@ -67,7 +61,7 @@ function matrixForm(step: YAMLMap): MatrixForm {
 }
 
 /** The on-fail as the form shows it. */
-export type OnFailForm = {
+type OnFailForm = {
   /** The prompt name its `uses` names, else the value as written (an invalid option), `""` for a map with no `uses`. */
   value: string
   /** The prompt it names, found in the workflow's context; `null` when none is. */
@@ -77,7 +71,7 @@ export type OnFailForm = {
 }
 
 /** A step as the step panel shows it. */
-export type StepForm =
+type StepForm =
   | { valid: false }
   | {
       valid: true
@@ -174,7 +168,7 @@ export type InputForm = {
 }
 
 /** The workflow's own keys as the workflow panel shows them. */
-export type WorkflowForm = {
+type WorkflowForm = {
   description: TextValue
   runsOn: string | null
   /** `null`: a value the switch cannot show. */

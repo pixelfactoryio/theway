@@ -18,16 +18,13 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ArrowHead, Card, Connector, Placeholder, StepMenu } from "@/components/workflow-card"
-import { type Drawing, fitScale, hasOnFail, percent, type Selection, zoomStep } from "@/lib/workflow"
+import { type Drawing, fitScale, hasOnFail, percent, sameSelection, type Selection, zoomStep } from "@/lib/workflow"
 
 /** The rem in pixels, for the narrow-surface rule. */
 const REM = 16
 
 /** Room kept around a card panned into view: 16px from the top, left and right, 72px from the bottom (the toolbar). */
 const KEEP = { top: 16, left: 16, right: 16, bottom: 72 }
-
-const same = (a: Selection | null, b: Selection): boolean =>
-  a !== null && a.kind === b.kind && (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index))
 
 /** The Undo and Redo buttons: they act on the draft's state through its dispatch, and update on every transaction. */
 function HistoryButtons({ store }: { store: DraftStore }) {
@@ -248,7 +245,7 @@ export function WorkflowCanvas({
               second={drawing.inputs.length === 0 ? "No input" : drawing.inputs.join(", ")}
               third={[]}
               errors={drawing.errors.length}
-              selected={same(selection, { kind: "inputs" })}
+              selected={sameSelection(selection, { kind: "inputs" })}
               port
               onSelect={() => onSelect({ kind: "inputs" })}
               onFocusCard={reveal}
@@ -279,7 +276,7 @@ export function WorkflowCanvas({
                         : []
                     }
                     errors={step.errors.length}
-                    selected={same(selection, { kind: "step", index: step.index })}
+                    selected={sameSelection(selection, { kind: "step", index: step.index })}
                     port
                     menu={
                       edits === null ? null : (
@@ -314,7 +311,7 @@ export function WorkflowCanvas({
                         second={step.onFail.description ?? "No description"}
                         third={[]}
                         errors={step.onFail.errors.length}
-                        selected={same(selection, { kind: "on-fail", index: step.index })}
+                        selected={sameSelection(selection, { kind: "on-fail", index: step.index })}
                         port={false}
                         onSelect={() => onSelect({ kind: "on-fail", index: step.index })}
                         onFocusCard={reveal}

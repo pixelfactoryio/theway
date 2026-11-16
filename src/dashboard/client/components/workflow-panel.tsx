@@ -172,9 +172,7 @@ export function WorkflowEditPanel({
     if (["description", "runs-on", "default"].includes(field)) return true
     const m = /^inputs\.(.+?)(?:\.(description|required|default|type))?$/.exec(field)
     if (m === null) return false
-    const key = m[2]
-    const name = key === undefined ? field.slice("inputs.".length) : (m[1] as string)
-    return names.includes(name)
+    return names.includes(m[1] as string)
   }
   const { fields, alert } = byField(places, shown)
   const id = (k: string) => `${uid}-${k}`

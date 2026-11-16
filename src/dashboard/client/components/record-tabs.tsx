@@ -5,7 +5,7 @@ import { useLocation } from "wouter"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /** One tab of a record page: a route. */
-export type RecordTab = { value: string; label: ReactNode; href: string }
+type RecordTab = { value: string; label: ReactNode; href: string }
 
 /**
  * The tabs row of a record page: line tabs, each a route, then the page's right part. With `column`, the row sits in

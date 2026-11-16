@@ -32,27 +32,16 @@ import { lineCounts, localTime } from "@/lib/edit"
 import { fileApi, VersionListSchema, VersionTextSchema } from "@/lib/files"
 import { LoadError } from "@/shell/load-error"
 import { getJson } from "@/shell/projects"
+import { readStored, writeStored } from "@/shell/storage"
 
 type Layout = "unified" | "split"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
 const LAYOUT_KEY = "theway-diff-layout"
 
-function readLayout(): Layout {
-  try {
-    return localStorage.getItem(LAYOUT_KEY) === "split" ? "split" : "unified"
-  } catch {
-    return "unified"
-  }
-}
+const readLayout = (): Layout => (readStored(LAYOUT_KEY) === "split" ? "split" : "unified")
 
-function writeLayout(layout: Layout): void {
-  try {
-    localStorage.setItem(LAYOUT_KEY, layout)
-  } catch {
-    // The choice still applies to this page.
-  }
-}
+const writeLayout = (layout: Layout): void => writeStored(LAYOUT_KEY, layout)
 
 /** The versions panel's selection: Current, or a version's id. */
 const CURRENT = "current"

@@ -1,5 +1,6 @@
 import { isolateHistory, undo } from "@codemirror/commands"
 import type { Text } from "@codemirror/state"
+import { arrayMove } from "@dnd-kit/sortable"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   CheckIcon,
@@ -38,23 +39,20 @@ import { ChangeDrafts, type Loaded } from "@/components/change-drafts"
 import { type DescriptionEdit, Header, IssuesAlert, TabLabel, TaskCount } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { type AlertLine, ErrorStrip, SavedStatus } from "@/components/file-page"
+import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
-import { formattingKeymap, MarkdownEditor } from "@/components/markdown-editor"
+import { MarkdownEditor } from "@/components/markdown-editor"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { RecordTabs } from "@/components/record-tabs"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { keptIds, leavesChange, moved, oneLine, taskBox, taskBoxColumn, unsavedTitle } from "@/lib/change-edit"
+import { keptIds, leavesChange, oneLine, taskBox, taskBoxColumn, unsavedTitle } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
-import { setLeaveGuard } from "@/shell/guard"
+import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
-
-/** A full-width strip under the tabs: no rounding, the bottom border only. */
-const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
 function loadedFiles(data: ChangeDetail): ({ name: string } & Loaded)[] {
@@ -112,7 +110,7 @@ export function ActiveChange({
   const [, navigate] = useLocation()
   const api = `/api/projects/${projectKey}/changes/${data.id}`
   const base = `/${projectKey}/changes/${data.id}`
-  const [drafts] = useState(() => new ChangeDrafts(api, (name) => (name === CHANGE_FILE ? [] : [formattingKeymap])))
+  const [drafts] = useState(() => new ChangeDrafts(api))
   const files = useMemo(() => loadedFiles(data), [data])
   if (drafts.drafts.size === 0 && files.length > 0) drafts.sync(files)
   useEffect(() => drafts.sync(files), [drafts, files])
@@ -276,7 +274,7 @@ export function ActiveChange({
 
   const actions: TaskListActions = {
     toggle: (index, done) => void runEdit({ kind: "done", index, done }),
-    move: (from, to) => void runEdit({ kind: "move", from, to }, (list) => moved(list, from, to)),
+    move: (from, to) => void runEdit({ kind: "move", from, to }, (list) => arrayMove(list, from, to)),
     remove: (index) => {
       if (runEdit({ kind: "remove", index }, (list) => list.filter((_, i) => i !== index)) && yaml !== null) {
         setUndoNote({ n: index + 1, doc: yaml.store.state.doc })
@@ -384,16 +382,7 @@ export function ActiveChange({
       }),
     [projectKey, data.id, anyDirty, fieldDiffers],
   )
-  const pending = anyDirty() || differs(field, tasks, description, ids)
-  useEffect(() => {
-    if (!pending) return
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-      event.returnValue = ""
-    }
-    addEventListener("beforeunload", onBeforeUnload)
-    return () => removeEventListener("beforeunload", onBeforeUnload)
-  }, [pending])
+  useBeforeUnload(anyDirty() || differs(field, tasks, description, ids))
 
   /** A Markdown checkbox of the reading view: the `[ ]` or `[x]` of its source line in the file's draft. */
   const toggleBox = (file: string) => (line: number, checked: boolean) => {

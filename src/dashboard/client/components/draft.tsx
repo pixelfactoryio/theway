@@ -2,20 +2,12 @@ import { useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
+import { ChangeDialogs, type Confirm } from "@/components/change-dialogs"
 import { type CodeLanguage, DraftStore, draftState } from "@/components/code-view"
-import { type AlertLine, ErrorStrip } from "@/components/file-page"
+import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { leavesPage, saveWithErrors } from "@/lib/edit"
+import { leavesPage } from "@/lib/edit"
 import {
   type CheckBody,
   CheckBodySchema,
@@ -26,8 +18,8 @@ import {
   type PromptRow,
   SavedSchema,
 } from "@/lib/files"
-import { sendJson } from "@/shell/api"
-import { setLeaveGuard } from "@/shell/guard"
+import { failureOf, sendJson } from "@/shell/api"
+import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
 
 /** The header fields a check answers for a prompt, as a row of `GET /api/prompts` gives them. */
@@ -40,13 +32,6 @@ type Outcome = { ok: true; errors: FileError[]; header: HeaderFields | null } | 
 
 /** What the page loaded, or last saved: the file's text, its version and the lines of that text. */
 type Loaded = { text: string; version: string; result: CheckResult }
-
-/** The confirmation open on the page. */
-type Confirm =
-  | { kind: "discard" }
-  | { kind: "reload" }
-  | { kind: "errors"; n: number; answer: (yes: boolean) => void }
-  | { kind: "leave"; proceed: () => void }
 
 /** How long after the last edit the draft is checked. */
 const CHECK_DELAY = 400
@@ -159,7 +144,7 @@ export function useFileDraft({
         (r): Outcome =>
           r.status === 200 && r.body !== null
             ? { ok: true, errors: r.body.errors, header: kind === "prompts" ? headerOf(r.body) : null }
-            : { ok: false, error: r.error !== "" ? r.error : `${r.status}` },
+            : { ok: false, error: failureOf(r) },
       )
       inFlight.current.set(checked, p)
       void p.then((outcome) => {
@@ -229,7 +214,7 @@ export function useFileDraft({
         return true
       }
       if (res.status === 409) setConflict(true)
-      else setSaveFailure(res.error !== "" ? res.error : `${res.status}`)
+      else setSaveFailure(failureOf(res))
       return false
     },
     [api, runCheck, invalidate],
@@ -300,7 +285,7 @@ export function useFileDraft({
         return true
       }
       if (res.status === 409) setConflict(true)
-      else setSaveFailure(res.error !== "" ? res.error : `${res.status}`)
+      else setSaveFailure(failureOf(res))
       return false
     },
     [api, doReload, invalidate],
@@ -316,15 +301,7 @@ export function useFileDraft({
       }),
     [kind, project, name],
   )
-  useEffect(() => {
-    if (!dirty) return
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-      event.returnValue = ""
-    }
-    addEventListener("beforeunload", onBeforeUnload)
-    return () => removeEventListener("beforeunload", onBeforeUnload)
-  }, [dirty])
+  useBeforeUnload(dirty)
 
   return {
     store,
@@ -343,18 +320,15 @@ export function useFileDraft({
     /** A save is running. */
     saving,
     save,
-    discard: () => setConfirm({ kind: "discard" }),
+    discard: () => setConfirm({ kind: "discard", name }),
     doDiscard,
-    reload: () => (refs.current.dirty ? setConfirm({ kind: "reload" }) : void doReload()),
+    reload: () => (refs.current.dirty ? setConfirm({ kind: "reload", name }) : void doReload()),
     doReload,
     restore,
   }
 }
 
 export type FileDraft = ReturnType<typeof useFileDraft>
-
-/** A full-width strip under the tabs: no rounding, the bottom border only. */
-const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
 
 /**
  * The stack under the tabs, from the top: the conflict, the save failure, the unsaved bar, then the check failure or
@@ -418,79 +392,20 @@ export function DraftNotices({
 
 /** The page's confirmations: Discard, Save with errors, Reload and leaving the page. */
 export function DraftDialogs({ draft }: { draft: FileDraft }) {
-  const { confirm, setConfirm } = draft
-  const close = () => {
-    if (confirm?.kind === "errors") confirm.answer(false)
-    setConfirm(null)
-  }
   return (
-    <AlertDialog open={confirm !== null} onOpenChange={(open) => (open ? undefined : close())}>
-      <AlertDialogContent>
-        {confirm?.kind === "discard" || confirm?.kind === "reload" ? (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirm(null)
-                  if (confirm.kind === "discard") draft.doDiscard()
-                  else void draft.doReload()
-                }}
-              >
-                {confirm.kind === "discard" ? "Discard" : "Reload"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </>
-        ) : confirm?.kind === "errors" ? (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{saveWithErrors(confirm.n)}</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  confirm.answer(true)
-                  setConfirm(null)
-                }}
-              >
-                Save anyway
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </>
-        ) : confirm?.kind === "leave" ? (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setConfirm(null)
-                  confirm.proceed()
-                }}
-              >
-                Discard
-              </Button>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirm(null)
-                  void draft.save(false).then((ok) => {
-                    if (ok) confirm.proceed()
-                  })
-                }}
-              >
-                Save
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </>
-        ) : null}
-      </AlertDialogContent>
-    </AlertDialog>
+    <ChangeDialogs
+      confirm={draft.confirm}
+      setConfirm={draft.setConfirm}
+      onDiscard={draft.doDiscard}
+      onReload={() => void draft.doReload()}
+      onDoneSave={async () => undefined}
+      onDoneDiscard={() => undefined}
+      onLeaveSave={(proceed) => {
+        draft.setConfirm(null)
+        void draft.save(false).then((ok) => {
+          if (ok) proceed()
+        })
+      }}
+    />
   )
 }

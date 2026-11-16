@@ -16,10 +16,6 @@ export class ScrollMemory {
     this.offsets.set(address, top)
   }
 
-  kept(address: string): number | undefined {
-    return this.offsets.get(address)
-  }
-
   navigate(address: string, traversal: boolean): void {
     this.pending = traversal ? { address, top: this.offsets.get(address) ?? 0 } : null
   }

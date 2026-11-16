@@ -298,8 +298,7 @@ export function StepEditPanel({
               value={form.tries === "bad" ? null : form.tries}
               disabled={form.tries === "bad"}
               onValueChange={(v) => {
-                if (v === null) write((t) => setTries(t, index, null))
-                else if (Number.isInteger(v) && v >= 1 && v <= 10) write((t) => setTries(t, index, v))
+                write((t) => setTries(t, index, v))
               }}
             >
               <NumberFieldGroup aria-invalid={fields.has("tries") || undefined}>

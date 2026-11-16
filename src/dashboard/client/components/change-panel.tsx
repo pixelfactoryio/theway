@@ -1,21 +1,13 @@
-import type { ReactNode } from "react"
 import { Link } from "wouter"
 
+import { PanelRow } from "@/components/file-page"
 import { StatusIcon } from "@/components/status"
 import { CopyField, OneLine, TaskText } from "@/components/text"
-import { type ChangeDetail, nextTask, runCommand, type SeriesMember } from "@/lib/changes"
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  )
-}
+import { type ChangeDetail, memberOf, nextTask, runCommand, type SeriesMember } from "@/lib/changes"
+import { changePath } from "@/lib/projects"
 
 const memberHref = (key: string, m: { active: string | null; archived: string | null }): string =>
-  m.active !== null ? `/${key}/changes/${m.active}?` : `/${key}/changes/archive/${m.archived}?`
+  m.active !== null ? changePath(key, m.active) : `/${key}/changes/archive/${m.archived}?`
 
 /** One ordinal of the series list; the current change's row shows the current change itself. */
 function SeriesRow({
@@ -76,12 +68,12 @@ export function ChangePanel({ projectKey, change }: { projectKey: string; change
   const invalid = change.status === "invalid"
   const next = nextTask(change.tasks)
   const run = runCommand(change)
-  const ordinal = /-(\d{2})$/.exec(change.id)?.[1]
+  const ordinal = memberOf(change.id)?.ordinal
   return (
     <div className="flex flex-col gap-4 p-4">
       <dl className="flex flex-col gap-4">
         {!archived && !invalid ? (
-          <Row label="Next task">
+          <PanelRow label="Next task">
             {next === null ? (
               "All tasks are done."
             ) : (
@@ -92,15 +84,15 @@ export function ChangePanel({ projectKey, change }: { projectKey: string; change
                 </span>
               </div>
             )}
-          </Row>
+          </PanelRow>
         ) : null}
         {!archived ? (
-          <Row label="Run">
+          <PanelRow label="Run">
             <CopyField value={run.command} name={run.name} />
-          </Row>
+          </PanelRow>
         ) : null}
         {change.series !== null ? (
-          <Row label="Series">
+          <PanelRow label="Series">
             <ol className="-mx-2 flex flex-col">
               {change.series.members.map((m) => (
                 <SeriesRow
@@ -111,16 +103,16 @@ export function ChangePanel({ projectKey, change }: { projectKey: string; change
                 />
               ))}
             </ol>
-          </Row>
+          </PanelRow>
         ) : null}
         {archived ? (
-          <Row label="Archived">
+          <PanelRow label="Archived">
             <span className="tabular-nums">{change.archived}</span>
-          </Row>
+          </PanelRow>
         ) : null}
-        <Row label="Folder">
+        <PanelRow label="Folder">
           <CopyField value={change.folder} name="the folder path" />
-        </Row>
+        </PanelRow>
       </dl>
     </div>
   )

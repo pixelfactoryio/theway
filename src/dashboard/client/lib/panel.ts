@@ -4,7 +4,7 @@
 export type PanelPage = "change" | "prompt" | "workflow" | "history"
 
 /** The word each page's toggle names its panel by. */
-export const PANEL_WORD: Record<PanelPage, string> = {
+const PANEL_WORD: Record<PanelPage, string> = {
   change: "details",
   prompt: "details",
   workflow: "settings",
