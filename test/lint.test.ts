@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"
 import { checkChange } from "../src/core/change"
@@ -848,6 +849,56 @@ test("run-pipeline.js is a plugin workflow that knows no prompt, step or workflo
   expect(text).toStartWith("export const meta = {\n  name: 'run-pipeline',\n")
   for (const name of ["branch", "implement", "triage", "open-pr", "fix-ci", "develop", "engineering"])
     expect(text).not.toContain(name)
+})
+
+test("every shipped workflow's --compact document passes run-pipeline's args check", async () => {
+  const home = mkdtempSync(join(tmpdir(), "theway-contract-"))
+  try {
+    for (const folder of ["workflows", "prompts"])
+      cpSync(join(PLUGIN, "home", folder), join(home, folder), { recursive: true })
+    // Answers pass() to every label, with a fresh one-item queue on each access.
+    const script = new Proxy({}, { get: () => [pass()] }) as Record<string, unknown[]>
+    const segments: Record<string, number[][]> = {}
+    for (const [name, input] of [
+      ["agents", "change"],
+      ["engineering", "request"],
+      ["engineering-light", "request"],
+      ["develop", "change"],
+    ]) {
+      const res = spawnSync(
+        "node",
+        [join(REPO, "dist", "theway.js"), "workflow", name, "--input", `${input}=x`, "--compact"],
+        {
+          cwd: REPO,
+          encoding: "utf-8",
+          env: { ...process.env, THEWAY_HOME: home },
+        },
+      )
+      expect([name, res.status]).toEqual([name, 0])
+      const doc = JSON.parse(res.stdout) as Resolved
+      // Each maximal run of consecutive agent steps is one segment.
+      const runs: number[][] = []
+      doc.steps.forEach((s, i) => {
+        if (s.runs_on !== "agents") return
+        const last = runs.at(-1)
+        if (last !== undefined && last.at(-1) === i - 1) last.push(i)
+        else runs.push([i])
+      })
+      segments[name] = runs
+      for (const steps of runs) {
+        const { result } = await drive(engineArgs(doc, steps), script)
+        expect([name, steps, result.error === ARGS_ERROR, result.status]).toEqual([name, steps, false, "succeeded"])
+      }
+    }
+    expect(segments).toEqual({
+      agents: [[1, 2, 3, 4, 5]],
+      engineering: [[1, 2]],
+      "engineering-light": [[1, 2]],
+      develop: [],
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 })
 
 test("run-pipeline.js runs three passing steps, each prompt holding the reports of the steps before it", async () => {

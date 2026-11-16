@@ -1,17 +1,12 @@
 /** What the workflow page's panels read from a workflow's text, and the values their selects offer. Pure: no React, no DOM. */
 import { isMap, isScalar, isSeq, type Node, type Pair, parseDocument, type YAMLMap } from "yaml"
+import { promptRef, type RunsOn } from "../../../core/language-schema"
 import type { PromptRow } from "./files"
-import { findPrompt, promptRef } from "./workflow"
+import { findPrompt } from "./workflow"
 import { isNull, keyOf, node } from "./yaml-nodes"
 
-/** The models a `model` select offers, in order. */
-export const MODELS = ["opus", "sonnet", "haiku"] as const
-
 /** The places a step runs, in the order the selects offer them. */
-export const RUNS_ON = ["session", "agents"] as const
-
-/** The input types, in the order the select offers them. */
-export const INPUT_TYPES = ["text", "change"] as const
+export const RUNS_ON_ORDER = ["session", "agents"] as const satisfies readonly RunsOn[]
 
 // ---------------------------------------------------------------------------------------------------------------------
 // What the forms read

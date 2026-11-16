@@ -18,8 +18,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { checkChangeText } from "../src/core/change-text"
 import { removeIfEmpty, writeAtomic } from "../src/core/io"
+import { matrixOf } from "../src/core/language-schema"
 import { changeIdReason } from "../src/core/path"
 import { projectReason } from "../src/core/project"
+import { parseYaml } from "../src/core/text"
 import { seriesReason, standaloneReason } from "../src/core/validate-id"
 
 const CLI = join(import.meta.dirname, "..", "dist", "theway.js")
@@ -2173,6 +2175,35 @@ test("v1beta1: NAME, MODELS and PARAM are defined in language-schema only; schem
   expect(text).toContain('export { MODELS, NAME, PARAM } from "./language-schema"')
   const { resolveWorkflowFile, parsePromptFile } = await import("../src/core/language")
   expect([typeof resolveWorkflowFile, typeof parsePromptFile]).toEqual(["function", "function"])
+})
+
+test("matrixOf is null exactly when the resolver rejects the matrix", () => {
+  const cases: [string, { key: string; values: string[] } | null][] = [
+    ["lens: [a, b]", { key: "lens", values: ["a", "b"] }],
+    ["a: [x]\nb: [y]", null],
+    ["a: []", null],
+    ["Lens: [a]", null],
+    ["true: [a]", { key: "true", values: ["a"] }],
+    ["lens: [1]", null],
+    ["lens: a", null],
+    ["nope", null],
+  ]
+  for (const [matrix, expected] of cases) {
+    const parsed = parseYaml(matrix)
+    if ("reason" in parsed) throw new Error(parsed.reason)
+    const got = matrixOf(parsed.root instanceof Map ? [...parsed.root.entries()] : [])
+    expect([matrix, got]).toEqual([matrix, expected])
+    const under =
+      matrix === "nope"
+        ? "    matrix: nope\n"
+        : `    matrix:\n${matrix
+            .split("\n")
+            .map((l) => `      ${l}\n`)
+            .join("")}`
+    const res = tWorkflow(fixtureHome(), `${T_HEAD}steps:\n${OPEN_PR}${under}`)
+    const rejected = res.stderr.split("\n").some((l) => l.startsWith("theway: workflows/t.yaml: steps[0].matrix:"))
+    expect([matrix, rejected]).toEqual([matrix, got === null])
+  }
 })
 
 test("v1beta1: listWorkflowFiles lists the four workflows, and a v1 file with its error", async () => {

@@ -3,6 +3,7 @@ import { FileTextIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "wouter"
 
+import { MODELS } from "../../../core/language-schema"
 import { KeyLabelText, LinesAlert } from "@/components/file-page"
 import { IconTile } from "@/components/reui/icon-tile"
 import {
@@ -51,7 +52,7 @@ import {
   setStepWith,
   setTries,
 } from "@/lib/workflow-edit"
-import { keyError, type MatrixForm, matrixLines, MODELS, stepForm, type WithForm } from "@/lib/workflow-form"
+import { keyError, type MatrixForm, matrixLines, stepForm, type WithForm } from "@/lib/workflow-form"
 import { placeLine } from "@/lib/workflow-place"
 
 const MODEL_OPTIONS: Option[] = MODELS.map((m) => ({ value: m, label: m }))

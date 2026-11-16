@@ -7,7 +7,7 @@ import { join } from "node:path"
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml"
 import { isFile, type Overlay, readBytes } from "../core/io"
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language"
-import { FILE_PREFIX, NAME, PROMPT_REF, VERSION, type WorkflowFileItem } from "../core/language-schema"
+import { FILE_PREFIX, matrixOf, NAME, promptRef, VERSION, type WorkflowFileItem } from "../core/language-schema"
 import { warnQuiet } from "../core/output"
 import { projectDir } from "../core/project"
 import type { Kind } from "../core/step-files"
@@ -97,16 +97,10 @@ export function listWorkflows(home: string, userHome: string = homedir()): Workf
   return { folder: tildePath(join(home, "workflows"), userHome), workflows }
 }
 
-/** The name a value names when it is a prompt reference, else `null`. */
-function promptRef(v: unknown): string | null {
-  const m = typeof v === "string" ? PROMPT_REF.exec(v) : null
-  return m !== null && NAME.test(m[1] as string) ? (m[1] as string) : null
-}
-
 /**
  * The prompts a workflow's text uses, as written: a step's `uses` (`step`), its `on-fail` or its on-fail map's `uses`
- * (`on-fail`), a value of its `with`, of its on-fail map's `with` or of its `matrix` (`value`). Nothing when the root
- * is not a `theway.workflow/v1beta1` map with a `steps` list.
+ * (`on-fail`), a value of its `with`, of its on-fail map's `with` or of its valid `matrix` (`value`). Nothing when the
+ * root is not a `theway.workflow/v1beta1` map with a `steps` list.
  */
 export function usesOf(text: string): { prompt: string; step: number; as: Use["as"] }[] {
   const parsed = parseYaml(text)
@@ -132,12 +126,7 @@ export function usesOf(text: string): { prompt: string; step: number; as: Use["a
     } else add(onFail, "on-fail")
     values(raw.get("with"))
     const matrix = raw.get("matrix")
-    if (matrix instanceof Map) {
-      for (const v of matrix.values()) {
-        if (Array.isArray(v)) for (const x of v) add(x, "value")
-        else add(v, "value")
-      }
-    }
+    for (const v of matrixOf(matrix instanceof Map ? [...matrix.entries()] : [])?.values ?? []) add(v, "value")
   })
   return out
 }

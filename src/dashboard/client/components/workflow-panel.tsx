@@ -1,6 +1,7 @@
 import { PlusIcon, TextCursorInputIcon, XIcon } from "lucide-react"
 import { useId, useState } from "react"
 
+import { WORKFLOW_INPUT_TYPES } from "../../../core/language-schema"
 import { KeyLabelText, LinesAlert, PanelRow } from "@/components/file-page"
 import { IconTile } from "@/components/reui/icon-tile"
 import { CopyField } from "@/components/text"
@@ -32,11 +33,11 @@ import {
   setInputField,
   setWorkflowKey,
 } from "@/lib/workflow-edit"
-import { INPUT_TYPES, type InputForm, keyError, workflowForm } from "@/lib/workflow-form"
+import { type InputForm, keyError, workflowForm } from "@/lib/workflow-form"
 import { placeLine } from "@/lib/workflow-place"
 import { useLabel } from "@/shell/files"
 
-const TYPE_OPTIONS: Option[] = INPUT_TYPES.map((t) => ({ value: t, label: t }))
+const TYPE_OPTIONS: Option[] = WORKFLOW_INPUT_TYPES.map((t) => ({ value: t, label: t }))
 
 /** One input of the workflow panel: name, type, description, required, default, and Remove. */
 function InputBox({

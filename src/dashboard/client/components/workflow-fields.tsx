@@ -8,7 +8,7 @@ import { FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { keyError, RUNS_ON, type TextValue } from "@/lib/workflow-form"
+import { keyError, RUNS_ON_ORDER, type TextValue } from "@/lib/workflow-form"
 import type { Place } from "@/lib/workflow-place"
 
 /** How an edit joins the undo history: its own step (`full`), the first keystroke of a field (`before`), or typing (`null`). */
@@ -181,7 +181,7 @@ export function KeyLabel({ htmlFor, yamlKey }: { htmlFor?: string; yamlKey: stri
   )
 }
 
-export const RUNS_ON_OPTIONS: Option[] = RUNS_ON.map((r) => ({ value: r, label: r }))
+export const RUNS_ON_OPTIONS: Option[] = RUNS_ON_ORDER.map((r) => ({ value: r, label: r }))
 
 /** The lines of one panel by the field they name, and those its alert shows. */
 export function byField(places: readonly { line: string; place: Place }[], shown: (field: string) => boolean) {
