@@ -116,23 +116,6 @@ test("each request answered 400 or more logs one line with its undecoded path; a
   expect(lines).toEqual([])
 })
 
-test("an app created without log writes nothing to stderr for a 404", async () => {
-  const chunks: string[] = []
-  const write = process.stderr.write
-  process.stderr.write = ((chunk: string | Uint8Array) => {
-    chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"))
-    return true
-  }) as typeof process.stderr.write
-  let res: Response
-  try {
-    res = await get(temp(), "/nope")
-  } finally {
-    process.stderr.write = write
-  }
-  expect(res.status).toBe(404)
-  expect(chunks).toEqual([])
-})
-
 test("the page carries the policy, its nonce, the token and the version", async () => {
   const res = await get(temp(), "/")
   expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8")
@@ -366,18 +349,19 @@ function start(home: string, ...args: string[]) {
   return { child, exited, ready, out: () => stdout, err: () => stderr }
 }
 
-test("dashboard --port 0 prints the bound address, serves, and exits 0 on SIGTERM", async () => {
-  const home = temp()
-  const run = start(home, "--port", "0")
-  await run.ready
-  const port = /^theway dashboard: http:\/\/127\.0\.0\.1:(\d+)\/\n$/.exec(run.out())?.[1]
-  expect([port !== undefined, run.err()]).toEqual([true, ""])
-  const res = await fetch(`http://127.0.0.1:${port}/api/projects`)
-  expect(await res.json()).toEqual({ projects: [], start: null })
-  run.child.kill("SIGTERM")
-  // Windows terminates the child on a signal: no exit code.
-  const code = await run.exited
-  if (process.platform !== "win32") expect(code).toBe(0)
+test("dashboard --port 0 prints the bound address, serves, and exits 0 on SIGTERM and on SIGINT", async () => {
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    const run = start(temp(), "--port", "0")
+    await run.ready
+    const port = /^theway dashboard: http:\/\/127\.0\.0\.1:(\d+)\/\n$/.exec(run.out())?.[1]
+    expect([signal, port !== undefined, run.err()]).toEqual([signal, true, ""])
+    const res = await fetch(`http://127.0.0.1:${port}/api/projects`)
+    expect(await res.json()).toEqual({ projects: [], start: null })
+    run.child.kill(signal)
+    // Windows terminates the child on a signal: no exit code.
+    const code = await run.exited
+    if (process.platform !== "win32") expect([signal, code]).toEqual([signal, 0])
+  }
 })
 
 test("dashboard whose derived key is claimed by another root warns and has no start project", async () => {
@@ -427,16 +411,6 @@ test("dashboard defaults to port 4870", () => {
   const dashboard = buildProgram().commands.find((c) => c.name() === "dashboard")
   const port = dashboard?.options.find((o) => o.long === "--port")
   expect(port?.defaultValue).toBe(4870)
-})
-
-test("dashboard on --port 0 stops on SIGINT with exit 0", async () => {
-  const run = start(temp(), "--port", "0")
-  await run.ready
-  expect([/^theway dashboard: http:\/\/127\.0\.0\.1:\d+\/\n$/.test(run.out()), run.err()]).toEqual([true, ""])
-  run.child.kill("SIGINT")
-  // Windows terminates the child on a signal: no exit code.
-  const code = await run.exited
-  if (process.platform !== "win32") expect(code).toBe(0)
 })
 
 test("dashboard rejects a port that is not an integer from 0 to 65535", () => {

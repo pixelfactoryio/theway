@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
+import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { collectPackages } from "../scripts/third-party-notices"
 
@@ -25,7 +25,12 @@ test("every collected package has its header line", () => {
 })
 
 test("packages that ship no licence file say so", () => {
-  for (const name of ["wouter", "react-remove-scroll-bar"]) {
-    expect(blockOf(name)?.split("\n")).toContain("No licence file is included in the package.")
-  }
+  const unlicensed = packages.filter(
+    (name) =>
+      !readdirSync(join(ROOT, "node_modules", name)).some((f) => /^(licen[cs]e|copying)|license\.txt$/i.test(f)),
+  )
+  const silent = unlicensed.filter(
+    (name) => !blockOf(name)?.split("\n").includes("No licence file is included in the package."),
+  )
+  expect(silent).toEqual([])
 })

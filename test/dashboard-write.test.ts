@@ -1,19 +1,10 @@
 import { afterEach, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs"
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { createApp, MAX_BODY } from "../src/dashboard/server"
+import { pageToken, put } from "./helpers"
 
 const TOKEN = "cd".repeat(32)
 const PORT = 4870
@@ -24,11 +15,6 @@ const temps: string[] = []
 afterEach(() => {
   for (const d of temps.splice(0)) rmSync(d, { recursive: true, force: true })
 })
-
-function put(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, text)
-}
 
 const REVIEW = "---\ndescription: Review it\nmodel: opus\n---\nReview.\n"
 const flow = (description: string, extra = "") =>
@@ -46,14 +32,6 @@ function home(): string {
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex")
 
-/** The token the page carries, read from its `<meta name="theway-token">`. */
-async function pageToken(h: string): Promise<string> {
-  const html = await (
-    await createApp(h, () => PORT, "", TOKEN).request(`${ORIGIN}/`, { headers: { Host: `127.0.0.1:${PORT}` } })
-  ).text()
-  return /<meta name="theway-token" content="([^"]+)">/.exec(html)?.[1] as string
-}
-
 type Res = { status: number; body: Record<string, unknown> }
 
 async function call(
@@ -63,7 +41,10 @@ async function call(
   body?: unknown,
   headers: Record<string, string | undefined> = {},
 ): Promise<Res> {
-  const token = await pageToken(h)
+  const token = await pageToken(
+    createApp(h, () => PORT, "", TOKEN),
+    PORT,
+  )
   const all: Record<string, string> = {}
   for (const [k, v] of Object.entries({
     Host: `127.0.0.1:${PORT}`,

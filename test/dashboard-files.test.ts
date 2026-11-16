@@ -1,10 +1,11 @@
 import { afterEach, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { lineOfPath } from "../src/dashboard/files"
 import { createApp } from "../src/dashboard/server"
+import { put } from "./helpers"
 
 const TOKEN = "ab".repeat(32)
 const KEY = "-p"
@@ -20,11 +21,6 @@ afterEach(() => {
     rmSync(d, { recursive: true, force: true })
   }
 })
-
-function put(path: string, text: string): void {
-  mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, text)
-}
 
 const IMPLEMENT = `---
 description: Implement the change

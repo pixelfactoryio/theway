@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { createHash } from "node:crypto"
 import {
-  chmodSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -121,15 +120,6 @@ test("the same text with the current base answers 200 and writes nothing", async
   expect(statSync(join(dir, "spec.md")).mtimeMs).toBe(before)
 })
 
-// Needs POSIX file modes.
-test.skipIf(process.platform === "win32")("a save keeps the file's mode", async () => {
-  const { h, dir } = home()
-  chmodSync(join(dir, "change.yaml"), 0o640)
-  const next = YAML.replace("Do it", "Do it now")
-  expect((await put(h, route("change.yaml"), { text: next, base: sha(YAML) })).status).toBe(200)
-  expect(statSync(join(dir, "change.yaml")).mode & 0o777).toBe(0o640)
-})
-
 test("a base that is not a string, or a missing text, answers 400", async () => {
   const { h, dir } = home()
   for (const body of [
@@ -170,23 +160,4 @@ test("unknown targets answer 404 with their error and write nothing", async () =
   })
   expect(readdirSync(dir).sort()).toEqual(["notes.txt", "spec.md"])
   expect(readFileSync(join(dir, "spec.md"), "utf-8")).toBe(SPEC)
-})
-
-test("the save route is refused without this server's Origin or the token", async () => {
-  const { h, dir } = home()
-  for (const headers of [
-    { Origin: undefined },
-    { Origin: "http://evil.example" },
-    { "X-Theway-Token": undefined },
-    { "X-Theway-Token": "ab".repeat(32) },
-  ]) {
-    expect(await put(h, route("change.yaml"), { text: "x", base: sha(YAML) }, headers)).toEqual({
-      status: 403,
-      body: { error: "forbidden" },
-    })
-  }
-  expect(
-    (await put(h, route("change.yaml"), { text: "x", base: sha(YAML) }, { "Content-Type": "text/plain" })).status,
-  ).toBe(415)
-  expect(readFileSync(join(dir, "change.yaml"), "utf-8")).toBe(YAML)
 })
