@@ -15,10 +15,10 @@ import type { Version, VersionList, VersionText } from "./contract"
 import { absPath, refused } from "./files"
 
 /** How many versions a file keeps: the newest. */
-export const KEPT = 20
+const KEPT = 20
 
 /** A version's file name: `YYYYMMDDTHHMMSSmmmZ-<first 12 hex characters of the text's SHA-256>`. */
-export const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-[0-9a-f]{12}$/
+const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-[0-9a-f]{12}$/
 
 /** What a write route answers. */
 export type Answer = { status: number; body: unknown }
@@ -111,9 +111,6 @@ export function writeFile(
   return { status: 200, body: { version: sha256(bytes) } }
 }
 
-/** The number of lines of a diff part's value. */
-const lineCount = (value: string): number => value.split("\n").length - (value.endsWith("\n") ? 1 : 0)
-
 /** `GET /api/<kind>/<file>/history`: the versions, newest first, each with its line counts against the one before it. */
 export function listVersions(home: string, kind: Kind, project: string | null, name: string): Answer {
   const refusal = refused(home, project, name)
@@ -125,8 +122,8 @@ export function listVersions(home: string, kind: Kind, project: string | null, n
     let added = 0
     let removed = 0
     for (const part of diffLines(texts[i + 1] ?? "", texts[i] as string)) {
-      if (part.added) added += lineCount(part.value)
-      else if (part.removed) removed += lineCount(part.value)
+      if (part.added) added += part.count
+      else if (part.removed) removed += part.count
     }
     return { id, at: dateOf(id).toISOString(), added, removed }
   })
@@ -181,13 +178,12 @@ export function writeChangeFile(
   if (!store.activeIds(key).includes(id)) return { status: 404, body: { error: "unknown change" } }
   const change = { kind: "active", id } as const
   if (!store.fileNames(key, change).includes(name)) return { status: 404, body: { error: "unknown file" } }
-  const current = store.readFile(key, change, name)
-  if (current === null) return { status: 500, body: { error: "cannot be read" } }
-  if (current.version !== base) return { status: 409, body: { error: "changed on disk", version: current.version } }
   try {
     const written = store.writeFile(key, id, name, Buffer.from(text, "utf-8"), base)
-    if (written.status === "conflict")
+    if (written.status === "conflict") {
+      if (written.version === null) return { status: 500, body: { error: "cannot be read" } }
       return { status: 409, body: { error: "changed on disk", version: written.version } }
+    }
     return { status: 200, body: { version: written.version } }
   } catch (e) {
     return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }

@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs"
 import { join, relative } from "node:path"
 import type { Warn } from "./output"
-import { escaped, type Overlay } from "./io"
+import type { Overlay } from "./io"
 import {
   isDefaultWorkflow,
+  matrixOf,
   MODELS,
   NAME,
   ON_FAIL_KEYS,
@@ -27,9 +28,10 @@ import {
   type WorkflowInputType,
   type WithValue,
 } from "./language-schema"
+import { isMap, nonEmpty } from "./change-text"
 import { changeIdReason } from "./path"
-import { dirsOf, fileOf, namesIn, searched } from "./step-files"
-import { parseYaml } from "./text"
+import { dirsOf, EXT, fileOf, namesIn, searched } from "./step-files"
+import { byText, escaped, parseYaml } from "./text"
 
 /** The version of the language this one replaces. */
 const V1 = "theway.workflow/v1"
@@ -54,8 +56,6 @@ const RULE = {
  */
 const REF = /\$\{\{ ?(inputs|matrix)\.([^\s}]+) ?\}\}/g
 
-const isMap = (v: unknown): v is Map<unknown, unknown> => v instanceof Map
-const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim() !== ""
 const isModel = (v: unknown): v is string => (MODELS as readonly unknown[]).includes(v)
 const isRunsOn = (v: unknown): v is RunsOn => (RUNS_ON as readonly unknown[]).includes(v)
 
@@ -68,8 +68,6 @@ function readText(path: string, overlay?: Overlay): string | null {
     return null
   }
 }
-
-export { parseYaml }
 
 /** Replaces each reference in `text` in one pass: `f` gives its value, or `undefined` to keep it as written. */
 function substitute(text: string, f: (kind: string, name: string) => string | undefined): string {
@@ -139,7 +137,7 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
  * A prompt file's text with a leading BOM dropped and CRLF read as LF, its lines, and the index of the header's closing
  * `---` line (`-1` when the file has no fenced header).
  */
-function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
+export function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
   const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n")
   const lines = text.split("\n")
   const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---"
@@ -319,13 +317,12 @@ function checkStep(ctx: Ctx, raw: unknown, i: number, workflowRunsOn: RunsOn | n
   let matrix: Step["matrix"] = null
   if (has("matrix")) {
     const v = raw.get("matrix")
-    const [first] = isMap(v) ? [...v] : []
-    if (!isMap(v) || v.size !== 1) err("matrix", "must be a map with exactly one key")
-    else if (!PARAM.test(String(first?.[0]))) err("matrix", `key ${escaped(String(first?.[0]))} ${RULE.param}`)
-    else if (!Array.isArray(first?.[1]) || first[1].length === 0 || !first[1].every((x) => typeof x === "string")) {
-      err("matrix", `${String(first?.[0])} must be a non-empty list of strings`)
-    } else {
-      matrix = { key: String(first?.[0]), values: first[1] as string[] }
+    matrix = isMap(v) ? matrixOf([...v]) : null
+    if (matrix === null) {
+      const key = String((isMap(v) ? [...v] : [])[0]?.[0])
+      if (!isMap(v) || v.size !== 1) err("matrix", "must be a map with exactly one key")
+      else if (!PARAM.test(key)) err("matrix", `key ${escaped(key)} ${RULE.param}`)
+      else err("matrix", `${key} must be a non-empty list of strings`)
     }
   }
   // A matrix with a mistake has its one error line: no reference to a matrix key of this step is checked then.
@@ -583,7 +580,7 @@ function scopedNames(
   overlay?: Overlay,
   rejected?: (path: string) => void,
 ): { name: string; scope: "project" | "global"; path: string }[] {
-  const ext = kind === "workflows" ? ".yaml" : ".md"
+  const ext = EXT[kind]
   const dirs = dirsOf(home, key, kind)
   const globalDir = dirs[dirs.length - 1] as string
   const ownDir = dirs.length > 1 ? (dirs[0] as string) : null
@@ -593,7 +590,7 @@ function scopedNames(
     ...namesIn(globalDir, kind, rejected, overlay)
       .filter((n) => !own.includes(n))
       .map((name) => ({ name, scope: "global" as const, path: join(globalDir, `${name}${ext}`) })),
-  ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  ].sort((a, b) => byText(a.name, b.name))
 }
 
 /** Whether a workflow file's parsed root sets the default: only a theway.workflow/v1beta1 file can, a v1 file's `default:` is not read. */

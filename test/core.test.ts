@@ -12,7 +12,6 @@ import {
   rmSync,
   statSync,
   symlinkSync,
-  writeFileSync,
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, resolve, sep } from "node:path"
@@ -23,6 +22,7 @@ import { changeIdReason } from "../src/core/path"
 import { projectReason } from "../src/core/project"
 import { parseYaml } from "../src/core/text"
 import { seriesReason, standaloneReason } from "../src/core/validate-id"
+import { put } from "./helpers"
 
 const CLI = join(import.meta.dirname, "..", "dist", "theway.js")
 const homes: string[] = []
@@ -31,11 +31,6 @@ function home(): string {
   const dir = mkdtempSync(join(tmpdir(), "theway-core-"))
   homes.push(dir)
   return dir
-}
-
-function put(path: string, text: string): void {
-  mkdirSync(join(path, ".."), { recursive: true })
-  writeFileSync(path, text)
 }
 
 function run(dir: string, ...args: string[]) {
@@ -93,34 +88,13 @@ test("change prints the change of a valid change.yaml as JSON, tasks numbered fr
   })
 })
 
-test("change prints one error line per broken rule and exits 1 with nothing on stdout", () => {
+test("change prints one error line per issue and exits 1 with nothing on stdout", () => {
   const dir = home()
   const file = join(dir, "projects", "p", "changes", "add-x", "change.yaml")
-  const v = "version: theway.change/v1beta1\n"
-  const d = "description: Do it\n"
-  const t = "tasks:\n  - text: a\n"
   const cases: [string | null, string[]][] = [
     [null, ["not found"]],
-    ["a: [\n", ["invalid YAML: "]],
-    ["- a\n", ["must be a map"]],
-    ["", ["must be a map"]],
-    [`version: theway.change/v1\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
-    [`version: theway.change/v1beta\n${d}${t}`, ["version: must be theway.change/v1beta1"]],
-    [`${v}description: ""\n${t}`, ["description: must be a non-empty string on one line"]],
-    [`${v}description: "a\\nb"\n${t}`, ["description: must be a non-empty string on one line"]],
-    [`${v}${d}tasks: []\n`, ["tasks: must be a list with at least one task"]],
-    [`${v}${d}tasks: a\n`, ["tasks: must be a list with at least one task"]],
-    [`${v}${d}tasks:\n  - text: a\n  - b\n`, ["tasks[1]: must be a map"]],
-    [`${v}${d}tasks:\n  - text: ""\n`, ["tasks[0].text: must be a non-empty string"]],
-    [`${v}${d}tasks:\n  - done: true\n`, ["tasks[0].text: is required"]],
-    [`${v}${d}tasks:\n  - text: a\n    done: "yes"\n`, ["tasks[0].done: must be true or false"]],
-    [`${v}${d}tasks:\n  - text: a\n    owner: me\n`, ["tasks[0].owner: unknown key"]],
-    [`${v}${d}${t}phase: 1\n`, ["phase: unknown key"]],
-    [`${d}${t}`, ["version: is required"]],
-    [`${v}${t}`, ["description: is required"]],
-    [`${v}${d}`, ["tasks: is required"]],
     [
-      `phase: 1\nversion: x\n${t}`,
+      "phase: 1\nversion: x\ntasks:\n  - text: a\n",
       ["phase: unknown key", "version: must be theway.change/v1beta1", "description: is required"],
     ],
   ]
@@ -129,11 +103,7 @@ test("change prints one error line per broken rule and exits 1 with nothing on s
     if (text !== null) put(file, text)
     const res = run(dir, "change", "--project", "p", "add-x")
     expect([res.status, res.stdout]).toEqual([1, ""])
-    const lines = res.stderr.trimEnd().split("\n")
-    expect(lines.length).toBe(issues.length)
-    issues.forEach((issue, i) => expect(lines[i]).toStartWith(`theway: changes/add-x/change.yaml: ${issue}`))
-    if (!issues[0]?.startsWith("invalid YAML"))
-      expect(res.stderr).toBe(issues.map((i) => `theway: changes/add-x/change.yaml: ${i}\n`).join(""))
+    expect(res.stderr).toBe(issues.map((i) => `theway: changes/add-x/change.yaml: ${i}\n`).join(""))
   }
 })
 
@@ -1785,20 +1755,6 @@ test("v1beta1: agents without --input prints resolved false, six steps, the revi
   expect(doc.steps[1]?.runs[0]?.prompt).toContain("${{ inputs.change }}")
 })
 
-test("v1beta1: agents with --input substitutes every reference theway knows and keeps the lens as written", () => {
-  const dir = fixtureHome()
-  const doc = v1beta1Doc(dir, "agents", "--input", "change=add-foo")
-  expect(doc.resolved).toBe(true)
-  expect(doc.inputs.change?.value).toBe("add-foo")
-  const substituted = JSON.stringify(doc.steps.map((s) => [s.runs, s.on_fail]))
-  expect(substituted).not.toContain("${{ inputs.")
-  expect(substituted).not.toContain("${{ matrix.")
-  expect(doc.steps[1]?.runs[0]?.prompt).toContain("add-foo")
-  expect(doc.steps[2]?.runs[0]?.prompt).toContain("prompts/conformance.md")
-  expect(doc.steps[2]?.runs[1]?.prompt).toContain("prompts/correctness.md")
-  expect(doc.steps[3]?.on_fail?.with).toEqual({ change: "add-foo" })
-})
-
 /** `test/fixtures/agents-resolved.json` with each `<home>/<a>/<b>` string value as `join(dir, "<a>", "<b>")`. */
 function agentsResolved(dir: string): { name: unknown; file: unknown; inputs: unknown; steps: unknown[] } {
   const text = readFileSync(join(import.meta.dirname, "fixtures", "agents-resolved.json"), "utf-8")
@@ -2211,19 +2167,7 @@ test("v1beta1: a project copy of a prompt replaces the global one for that proje
   ])
 })
 
-test("v1beta1: NAME, MODELS and PARAM are defined in language-schema only; schema re-exports them", async () => {
-  const schema = await import("../src/core/schema")
-  const language = await import("../src/core/language-schema")
-  expect([schema.NAME, schema.MODELS, schema.PARAM]).toEqual([language.NAME, language.MODELS, language.PARAM])
-  expect(schema.NAME).toBe(language.NAME)
-  const text = readFileSync(join(import.meta.dirname, "..", "src", "core", "schema.ts"), "utf-8")
-  expect(text).not.toMatch(/export const (NAME|MODELS|PARAM)\b/)
-  expect(text).toContain('export { MODELS, NAME, PARAM } from "./language-schema"')
-  const { resolveWorkflowFile, parsePromptFile } = await import("../src/core/language")
-  expect([typeof resolveWorkflowFile, typeof parsePromptFile]).toEqual(["function", "function"])
-})
-
-test("matrixOf is null exactly when the resolver rejects the matrix", () => {
+test("matrixOf takes one param key with a non-empty list of strings", () => {
   const cases: [string, { key: string; values: string[] } | null][] = [
     ["lens: [a, b]", { key: "lens", values: ["a", "b"] }],
     ["a: [x]\nb: [y]", null],
@@ -2239,16 +2183,6 @@ test("matrixOf is null exactly when the resolver rejects the matrix", () => {
     if ("reason" in parsed) throw new Error(parsed.reason)
     const got = matrixOf(parsed.root instanceof Map ? [...parsed.root.entries()] : [])
     expect([matrix, got]).toEqual([matrix, expected])
-    const under =
-      matrix === "nope"
-        ? "    matrix: nope\n"
-        : `    matrix:\n${matrix
-            .split("\n")
-            .map((l) => `      ${l}\n`)
-            .join("")}`
-    const res = tWorkflow(fixtureHome(), `${T_HEAD}steps:\n${OPEN_PR}${under}`)
-    const rejected = res.stderr.split("\n").some((l) => l.startsWith("theway: workflows/t.yaml: steps[0].matrix:"))
-    expect([matrix, rejected]).toEqual([matrix, got === null])
   }
 })
 

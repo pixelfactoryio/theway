@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process"
 import { readFileSync, realpathSync } from "node:fs"
 import { basename, dirname, join, resolve } from "node:path"
-import { escaped, isDir, thewayHome, writeAtomic } from "./io"
+import { isDir, thewayHome, writeAtomic } from "./io"
 import { error, print, warning } from "./output"
+import { escaped } from "./text"
 
 const KEY = /^[A-Za-z0-9-]{1,200}$/
 
@@ -91,7 +92,7 @@ export function recordedRoot(home: string, key: string): string | null {
 }
 
 /** The outcome of claiming a project folder for a root; `warning` when the claim could not be recorded. */
-export type Claim = { ok: true } | { ok: true; warning: string } | { ok: false; recorded: string }
+type Claim = { ok: true } | { ok: true; warning: string } | { ok: false; recorded: string }
 
 /**
  * Claims the folder of `key` for `root`: records `root` in its `root` file when the folder exists and has no record;
@@ -139,11 +140,18 @@ export function resolveKey(override: string | undefined): { key: string; warning
   return { key, warning: "warning" in claim ? claim.warning : null }
 }
 
-/** `theway project [--project <key>]`: the project key and folder. */
-export function cmdProject(override: string | undefined): number {
+/** The key of `resolveKey(override)`, its warning printed; on its error, the error printed and the exit code. */
+export function projectKeyOrExit(override: string | undefined): { key: string } | number {
   const resolved = resolveKey(override)
   if ("error" in resolved) return error(resolved.error)
   if (resolved.warning !== null) warning(resolved.warning)
+  return { key: resolved.key }
+}
+
+/** `theway project [--project <key>]`: the project key and folder. */
+export function cmdProject(override: string | undefined): number {
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
   print(`key: ${key}\ndir: ${projectDir(thewayHome(), key)}\n`)
   return 0

@@ -41,7 +41,7 @@ function readState(
 }
 
 /** One active change of the project `key`, as the list route gives it. */
-export function activeRow(store: ChangeStore, key: string, id: string): ActiveChange {
+function activeRow(store: ChangeStore, key: string, id: string): ActiveChange {
   const change = { kind: "active", id } as const
   const s = readState(store, key, change)
   return {
@@ -92,7 +92,7 @@ function markdownFiles(
  * `01` to the highest found among the active and dated archived changes; an active change fills an ordinal before
  * archived ones, and the last archived one in the store's order before earlier ones.
  */
-export function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["series"] {
+function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["series"] {
   const m = MEMBER.exec(id)
   if (m === null) return null
   const seriesId = m[1] as string
@@ -137,13 +137,7 @@ export function seriesOf(store: ChangeStore, key: string, id: string): ChangeDet
 }
 
 /** The page of the active change `id`, or of the dated archive entry `archive` when given. */
-export function changeDetail(
-  store: ChangeStore,
-  key: string,
-  id: string,
-  archive: Dated | null = null,
-  home: string = homedir(),
-): ChangeDetail {
+export function changeDetail(store: ChangeStore, key: string, id: string, archive: Dated | null = null): ChangeDetail {
   const change: ChangeRef = archive === null ? { kind: "active", id } : { kind: "archived", ref: archive.ref }
   const s = readState(store, key, change)
   const files = markdownFiles(store, key, change)
@@ -163,7 +157,7 @@ export function changeDetail(
     issues: s.issues,
     tasks: s.tasks,
     updated: store.updated(key, change),
-    folder: tildePath(store.dirOf(key, change), home),
+    folder: tildePath(store.dirOf(key, change)),
     files: archive === null ? files : files.map(({ name, text }) => ({ name, text })),
     ...(archive === null ? { changeFile } : {}),
     series: seriesOf(store, key, id),

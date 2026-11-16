@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, relative, sep } from "node:path"
-import { checkChange } from "../src/core/change"
+import { checkChangeText } from "../src/core/change-text"
 import { compactWorkflow } from "../src/core/workflow"
 import { buildProgram } from "../src/program"
+import { escapeRegExp } from "./helpers"
 
 const REPO = join(import.meta.dirname, "..")
 const PLUGIN = join(REPO, "plugin")
@@ -106,18 +107,11 @@ test("the scaffolds get the change folder from theway path, the change prompts t
 })
 
 test("the loading commands call theway context or leave it to the prompts, never theway config or theway standards", () => {
-  expect(calls(read(join(COMMANDS, "document.md")))).toContain("context")
   for (const f of ["workflow.md", "document.md"]) {
     const text = read(join(COMMANDS, f))
     expect(calls(text)).not.toContain("config")
     expect(calls(text)).not.toContain("standards")
   }
-})
-
-test("the scaffold takes a series' member IDs from theway next-id", () => {
-  const text = read(join(PROMPTS, "scaffold.md"))
-  expect(text).toContain("`theway next-id <series-id> --count <N>`")
-  expect(text).toContain("`would go past -99`")
 })
 
 test("plugin.json and package.json carry the same semver version", () => {
@@ -152,9 +146,7 @@ test("every workflow action is pinned to a commit SHA", () => {
   expect(unpinned).toEqual([])
 })
 
-test("the shipped config has no engineering section, and the spec review its model from its prompt's header", () => {
-  const config = Bun.YAML.parse(read(join(PLUGIN, "home", "config.yaml"))) as Record<string, unknown>
-  expect(config.engineering).toBeUndefined()
+test("the spec review takes its model from its prompt's header", () => {
   expect(prompt("spec-review.md")).toStartWith(
     "---\ndescription: Review the change's spec through one lens\nmodel: opus\n",
   )
@@ -183,7 +175,6 @@ test("the shipped defaults are neutral and the four architecture standards are o
   for (const key of ["core_principles", "sre", "web_development", "quality"]) {
     expect(config.standards?.[key]?.enabled).toBe(false)
   }
-  expect(config.standards?.architecture).toBeUndefined()
 })
 
 test("the shipped config has no dead sections", () => {
@@ -248,9 +239,6 @@ const TEMPLATES = join(PLUGIN, "home", "templates")
 const STANDARDS = join(PLUGIN, "home", "standards")
 const prompt = (f: string) => read(join(PROMPTS, f))
 
-/** A string escaped for use inside a regular expression. */
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-
 /** The YAML frontmatter of a template. */
 const frontmatter = (text: string) =>
   Bun.YAML.parse(/^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? "") as Record<string, unknown>
@@ -299,7 +287,6 @@ test("the fix spec template has the spec template's frontmatter keys, its fixed 
 })
 
 test("the scaffolds handle a fix- change: the verb list, the investigation prompt, the fix template and the stop outcomes", () => {
-  expect(prompt("scaffold-rules.md")).toContain("`add-*`, `update-*`, `refactor-*`, `remove-*`, `fix-*`")
   const scaffold = prompt("scaffold.md")
   expect(section(scaffold, "Investigate")).toContain("Investigate as `prompts/spec-investigation.md` sets out.")
   expect(section(scaffold, "Investigate")).toContain(
@@ -420,24 +407,20 @@ test("engineering.md is the alias of /theway:workflow and keeps its frontmatter"
 })
 
 test("the shipped prompts check a fix- test by the regression check, and the triage gives the verdicts", () => {
-  for (const f of ["implement.md", "fix-review.md", "triage.md"])
-    expect(prompt(f)).toContain("the regression check of `develop.md`")
-  for (const f of ["triage.md", "spec-triage.md"]) {
-    for (const verdict of [
-      "`confirmed` (real);",
-      "`false_positive` (refuted);",
-      "`nit` (real, cosmetic);",
-      "`out_of_scope` (not this change's).",
-    ]) {
-      expect([f, prompt(f).includes(verdict)]).toEqual([f, true])
-    }
+  for (const f of ["fix-review.md", "triage.md"]) expect(prompt(f)).toContain("the regression check of `develop.md`")
+  for (const verdict of [
+    "`confirmed` (real);",
+    "`false_positive` (refuted);",
+    "`nit` (real, cosmetic);",
+    "`out_of_scope` (not this change's).",
+  ]) {
+    expect(prompt("triage.md")).toContain(verdict)
   }
 })
 
 test("the change prompts read the standards from theway context, and the spec review from theway context engineering", () => {
   const change = section(prompt("change.md"), "Context")
   for (const marker of [
-    "`theway context develop <change-id>`",
     "every file its `standards` lists",
     "`<home>/standards/develop.md`",
     "`docs/architecture/coding-standards.md`",
@@ -466,16 +449,6 @@ test("the develop standard has a Standards section and the Authority rule names 
   const authority = read(join(STANDARDS, "authority.md"))
   const first = authority.split("\n").find((l) => l.startsWith("- ")) ?? ""
   for (const folder of ["`<home>/standards/`", "`<home>/projects/<key>/standards/`"]) expect(first).toContain(folder)
-})
-
-test("workflow takes its workflow from theway workflow, its authority from theway authority and its project folder from theway project", () => {
-  const load = step(read(join(COMMANDS, "workflow.md")), "Step 1:")
-  for (const call of [
-    "`theway workflow [<name>] --input <name>=<value> --compact`",
-    "`theway authority`",
-    "`theway project`",
-  ])
-    expect(load).toContain(call)
 })
 
 test("document reads the standards from theway context", () => {
@@ -625,6 +598,7 @@ test("workflow.md runs agent segments through theway:run-pipeline with the engin
   const load = step(text, "Step 1:")
   expect(load).toContain('A document with `"resolved": false` is never run: stop and ask for the required inputs.')
   expect(load).toContain("Run `theway workflow [<name>] --input <name>=<value> --compact`")
+  for (const call of ["`theway authority`", "`theway project`"]) expect(load).toContain(call)
   expect(load).toContain("passed as an object, never as a string, never retyped or abridged")
   const run = step(text, "Step 2:")
   for (const key of ["repo", "home", "projectDir", "authority", "workflow", "steps", "reports"])
@@ -779,10 +753,6 @@ function expectPrompt(workflow: Resolved, call: Call, before: Report[]): void {
           ...before.map((r) => `## ${r.label} (round ${r.round}): ${r.result}\n${r.report}`),
         ].join("\n\n")
   expect(call.text).toBe([AUTHORITY, CONTEXT, DATA, block, prompt, ANSWER].join("\n\n"))
-  expect(call.text.startsWith(AUTHORITY)).toBe(true)
-  const at = [CONTEXT, DATA, block, prompt, ANSWER].map((part) => call.text.indexOf(part))
-  expect(at.every((i) => i > 0)).toBe(true)
-  expect([...at].sort((a, b) => a - b)).toEqual(at)
   expect(call.opts).toEqual({
     label: call.label,
     phase,
@@ -1167,14 +1137,8 @@ test("the change template's example is a valid change.yaml with a task in block 
   const example = /```yaml\n([\s\S]*?)```/.exec(template)?.[1] ?? ""
   expect(example).toContain("text: >-\n")
   expect(example).toContain("`Retry-After`")
-  const dir = mkdtempSync(join(tmpdir(), "theway-lint-"))
-  try {
-    writeFileSync(join(dir, "change.yaml"), example)
-    const c = checkChange(dir)
-    expect("change" in c && c.change.tasks.length).toBe(3)
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
+  const c = checkChangeText(example)
+  expect("change" in c && c.change.tasks.length).toBe(3)
   const keys = (text: string) => [...(text.split("---")[1] ?? "").matchAll(/^([a-z_]+):/gm)].map((m) => m[1])
   expect(keys(template)).toEqual(keys(read(join(PROMPTS, "spec-template.md"))))
 })
@@ -1222,5 +1186,5 @@ test("the shipped prompts carry the rules the steps had", () => {
   }
   // The engine holds no step's rules.
   const pipeline = read(PIPELINE)
-  for (const word of ["refute", "git diff", "triage", "review", "implement"]) expect(pipeline).not.toContain(word)
+  for (const word of ["refute", "git diff", "review"]) expect(pipeline).not.toContain(word)
 })

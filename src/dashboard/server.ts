@@ -16,7 +16,7 @@ import { fileStore } from "../core/store/files"
 import { escaped } from "../core/text"
 import { changeDetail, datedArchives, listChanges } from "./changes"
 import type { ProjectList } from "./contract"
-import { checkDraft, type FileAnswer, listPrompts, listWorkflows, promptFile, workflowFile } from "./files"
+import { checkDraft, listPrompts, listWorkflows, promptFile, workflowFile } from "./files"
 import { projects } from "./projects"
 import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write"
 
@@ -203,14 +203,14 @@ export function createApp(
 
   app.get("/api/workflows", () => json(200, listWorkflows(home)))
   app.get("/api/prompts", () => json(200, listPrompts(home)))
+  const reply = (a: Answer): Response => json(a.status, a.body)
   // Each file route serves only the file in its own folder: the global one, or the project's own (never the global one).
-  const answer = (a: FileAnswer): Response => json(a.status, a.body)
-  app.get("/api/workflows/global/:name", (c) => answer(workflowFile(home, null, c.req.param("name"))))
+  app.get("/api/workflows/global/:name", (c) => reply(workflowFile(home, null, c.req.param("name"))))
   app.get("/api/workflows/projects/:key/:name", (c) =>
-    answer(workflowFile(home, c.req.param("key"), c.req.param("name"))),
+    reply(workflowFile(home, c.req.param("key"), c.req.param("name"))),
   )
-  app.get("/api/prompts/global/:name", (c) => answer(promptFile(home, null, c.req.param("name"))))
-  app.get("/api/prompts/projects/:key/:name", (c) => answer(promptFile(home, c.req.param("key"), c.req.param("name"))))
+  app.get("/api/prompts/global/:name", (c) => reply(promptFile(home, null, c.req.param("name"))))
+  app.get("/api/prompts/projects/:key/:name", (c) => reply(promptFile(home, c.req.param("key"), c.req.param("name"))))
 
   // The check and write routes. A body that is not JSON, or misses a field or has one of the wrong type, gets 400.
   const invalid = (): Response => json(400, { error: "invalid body" })
@@ -221,7 +221,6 @@ export function createApp(
       return undefined
     }
   }
-  const reply = (a: Answer): Response => json(a.status, a.body)
   app.post("/api/check", async (c) => {
     const f = fields(await body(c), { kind: "string", project: "string?", name: "string", text: "string" })
     if (f === null || (f.kind !== "workflows" && f.kind !== "prompts")) return invalid()

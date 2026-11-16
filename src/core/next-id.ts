@@ -1,7 +1,9 @@
-import { escaped, thewayHome } from "./io"
-import { error, print, warning } from "./output"
-import { resolveKey } from "./project"
+import { MEMBER } from "./change-text"
+import { thewayHome } from "./io"
+import { error, print } from "./output"
+import { projectKeyOrExit } from "./project"
 import { fileStore } from "./store/files"
+import { escaped } from "./text"
 import { formatReason } from "./validate-id"
 
 /** The reason a series id (its trailing -NN already removed) is invalid, "" when it fits. */
@@ -18,9 +20,8 @@ function seriesIdReason(id: string): string {
  * after the highest ordinal among the active and the dated archived members (`<series-id>-NN`).
  */
 export function cmdNextId(seriesId: string, count: number, override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
   const rest = seriesId.replace(/-[0-9]{2}$/, "")
   const reason = seriesIdReason(rest)
@@ -30,12 +31,11 @@ export function cmdNextId(seriesId: string, count: number, override: string | un
   }
 
   const store = fileStore(thewayHome())
-  const member = new RegExp(`^${rest}-([0-9]{2})$`)
   const archived = store.archived(key).flatMap((e) => (e.id === null ? [] : [e.id]))
   let max = 0
   for (const id of [...store.activeIds(key), ...archived]) {
-    const m = member.exec(id)
-    if (m !== null) max = Math.max(max, Number(m[1]))
+    const m = MEMBER.exec(id)
+    if (m !== null && m[1] === rest) max = Math.max(max, Number(m[2]))
   }
   if (max + count > 99) return error(`series ${rest} would go past -99`)
   let out = ""

@@ -3,22 +3,15 @@ import { join } from "node:path"
 import { stringify } from "yaml"
 import { readManifest } from "./init"
 import { isFile, thewayHome } from "./io"
-import { error, print, type Warn, warnLoud, warning } from "./output"
-import { projectDir, resolveKey } from "./project"
+import { error, print, type Warn, warnLoud } from "./output"
+import { projectDir, projectKeyOrExit } from "./project"
 import { parseYaml } from "./text"
-
-/** A leaf's type: the rule its value must follow. */
-type Rule = "boolean"
-type Leaf = { rule: Rule; default: boolean | number | string | string[] }
-type Schema = { [key: string]: Leaf | Schema }
 
 /** An empty map with no prototype, so every key, `__proto__` included, is an own property. */
 const dict = <T>(): T => Object.create(null) as T
 
-const bool = (d: boolean): Leaf => ({ rule: "boolean", default: d })
-
 /** The shipped opt-in standards of `<home>/standards/`, in output order: off unless their switch is on. */
-export const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"]
+const OPT_IN = ["core-principles.md", "sre.md", "web-development.md", "quality.md"]
 /**
  * The shipped standards the commands always read by path: a global file with one of these names is never listed nor
  * switchable; `authority.md` only when `.shipped.json` lists it, else it is the user's own standard.
@@ -28,7 +21,7 @@ const CORE = ["interaction.md", "develop.md", "authority.md"]
  * The shipped convention standards the prompts read by path, the project file over the global one: never listed from
  * either folder nor switchable.
  */
-export const CONVENTIONS = ["commits.md", "git-host.md"]
+const CONVENTIONS = ["commits.md", "git-host.md"]
 
 /** The `standards.<key>` of a standard file: its stem with `-` turned into `_`. */
 const keyOf = (name: string): string => name.slice(0, -".md".length).replaceAll("-", "_")
@@ -40,7 +33,7 @@ const FIXED_KEYS = new Set([...CORE, ...CONVENTIONS].map(keyOf))
  * A standard a project can read: its path, its switch, whether it is a shipped opt-in one and, for a global file, the
  * path of the project file with the same name that replaces it for the phases that file applies to.
  */
-export type Standard = { path: string; key: string; optIn: boolean; shadowedBy?: string }
+type Standard = { path: string; key: string; optIn: boolean; shadowedBy?: string }
 
 /** The names of the regular `.md` files directly in `dir`, sorted; none when it is missing. */
 function mdFiles(dir: string): string[] {
@@ -60,7 +53,7 @@ function mdFiles(dir: string): string[] {
  * file is a user standard; a global file with the same name is kept and records it in `shadowedBy`, so that the phase
  * filter drops the global file only for the phases the project file applies to.
  */
-export function standardsOf(home: string, key: string): Standard[] {
+function standardsOf(home: string, key: string): Standard[] {
   const globalDir = join(home, "standards")
   const ownDir = join(projectDir(home, key), "standards")
   const projectNames = mdFiles(ownDir).filter((n) => !CONVENTIONS.includes(n))
@@ -79,75 +72,53 @@ export function standardsOf(home: string, key: string): Standard[] {
   return out
 }
 
+/** A project's config: the switch of each standard key. */
+type Config = { standards: Record<string, { enabled: boolean }> }
+
 /**
- * The `standards` section of the schema for a project: the four opt-in keys in order, then the user keys sorted.
- * A key defaults to `true` when only user standards hold it, `false` otherwise (an opt-in key with no file included);
- * a shipped opt-in global file counts even when a project file shadows it, so that key stays off until enabled.
- * A core key is switchable only when a project file holds it: `standardsOf` leaves the global core files out.
+ * The default config of a project: the four opt-in keys in order, then the user keys sorted. A key defaults to `true`
+ * when only user standards hold it, `false` otherwise (an opt-in key with no file included); a shipped opt-in global
+ * file counts even when a project file shadows it, so that key stays off until enabled. A core key is switchable only
+ * when a project file holds it: `standardsOf` leaves the global core files out.
  */
-function standardsSchema(standards: Standard[]): Schema {
+function defaults(standards: Standard[]): Config {
   const userKeys = [...new Set(standards.map((s) => s.key))].filter((k) => !OPT_IN_KEYS.includes(k)).sort()
-  const schema = dict<Schema>()
+  const switches = dict<Config["standards"]>()
   for (const key of [...OPT_IN_KEYS, ...userKeys]) {
     const holders = standards.filter((s) => s.key === key)
-    schema[key] = { enabled: bool(holders.length > 0 && holders.every((s) => !s.optIn)) }
+    switches[key] = Object.assign(dict<{ enabled: boolean }>(), {
+      enabled: holders.length > 0 && holders.every((s) => !s.optIn),
+    })
   }
-  return schema
+  return Object.assign(dict<Config>(), { standards: switches })
 }
 
-/** Every key of the config, in output order, with its type and default; `standards` is filled per project. */
-const SCHEMA: Schema = {
-  standards: {},
-}
-
-const RULE_TEXT: Record<Rule, string> = {
-  boolean: "true or false",
-}
-
-const isLeaf = (node: Leaf | Schema): node is Leaf => typeof (node as Leaf).rule === "string"
-
-function valid(rule: Rule, v: unknown): boolean {
-  switch (rule) {
-    case "boolean":
-      return typeof v === "boolean"
-  }
-}
-
-export type Config = { [key: string]: Config | boolean | number | string | string[] }
-
-function defaults(schema: Schema): Config {
-  const out = dict<Config>()
-  for (const [key, node] of Object.entries(schema)) {
-    out[key] = isLeaf(node) ? (Array.isArray(node.default) ? [...node.default] : node.default) : defaults(node)
-  }
-  return out
-}
-
-/** Applies one layer's map onto `into`, warning about every unknown key, invalid value or wrong shape in document order. */
-function apply(
-  file: string,
-  schema: Schema,
-  layer: Map<unknown, unknown>,
-  into: Config,
-  prefix: string,
-  warn: Warn,
-): void {
+/** Applies one layer's map onto `config`, warning about every unknown key, invalid value or wrong shape in document order. */
+function apply(file: string, layer: Map<unknown, unknown>, config: Config, warn: Warn): void {
   for (const [rawKey, value] of layer) {
     const key = String(rawKey)
-    const dotted = prefix === "" ? key : `${prefix}.${key}`
-    const node = Object.hasOwn(schema, key) ? schema[key] : undefined
-    if (node === undefined) {
-      if (prefix !== "standards") warn(file, `unknown key ${dotted}`)
-      else if (FIXED_KEYS.has(key)) warn(file, `${dotted} cannot be switched`)
-      else warn(file, `${dotted} has no standard file`)
-    } else if (isLeaf(node)) {
-      if (valid(node.rule, value))
-        into[key] = Array.isArray(value) ? [...(value as string[])] : (value as boolean | number | string)
-      else warn(file, `${dotted} must be ${RULE_TEXT[node.rule]}`)
-    } else if (value instanceof Map) {
-      apply(file, node, value, into[key] as Config, dotted, warn)
-    } else {
-      warn(file, `${dotted} must be a map`)
+    if (key !== "standards") warn(file, `unknown key ${key}`)
+    else if (!(value instanceof Map)) warn(file, "standards must be a map")
+    else applyStandards(file, value, config.standards, warn)
+  }
+}
+
+/** Applies a layer's `standards` map onto `switches`, warning as `apply` does. */
+function applyStandards(file: string, layer: Map<unknown, unknown>, switches: Config["standards"], warn: Warn): void {
+  for (const [rawKey, value] of layer) {
+    const key = String(rawKey)
+    const dotted = `standards.${key}`
+    const into = Object.hasOwn(switches, key) ? switches[key] : undefined
+    if (into === undefined)
+      warn(file, FIXED_KEYS.has(key) ? `${dotted} cannot be switched` : `${dotted} has no standard file`)
+    else if (!(value instanceof Map)) warn(file, `${dotted} must be a map`)
+    else {
+      for (const [rawLeaf, v] of value) {
+        const leaf = String(rawLeaf)
+        if (leaf !== "enabled") warn(file, `unknown key ${dotted}.${leaf}`)
+        else if (typeof v === "boolean") into.enabled = v
+        else warn(file, `${dotted}.enabled must be true or false`)
+      }
     }
   }
 }
@@ -168,7 +139,7 @@ function load(home: string, file: string): { root: unknown } | { error: string }
 export type Loaded = { config: Config; standards: Standard[] }
 
 /** A project's effective config and standards, or the error message that stops it. */
-export type Effective = Loaded | { error: string }
+type Effective = Loaded | { error: string }
 
 /**
  * The effective config of a project: per key, the project file's valid value, else the global file's valid value,
@@ -188,11 +159,10 @@ export function effectiveConfig(home: string, key: string, warn: Warn): Effectiv
   }
 
   const standards = standardsOf(home, key)
-  const schema = Object.assign(dict<Schema>(), SCHEMA, { standards: standardsSchema(standards) })
-  const config = defaults(schema)
+  const config = defaults(standards)
   for (const [file, root] of roots) {
     if (root === null) continue
-    if (root instanceof Map) apply(file, schema, root, config, "", warn)
+    if (root instanceof Map) apply(file, root, config, warn)
     else warn(file, "not a map")
   }
   return { config, standards }
@@ -200,8 +170,8 @@ export function effectiveConfig(home: string, key: string, warn: Warn): Effectiv
 
 /** Whether a standard is on in an effective config; a key with no switch is always on. */
 export function enabled(config: Config, key: string): boolean {
-  const all = config.standards as Config
-  return !Object.hasOwn(all, key) || (all[key] as Config).enabled === true
+  const all = config.standards
+  return !Object.hasOwn(all, key) || all[key]?.enabled === true
 }
 
 /**
@@ -219,9 +189,8 @@ export function loadConfigResult(home: string, key: string, warn: Warn): Effecti
 
 /** `theway config [--project <key>]`: the effective config of the project, as YAML on stdout. */
 export function cmdConfig(override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const loaded = loadConfigResult(thewayHome(), resolved.key, warnLoud)
   if ("error" in loaded) return error(loaded.error)
   print(stringify(loaded.config))

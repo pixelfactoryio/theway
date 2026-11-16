@@ -6,15 +6,14 @@ import {
   readFileSync,
   renameSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
-import { removeIfEmpty, writeAtomic } from "./io"
+import { isDir, isFile, removeIfEmpty, writeAtomic } from "./io"
 import { parsePromptFile } from "./language"
 import { VERSION } from "./language-schema"
 import { sha256 } from "./store/files"
-import { parseYaml } from "./text"
+import { byText, parseYaml } from "./text"
 
 /**
  * The folders install ships, relative to the source and the home, with the extension of their files and, for a folder
@@ -76,6 +75,8 @@ function backupPath(home: string, rel: string, current: Buffer): string {
 
 const baseOf = (name: string) => name.slice(0, -".md".length)
 
+const byName = (a: { name: string }, b: { name: string }) => byText(a.name, b.name)
+
 /**
  * Moves the shipped standards of a home installed with the old layout from `data/standards/` to `standards/`,
  * as they are, and renames their manifest keys. Moves only when the previous manifest has `data/standards/` keys;
@@ -121,18 +122,23 @@ function migrateDataStandards(src: string, home: string, out: string[]): void {
 }
 
 /**
- * Retires `lenses/`, which theway no longer ships nor reads: a lens the previous manifest lists is removed when
- * unedited and kept with a message when edited, every `.default.md` copy is removed, every other `.md` file (the
- * user's own) is kept with a message, and the folder is removed when it is left empty.
+ * Retires the files the previous manifest lists under `<dir>/`, except the names `skip` holds: a file that is gone is
+ * passed over, an unedited one is removed, an edited one is kept with `Kept your edited <rel>: <why>`. Returns the
+ * listed names.
  */
-function retireLenses(home: string, previous: Manifest | undefined, out: string[]): void {
-  const dir = join(home, LENSES)
-  if (!existsSync(dir) || !statSync(dir).isDirectory()) return
-  const move = (name: string) => `theway no longer reads ${LENSES}/; move it to prompts/${name}`
+function retireListed(
+  home: string,
+  previous: Manifest | undefined,
+  dir: string,
+  why: (name: string) => string,
+  out: string[],
+  skip: (name: string) => boolean = () => false,
+): Set<string> {
   const listed = new Set<string>()
   for (const [rel, hash] of Object.entries(previous ?? {})) {
-    if (!rel.startsWith(`${LENSES}/`)) continue
-    const name = rel.slice(LENSES.length + 1)
+    if (!rel.startsWith(`${dir}/`)) continue
+    const name = rel.slice(dir.length + 1)
+    if (skip(name)) continue
     listed.add(name)
     const path = join(home, rel)
     if (!existsSync(path)) continue
@@ -140,10 +146,23 @@ function retireLenses(home: string, previous: Manifest | undefined, out: string[
       rmSync(path)
       out.push(`Removed ${rel}: theway no longer ships it\n`)
     } else {
-      out.push(`Kept your edited ${rel}: ${move(name)}\n`)
+      out.push(`Kept your edited ${rel}: ${why(name)}\n`)
     }
   }
-  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+  return listed
+}
+
+/**
+ * Retires `lenses/`, which theway no longer ships nor reads: a lens the previous manifest lists is removed when
+ * unedited and kept with a message when edited, every `.default.md` copy is removed, every other `.md` file (the
+ * user's own) is kept with a message, and the folder is removed when it is left empty.
+ */
+function retireLenses(home: string, previous: Manifest | undefined, out: string[]): void {
+  const dir = join(home, LENSES)
+  if (!isDir(dir)) return
+  const move = (name: string) => `theway no longer reads ${LENSES}/; move it to prompts/${name}`
+  const listed = retireListed(home, previous, LENSES, move, out)
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort(byName)) {
     const name = entry.name
     if (!entry.isFile() || !name.endsWith(".md") || listed.has(name)) continue
     if (name.endsWith(".default.md")) {
@@ -155,8 +174,6 @@ function retireLenses(home: string, previous: Manifest | undefined, out: string[
   removeIfEmpty(dir)
 }
 
-const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
-
 /**
  * Retires `steps/`, which theway no longer ships nor reads: in the home, a step file the previous manifest lists is
  * removed when unedited and kept with a message when edited, every `.default.yaml` copy is removed, every other `.yaml`
@@ -166,20 +183,8 @@ const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? 
 function retireSteps(home: string, previous: Manifest | undefined, out: string[]): void {
   const why = "theway no longer reads steps/; write its steps in a workflow file"
   const dir = join(home, STEPS)
-  if (existsSync(dir) && statSync(dir).isDirectory()) {
-    const listed = new Set<string>()
-    for (const [rel, hash] of Object.entries(previous ?? {})) {
-      if (!rel.startsWith(`${STEPS}/`)) continue
-      listed.add(rel.slice(STEPS.length + 1))
-      const path = join(home, rel)
-      if (!existsSync(path)) continue
-      if (sha256(readFileSync(path)) === hash) {
-        rmSync(path)
-        out.push(`Removed ${rel}: theway no longer ships it\n`)
-      } else {
-        out.push(`Kept your edited ${rel}: ${why}\n`)
-      }
-    }
+  if (isDir(dir)) {
+    const listed = retireListed(home, previous, STEPS, () => why, out)
     for (const entry of readdirSync(dir, { withFileTypes: true }).sort(byName)) {
       const name = entry.name
       if (!entry.isFile() || !name.endsWith(".yaml") || listed.has(name)) continue
@@ -192,10 +197,10 @@ function retireSteps(home: string, previous: Manifest | undefined, out: string[]
     removeIfEmpty(dir)
   }
   const projects = join(home, "projects")
-  if (!existsSync(projects) || !statSync(projects).isDirectory()) return
+  if (!isDir(projects)) return
   for (const project of readdirSync(projects, { withFileTypes: true }).sort(byName)) {
     const own = join(projects, project.name, STEPS)
-    if (!project.isDirectory() || !existsSync(own) || !statSync(own).isDirectory()) continue
+    if (!project.isDirectory() || !isDir(own)) continue
     for (const entry of readdirSync(own, { withFileTypes: true }).sort(byName)) {
       if (entry.isFile() && entry.name.endsWith(".yaml")) {
         out.push(`Kept projects/${project.name}/${STEPS}/${entry.name}: ${why}\n`)
@@ -212,18 +217,8 @@ function retireSteps(home: string, previous: Manifest | undefined, out: string[]
  */
 function retireSchemas(home: string, previous: Manifest | undefined, out: string[]): void {
   const dir = join(home, SCHEMAS)
-  if (!existsSync(dir) || !statSync(dir).isDirectory()) return
-  for (const [rel, hash] of Object.entries(previous ?? {})) {
-    if (!rel.startsWith(`${SCHEMAS}/`)) continue
-    const path = join(home, rel)
-    if (!existsSync(path)) continue
-    if (sha256(readFileSync(path)) === hash) {
-      rmSync(path)
-      out.push(`Removed ${rel}: theway no longer ships it\n`)
-    } else {
-      out.push(`Kept your edited ${rel}: theway no longer ships it\n`)
-    }
-  }
+  if (!isDir(dir)) return
+  retireListed(home, previous, SCHEMAS, () => "theway no longer ships it", out)
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith(".default.json")) rmSync(join(dir, entry.name), { force: true })
   }
@@ -240,7 +235,7 @@ function retireMoved(home: string, out: string[]): void {
   let changed = false
   for (const [rel, now] of Object.entries(MOVED)) {
     const path = join(home, rel)
-    if (existsSync(path) && statSync(path).isFile()) {
+    if (isFile(path)) {
       const current = readFileSync(path)
       if (previous?.[rel] === sha256(current)) {
         rmSync(path)
@@ -366,17 +361,8 @@ function copyShipped(src: string, home: string, out: string[]): void {
       if (record) manifest[rel] = sha256(shipped)
     }
     if (isShared) {
-      for (const [rel, hash] of Object.entries(previous ?? {})) {
-        if (!rel.startsWith(`${dir}/`) || names.includes(rel.slice(dir.length + 1))) continue
-        const path = join(home, rel)
-        if (!existsSync(path)) continue
-        if (sha256(readFileSync(path)) === hash) {
-          rmSync(path)
-          out.push(`Removed ${rel}: theway no longer ships it\n`)
-        } else {
-          out.push(`Kept your edited ${rel}: theway no longer ships it, so it is now one of your ${shared}\n`)
-        }
-      }
+      const why = () => `theway no longer ships it, so it is now one of your ${shared}`
+      retireListed(home, previous, dir, why, out, (name) => names.includes(name))
       for (const entry of readdirSync(join(home, dir), { withFileTypes: true })) {
         const file = entry.name
         if (!entry.isFile() || !file.endsWith(defaultExt)) continue

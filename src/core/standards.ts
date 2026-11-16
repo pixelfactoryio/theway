@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs"
 import { effectiveConfig, enabled, type Loaded } from "./config"
-import { escaped, thewayHome } from "./io"
+import { thewayHome } from "./io"
 import { error, print, warning, warnQuiet } from "./output"
-import { resolveKey } from "./project"
-import { parseYaml } from "./text"
+import { projectKeyOrExit } from "./project"
+import { escaped, parseYaml } from "./text"
 
 const PHASES = ["engineering", "develop", "document"] as const
 export type Phase = (typeof PHASES)[number]
@@ -75,9 +75,8 @@ export function selectStandards(loaded: Loaded, phase: Phase): { paths: string[]
 
 /** `theway standards <engineering|develop|document> [--project <key>]`: the paths `selectStandards` gives, one per line. */
 export function cmdStandards(phase: string, override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const invalid = checkPhase(phase)
   if (invalid !== null) return error(invalid)
 

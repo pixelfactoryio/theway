@@ -1,8 +1,6 @@
 import {
   accessSync,
-  chmodSync,
   constants,
-  copyFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -22,7 +20,7 @@ import { fileURLToPath } from "node:url"
 import { isCancel, multiselect, text } from "@clack/prompts"
 import { OPT_IN_KEYS } from "./core/config"
 import { init } from "./core/init"
-import { activeIds } from "./core/store/files"
+import { fileStore } from "./core/store/files"
 import {
   defaultHome,
   isDir,
@@ -34,6 +32,7 @@ import {
   writeAtomic,
 } from "./core/io"
 import { error, print, warning } from "./core/output"
+import { version } from "../package.json" with { type: "json" }
 
 const self = fileURLToPath(import.meta.url)
 const pkgRoot = dirname(dirname(self))
@@ -105,17 +104,11 @@ const CHANGE_YAML_DOCS = "https://pixelfactoryio.github.io/theway/docs/installat
 
 /** The line to print when active changes of any project still hold a `tasks.md` and no `change.yaml`, else `null`. */
 function reportTasksMd(home: string): string | null {
-  const projects = join(home, "projects")
-  let keys: string[]
-  try {
-    keys = readdirSync(projects).filter((n) => !n.startsWith(".") && isDir(join(projects, n)))
-  } catch {
-    return null
-  }
+  const store = fileStore(home)
   let n = 0
-  for (const key of keys) {
-    for (const id of activeIds(join(projects, key))) {
-      const dir = join(projects, key, "changes", id)
+  for (const key of store.projectKeys()) {
+    for (const id of store.activeIds(key)) {
+      const dir = store.dirOf(key, { kind: "active", id })
       if (isFile(join(dir, "tasks.md")) && !existsSync(join(dir, "change.yaml"))) n++
     }
   }
@@ -305,28 +298,15 @@ function removeLegacyBin(home: string): string[] {
 /** Copies this CLI to `<dir>/theway`, executable, replacing any previous copy in one rename. */
 function writeBinary(dir: string): string {
   const dest = join(dir, "theway")
-  const tmp = join(dir, `.theway-${process.pid}`)
   mkdirSync(dir, { recursive: true })
-  try {
-    copyFileSync(self, tmp)
-    chmodSync(tmp, 0o755)
-    renameSync(tmp, dest)
-  } finally {
-    rmSync(tmp, { force: true })
-  }
+  writeAtomic(dest, readFileSync(self), 0o755)
   return dest
 }
 
 /** Writes `<dir>/theway.cmd`, the shim that runs `<dir>/theway` with node, replacing any previous one in one rename. */
 function writeShim(dir: string): string {
   const dest = join(dir, "theway.cmd")
-  const tmp = join(dir, `.theway-cmd-${process.pid}`)
-  try {
-    writeFileSync(tmp, `@rem ${BINARY_MARKER}\r\n@node "%~dp0theway" %*\r\n`)
-    renameSync(tmp, dest)
-  } finally {
-    rmSync(tmp, { force: true })
-  }
+  writeAtomic(dest, `@rem ${BINARY_MARKER}\r\n@node "%~dp0theway" %*\r\n`)
   return dest
 }
 
@@ -719,7 +699,6 @@ export async function install(opts: { home?: string; standards?: string }): Prom
     if (missing.length > 0 || kept.length !== allow.length) {
       settings.permissions = { ...perms, allow: [...kept, ...missing] }
       // The last write: it gets no label.
-      mkdirSync(cHome, { recursive: true })
       writeSettings(resolved.target, settings)
     }
   } catch (e) {
@@ -730,7 +709,6 @@ export async function install(opts: { home?: string; standards?: string }): Prom
   if (onPath.hint !== null) print(onPath.hint)
   if (onPath.warning !== null) warning(onPath.warning)
 
-  const version = JSON.parse(readFileSync(join(pkgRoot, "package.json"), "utf-8")).version
   const files = shim !== null ? `${binary}, ${shim}` : binary
   print(
     `Installed theway ${version} to ${dest} (theway@skills-dir), ${files} and ${tHome}. Start a new Claude Code session or run /reload-plugins.\n`,

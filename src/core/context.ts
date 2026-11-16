@@ -1,10 +1,10 @@
 import { join } from "node:path"
 import { stringify } from "yaml"
 import { loadConfigResult } from "./config"
-import { escaped, thewayHome } from "./io"
+import { thewayHome } from "./io"
 import { error, print, warning, warnLoud } from "./output"
-import { changeIdReason } from "./path"
-import { projectDir, resolveKey } from "./project"
+import { invalidChangeId } from "./path"
+import { projectDir, projectKeyOrExit } from "./project"
 import { checkPhase, type Phase, selectStandards } from "./standards"
 
 /**
@@ -13,15 +13,14 @@ import { checkPhase, type Phase, selectStandards } from "./standards"
  * `config` (as `theway config` prints it).
  */
 export function cmdContext(phase: string, changeId: string | undefined, override: string | undefined): number {
-  const resolved = resolveKey(override)
-  if ("error" in resolved) return error(resolved.error)
-  if (resolved.warning !== null) warning(resolved.warning)
+  const resolved = projectKeyOrExit(override)
+  if (typeof resolved === "number") return resolved
   const key = resolved.key
   const invalid = checkPhase(phase)
   if (invalid !== null) return error(invalid)
   if (changeId !== undefined) {
-    const reason = changeIdReason(changeId)
-    if (reason !== "") return error(`invalid change id '${escaped(changeId)}': ${reason}`)
+    const invalid = invalidChangeId(changeId)
+    if (invalid !== null) return error(invalid)
   }
 
   const home = thewayHome()
