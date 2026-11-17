@@ -5,6 +5,7 @@ import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -14,6 +15,7 @@ import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join, parse } from "node:path"
 import { keyOf } from "../src/core/project"
+import { DashboardSettingsSchema } from "../src/dashboard/contract"
 import { folderOf } from "../src/dashboard/projects"
 import { createApp } from "../src/dashboard/server"
 import { buildProgram } from "../src/program"
@@ -149,7 +151,7 @@ test("the page and the stylesheet load nothing from another host", async () => {
     ...[...css.matchAll(/url\(\s*["']?([^"')]*)/g)].map((m) => m[1] as string),
     ...[...css.matchAll(/@import\s+(?:url\()?\s*["']?([^"');\s]*)/g)].map((m) => m[1] as string),
   ]
-  expect(targets).toContain("/fonts/inter.woff2")
+  expect(targets).toContain("/fonts/geist-mono.woff2")
   const foreign = [...refs, ...targets].filter((r) => /^(?:[a-z]+:)?\/\//i.test(r))
   expect(foreign).toEqual([])
 })
@@ -159,16 +161,14 @@ test("the assets are served with their types and the fonts are the packages' fil
   const types = {
     "/app.js": "text/javascript; charset=utf-8",
     "/app.css": "text/css; charset=utf-8",
-    "/fonts/inter.woff2": "font/woff2",
-    "/fonts/jetbrains-mono.woff2": "font/woff2",
+    "/fonts/geist-mono.woff2": "font/woff2",
   }
   for (const [path, type] of Object.entries(types)) {
     const res = await get(home, path)
     expect([path, res.status, res.headers.get("content-type")]).toEqual([path, 200, type])
   }
   for (const [path, file] of [
-    ["/fonts/inter.woff2", "inter/files/inter-latin-wght-normal.woff2"],
-    ["/fonts/jetbrains-mono.woff2", "jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2"],
+    ["/fonts/geist-mono.woff2", "geist-mono/files/geist-mono-latin-wght-normal.woff2"],
   ] as const) {
     const bytes = Buffer.from(await (await get(home, path)).arrayBuffer())
     expect(bytes.equals(readFileSync(join(REPO, "node_modules", "@fontsource-variable", file)))).toBe(true)
@@ -190,14 +190,14 @@ function ranges(text: string): string {
     .join(",")
 }
 
-test("/app.css holds the two @font-face rules of the spec", async () => {
+test("/app.css holds the code font's @font-face rule, and only it", async () => {
   const css = await (await get(temp(), "/app.css")).text()
   const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1] as string)
   const prop = (face: string, name: string) => new RegExp(`${name}:\\s*([^;]+)`).exec(face)?.[1]?.trim() ?? ""
   const expected = [
-    { family: "Inter Variable", url: "/fonts/inter.woff2", weight: "100 900", pkg: "inter" },
-    { family: "JetBrains Mono Variable", url: "/fonts/jetbrains-mono.woff2", weight: "100 800", pkg: "jetbrains-mono" },
+    { family: "Geist Mono Variable", url: "/fonts/geist-mono.woff2", weight: "100 900", pkg: "geist-mono" },
   ]
+  expect(faces).toHaveLength(expected.length)
   for (const e of expected) {
     const face = faces.find((f) => prop(f, "font-family").replace(/['"]/g, "") === e.family)
     expect(face).toBeDefined()
@@ -303,6 +303,128 @@ test("one project's fallback label is its key without the leading -", async () =
   project(home, "-no-such-folder-anywhere", 0)
   const body = (await (await get(home, "/api/projects")).json()) as { projects: { label: string }[] }
   expect(body.projects.map((p) => p.label)).toEqual(["no-such-folder-anywhere"])
+})
+
+const EMPTY_SETTINGS = { pinned: [], groups: [], recent: [], dismissed: [] }
+
+/** A `PUT /api/dashboard` with this server's Origin, the token and a JSON body, each header replaceable. */
+const putSettings = (home: string, body: unknown, headers: Record<string, string | undefined> = {}) => {
+  const all: Record<string, string> = {}
+  for (const [k, v] of Object.entries({
+    Host: "127.0.0.1:4870",
+    Origin: "http://127.0.0.1:4870",
+    "X-Theway-Token": TOKEN,
+    "Content-Type": "application/json",
+    ...headers,
+  }))
+    if (v !== undefined) all[k] = v
+  return app(home).request("http://127.0.0.1:4870/api/dashboard", {
+    method: "PUT",
+    headers: all,
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  })
+}
+
+const SETTINGS = {
+  pinned: ["project:-a", "group:work"],
+  groups: [{ id: "work", name: "  Work  ", projects: ["-a", "-b"] }],
+  recent: ["project:-b", "group:work"],
+  dismissed: ["suggest:-a,-b"],
+}
+
+test("GET /api/dashboard with no dashboard.json answers the empty settings", async () => {
+  const home = temp()
+  const res = await get(home, "/api/dashboard")
+  expect(res.status).toBe(200)
+  expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8")
+  expect(await res.json()).toEqual(EMPTY_SETTINGS)
+  expect((await get(home, "/api/dashboard", "evil.example:4870")).status).toBe(403)
+})
+
+test("PUT /api/dashboard saves the settings, names trimmed, and GET reads them back", async () => {
+  const home = temp()
+  const saved = { ...SETTINGS, groups: [{ id: "work", name: "Work", projects: ["-a", "-b"] }] }
+  expect(DashboardSettingsSchema.parse(SETTINGS)).toEqual(saved)
+  const res = await putSettings(home, SETTINGS)
+  expect([res.status, await res.json()]).toEqual([200, saved])
+  expect(await (await get(home, "/api/dashboard")).json()).toEqual(saved)
+  const empty = await putSettings(home, EMPTY_SETTINGS)
+  expect([empty.status, await empty.json()]).toEqual([200, EMPTY_SETTINGS])
+  expect(await (await get(home, "/api/dashboard")).json()).toEqual(EMPTY_SETTINGS)
+})
+
+test("PUT /api/dashboard is behind the write guard", async () => {
+  const home = temp()
+  for (const headers of [{ Origin: "http://evil.example" }, { "X-Theway-Token": undefined }]) {
+    const res = await putSettings(home, SETTINGS, headers)
+    expect([res.status, await res.json()]).toEqual([403, { error: "forbidden" }])
+  }
+  const res = await putSettings(home, SETTINGS, { "Content-Type": "text/plain" })
+  expect([res.status, await res.json()]).toEqual([415, { error: "unsupported media type" }])
+  expect(readdirSync(home)).toEqual([])
+})
+
+test("PUT /api/dashboard refuses a body that breaks a rule of the schema with 400 and writes nothing", async () => {
+  const home = temp()
+  const group = (id: string, projects: string[]) => ({ id, name: id, projects })
+  const invalid: [string, unknown][] = [
+    ["unknown field", { ...SETTINGS, extra: true }],
+    ["unknown group field", { ...SETTINGS, groups: [{ ...group("g", []), color: "red" }] }],
+    ["project in two groups", { ...SETTINGS, groups: [group("a", ["-a"]), group("b", ["-b", "-a"])] }],
+    ["recent over 10", { ...SETTINGS, recent: Array.from({ length: 11 }, (_, i) => `project:-p${i}`) }],
+    ["pinned over 50", { ...SETTINGS, pinned: Array.from({ length: 51 }, (_, i) => `project:-p${i}`) }],
+    ["groups over 50", { ...SETTINGS, groups: Array.from({ length: 51 }, (_, i) => group(`g${i}`, [])) }],
+    ["dismissed over 200", { ...SETTINGS, dismissed: Array.from({ length: 201 }, (_, i) => `s${i}`) }],
+    ["blank name", { ...SETTINGS, groups: [{ ...group("g", []), name: "   " }] }],
+    ["name over 80", { ...SETTINGS, groups: [{ ...group("g", []), name: "n".repeat(81) }] }],
+    ["id over 80", { ...SETTINGS, groups: [group("g".repeat(81), [])] }],
+    ["empty id", { ...SETTINGS, groups: [group("", [])] }],
+    ["duplicate group id", { ...SETTINGS, groups: [group("g", ["-a"]), group("g", ["-b"])] }],
+    ["duplicate pinned id", { ...SETTINGS, pinned: ["project:-a", "project:-a"] }],
+    ["entry of no kind", { ...SETTINGS, recent: ["-a"] }],
+    ["missing field", { pinned: [], groups: [], recent: [] }],
+    ["wrong type", { ...SETTINGS, dismissed: [1] }],
+    ["array body", []],
+  ]
+  for (const [name, body] of invalid) {
+    expect([name, DashboardSettingsSchema.safeParse(body).success]).toEqual([name, false])
+    const res = await putSettings(home, body)
+    expect([name, res.status, await res.json()]).toEqual([name, 400, { error: "invalid body" }])
+  }
+  const res = await putSettings(home, "{not json")
+  expect([res.status, await res.json()]).toEqual([400, { error: "invalid body" }])
+  expect(readdirSync(home)).toEqual([])
+})
+
+test("a dashboard.json that is not JSON or breaks a rule reads as the empty settings, with a warning", async () => {
+  const home = temp()
+  const path = join(home, "dashboard.json")
+  for (const text of ["{not json", JSON.stringify({ ...SETTINGS, recent: "x" })]) {
+    writeFileSync(path, text)
+    const chunks: string[] = []
+    const write = process.stderr.write
+    process.stderr.write = ((chunk: string | Uint8Array) => {
+      chunks.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf-8"))
+      return true
+    }) as typeof process.stderr.write
+    let res: Response
+    try {
+      res = await get(home, "/api/dashboard")
+    } finally {
+      process.stderr.write = write
+    }
+    expect([res.status, await res.json()]).toEqual([200, EMPTY_SETTINGS])
+    expect(chunks).toEqual([`theway: warning: ${path} is not valid dashboard settings; the sidebar starts empty\n`])
+  }
+})
+
+test("PUT /api/dashboard writes the whole file and leaves no temporary file", async () => {
+  const home = temp()
+  writeFileSync(join(home, "dashboard.json"), JSON.stringify({ ...EMPTY_SETTINGS, dismissed: ["old"] }))
+  expect((await putSettings(home, SETTINGS)).status).toBe(200)
+  expect(readdirSync(home)).toEqual(["dashboard.json"])
+  const saved = JSON.parse(readFileSync(join(home, "dashboard.json"), "utf-8")) as unknown
+  expect(saved).toEqual(DashboardSettingsSchema.parse(SETTINGS))
 })
 
 // Needs a chmod-based permission error.
@@ -451,15 +573,15 @@ test("the built CLI serves the page with no file beside it", async () => {
   })
   const line = await new Promise<string>((done) => child.stdout.on("data", (d) => done(String(d))))
   const url = /http:\/\/127\.0\.0\.1:\d+\//.exec(line)?.[0] as string
-  for (const path of ["", "app.js", "app.css", "fonts/inter.woff2", "fonts/jetbrains-mono.woff2"]) {
+  for (const path of ["", "app.js", "app.css", "fonts/geist-mono.woff2"]) {
     expect([path, (await fetch(url + path)).status]).toEqual([path, 200])
   }
   child.kill("SIGTERM")
   await new Promise((done) => child.on("exit", done))
 })
 
-test("the build writes the two font licences", () => {
-  for (const name of ["inter-OFL.txt", "jetbrains-mono-OFL.txt"]) {
+test("the build writes the code font's licence", () => {
+  for (const name of ["geist-mono-OFL.txt"]) {
     expect(readFileSync(join(REPO, "dist", "licenses", name), "utf-8")).toContain("SIL OPEN FONT LICENSE")
   }
 })

@@ -45,8 +45,7 @@ const changes: ChangeList = {
 const label = (key: string): string => (key === "-k" ? "kt" : key)
 
 const input = (rest: Partial<SearchInput> = {}): SearchInput => ({
-  key: "-k",
-  changes,
+  changes: [{ key: "-k", list: changes }],
   workflows: [workflow("agents", null), workflow("ship", "-k")],
   prompts: [prompt("review", null), prompt("local", "-k")],
   projects: [project("-z", "revecto", 3), project("-k", "kt", 2)],
@@ -58,12 +57,12 @@ test("the groups are Changes, Workflows, Prompts, Projects with their hrefs", ()
   const groups = searchGroups(input())
   expect(groups.map((g) => g.heading)).toEqual(["Changes", "Workflows", "Prompts", "Projects"])
   expect(groups[0]?.entries).toEqual([
-    { value: "change:add-x", label: "add-x", detail: "Add X", href: "/-k/changes/add-x?" },
-    { value: "change:fix-y", label: "fix-y", detail: "", href: "/-k/changes/fix-y?" },
+    { value: "change:-k/add-x", label: "add-x", detail: "Add X · kt", href: "/-k/changes/add-x?" },
+    { value: "change:-k/fix-y", label: "fix-y", detail: "kt", href: "/-k/changes/fix-y?" },
     {
-      value: "archived:2026-10-30-add-w",
+      value: "archived:-k/2026-10-30-add-w",
       label: "add-w",
-      detail: "Archived 2026-10-30",
+      detail: "kt · archived 2026-10-30",
       href: "/-k/changes/archive/2026-10-30-add-w?",
     },
   ])
@@ -82,21 +81,42 @@ test("the groups are Changes, Workflows, Prompts, Projects with their hrefs", ()
   ])
 })
 
-test("a null key gives no Changes group", () => {
-  expect(searchGroups(input({ key: null })).map((g) => g.heading)).toEqual(["Workflows", "Prompts", "Projects"])
+test("every project's changes are listed, active ones first, each naming its project", () => {
+  const other: ChangeList = { active: [active("add-q", "Add Q")], archived: [] }
+  const entries = searchGroups(
+    input({
+      changes: [
+        { key: "-k", list: changes },
+        { key: "-z", list: other },
+      ],
+    }),
+  )[0]?.entries
+  expect(entries?.map((e) => e.value)).toEqual([
+    "change:-k/add-x",
+    "change:-k/fix-y",
+    "change:-z/add-q",
+    "archived:-k/2026-10-30-add-w",
+  ])
+  expect(entries?.[2]).toEqual({
+    value: "change:-z/add-q",
+    label: "add-q",
+    detail: "Add Q · -z",
+    href: "/-z/changes/add-q?",
+  })
+  expect(searchGroups(input({ changes: [] })).map((g) => g.heading)).toEqual(["Workflows", "Prompts", "Projects"])
 })
 
 test("a list still loading or empty gives no group", () => {
-  expect(searchGroups(input({ changes: undefined, prompts: undefined })).map((g) => g.heading)).toEqual([
+  expect(searchGroups(input({ changes: [], prompts: undefined })).map((g) => g.heading)).toEqual([
     "Workflows",
     "Projects",
   ])
   expect(
-    searchGroups(input({ changes: { active: [], archived: [] }, workflows: [], projects: [] })).map((g) => g.heading),
-  ).toEqual(["Prompts"])
-  expect(
     searchGroups(
-      input({ key: null, changes: undefined, workflows: undefined, prompts: undefined, projects: undefined }),
-    ),
-  ).toEqual([])
+      input({ changes: [{ key: "-k", list: { active: [], archived: [] } }], workflows: [], projects: [] }),
+    ).map((g) => g.heading),
+  ).toEqual(["Prompts"])
+  expect(searchGroups(input({ changes: [], workflows: undefined, prompts: undefined, projects: undefined }))).toEqual(
+    [],
+  )
 })

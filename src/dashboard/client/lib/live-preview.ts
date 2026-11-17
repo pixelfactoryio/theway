@@ -1,0 +1,307 @@
+import type { syntaxTree } from "@codemirror/language"
+import type { Text } from "@codemirror/state"
+
+import { isLinkTarget } from "./changes"
+
+/** A Markdown syntax tree, as `syntaxTree` of `@codemirror/language` or the Markdown parser's `parse` gives it. */
+type Tree = ReturnType<typeof syntaxTree>
+type SyntaxNode = Tree["topNode"]
+
+/** A range of the document. */
+export type Span = { from: number; to: number }
+
+/** The style of a whole line: a heading level, a blockquote, a fenced or indented code line, a fence or a table row. */
+export type LineKind = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "quote" | "code" | "fence" | "table"
+
+/** The style of a range within a line: inline formatting, a link's text, a done task's text, an ordered list number. */
+export type MarkKind = "strong" | "em" | "strike" | "code" | "done" | "number"
+
+export type LineStyle = { from: number; kind: LineKind }
+
+export type MarkStyle = (Span & { kind: MarkKind }) | (Span & { kind: "link"; href: string })
+
+/**
+ * What replaces a range: a bullet for a list marker, a checkbox for a task item's marker and box (`toggle` is the
+ * position of the character between its brackets), a rule for a thematic break.
+ */
+export type Widget =
+  | (Span & { kind: "bullet" })
+  | (Span & { kind: "checkbox"; checked: boolean; toggle: number; label: string })
+  | (Span & { kind: "hr" })
+
+/** The decorations of a live preview: line styles, range styles, hidden ranges and widgets, none of which edits the text. */
+export type Plan = { lines: LineStyle[]; marks: MarkStyle[]; hidden: Span[]; widgets: Widget[] }
+
+/** The line numbers (from 1) the selection's ranges touch while the editor has focus; none without focus. */
+export function activeLines(doc: Text, selection: readonly Span[], focused: boolean): Set<number> {
+  const lines = new Set<number>()
+  if (!focused) return lines
+  for (const r of selection) {
+    const last = doc.lineAt(r.to).number
+    for (let n = doc.lineAt(r.from).number; n <= last; n++) lines.add(n)
+  }
+  return lines
+}
+
+/** The change that ticks or unticks the task box whose inner character is at `at`: one character, ` ` ↔ `x`. */
+export function taskToggle(doc: Text, at: number): { from: number; to: number; insert: string } | null {
+  if (at < 1 || at + 2 > doc.length) return null
+  const box = doc.sliceString(at - 1, at + 2)
+  if (!/^\[[ xX]\]$/.test(box)) return null
+  return { from: at, to: at + 1, insert: box[1] === " " ? "x" : " " }
+}
+
+const HEADING = /^ATXHeading([1-6])$/
+
+const INLINE: Record<string, { kind: MarkKind; mark: string }> = {
+  StrongEmphasis: { kind: "strong", mark: "EmphasisMark" },
+  Emphasis: { kind: "em", mark: "EmphasisMark" },
+  Strikethrough: { kind: "strike", mark: "StrikethroughMark" },
+  InlineCode: { kind: "code", mark: "CodeMark" },
+}
+
+/** Nodes left as source, children included: tables and raw HTML; images and autolinks as written. */
+const SOURCE = new Set([
+  "HTMLBlock",
+  "HTMLTag",
+  "CommentBlock",
+  "Comment",
+  "ProcessingInstructionBlock",
+  "ProcessingInstruction",
+  "Image",
+  "Autolink",
+])
+
+/** The children of `node` named `name`, in order. */
+function children(node: SyntaxNode, name: string): SyntaxNode[] {
+  const out: SyntaxNode[] = []
+  for (let c = node.firstChild; c !== null; c = c.nextSibling) if (c.name === name) out.push(c)
+  return out
+}
+
+/**
+ * The decorations of the live preview of `doc` for the parts of `tree` within `ranges` (the visible ranges): a syntax
+ * mark is hidden, and a list marker, task box or thematic break replaced by a widget, only off the `active` lines; line
+ * and range styles apply everywhere. Fenced code keeps its fences; tables and raw HTML stay as source.
+ */
+export function decorationPlan(
+  doc: Text,
+  tree: Tree,
+  active: ReadonlySet<number>,
+  ranges: readonly Span[] = [{ from: 0, to: doc.length }],
+): Plan {
+  const plan: Plan = { lines: [], marks: [], hidden: [], widgets: [] }
+  const seen = new Set<string>()
+  const once = (key: string): boolean => {
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }
+
+  // Whether a line from `from` to `to` is active: the syntax shows there.
+  const shown = (from: number, to: number): boolean => {
+    const last = doc.lineAt(to).number
+    for (let n = doc.lineAt(from).number; n <= last; n++) if (active.has(n)) return true
+    return false
+  }
+  // Hides from `from` to `to`, one range per line: a hidden range never holds a line break.
+  const hide = (from: number, to: number): void => {
+    while (from < to) {
+      const line = doc.lineAt(from)
+      const end = Math.min(to, line.to)
+      if (end > from && once(`h${from}:${end}`)) plan.hidden.push({ from, to: end })
+      from = line.to + 1
+    }
+  }
+  const mark = (style: MarkStyle): void => {
+    if (style.to > style.from && once(`m${style.kind}${style.from}:${style.to}`)) plan.marks.push(style)
+  }
+  const widget = (w: Widget): void => {
+    if (once(`w${w.from}`)) plan.widgets.push(w)
+  }
+  // Styles every line of `from`..`to` that lies within `range`.
+  const lines = (from: number, to: number, kind: LineKind, range: Span): void => {
+    const last = doc.lineAt(Math.min(to, range.to)).number
+    for (let n = doc.lineAt(Math.max(from, range.from)).number; n <= last; n++) {
+      const at = doc.line(n).from
+      if (once(`l${kind}${at}`)) plan.lines.push({ from: at, kind })
+    }
+  }
+  // The blanks (spaces and tabs) from `pos` forward, or backward with `step` -1, within the line.
+  const blanks = (pos: number, step: 1 | -1): number => {
+    const line = doc.lineAt(pos)
+    const blank = (from: number): boolean => /^[ \t]$/.test(doc.sliceString(from, from + 1))
+    if (step > 0) while (pos < line.to && blank(pos)) pos++
+    else while (pos > line.from && blank(pos - 1)) pos--
+    return pos
+  }
+
+  const listMark = (node: SyntaxNode): void => {
+    const item = node.parent
+    const off = !shown(node.from, node.from)
+    const task = item?.getChild("Task") ?? null
+    const box = task?.getChild("TaskMarker") ?? null
+    if (task !== null && box !== null) {
+      const checked = doc.sliceString(box.from + 1, box.from + 2) !== " "
+      if (checked) mark({ from: box.to, to: task.to, kind: "done" })
+      if (!off) return
+      const end = doc.sliceString(box.to, box.to + 1) === " " ? box.to + 1 : box.to
+      const text = doc.sliceString(box.to, Math.min(task.to, doc.lineAt(box.to).to)).trim()
+      widget({
+        kind: "checkbox",
+        from: node.from,
+        to: end,
+        checked,
+        toggle: box.from + 1,
+        label: `${checked ? "Done" : "To do"}: ${text}`,
+      })
+      return
+    }
+    if (item?.parent?.name === "OrderedList") mark({ from: node.from, to: node.to, kind: "number" })
+    else if (off) widget({ kind: "bullet", from: node.from, to: node.to })
+  }
+
+  const link = (node: SyntaxNode): void => {
+    const marks = children(node, "LinkMark")
+    const url = node.getChild("URL")
+    const [open, close, paren] = marks
+    if (open === undefined || close === undefined || paren === undefined || url === null) return
+    if (doc.sliceString(close.from, paren.to) !== "](") return
+    if (!shown(node.from, node.to)) {
+      hide(open.from, open.to)
+      hide(close.from, node.to)
+    }
+    const raw = doc.sliceString(url.from, url.to)
+    const href = raw.startsWith("<") && raw.endsWith(">") ? raw.slice(1, -1) : raw
+    if (isLinkTarget(href)) mark({ from: open.to, to: close.from, kind: "link", href })
+  }
+
+  for (const range of ranges) {
+    tree.iterate({
+      from: range.from,
+      to: range.to,
+      enter: (ref) => {
+        const node = ref.node
+        const name = ref.name
+        if (SOURCE.has(name)) return false
+        const heading = HEADING.exec(name)
+        if (heading !== null) {
+          lines(node.from, node.from, `h${heading[1]}` as LineKind, range)
+          return undefined
+        }
+        const inline = INLINE[name]
+        if (inline !== undefined) {
+          mark({ from: node.from, to: node.to, kind: inline.kind })
+          if (!shown(node.from, node.to)) for (const m of children(node, inline.mark)) hide(m.from, m.to)
+          return name === "InlineCode" ? false : undefined
+        }
+        switch (name) {
+          case "Table":
+            lines(node.from, node.to, "table", range)
+            return false
+          case "FencedCode":
+            lines(node.from, node.to, "code", range)
+            for (const m of children(node, "CodeMark")) lines(m.from, m.from, "fence", range)
+            return false
+          case "CodeBlock":
+            lines(node.from, node.to, "code", range)
+            return false
+          case "Blockquote":
+            lines(node.from, node.to, "quote", range)
+            return undefined
+          case "QuoteMark":
+            if (!shown(node.from, node.from)) {
+              const next = doc.sliceString(node.to, node.to + 1)
+              hide(node.from, next === " " ? node.to + 1 : node.to)
+            }
+            return undefined
+          case "HeaderMark":
+            if (HEADING.test(node.parent?.name ?? "") && !shown(node.from, node.from)) {
+              if (node.prevSibling === null)
+                hide(node.from, Math.min(blanks(node.to, 1), node.nextSibling?.from ?? doc.length))
+              else hide(blanks(node.from, -1), node.to)
+            }
+            return undefined
+          case "HorizontalRule":
+            if (!shown(node.from, node.to)) widget({ kind: "hr", from: node.from, to: node.to })
+            return false
+          case "ListMark":
+            listMark(node)
+            return undefined
+          case "Link":
+            link(node)
+            return undefined
+          default:
+            return undefined
+        }
+      },
+    })
+  }
+  return plan
+}
+
+/** A GFM table drawn as a table: its whole lines, its header cells, each column's alignment and its rows' cells. */
+export type TableBlock = Span & {
+  header: string[]
+  align: ("left" | "center" | "right" | null)[]
+  rows: string[][]
+}
+
+/** The cells of a table line: split on the pipes outside code spans and not escaped, the outer pipes dropped, trimmed. */
+export function tableCells(line: string): string[] {
+  const text = line.trim()
+  const cells: string[] = []
+  let cell = ""
+  let code = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] as string
+    if (c === "\\" && text[i + 1] === "|") {
+      cell += "|"
+      i++
+    } else if (c === "`") {
+      code = !code
+      cell += c
+    } else if (c === "|" && !code) {
+      cells.push(cell)
+      cell = ""
+    } else cell += c
+  }
+  cells.push(cell)
+  if (text.startsWith("|")) cells.shift()
+  if (text.endsWith("|") && !text.endsWith("\\|")) cells.pop()
+  return cells.map((s) => s.trim())
+}
+
+/** A delimiter cell's alignment: `:--` left, `:-:` center, `--:` right, else none. */
+const alignOf = (cell: string): TableBlock["align"][number] => {
+  const left = cell.startsWith(":")
+  const right = cell.endsWith(":")
+  return left && right ? "center" : right ? "right" : left ? "left" : null
+}
+
+/** The GFM tables of `tree` that no active line touches, each over its whole lines, to draw as tables. */
+export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>): TableBlock[] {
+  const blocks: TableBlock[] = []
+  tree.iterate({
+    enter: (ref) => {
+      if (SOURCE.has(ref.name)) return false
+      if (ref.name !== "Table") return undefined
+      const first = doc.lineAt(ref.from)
+      const last = doc.lineAt(Math.max(ref.from, ref.to - 1))
+      for (let n = first.number; n <= last.number; n++) if (active.has(n)) return false
+      const texts: string[] = []
+      for (let n = first.number; n <= last.number; n++) texts.push(doc.line(n).text)
+      const [head, delimiter, ...rest] = texts
+      if (head === undefined || delimiter === undefined) return false
+      blocks.push({
+        from: first.from,
+        to: last.to,
+        header: tableCells(head),
+        align: tableCells(delimiter).map(alignOf),
+        rows: rest.filter((r) => r.trim() !== "").map(tableCells),
+      })
+      return false
+    },
+  })
+  return blocks
+}

@@ -11,12 +11,17 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { searchGroups } from "@/lib/search"
-import { useChanges } from "@/shell/changes"
+import { useChangesOf } from "@/shell/changes"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
-import { useCurrentKey, useProjects } from "@/shell/projects"
+import { useSidebar } from "@/components/ui/sidebar"
+import { openDialog } from "@/shell/keys"
+import { usePanelName, usePanelOpen } from "@/shell/panel"
+import { useProjects } from "@/shell/projects"
+import { chooseTheme } from "@/shell/theme"
 
-/** Whether the platform is Apple's: ⌘ then, Ctrl elsewhere. Read from `navigator.platform`, as CodeMirror resolves `Mod-`. */
-export const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)
+import { MAC } from "@/shell/platform"
+
+export { MAC } from "@/shell/platform"
 
 /** The search's open state, provided by the shell so the sidebar entry and the shortcut share it. */
 export const SearchOpen = createContext<{ open: boolean; setOpen: Dispatch<SetStateAction<boolean>> }>({
@@ -29,14 +34,32 @@ export const useSearchOpen = () => useContext(SearchOpen)
 /** The groups and their entries; mounted only while the dialog is open, so its lists load when it opens. */
 function Results({ close }: { close: () => void }) {
   const [, navigate] = useLocation()
-  const key = useCurrentKey()
-  const changes = useChanges(key).data
+  const projects = useProjects().data?.projects
+  const keys = projects?.map((p) => p.key) ?? []
+  const results = useChangesOf(keys)
+  const changes = results.flatMap((r, i) => (r.data !== undefined ? [{ key: keys[i] as string, list: r.data }] : []))
   const workflows = useWorkflows().data?.workflows
   const prompts = usePrompts().data?.prompts
-  const projects = useProjects().data?.projects
   const label = useLabel()
-  const groups = searchGroups({ key, changes, workflows, prompts, projects, label })
+  const groups = searchGroups({ changes, workflows, prompts, projects, label })
   const list = useRef<HTMLDivElement>(null)
+  const sidebar = useSidebar()
+  const [panelOpen, setPanelOpen] = usePanelOpen()
+  const panel = usePanelName()
+  const actions: { value: string; label: string; detail: string; run: () => void }[] = [
+    { value: "action:now", label: "Go to Now", detail: "G N", run: () => navigate("/?") },
+    { value: "action:projects", label: "Go to All projects", detail: "G A", run: () => navigate("/projects?") },
+    { value: "action:sidebar", label: "Toggle sidebar", detail: MAC ? "⌘B" : "Ctrl+B", run: sidebar.toggleSidebar },
+    ...(panel !== null
+      ? [{ value: "action:panel", label: "Toggle panel", detail: panel, run: () => setPanelOpen(!panelOpen) }]
+      : []),
+    { value: "action:new-workflow", label: "New workflow", detail: "", run: () => openDialog("new-workflow") },
+    { value: "action:new-prompt", label: "New prompt", detail: "", run: () => openDialog("new-prompt") },
+    { value: "action:theme-dark", label: "Theme: Dark", detail: "", run: () => chooseTheme("dark") },
+    { value: "action:theme-light", label: "Theme: Light", detail: "", run: () => chooseTheme("light") },
+    { value: "action:theme-system", label: "Theme: System", detail: "", run: () => chooseTheme("system") },
+    { value: "action:shortcuts", label: "Keyboard shortcuts", detail: "?", run: () => openDialog("shortcuts") },
+  ]
 
   return (
     // Without vim bindings: cmdk's Ctrl+K (previous entry) would prevent the default, and Ctrl+K could not close it.
@@ -46,7 +69,7 @@ function Results({ close }: { close: () => void }) {
         first one above the view: back to the top once cmdk has sorted and selected.
       */}
       <CommandInput
-        placeholder="Search changes, workflows, prompts and projects"
+        placeholder="Go to a change, workflow, prompt or project, or run an action"
         onValueChange={() => requestAnimationFrame(() => list.current?.scrollTo({ top: 0 }))}
       />
       <CommandList ref={list}>
@@ -72,13 +95,29 @@ function Results({ close }: { close: () => void }) {
             ))}
           </CommandGroup>
         ))}
+        <CommandGroup heading="Actions">
+          {actions.map((a) => (
+            <CommandItem
+              key={a.value}
+              value={a.value}
+              keywords={[a.label]}
+              onSelect={() => {
+                close()
+                a.run()
+              }}
+            >
+              <span className="truncate">{a.label}</span>
+              {a.detail !== "" ? <span className="ml-auto text-xs text-muted-foreground">{a.detail}</span> : null}
+            </CommandItem>
+          ))}
+        </CommandGroup>
       </CommandList>
     </Command>
   )
 }
 
 /**
- * The ⌘K search: jumps to a change of the current project, a workflow, a prompt or a project. Cmd+K (Ctrl+K off macOS)
+ * The ⌘K search: jumps to a change of any project (active or archived), a workflow, a prompt or a project. Cmd+K (Ctrl+K off macOS)
  * toggles it anywhere an editor has not taken the key (the Markdown editor's Mod-k inserts a link and stops there).
  */
 export function SearchDialog() {
@@ -86,7 +125,10 @@ export function SearchDialog() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "k" || !(MAC ? event.metaKey : event.ctrlKey) || event.defaultPrevented) return
+      const key = event.key.toLowerCase()
+      // ⌘K, or ⌘P, which also works inside the editors where ⌘K inserts a link.
+      const palette = key === "p" || (key === "k" && !event.defaultPrevented)
+      if (!palette || !(MAC ? event.metaKey : event.ctrlKey) || event.shiftKey || event.altKey) return
       event.preventDefault()
       setOpen((was) => !was)
     }

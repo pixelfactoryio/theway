@@ -1,4 +1,4 @@
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
+import { MonitorIcon, MoonIcon, Settings2Icon, SunIcon } from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -10,7 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { dataTheme, THEME_KEY, type Theme, themeOf } from "@/lib/theme"
 import { readStored, writeStored } from "@/shell/storage"
 
@@ -23,17 +23,22 @@ function applyTheme(theme: Theme): void {
   else document.documentElement.setAttribute("data-theme", value)
 }
 
+/** Applies `theme` at once and keeps it in this browser. */
+export function chooseTheme(theme: Theme): void {
+  applyTheme(theme)
+  writeStored(THEME_KEY, theme === "system" ? null : theme)
+}
+
 /** Applies the theme kept in this browser, before the first render. */
 export function applyStoredTheme(): void {
   applyTheme(readTheme())
 }
 
-const ICONS = { system: MonitorIcon, light: SunIcon, dark: MoonIcon } as const
-
-/** The sidebar footer's Theme menu: System, Light or Dark, applied at once, kept in this browser; a choice closes it. */
-export function ThemeMenu() {
+/**
+ * The sidebar footer's Settings menu: the theme, System, Light or Dark, applied at once and kept in this browser.
+ */
+export function SettingsMenu() {
   const [theme, setTheme] = useState<Theme>(readTheme)
-  const Icon = ICONS[theme]
 
   const choose = (value: unknown) => {
     const next = themeOf(typeof value === "string" ? value : null)
@@ -43,36 +48,38 @@ export function ThemeMenu() {
   }
 
   return (
-    <SidebarMenuItem>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <SidebarMenuButton
-              tooltip="Theme"
-              className="aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground"
-            />
-          }
-        >
-          <Icon className="size-4" aria-hidden="true" />
-          <span>Theme</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="right" align="end" className="w-40">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>Theme</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={theme} onValueChange={choose}>
-              <DropdownMenuRadioItem value="system" closeOnClick>
-                System
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="light" closeOnClick>
-                Light
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="dark" closeOnClick>
-                Dark
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </SidebarMenuItem>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Settings"
+            className="size-7 text-muted-foreground aria-expanded:bg-sidebar-accent aria-expanded:text-foreground"
+          />
+        }
+      >
+        <Settings2Icon aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" className="w-48">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={theme} onValueChange={choose}>
+            <DropdownMenuRadioItem value="system" closeOnClick>
+              <MonitorIcon aria-hidden="true" />
+              System
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="light" closeOnClick>
+              <SunIcon aria-hidden="true" />
+              Light
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark" closeOnClick>
+              <MoonIcon aria-hidden="true" />
+              Dark
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

@@ -1,7 +1,7 @@
 /**
  * The dashboard's HTTP app: the Content-Security-Policy with a style nonce, the Host guard, the write guard, the page
- * and its embedded assets, the read API over the home, the check and write routes of workflow and prompt files, and the
- * save route of a change's files.
+ * and its embedded assets, the read API over the home, the check and write routes of workflow and prompt files, the
+ * save route of a change's files, and the read and write routes of the sidebar's settings.
  */
 import { createHash, timingSafeEqual } from "node:crypto"
 import { type Context, Hono } from "hono"
@@ -9,8 +9,7 @@ import { bodyLimit } from "hono/body-limit"
 import { NONCE, secureHeaders } from "hono/secure-headers"
 import css from "./generated/app.css.txt" with { type: "text" }
 import js from "./generated/app.js.txt" with { type: "text" }
-import inter from "./generated/inter.woff2.txt" with { type: "text" }
-import jetbrainsMono from "./generated/jetbrains-mono.woff2.txt" with { type: "text" }
+import geistMono from "./generated/geist-mono.woff2.txt" with { type: "text" }
 import { version } from "../../package.json" with { type: "json" }
 import { fileStore } from "../core/store/files"
 import { escaped } from "../core/text"
@@ -18,17 +17,26 @@ import { changeDetail, datedArchives, listChanges } from "./changes"
 import type { ProjectList } from "./contract"
 import { checkDraft, listPrompts, listWorkflows, promptFile, workflowFile } from "./files"
 import { projects } from "./projects"
-import { type Answer, listVersions, readVersion, restoreVersion, writeChangeFile, writeFile } from "./write"
+import {
+  type Answer,
+  listVersions,
+  readSettings,
+  readVersion,
+  restoreVersion,
+  settingsOf,
+  writeChangeFile,
+  writeFile,
+  writeSettings,
+} from "./write"
 
 /** The context variable hono's secure-headers middleware keeps the response's nonce in. */
 type Env = { Variables: { secureHeadersNonce?: string } }
 
 const JSON_TYPE = "application/json; charset=utf-8"
 
-/** The two fonts, embedded as base64 text and decoded once. */
+/** The code font, embedded as base64 text and decoded once. */
 const FONTS: Record<string, Uint8Array<ArrayBuffer>> = {
-  "/fonts/inter.woff2": Uint8Array.from(Buffer.from(inter, "base64")),
-  "/fonts/jetbrains-mono.woff2": Uint8Array.from(Buffer.from(jetbrainsMono, "base64")),
+  "/fonts/geist-mono.woff2": Uint8Array.from(Buffer.from(geistMono, "base64")),
 }
 
 /** The largest body a write route takes, in bytes. */
@@ -260,6 +268,14 @@ export function createApp(
     const f = fields(await body(c), { text: "string", base: "string" })
     if (f === null) return invalid()
     return reply(writeChangeFile(store, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base))
+  })
+
+  // The sidebar's settings, `<home>/dashboard.json`: read as empty when missing or invalid, written whole.
+  app.get("/api/dashboard", () => json(200, readSettings(home)))
+  app.put("/api/dashboard", async (c) => {
+    const settings = settingsOf(await body(c))
+    if (settings === null) return invalid()
+    return reply(writeSettings(home, settings))
   })
 
   app.notFound(() => json(404, { error: "not found" }))

@@ -2,6 +2,7 @@ import { cn } from "cn"
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  ChevronRightIcon,
   GripVerticalIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -23,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { taskName } from "@/lib/change-edit"
+import { splitTask, taskName } from "@/lib/change-edit"
 
 /** A task row: its client id, its text and its state. */
 export type TaskRow = { id: string; text: string; done: boolean }
@@ -128,6 +129,7 @@ function Row({
   row,
   index,
   count,
+  next,
   field,
   actions,
   focusRow,
@@ -135,11 +137,16 @@ function Row({
   row: TaskRow
   index: number
   count: number
+  /** Whether it is the first task not done, shown in full. */
+  next: boolean
   field: OpenField | null
   actions: TaskListActions
   focusRow: (id: string) => void
 }) {
   const n = index + 1
+  const [more, setMore] = useState(false)
+  const { lead, detail } = splitTask(row.text)
+  const clamped = !next && !more
   const editing = field?.kind === "task" && field.id === row.id ? field : null
   const edit = () => actions.open({ kind: "task", id: row.id, value: row.text, error: null })
   const move = (delta: -1 | 1) => {
@@ -169,24 +176,27 @@ function Row({
       data-task-id={row.id}
       onKeyDown={onKeyDown}
       className={cn(
-        "group/row flex items-start gap-2 rounded-md border-b py-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        index === count - 1 && "border-b-0",
+        "group/row relative flex items-start gap-3 border-t px-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+        next && "bg-warning/[0.045] shadow-[inset_2px_0_0_var(--warning)]",
       )}
     >
       <SortableItemHandle
         render={<button type="button" aria-label={`Drag task ${n}`} />}
-        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="absolute top-3.5 left-0 flex h-5 w-3 items-center justify-center text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <GripVerticalIcon aria-hidden="true" className="size-4" />
+        <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </SortableItemHandle>
       <Checkbox
         checked={row.done}
         onCheckedChange={(next) => actions.toggle(index, next === true)}
         aria-label={`Task ${n} done`}
-        className="mt-0.5"
+        className={cn("mt-5", next && "border-warning")}
       />
-      <span className="w-6 shrink-0 text-right text-sm text-muted-foreground tabular-nums">{n}.</span>
       <div className="min-w-0 flex-1">
+        <div className="mb-0.5 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
+          <span>{n}</span>
+          {next ? <span className="font-medium text-warning">Next</span> : null}
+        </div>
         {editing !== null ? (
           <TextField
             multiline
@@ -203,16 +213,31 @@ function Row({
             }}
           />
         ) : (
-          <div
-            onClick={edit}
-            className={cn(
-              "-mx-1 cursor-text rounded-sm px-1 text-sm whitespace-pre-line transition-colors hover:bg-muted",
-              row.done && "text-muted-foreground",
-            )}
-          >
-            <TaskText text={row.text} />
+          <div onClick={edit} className={cn("-mx-1 cursor-text rounded-sm px-1 transition-colors hover:bg-accent/40")}>
+            <div className={cn("text-md font-medium", row.done ? "text-muted-foreground" : "text-foreground")}>
+              <TaskText text={lead} />
+            </div>
+            {detail !== "" ? (
+              <div
+                className={cn(
+                  "mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground",
+                  clamped && "line-clamp-3",
+                )}
+              >
+                <TaskText text={detail} />
+              </div>
+            ) : null}
           </div>
         )}
+        {editing === null && detail.length > 220 && !next ? (
+          <button
+            type="button"
+            onClick={() => setMore(!more)}
+            className="mt-1 rounded-sm text-xs text-link outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {more ? "Show less" : "Show more"}
+          </button>
+        ) : null}
       </div>
       <RowMenu
         n={n}
@@ -263,30 +288,50 @@ export function TaskList({
 
   const below = field?.kind === "below" ? field : null
   const add = field?.kind === "add" ? field.value : ""
+  const [showDone, setShowDone] = useState(false)
+  const next = rows.findIndex((r) => !r.done)
+  const doneCount = rows.filter((r) => r.done).length
+  // Folded, the done tasks are left out; every action still names tasks by their position in the whole list.
+  const shown = rows.map((row, i) => ({ row, i })).filter(({ row }) => showDone || !row.done)
 
   return (
     <div ref={list}>
+      {doneCount > 0 ? (
+        <button
+          type="button"
+          aria-expanded={showDone}
+          onClick={() => setShowDone(!showDone)}
+          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          <ChevronRightIcon className={cn("size-3 transition-transform", showDone && "rotate-90")} aria-hidden="true" />
+          {doneCount} done
+        </button>
+      ) : null}
       <Sortable
-        value={rows as TaskRow[]}
+        value={shown.map((s) => s.row)}
         onValueChange={() => undefined}
         getItemValue={(r) => r.id}
         onMove={({ activeIndex, overIndex }) => {
-          const id = rows[activeIndex]?.id
-          actions.move(activeIndex, overIndex)
+          const from = shown[activeIndex]?.i
+          const to = shown[overIndex]?.i
+          if (from === undefined || to === undefined) return
+          const id = rows[from]?.id
+          actions.move(from, to)
           if (id !== undefined) focusRow(id)
         }}
         strategy="vertical"
         role="list"
         aria-label="Tasks"
-        className="flex max-w-[80ch] flex-col"
+        className="flex flex-col"
       >
-        {rows.flatMap((row, i) => {
+        {shown.flatMap(({ row, i }) => {
           const out = [
             <Row
               key={row.id}
               row={row}
               index={i}
               count={rows.length}
+              next={i === next}
               field={field}
               actions={actions}
               focusRow={focusRow}
@@ -294,9 +339,8 @@ export function TaskList({
           ]
           if (below !== null && below.id === row.id) {
             out.push(
-              <div key={`below-${row.id}`} role="listitem" className="flex items-start gap-2 border-b py-2 ps-7">
+              <div key={`below-${row.id}`} role="listitem" className="flex items-start gap-3 border-t px-3 py-3">
                 <Checkbox disabled aria-hidden="true" tabIndex={-1} className="mt-2" />
-                <span className="w-6 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <TextField
                     multiline
@@ -316,10 +360,8 @@ export function TaskList({
           }
           return out
         })}
-        <div role="listitem" className="flex items-center gap-2 py-2">
-          <span className="size-5 shrink-0" />
-          <Checkbox disabled aria-hidden="true" tabIndex={-1} />
-          <span className="w-6 shrink-0" />
+        <div role="listitem" className="flex items-center gap-3 border-t px-3 py-3">
+          <PlusIcon className="size-4 text-muted-foreground" aria-hidden="true" />
           <Input
             value={add}
             placeholder="Add a task"

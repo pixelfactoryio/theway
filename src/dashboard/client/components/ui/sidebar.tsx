@@ -96,9 +96,11 @@ function SidebarProvider({
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // An editor that took the key (Mod-b is bold in the Markdown editor) keeps it.
       if (
         event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
+        (event.metaKey || event.ctrlKey) &&
+        !event.defaultPrevented
       ) {
         event.preventDefault()
         toggleSidebar()

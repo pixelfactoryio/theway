@@ -586,18 +586,19 @@ theway: --input change: required input is not given
 theway dashboard [--port <n>]
 ```
 
-Serves a local web view of the data home: each project's Overview and Changes, and the home's Workflows and Prompts. It prints one line with the address on stdout and runs until you stop it:
+Serves a local web view of the data home: every project's changes, read and edited where they are shown, and the home's Workflows and Prompts. It prints one line with the address on stdout and runs until you stop it:
 
 ```text
 theway dashboard: http://127.0.0.1:4870/
 ```
 
 - It listens on `127.0.0.1` only, on port 4870 unless `--port` gives another. `--port 0` lets the system choose a free port, and the line shows the one bound.
-- The page, its script, its stylesheet and its two fonts are built into the CLI: nothing is loaded from another host. It reads the home on every request.
+- The page, its script, its stylesheet and its code font are built into the CLI (the interface uses the system font): nothing is loaded from another host. It reads the home on every request.
 - It answers `403 {"error":"forbidden host"}` to any request whose `Host` header is not `127.0.0.1:<port>` or `localhost:<port>` (on port 80, where a browser leaves the port out, `127.0.0.1` and `localhost` pass too), so a web page cannot reach it through another host name, and `404 {"error":"not found"}` to an unknown path. Every response carries a Content-Security-Policy that allows scripts, fonts, images and connections from the server itself only, and styles from it plus a nonce made for that response.
 - Each request answered with a status of 400 or more writes one line to stderr: `theway: <METHOD> <path> <status> <ms>ms`. Successful requests write nothing. An error inside the server writes its message on a line before it.
-- A header spans the full width above the sidebar: the theway mark, which opens `#/`, then the page's breadcrumb, then the page's actions. On a project's pages (its Overview, its Changes and a change) the breadcrumb starts with the project switcher, which lists every project of the home with its number of active changes. On workflow and prompt pages it starts with "Library". The dashboard opens on the last project chosen in this browser, else the project of the directory you started the command in, else the first by name. When that directory's derived key is longer than 200 characters, or its folder is claimed by another root, the command writes a `theway: warning:` line to stderr before the address line and has no start project: `theway: warning: project key <key> is used by <recorded root>; the dashboard has no start project for <root>`.
-- The sidebar below the header has two groups: Project, with the current project's Overview and Changes (with its number of active changes), and Library, with Workflows and Prompts (with their counts), which are the home's own and have no project. It opens expanded; Cmd/Ctrl+B or its edge collapses it to icons, and this browser remembers the choice. Its footer holds Documentation, Theme and the version, `theway <version>`, to quote when you report a problem, or run `theway --version`.
+- The window has three columns: the sidebar, the page, and on a change, workflow or prompt page its panel at the right. When the command starts in a project's directory, that project is recorded as opened once per browser tab, so it shows under Recent unless it is pinned. When that directory's derived key is longer than 200 characters, or its folder is claimed by another root, the command writes a `theway: warning:` line to stderr before the address line: `theway: warning: project key <key> is used by <recorded root>; the dashboard has no start project for <root>`.
+- The sidebar lists places, never changes: Now and Search, then **Pinned** (the projects and groups you pinned, in their order), **Recent** (the five you opened last that are not pinned), All projects, and **Library** (Workflows and Prompts, which are the home's own). Each project or group gives its number of changes still to do (Ready to archive left out). It opens from 1024px wide; Cmd/Ctrl+B or its button hides it, and this browser remembers the choice. Its footer holds the version, `theway <version>`, to quote when you report a problem (or run `theway --version`), Documentation and Settings (the theme).
+- Pins, groups, recents and dismissed suggestions are kept in `~/.theway/dashboard.json`, so every browser shows the same sidebar.
 - A page that fails to render shows the error in its place, with Try again, while the header and sidebar keep working; going to another page clears it. If the header or the sidebar itself fails, the whole dashboard shows the error with Reload.
 - A `--port` that is not an integer from 0 to 65535 is rejected with `error: option '--port <n>' argument '<value>' is invalid. must be an integer from 0 to 65535`. When the port is taken, it exits 1 with one line on stderr:
 
@@ -607,43 +608,45 @@ theway dashboard: http://127.0.0.1:4870/
 
   Any other error starting the server exits 1 with a `theway: <message>` line on stderr. Ctrl-C (SIGINT) or SIGTERM stops it with exit 0.
 
-### Overview
+### Now
 
-`#/`, the dashboard's address, opens the current project's Overview (`#/<key>`). It shows what in the project needs an action:
+`#/`, the dashboard's address, opens Now: the changes of every project in the order they need you.
 
-- The header gives the project's name, its folder with a Copy button, and a link to all its changes.
-- The counts give its active changes, then how many are In progress, Not started and Ready to archive (and Invalid, when any is). Each count opens the Changes list filtered to what it counts.
-- **Needs action** groups the active changes by status (Invalid, In progress, Not started, then Ready to archive), a series as one row, with the first three of each group and a link to the rest. Each row gives the command to run next, `/theway:workflow <id>` or `/theway:archive <id>` (for a series, its first member to run or to archive), with a Copy button. An Invalid row asks you to fix its `change.yaml` instead. The dashboard runs nothing: you copy the command and run it in Claude Code.
-- **Recently archived** lists the five newest archived changes and links to all of them.
+- **Needs fixing** (a `change.yaml` that does not validate), **In progress** and **Not started** list their rows, the most recently changed first. Each row gives the change's description over its ID, its project, its progress (`done/total` tasks, with a bar) and how long ago its `change.yaml` changed. Two or more active changes of one series (`<id>-01`, `<id>-02`, …) show as one row, with their summed progress, that opens to list its members; a series takes the status of the whole (Ready when all its members are, Not started when none has started, else In progress).
+- **Ready to archive** gives one count per project, which opens that project's page.
 
-Switching project from the Overview opens the other project's Overview.
+### Projects and groups
+
+**All projects** (`#/projects`) lists every project of the home, and every group, the most recently archived first, with its number of changes In progress, still to do, and its last archive date. The filter keeps the names that hold the text. On each row:
+
+- The star pins it to the sidebar, or unpins it.
+- The "…" menu adds a project to a group or to a new one (it asks for the group's name), removes it from its group, or, on a group's row, renames the group or ungroups it. A project belongs to one group at most; ungrouping changes no change data.
+- Above the list, the dashboard suggests grouping the projects in no group whose names share their first word ("Group `acme`, `acme-docs` and `acme-site`?"). Nothing is grouped until you press Group; Dismiss hides that suggestion for good.
+
+A project's page (`#/<key>`) and a group's (`#/group/<id>`, its projects together) list the open changes as Now does, with Ready to archive as rows too, then the twelve newest archived changes by month and a link to the whole archive (`?archive`). The filter keeps the changes whose ID or description holds the text (the ID only for archived ones). Opening the page records it under Recent.
 
 ### Search
 
-Cmd+K (Ctrl+K off macOS), or Search at the top of the sidebar, opens a search that jumps to a page by name. It finds the current project's changes, active and archived, every workflow, every prompt and every project. Type part of a name, then choose an entry to open its page; a project opens its Overview. Cmd/Ctrl+K again closes it. Inside a Markdown editor, Cmd/Ctrl+K inserts a link instead.
+Cmd+K (Ctrl+K off macOS), Cmd/Ctrl+P, or Search in the sidebar, opens a palette that jumps to any change of any project, active or archived (each with its project), workflow, prompt or project, and runs actions: Go to Now, Go to All projects, toggle the sidebar or the panel, New workflow, New prompt, the theme and the keyboard shortcuts. Type part of a name, then choose an entry. Cmd/Ctrl+K again closes it. Inside a Markdown editor, Cmd/Ctrl+K inserts a link instead.
 
-The search lists only the current project's changes: to reach another project's change, switch project first, from the search or the breadcrumb.
+### Keyboard
 
-### Changes
+Outside a text field or an editor: `?` shows the shortcuts; G then N, A, W or P goes to Now, All projects, Workflows or Prompts; the Up and Down arrows (or J and K) move in the list that has the focus and Enter opens the item. Cmd/Ctrl+S saves the shown file, anywhere. The browser's own Back and Forward move between pages, and Cmd or Ctrl and a click opens a page in a new browser tab.
 
-The Changes page shows where every change of the project stands, in one table:
+### A change's page
 
-- **Active** lists the active changes with their status, their progress (`done/total` tasks), the command to run next and the date their `change.yaml` last changed. What needs attention comes first: Invalid, In progress, Not started, then Ready to archive, each by ID; a column header sorts by that column instead. A change is Invalid when its `change.yaml` does not validate (its first issue shows under its ID), Ready to archive when all its tasks are done, Not started when none is.
-- Two or more active changes of one series (`<id>-01`, `<id>-02`, …) show as one row you open to see its members, with their summed progress.
-- The Next column gives each active row's command to run next, `/theway:workflow <id>` or `/theway:archive <id>` (for a series, its first member to run or to archive), with a Copy button that copies it without opening the row. An Invalid row shows `–`.
-- **Archived** lists the archived changes, newest first, 25 a page (50 or 100 on request).
-- The search keeps the changes whose ID or description holds the text (the ID only on Archived). On Active, the status chips beside it give each status with its number of changes; pressing chips keeps the statuses pressed, and with none pressed every status shows. The view, the search, the statuses, the page and the page size are kept in the address, so Back and a reload restore them.
+A click on a change opens its page (`#/<key>/changes/<id>`, or `…/changes/archive/<dir>` for an archived one):
 
-A click on a row opens the change's own page:
-
-- Its header gives its ID and its description, then a status row: its status, its tasks (`done/total`, with a bar) and the date its `change.yaml` last changed, or, for an archived change, the date it was archived. An Invalid change has no tasks in the row and gives the reasons its `change.yaml` cannot be read under it.
-- One tab per Markdown file of its folder (Spec, Design, Notes, then the others by name) shows the file rendered, then the Tasks tab lists its tasks. Raw HTML is not rendered, and only `http:`, `https:` and `mailto:` links are links.
-- The panel at the right gives the next task, the command to run next (`/theway:workflow <id>`, or `/theway:archive <id>` once all tasks are done), the other members of its series, and its folder. The command and the folder each have a Copy button. From 1024px wide it sits beside the page, can be resized, and the toggle at the top right hides it; the browser remembers its width and whether it is hidden. On a narrower window the toggle opens it over the page.
-- An active change is edited in place: see [Editing a change](#editing-a-change). An archived change is read-only.
+- The tabs across the top are the change's files: its Markdown files (Spec, Design, Notes, then the others by name), then `change.yaml`. Each tab has its own address. A file with unsaved changes shows a dot after its name.
+- Above the file: the project, the description as the title, and the ID. Below it, a line gives the file's name, its number of lines and whether it is saved.
+- A Markdown file is shown formatted and edited where it is read: see [Editing a change](#editing-a-change). Raw HTML is not rendered, and only `http:`, `https:` and `mailto:` links are links; Cmd or Ctrl and a click opens one.
+- The panel at the right gives the status and the progress in its header, the **Tasks** (see below), then **Details** (description, project, ID, last change or archive date) and, for a member of a series, **Series**, which lists its members and opens them. From 1024px wide it sits beside the page, can be resized, and the button at the right of the tabs hides it; the browser remembers its width and whether it is hidden. On a narrower window the button opens it over the page.
+- A task shows its number, then its lead (its text up to its first colon or semicolon, its first sentence, or the part before its first parenthesis or comma) in full weight, and the rest under it. The next task to do is marked Next and shown whole; the other long tasks show three lines, with Show more. Done tasks fold under "N done".
+- An archived change is read-only.
 
 ### Workflows
 
-The Workflows page lists every workflow file of the home in one table: the global ones (`~/.theway/workflows/`, which apply to all projects) and each project's own (`projects/<key>/workflows/`). The project selector does not change it.
+The Workflows page lists every workflow file of the home in one table: the global ones (`~/.theway/workflows/`, which apply to all projects) and each project's own (`projects/<key>/workflows/`).
 
 - Each row gives the workflow's name (with a `default` badge for the default one) and description, what it applies to (All projects, or `<project> only`), its number of steps, where its steps run (`agents`, `session` or `mixed`), and its status: Valid, or `N errors` with the first error in a tooltip. A global file is checked with the global folders only; a project's file as that project resolves it.
 - The search keeps the files whose name or description holds the text, and is kept in the address.
@@ -653,8 +656,8 @@ A click on a row opens the workflow's page:
 - **Editor** draws the file as a column of cards: Inputs, then one card per step with its prompt's description and where it runs (`session`, `agents · <model>`), a step's on-fail at its right. A card named by an error has a red border. Drag the canvas to pan, scroll to move, Ctrl or Cmd and scroll (or the toolbar at the bottom) to zoom from 50% to 200%; a workflow opens zoomed to fit (never above 100%), and the percentage button fits it again. A file whose YAML does not parse, or that is not a `theway.workflow/v1beta1` map, cannot be drawn: the tab says why and links to YAML.
 - **YAML** shows the file in a code editor, each error marked on its line. Ctrl or Cmd and F searches. You can edit it: see [Editing a file](#editing-a-file).
 - **History** lists the versions the dashboard kept: see [History](#history).
-- The errors stand in a strip under the tabs; a click on one selects its card on Editor, or puts the cursor on its line on YAML.
-- The panel at the right gives the workflow's description, `runs-on`, `default`, inputs, what it applies to and its file path, or the selected step's keys.
+- The errors stand in a strip under the tabs, and on the panel's Problems tab; a click on one selects its card on Editor, or puts the cursor on its line on YAML.
+- The panel at the right gives Valid or `N errors` and `default` in its header. Its top pane edits the workflow, or the selected step's keys; its bottom pane gives the workflow's details, or, for a step, its prompt, editable with live preview (it says when other workflows share that prompt), and the workflows that use it. Cmd/Ctrl+S saves the workflow and the prompt.
 
 ### Prompts
 
@@ -669,15 +672,15 @@ A click on a row opens the prompt's page: **Prompt** shows the whole file in the
 
 A prompt's Prompt tab and a workflow's YAML tab are editable. What you type is a draft that lives on the file's page:
 
-- 400ms after your last keystroke, the dashboard checks the draft as `theway workflow` would read it, without writing anything. The errors show on their lines, in the strip under the tabs and in the tabs row's `N errors` badge; the Editor tab, the Preview and the panel follow the draft. When the check cannot run (the server stopped), a notice says so and the errors are cleared until the next check.
+- 400ms after your last keystroke, the dashboard checks the draft as `theway workflow` would read it, without writing anything. The errors show on their lines, in the strip under the tabs and in the panel's header (`N errors`); the Editor tab, the Preview and the panel follow the draft. When the check cannot run (the server stopped), a notice says so and the errors are cleared until the next check.
 - Two workflows of one context that both set `default: true` are reported as `theway workflow` reports them, on the line of the `default` key: both global files when both are global, only the project's file when a project's file and a global one both set it.
-- While the draft differs from the file, an "Unsaved changes" bar under the tabs offers Discard and Save. Saving is never automatic. Ctrl or Cmd and Z undoes, Ctrl or Cmd, Shift and Z redoes; the draft stays while you move between the page's tabs.
-- Save waits for the check of the current draft and asks once when it has errors ("Save anyway"): the file is still written, since your own editor could write the same text. "Saved" shows in the tabs row until the next edit.
+- While the draft differs from the file, an "Unsaved changes" bar under the tabs offers Discard and Save, and Cmd/Ctrl+S saves. Saving is never automatic. Ctrl or Cmd and Z undoes, Ctrl or Cmd, Shift and Z redoes; the draft stays while you move between the page's tabs.
+- Save waits for the check of the current draft and asks once when it has errors ("Save anyway"): the file is still written, since your own editor could write the same text. "Saved" shows in the line under the file until the next edit.
 - Save is refused when the file changed on disk since the page loaded it: a notice offers Reload, which drops the draft and loads the file. A save that fails otherwise shows the server's error. Neither drops your draft.
-- Leaving the page with unsaved changes (a link, the sidebar, the project selector, Back) asks first: Keep editing, Discard, or Save then leave. Moving between the tabs of the same file does not ask. Closing or reloading the browser tab gets the browser's own prompt.
+- Leaving the page with unsaved changes (a link, the sidebar, Back) asks first: Keep editing, Discard, or Save then leave. Moving between the tabs of the same file does not ask. Closing or reloading the browser tab gets the browser's own prompt.
 - Writes go through the file's folder with a temporary file and a rename, so an interrupted write never leaves a truncated file.
 
-Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, `~/.theway/history/`, the `change.yaml` and Markdown files of a project's active change folders, and, when it starts, `projects/<key>/root` of the start project when it claims that folder.
+Every request that is not a read must come from the dashboard's own page: an `Origin` of `http://127.0.0.1:<port>` or `http://localhost:<port>` and the `X-Theway-Token` header holding the token the server makes when it starts and puts in the page, else `403 {"error":"forbidden"}`. It must be `application/json` (`415`), at most 1 MiB (`413`), and valid JSON with its fields (`400`). The server writes only `~/.theway/workflows/`, `~/.theway/prompts/`, the same two folders of a project, `~/.theway/history/`, `~/.theway/dashboard.json`, the `change.yaml` and Markdown files of a project's active change folders, and, when it starts, `projects/<key>/root` of the start project when it claims that folder. `~/.theway/dashboard.json` holds the sidebar's pins, groups and recents.
 
 ### Editing a workflow
 
@@ -694,14 +697,14 @@ A workflow's Editor tab edits the file too. Every edit changes the same draft as
 
 ### Editing a change
 
-The page of an active change edits its tasks, its description and its Markdown files where they are shown. Every edit changes a draft the page holds, one per file; nothing is written until you press Save in the "Unsaved changes in `<file>`" bar under the tabs, which also offers Discard. A tab whose file has unsaved changes shows a dot after its label.
+The page of an active change edits its tasks, its description and its files where they are shown. Every edit changes a draft the page holds, one per file; nothing is written until you save: Cmd/Ctrl+S writes every changed file of the change. A file tab with unsaved changes shows a dot, and the line under the file says "Unsaved".
 
-- **Tasks**: tick a task's checkbox, click its text (or press Enter on its row) to change it, type in the "Add a task" row at the bottom and press Enter to add one. A text field applies with Enter or Apply and cancels with Escape; Shift and Enter adds a line to a task's text. Each row's "…" menu has Edit, Move up, Move down, Add a task below and Delete; a task also moves by dragging its handle, or with Alt and the Up or Down arrow while its row has the focus. Delete shows "Task N deleted." with Undo. A change keeps at least one task.
-- **Description**: click it in the header to change it; it is one line.
-- **`change.yaml` as text**: the "…" menu at the right of the tabs opens the file in the code editor, its errors listed and marked on their lines; "Back to the list" returns. The list, the description and the text are one draft, so undo in the editor undoes the list's edits too. While the draft does not pass the check, the Tasks tab shows the text only, and the header shows its issues.
-- The status, the Tasks count, the next task and the Run command follow the draft before you save.
+- **Markdown files** are edited where they are read: the text is formatted, and the Markdown syntax shows only on the lines the cursor is on. Tables are drawn as tables until you click one, which shows its source. The checkboxes of task lists tick; each flips one character of its line. Ctrl or Cmd and B, I, E and K make bold, italic, code and a link.
+- **Tasks**, in the panel: tick a task's checkbox, click its text (or press Enter on its row) to change it, type in the "Add a task" row at the bottom and press Enter to add one. A text field applies with Enter or Apply and cancels with Escape; Shift and Enter adds a line to a task's text. Each row's "…" menu has Edit, Move up, Move down, Add a task below and Delete; a task also moves by dragging its handle, or with Alt and the Up or Down arrow while its row has the focus. Delete shows "Task N deleted." with Undo. A change keeps at least one task.
+- **Description**, in the panel's Details: click it to change it; it is one line.
+- **`change.yaml`**: its tab shows the file in the code editor, its errors listed and marked on their lines. The task list, the description and the text are one draft, so undo in the editor undoes the list's edits too. While the draft does not pass the check, the panel's Tasks show its issues.
+- The status, the progress and the next task follow the draft before you save.
 - Each task edit loads `change.yaml`, changes it and prints it again as [`task done`](#task-done) does: values, comments and line endings are kept, a comment above a task moves and is removed with it, and the layout of other lines may change as described there.
-- **Markdown**: in a file's reading view, the checkboxes of its task lists can be ticked; each flips one character of its line. Edit opens the source beside a live preview that follows the cursor (Write and Preview tabs when the window is narrow), with a toolbar: Bold, Italic, Code and Link (Ctrl or Cmd and B, I, E and K), Heading, Bulleted list, Numbered list and Task list. Done returns to the reading view and asks first when the file has unsaved changes.
 - Save is refused when the file changed on disk since the page loaded it, for example when an agent ran `theway task done`: a notice offers Reload, which drops that file's draft and loads the file. Leaving the change page with unsaved changes asks first; Save there writes every changed file.
 - Do not add, move or remove tasks while a workflow runs on the change: agents address tasks by their number.
 

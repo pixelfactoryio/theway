@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
+import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
 import { resetOnKeyChange } from "../src/dashboard/client/lib/boundary"
 import { ErrorBoundary, PageError, RootError } from "../src/dashboard/client/shell/error-boundary"
 
@@ -39,11 +40,13 @@ test("a caught error becomes the boundary's state, a thrown non-Error as an Erro
 })
 
 test("the page fallback shows the error and Try again", () => {
-  // TopBar reads the query client and the route before finding no slot, so the page renders inside both providers.
+  // The page's top row reads the sidebar's state, so it renders inside the shell's providers.
   const html = renderToStaticMarkup(
     <QueryClientProvider client={new QueryClient()}>
       <Router ssrPath="/">
-        <PageError error={new Error("boom")} reset={() => {}} />
+        <SidebarProvider>
+          <PageError error={new Error("boom")} reset={() => {}} />
+        </SidebarProvider>
       </Router>
     </QueryClientProvider>,
   )
