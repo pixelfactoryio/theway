@@ -637,7 +637,7 @@ Outside a text field or an editor: `?` shows the shortcuts; G then N, A, W or P 
 
 A click on a change opens its page (`#/<key>/changes/<id>`, or `…/changes/archive/<dir>` for an archived one):
 
-- The tabs across the top are the change's files: its Markdown files (Spec, Design, Notes, then the others by name), then `change.yaml`, which an archived change shows as Tasks. Each tab has its own address. A file with unsaved changes shows a dot after its name.
+- The tabs across the top are the change's files: its Markdown files (Spec, Design, Notes, then the others by name), then `change.yaml`; an archived change has no `change.yaml` tab (its tasks are in the panel) unless it has no Markdown file, when its tasks fill the page and the panel keeps Details. Each tab has its own address. A file with unsaved changes shows a dot after its name.
 - Above the file: the description as the title, and the ID. Below it, a line gives the file's name, its number of lines and whether it is saved.
 - A Markdown file is shown formatted and edited where it is read: see [Editing a change](#editing-a-change). Raw HTML is not rendered, and only `http:`, `https:` and `mailto:` links are links; Cmd or Ctrl and a click opens one.
 - The panel at the right gives the status and the progress in its header, the **Tasks** (see below), then **Details** (description, project, ID, last change or archive date) and, for a member of a series, **Series**, which lists its members and opens them. From 1280px wide it sits beside the page, can be resized, and the button at the right of the tabs hides it; the browser remembers its width and whether it is hidden. On a narrower window the button opens it over the page.

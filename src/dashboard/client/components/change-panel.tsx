@@ -87,7 +87,8 @@ export function ChangePanel({
 }: {
   projectKey: string
   change: ChangeDetail
-  tasks: ReactNode
+  /** The Tasks pane, `null` when the page shows the tasks in its centre: Details and Series then fill the panel. */
+  tasks: ReactNode | null
   description: ReactNode
 }) {
   const archived = change.archived !== null
@@ -145,7 +146,7 @@ export function ChangePanel({
   }
   return (
     <DocPanel
-      remember="change"
+      remember={tasks === null ? "change-details" : "change"}
       label="Change"
       topShare="70%"
       header={
@@ -154,8 +155,8 @@ export function ChangePanel({
           {!invalid ? <Progress done={change.done} total={change.total} /> : null}
         </>
       }
-      top={top}
-      bottom={bottom}
+      top={tasks === null ? bottom : top}
+      bottom={tasks === null ? undefined : bottom}
     />
   )
 }

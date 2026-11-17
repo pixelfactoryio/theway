@@ -50,7 +50,9 @@ function Tasks({ change }: { change: ChangeDetail }) {
 /** The page of an archived change, read-only: its files as tabs, the file in the centre, its panel at the right. */
 export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; data: ChangeDetail; tab?: string }) {
   const base = `/${projectKey}/changes/archive/${data.ref}`
-  const tabs = changeTabs(data.files)
+  // The panel lists the tasks, so the centre shows only the Markdown files; with none, the tasks move to the centre.
+  const markdown = data.files.length > 0
+  const tabs = changeTabs(data.files).filter((t) => !markdown || t.file !== null)
   const current = shownTab(tabs, tab)
   const file = data.files.find((f) => f.name === current.file)
   return (
@@ -70,7 +72,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
         <ChangePanel
           projectKey={projectKey}
           change={data}
-          tasks={<Tasks change={data} />}
+          tasks={markdown ? <Tasks change={data} /> : null}
           description={data.description ?? <span className="text-muted-foreground">–</span>}
         />
       }
