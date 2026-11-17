@@ -24,8 +24,8 @@ function ShowSidebar() {
   return <SidebarTrigger className="mr-1 size-7 self-center text-muted-foreground" />
 }
 
-/** A document's reading column, the same on every document page: at most 832px, with 56px gutters. */
-export const DOC_COLUMN = "max-w-[52rem] px-14"
+/** A document's reading column, the same on every document page: its text at most 640px (40rem), with 56px gutters. */
+export const DOC_COLUMN = "max-w-[47rem] px-14"
 
 /** One tab of a document: a view of it with its own address, its icon, and a dot while it has unsaved edits. */
 export type FrameTab = { value: string; label: string; href: string; Icon: LucideIcon; dirty?: boolean }
@@ -40,18 +40,13 @@ export function TopRow({ children, className }: { children: ReactNode; className
   )
 }
 
-/**
- * A list page's top row: the page it sits in (`parent`, a link) then its title, a muted detail after it, then its
- * actions at the right.
- */
+/** A list page's top row: the page it sits in (`parent`, a link) then its title, then its actions at the right. */
 export function PageHeader({
   title,
-  detail,
   actions,
   parent,
 }: {
   title: string
-  detail?: ReactNode
   actions?: ReactNode
   parent?: { label: string; href: string }
 }) {
@@ -73,7 +68,6 @@ export function PageHeader({
           </>
         ) : null}
         <h1 className="truncate text-heading font-semibold">{title}</h1>
-        {detail !== undefined ? <span className="truncate text-sm text-muted-foreground">{detail}</span> : null}
       </div>
       {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </TopRow>

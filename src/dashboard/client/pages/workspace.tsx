@@ -370,7 +370,7 @@ export function NowPage() {
   const { lists, failed } = useListsOf(list.map((p) => p.key))
   return (
     <>
-      <PageHeader title="Now" detail={projects !== null ? `across ${countOf(list.length, "project")}` : undefined} />
+      <PageHeader title="Now" />
       <Body>
         {gate}
         {failed.length > 0 ? (
@@ -480,7 +480,6 @@ export function ProjectsPage() {
     [list, settings, lists, needle],
   )
   const suggested = suggestions(list, settings)
-  const groupCount = settings.groups.length
 
   const menu = (e: Entry, key: string | null) => (
     <DropdownMenu>
@@ -560,11 +559,7 @@ export function ProjectsPage() {
 
   return (
     <>
-      <PageHeader
-        title="All projects"
-        detail={projects !== null ? `${countOf(list.length, "project")} · ${countOf(groupCount, "group")}` : undefined}
-        actions={<FilterField value={q} onChange={setQ} label="Filter projects" />}
-      />
+      <PageHeader title="All projects" actions={<FilterField value={q} onChange={setQ} label="Filter projects" />} />
       <Body>
         {gate}
         {error !== null ? <p className="mb-3 text-sm text-destructive">Could not save: {error}</p> : null}
@@ -730,7 +725,7 @@ function Archive({
       ))}
       {limit !== null && rows.length > limit ? (
         <Link href={allHref} className="mt-3 inline-block px-3 text-sm text-link hover:underline">
-          All {rows.length} archived →
+          All archived →
         </Link>
       ) : null}
     </>
@@ -768,14 +763,6 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
           group !== undefined ? { label: group.name, href: `/group/${encodeURIComponent(group.id)}?` } : undefined
         }
         actions={entry !== null ? <FilterField value={q} onChange={setQ} label="Filter changes" /> : undefined}
-        detail={
-          entry !== null ? (
-            <>
-              {entry.kind === "group" ? `${countOf(keys.length, "project")} · ` : ""}
-              {keys.reduce((n, k) => n + toDo(lists.get(k)), 0)} to do · {archived} archived
-            </>
-          ) : undefined
-        }
       />
       <Body>
         {gate}

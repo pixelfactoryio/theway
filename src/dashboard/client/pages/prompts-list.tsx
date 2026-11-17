@@ -1,7 +1,7 @@
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { FunnelIcon } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useSyncExternalStore } from "react"
 import { Link, useLocation } from "wouter"
 
 import { Badge } from "@/components/reui/badge"
@@ -33,7 +33,7 @@ import {
   type Use,
   describeUse,
 } from "@/lib/files"
-import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
+import { cellSkeleton, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import {
@@ -52,6 +52,20 @@ import { PageBody, TopBar } from "@/shell/top-bar"
 
 const LAYOUT = { headerSticky: true }
 const PAGE = { pageIndex: 0, pageSize: 1000 }
+
+/** The list's column, as the other list pages': at most 1040px, with 28px gutters; the grid scrolls inside it. */
+const COLUMN = "flex min-h-0 w-full max-w-[65rem] flex-1 flex-col px-7 pt-5"
+
+/** From this width the grid shows every column; below, Model and Used by are hidden. */
+const WIDE = "(min-width: 1024px)"
+const NARROW_COLUMNS = { model: false, usedBy: false }
+const ALL_COLUMNS = {}
+
+const subscribeWide = (onChange: () => void): (() => void) => {
+  const query = window.matchMedia(WIDE)
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}
 
 type Column = "name" | "applies" | "kind" | "model" | "usedBy"
 
@@ -175,6 +189,8 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
   const sort = sorting[0] as { id: Column; desc: boolean } | undefined
   const data = useMemo(() => sortPrompts(rows, sort, label), [rows, sort, label])
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches)
+  const columnVisibility = wide ? ALL_COLUMNS : NARROW_COLUMNS
 
   const columns = useMemo<ColumnDef<DataGridFeatures, PromptRow>[]>(
     () => [
@@ -189,7 +205,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
             description={row.original.description}
           />
         ),
-        size: 380,
+        size: 280,
         enableSorting: true,
         meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
       },
@@ -198,7 +214,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
         cell: ({ row }) => appliesTo(row.original.project, label),
-        size: 150,
+        size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
       },
@@ -207,7 +223,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => KIND_LABEL[kindOf(row)],
         header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} />,
         cell: ({ row }) => KIND_LABEL[kindOf(row.original)],
-        size: 140,
+        size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
       },
@@ -246,7 +262,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
     columns,
     data,
     getRowId: rowId,
-    state: isLoading ? { sorting } : { sorting, pagination: PAGE },
+    state: isLoading ? { sorting, columnVisibility } : { sorting, columnVisibility, pagination: PAGE },
     manualPagination: true,
     manualSorting: true,
     onSortingChange: setSorting,
@@ -259,7 +275,6 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
-      tableClassNames={EDGES}
       onRowClick={(row) => navigate(`${filePath("prompts", row.project, row.name)}?`)}
     >
       <GridFrame>
@@ -338,28 +353,30 @@ export function PromptsPage() {
     <>
       {top}
       <PageBody>
-        <FilesToolbar count={loaded ? fileCountText(rows.length, list.prompts.length, narrowed, "prompt") : null}>
-          <SearchField label="Search prompts" value={query.q} onChange={(q) => setQuery({ ...query, q }, true)} />
-          <KindFilter
-            checked={checked}
-            counts={counts}
-            onChange={(next) => {
-              setBoth(next.length === KINDS.length)
-              setQuery({ ...query, kind: kindOfChecked(next) })
-            }}
-          />
-        </FilesToolbar>
-        {loaded && rows.length === 0 ? (
-          <NoFileMatch
-            title="No prompt matches"
-            clear={() => {
-              setBoth(false)
-              setQuery({ q: "", kind: null })
-            }}
-          />
-        ) : (
-          <PromptsGrid rows={rows} isLoading={!loaded} />
-        )}
+        <div className={COLUMN}>
+          <FilesToolbar count={loaded ? fileCountText(rows.length, list.prompts.length, narrowed, "prompt") : null}>
+            <SearchField label="Search prompts" value={query.q} onChange={(q) => setQuery({ ...query, q }, true)} />
+            <KindFilter
+              checked={checked}
+              counts={counts}
+              onChange={(next) => {
+                setBoth(next.length === KINDS.length)
+                setQuery({ ...query, kind: kindOfChecked(next) })
+              }}
+            />
+          </FilesToolbar>
+          {loaded && rows.length === 0 ? (
+            <NoFileMatch
+              title="No prompt matches"
+              clear={() => {
+                setBoth(false)
+                setQuery({ q: "", kind: null })
+              }}
+            />
+          ) : (
+            <PromptsGrid rows={rows} isLoading={!loaded} />
+          )}
+        </div>
       </PageBody>
     </>
   )

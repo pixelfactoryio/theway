@@ -21,18 +21,9 @@ export function useFilesQuery(
 }
 
 /** The toolbar above a table: its controls, then the count at the right. */
-export function FilesToolbar({
-  children,
-  count,
-  border = "border-b",
-}: {
-  children: ReactNode
-  count: string | null
-  /** Its border: the bottom one, or the top and bottom ones above the Changes grid. */
-  border?: "border-b" | "border-y"
-}) {
+export function FilesToolbar({ children, count }: { children: ReactNode; count: string | null }) {
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${border} px-4 py-2`}>
+    <div className="flex flex-wrap items-center gap-2 pb-3">
       {children}
       <span className="ml-auto text-sm text-muted-foreground tabular-nums" aria-live="polite">
         {count}

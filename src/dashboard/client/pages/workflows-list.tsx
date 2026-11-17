@@ -17,7 +17,7 @@ import {
   rowId,
   type WorkflowRow,
 } from "@/lib/files"
-import { cellSkeleton, EDGES, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
+import { cellSkeleton, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import {
@@ -36,6 +36,9 @@ import { PageBody, TopBar } from "@/shell/top-bar"
 
 const LAYOUT = { headerSticky: true }
 const PAGE = { pageIndex: 0, pageSize: 1000 }
+
+/** The list's column, as the other list pages': at most 1040px, with 28px gutters; the grid scrolls inside it. */
+const COLUMN = "flex min-h-0 w-full max-w-[65rem] flex-1 flex-col px-7 pt-5"
 
 type Column = "name" | "applies" | "steps" | "runsOn"
 
@@ -79,7 +82,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
             isDefault={row.original.default}
           />
         ),
-        size: 420,
+        size: 280,
         enableSorting: true,
         meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
       },
@@ -88,7 +91,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
         cell: ({ row }) => appliesTo(row.original.project, label),
-        size: 150,
+        size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
       },
@@ -97,7 +100,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => row.steps,
         header: ({ column }) => <DataGridColumnHeader title="Steps" column={column} />,
         cell: ({ row }) => (row.original.steps === null ? <Dash /> : row.original.steps),
-        size: 90,
+        size: 80,
         enableSorting: true,
         meta: {
           headerClassName: "text-right [&>div]:justify-end",
@@ -110,7 +113,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => row.runsOn,
         header: ({ column }) => <DataGridColumnHeader title="Runs on" column={column} />,
         cell: ({ row }) => (row.original.runsOn === null ? <Dash /> : row.original.runsOn),
-        size: 120,
+        size: 100,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-16") },
       },
@@ -118,7 +121,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         id: "status",
         header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
-        size: 130,
+        size: 100,
         enableSorting: false,
         meta: { skeleton: cellSkeleton("w-16") },
       },
@@ -144,7 +147,6 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
-      tableClassNames={EDGES}
       onRowClick={(row) => navigate(`${filePath("workflows", row.project, row.name)}?`)}
     >
       <GridFrame>
@@ -216,14 +218,16 @@ export function WorkflowsPage() {
     <>
       {top}
       <PageBody>
-        <FilesToolbar count={loaded ? fileCountText(rows.length, list.workflows.length, narrowed, "workflow") : null}>
-          <SearchField label="Search workflows" value={query.q} onChange={(q) => setQuery({ ...query, q }, true)} />
-        </FilesToolbar>
-        {loaded && rows.length === 0 ? (
-          <NoFileMatch title="No workflow matches" clear={() => setQuery({ q: "", kind: null })} />
-        ) : (
-          <WorkflowsGrid rows={rows} isLoading={!loaded} />
-        )}
+        <div className={COLUMN}>
+          <FilesToolbar count={loaded ? fileCountText(rows.length, list.workflows.length, narrowed, "workflow") : null}>
+            <SearchField label="Search workflows" value={query.q} onChange={(q) => setQuery({ ...query, q }, true)} />
+          </FilesToolbar>
+          {loaded && rows.length === 0 ? (
+            <NoFileMatch title="No workflow matches" clear={() => setQuery({ q: "", kind: null })} />
+          ) : (
+            <WorkflowsGrid rows={rows} isLoading={!loaded} />
+          )}
+        </div>
       </PageBody>
     </>
   )

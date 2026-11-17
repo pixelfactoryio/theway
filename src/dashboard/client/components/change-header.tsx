@@ -66,7 +66,7 @@ export function ChangeTitle({ change }: { change: ChangeDetail }) {
   const invalid = change.archived === null && change.issues.length > 0
   return (
     <div className="shrink-0 px-14 pt-6 pb-4">
-      <h1 className="max-w-[47.5rem] text-title font-semibold tracking-tight">{change.description ?? change.id}</h1>
+      <h1 className="max-w-[40rem] text-title font-semibold tracking-tight">{change.description ?? change.id}</h1>
       {change.description !== null ? <p className="mt-1 font-mono text-xs text-muted-foreground">{change.id}</p> : null}
       {invalid ? <IssuesAlert issues={change.issues} className="mt-3 max-w-[80ch]" /> : null}
     </div>

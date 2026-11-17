@@ -6,8 +6,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export const cellSkeleton = (width: string): ReactNode => <Skeleton className={`h-5 ${width}`} />
 
-export const EDGES = { edgeCell: "first:ps-4 last:pe-4" }
-
 /**
  * A grid's scroll root: the grid container, its scroll viewport padded by the header row's height. The scroll area's
  * own wrapper is made a flex column so the area takes the height left and its viewport scrolls under the header row.

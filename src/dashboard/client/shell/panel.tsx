@@ -18,7 +18,7 @@ import { readStored, writeStored } from "@/shell/storage"
 const HIDDEN_KEY = "theway-panel"
 const WIDTH_KEY = "theway-panel-width"
 
-const WIDE = "(min-width: 1024px)"
+const WIDE = "(min-width: 1280px)"
 const MIN = 320
 const MAX = 640
 const DEFAULT = 420
@@ -29,7 +29,7 @@ const subscribeWide = (onChange: () => void): (() => void) => {
   return () => query.removeEventListener("change", onChange)
 }
 
-/** Whether the window is 1024px wide or wider, where the panel is docked. */
+/** Whether the window is 1280px wide or wider, where the panel is docked. */
 export function useWide(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches)
 }
@@ -52,7 +52,7 @@ const readWidth = (): number => {
   return Number.isFinite(n) && n >= MIN && n <= MAX ? n : DEFAULT
 }
 
-/** The panel's state for the shell: docked open as this browser keeps it from 1024px, closed below. */
+/** The panel's state for the shell: docked open as this browser keeps it from 1280px, closed below. */
 export function usePanelState(): PanelState {
   const wide = useWide()
   const [slot, setSlot] = useState<HTMLElement | null>(null)
@@ -96,7 +96,7 @@ export function usePanelName(): string | null {
 }
 
 /**
- * The shell's right column: the shown page's panel, docked full height at the right from 1024px (resizable by its left
+ * The shell's right column: the shown page's panel, docked full height at the right from 1280px (resizable by its left
  * edge, its width kept in this browser), or over the page as a sheet below. Nothing when the page has no panel or it
  * is hidden.
  */

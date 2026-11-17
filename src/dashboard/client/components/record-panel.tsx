@@ -42,7 +42,7 @@ export function PanelToggle({
 
 /**
  * A record page's body: the main area, and the panel named `name`, which the shell shows in its right column (docked
- * from 1024px, over the page below).
+ * from 1280px, over the page below).
  */
 export function RecordBody({ name, panel, children }: { name: string; panel: ReactNode; children: ReactNode }) {
   return (
