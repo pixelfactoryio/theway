@@ -1,6 +1,7 @@
 /** The home's workflow and prompt files as the Workflows and Prompts pages show them. Pure: no React, no DOM. */
-import type { PromptRow, Use } from "../../contract"
+import type { PromptRow, Use, WorkflowRow } from "../../contract"
 import { byText } from "../../../core/text"
+import { NONE } from "./list-filter"
 
 export type { CheckBody, FileBody, FileError, PromptInputRow, PromptRow, Use, WorkflowRow } from "../../contract"
 export {
@@ -19,35 +20,9 @@ export const KINDS = ["step", "reference"] as const
 export type PromptKind = (typeof KINDS)[number]
 
 export const KIND_LABEL: Record<PromptKind, string> = { step: "Step prompt", reference: "Reference file" }
-export const KIND_FILTER_LABEL: Record<PromptKind, string> = { step: "Step prompts", reference: "Reference files" }
 
 /** A prompt's kind: Step prompt when it has a header, even one with errors. */
 export const kindOf = (row: { header: boolean }): PromptKind => (row.header ? "step" : "reference")
-
-/** A table's state in the address: the search, and on Prompts the one kind kept (`null`: no filtering). */
-export type FilesQuery = { q: string; kind: PromptKind | null }
-
-/** The state of the search part `search` (with or without its `?`): an invalid `kind` reads as none. */
-export function parseFilesQuery(search: string): FilesQuery {
-  const params = new URLSearchParams(search.replace(/^\?/, ""))
-  const kind = params.get("kind")
-  return { q: params.get("q") ?? "", kind: kind === "step" || kind === "reference" ? kind : null }
-}
-
-/** The search part of a state, without its `?`: `q` and `kind`, each absent at its default. */
-export function filesQueryString(query: FilesQuery): string {
-  const params = new URLSearchParams()
-  if (query.q !== "") params.set("q", query.q)
-  if (query.kind !== null) params.set("kind", query.kind)
-  return params.toString()
-}
-
-/** The kinds checked in the Kind filter for a state: none for no filtering. */
-export const checkedKinds = (kind: PromptKind | null): PromptKind[] => (kind === null ? [] : [kind])
-
-/** The address' `kind` for the checked rows: absent when none or both are checked, else the one checked. */
-export const kindOfChecked = (checked: readonly PromptKind[]): PromptKind | null =>
-  checked.length === 1 ? (checked[0] as PromptKind) : null
 
 /** Whether a file's name or description holds `q`, ignoring case; every file when `q` is empty. */
 export function fileMatches(file: { name: string; description?: string | null }, q: string): boolean {
@@ -56,17 +31,59 @@ export function fileMatches(file: { name: string; description?: string | null },
   return file.name.toLowerCase().includes(needle) || (file.description ?? "").toLowerCase().includes(needle)
 }
 
-/** The toolbar's count: `N <noun>s` (`1 <noun>`), or `N of M <noun>s` while narrowed. */
-export function fileCountText(shown: number, all: number, narrowed: boolean, noun: string): string {
-  const word = (n: number): string => (n === 1 ? noun : `${noun}s`)
-  return narrowed ? `${shown} of ${all} ${word(all)}` : `${shown} ${word(shown)}`
+/** The filter fields of the Prompts page, in the bar's order. */
+export const PROMPT_FIELDS = ["kind", "applies", "model", "usedBy", "status"] as const
+
+/** The filter fields of the Workflows page, in the bar's order. */
+export const WORKFLOW_FIELDS = ["applies", "runsOn", "default", "usesPrompt", "status"] as const
+
+/** The Applies to value of a global file. */
+export const GLOBAL = "global"
+
+/** A workflow or prompt file as a filter value: its name, then `~<project>` for a project's own. */
+export const fileValue = (name: string, project: string | null): string =>
+  project === null ? name : `${name}~${project}`
+
+/** The Status value of a file: `valid`, or `error` when it has errors. */
+export const statusValue = (errors: readonly string[]): "valid" | "error" => (errors.length === 0 ? "valid" : "error")
+
+export const STATUS_VALUE_LABEL = { valid: "Valid", error: "Has errors" } as const
+
+/** A prompt's values in a filter field of the Prompts page; `[NONE]` for no model and no workflow. */
+export function promptValues(row: PromptRow, field: string): string[] {
+  if (field === "kind") return [kindOf(row)]
+  if (field === "applies") return [row.project ?? GLOBAL]
+  if (field === "model") return [row.model ?? NONE]
+  if (field === "usedBy") {
+    const uses = [...new Set(row.usedBy.map((u) => fileValue(u.workflow, u.project)))]
+    return uses.length === 0 ? [NONE] : uses
+  }
+  if (field === "status") return [statusValue(row.errors)]
+  return []
 }
 
-/** The number of prompts of each kind among those the search keeps. */
-export function kindCounts(rows: readonly PromptRow[], q: string): Record<PromptKind, number> {
-  const counts = { step: 0, reference: 0 }
-  for (const r of rows) if (fileMatches(r, q)) counts[kindOf(r)] += 1
-  return counts
+/** The prompts each workflow uses, by the workflow's file value: the prompts' `usedBy` read the other way. */
+export function promptsByWorkflow(prompts: readonly PromptRow[]): Map<string, string[]> {
+  const uses = new Map<string, string[]>()
+  for (const p of prompts) {
+    for (const w of new Set(p.usedBy.map((u) => fileValue(u.workflow, u.project)))) {
+      uses.set(w, [...(uses.get(w) ?? []), fileValue(p.name, p.project)])
+    }
+  }
+  return uses
+}
+
+/** A workflow's values in a filter field of the Workflows page; `[NONE]` for no steps and no prompt. */
+export function workflowValues(row: WorkflowRow, field: string, uses: ReadonlyMap<string, string[]>): string[] {
+  if (field === "applies") return [row.project ?? GLOBAL]
+  if (field === "runsOn") return [row.runsOn ?? NONE]
+  if (field === "default") return [row.default ? "yes" : "no"]
+  if (field === "usesPrompt") {
+    const prompts = uses.get(fileValue(row.name, row.project)) ?? []
+    return prompts.length === 0 ? [NONE] : prompts
+  }
+  if (field === "status") return [statusValue(row.errors)]
+  return []
 }
 
 /** The status cell's error text: `1 error`, `N errors`. */
@@ -133,6 +150,23 @@ export function previewText(raw: string, header: boolean): string {
     .slice(end + 1)
     .join("\n")
     .replace(/^\n+/, "")
+}
+
+/** A prompt's header as fields, as `GET /api/prompts` reads it: its description, model and inputs. */
+export type PromptFields = Pick<PromptRow, "description" | "model" | "inputs">
+
+/**
+ * A prompt as the workflow panel reads it: its header's fields, `null` for a file with no header (a reference file),
+ * and the body the Preview renders, without the header's YAML.
+ */
+export function promptReading(
+  raw: string,
+  row: Pick<PromptRow, "header" | "description" | "model" | "inputs">,
+): { fields: PromptFields | null; body: string } {
+  return {
+    fields: row.header ? { description: row.description, model: row.model, inputs: row.inputs } : null,
+    body: previewText(raw, row.header),
+  }
 }
 
 /** The line separator of a text: `\r\n` when its first line break is `\r\n`, else `\n`. */

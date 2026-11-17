@@ -1,71 +1,56 @@
+import { cn } from "cn"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
-import { FunnelIcon } from "lucide-react"
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { CircleCheckIcon, CpuIcon, FolderIcon, ShapesIcon, WorkflowIcon } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
 import { Link, useLocation } from "wouter"
 
-import { Badge } from "@/components/reui/badge"
 import { DataGrid, dataGridFeatures, type DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
+import { StatusMark } from "@/components/status"
 import {
   appliesTo,
   byFile,
-  checkedKinds,
   compareText,
-  fileCountText,
   fileMatches,
   filePath,
-  KIND_FILTER_LABEL,
+  fileValue,
+  GLOBAL,
   KIND_LABEL,
-  kindCounts,
   kindOf,
-  kindOfChecked,
   KINDS,
+  PROMPT_FIELDS,
   type PromptKind,
   type PromptRow,
+  promptValues,
   rowId,
+  STATUS_VALUE_LABEL,
   type Use,
   describeUse,
 } from "@/lib/files"
-import { cellSkeleton, GridFrame, SCROLL_AREA, SearchField } from "@/components/list-grid"
+import { type FieldRule, fieldValues, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
+import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
-import {
-  FilesToolbar,
-  NameCell,
-  NoFile,
-  NoFileMatch,
-  STATUS_HEADER,
-  StatusCell,
-  useFilesQuery,
-} from "@/pages/files-table"
+import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/pages/files-table"
 import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
-const LAYOUT = { headerSticky: true }
+/** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
+const LAYOUT = { headerSticky: true, columnsResizable: true, columnsResizeMode: "onChange" } as const
 const PAGE = { pageIndex: 0, pageSize: 1000 }
+/** No column is dragged narrower than its header's word. */
+const COLUMN_DEFAULTS = { minSize: 72 }
 
-/** The list's column, as the other list pages': at most 1040px, with 28px gutters; the grid scrolls inside it. */
-const COLUMN = "flex min-h-0 w-full max-w-[65rem] flex-1 flex-col px-7 pt-5"
-
-/** From this width the grid shows every column; below, Model and Used by are hidden. */
-const WIDE = "(min-width: 1280px)"
-const NARROW_COLUMNS = { model: false, usedBy: false }
-const ALL_COLUMNS = {}
-
-const subscribeWide = (onChange: () => void): (() => void) => {
-  const query = window.matchMedia(WIDE)
-  query.addEventListener("change", onChange)
-  return () => query.removeEventListener("change", onChange)
-}
+/** The grid's column under the filter bar: the page's width, with its 24px gutters; the grid scrolls inside it. */
+const COLUMN = "flex min-h-0 w-full flex-1 flex-col px-6"
 
 type Column = "name" | "applies" | "kind" | "model" | "usedBy"
 
@@ -100,15 +85,15 @@ function UseLink({ use, children, className }: { use: Use; children: string; cla
   )
 }
 
-/** The Used by cell: the first workflow, then `+N` opening every use. */
+/** The Used by cell: the first workflow, wrapping when the column is narrow, then `+N` opening every use. */
 function UsedByCell({ row }: { row: PromptRow }) {
   const label = useLabel()
   const first = row.usedBy[0]
   if (first === undefined) return <Dash />
   const name = first.project === null ? first.workflow : `${first.workflow} · ${label(first.project)}`
   return (
-    <div className="flex items-center gap-1">
-      <UseLink use={first} className="truncate hover:underline">
+    <div className={cn(WRAP, "flex flex-wrap items-center gap-1")}>
+      <UseLink use={first} className="min-w-0 hover:underline">
         {name}
       </UseLink>
       {row.usedBy.length > 1 ? (
@@ -141,46 +126,61 @@ function UsedByCell({ row }: { row: PromptRow }) {
   )
 }
 
-function KindFilter({
-  checked,
-  counts,
-  onChange,
-}: {
-  checked: PromptKind[]
-  counts: Record<PromptKind, number>
-  onChange: (next: PromptKind[]) => void
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button variant="outline">
-            <FunnelIcon aria-hidden="true" />
-            Kind
-            {checked.length > 0 ? <Badge variant="outline">{checked.length}</Badge> : null}
-          </Button>
-        }
-      />
-      <PopoverContent className="w-56" align="start">
-        <div className="flex flex-col gap-3">
-          <div className="text-xs font-medium text-muted-foreground">Kind</div>
-          {KINDS.map((kind) => (
-            <div key={kind} className="flex items-center gap-2">
-              <Checkbox
-                id={`kind-${kind}`}
-                checked={checked.includes(kind)}
-                onCheckedChange={(on) => onChange(on === true ? [...checked, kind] : checked.filter((k) => k !== kind))}
-              />
-              <Label htmlFor={`kind-${kind}`} className="flex grow items-center justify-between gap-2 font-normal">
-                {KIND_FILTER_LABEL[kind]}
-                <span className="text-muted-foreground tabular-nums">{counts[kind]}</span>
-              </Label>
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+const FIELD_LABEL: Record<(typeof PROMPT_FIELDS)[number], string> = {
+  kind: "Kind",
+  applies: "Applies to",
+  model: "Model",
+  usedBy: "Used by",
+  status: "Status",
+}
+
+const FIELD_ICON: Record<(typeof PROMPT_FIELDS)[number], ReactNode> = {
+  kind: <ShapesIcon aria-hidden="true" />,
+  applies: <FolderIcon aria-hidden="true" />,
+  model: <CpuIcon aria-hidden="true" />,
+  usedBy: <WorkflowIcon aria-hidden="true" />,
+  status: <CircleCheckIcon aria-hidden="true" />,
+}
+
+/** The bar's fields over `all`, each value counted among `searched` with the other fields' rules applied. */
+function promptFields(
+  all: readonly PromptRow[],
+  searched: readonly PromptRow[],
+  rules: readonly FieldRule[],
+  label: (key: string) => string,
+): BarField[] {
+  const uses = new Map(
+    all.flatMap((p) =>
+      p.usedBy.map((u) => [
+        fileValue(u.workflow, u.project),
+        u.project === null ? u.workflow : `${u.workflow} · ${label(u.project)}`,
+      ]),
+    ),
   )
+  const valueLabel = (field: string, v: string): string => {
+    if (field === "kind") return KIND_LABEL[v as PromptKind] ?? v
+    if (field === "applies") return v === GLOBAL ? "All projects" : label(v)
+    if (field === "model") return v === NONE ? "None" : v
+    if (field === "usedBy") return v === NONE ? "No workflow" : (uses.get(v) ?? v)
+    return STATUS_VALUE_LABEL[v as keyof typeof STATUS_VALUE_LABEL] ?? v
+  }
+  const valuesFor = (field: string): string[] =>
+    field === "kind"
+      ? [...KINDS]
+      : field === "status"
+        ? ["valid", "error"]
+        : fieldValues(all, field, promptValues, (v) => valueLabel(field, v))
+  return PROMPT_FIELDS.map((id) => ({
+    id,
+    label: FIELD_LABEL[id],
+    icon: FIELD_ICON[id],
+    options: valuesFor(id).map((value) => ({
+      value,
+      label: valueLabel(id, value),
+      icon: id === "status" ? <StatusMark status={value === "valid" ? "ready" : "invalid"} /> : undefined,
+    })),
+    counts: valueCounts(searched, id, rules, promptValues),
+  }))
 }
 
 function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolean }) {
@@ -189,8 +189,6 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
   const sort = sorting[0] as { id: Column; desc: boolean } | undefined
   const data = useMemo(() => sortPrompts(rows, sort, label), [rows, sort, label])
-  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches)
-  const columnVisibility = wide ? ALL_COLUMNS : NARROW_COLUMNS
 
   const columns = useMemo<ColumnDef<DataGridFeatures, PromptRow>[]>(
     () => [
@@ -206,6 +204,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
           />
         ),
         size: 280,
+        minSize: 200,
         enableSorting: true,
         meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
       },
@@ -213,7 +212,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         id: "applies",
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
-        cell: ({ row }) => appliesTo(row.original.project, label),
+        cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
         size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -222,7 +221,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         id: "kind",
         accessorFn: (row) => KIND_LABEL[kindOf(row)],
         header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} />,
-        cell: ({ row }) => KIND_LABEL[kindOf(row.original)],
+        cell: ({ row }) => <Wrapped>{KIND_LABEL[kindOf(row.original)]}</Wrapped>,
         size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -231,7 +230,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         id: "model",
         accessorFn: (row) => row.model,
         header: ({ column }) => <DataGridColumnHeader title="Model" column={column} />,
-        cell: ({ row }) => (row.original.model === null ? <Dash /> : row.original.model),
+        cell: ({ row }) => (row.original.model === null ? <Dash /> : <Wrapped>{row.original.model}</Wrapped>),
         size: 100,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-12") },
@@ -260,9 +259,10 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
   const table = useTable({
     features: dataGridFeatures,
     columns,
+    defaultColumn: COLUMN_DEFAULTS,
     data,
     getRowId: rowId,
-    state: isLoading ? { sorting, columnVisibility } : { sorting, columnVisibility, pagination: PAGE },
+    state: isLoading ? { sorting } : { sorting, pagination: PAGE },
     manualPagination: true,
     manualSorting: true,
     onSortingChange: setSorting,
@@ -290,19 +290,15 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
 export function PromptsPage() {
   const prompts = usePrompts()
   const projects = useProjects()
-  const [query, setQuery] = useFilesQuery("prompts")
-  // Both rows checked filter nothing, as none do: the address then holds no `kind`, and the page keeps the two checks.
-  const [both, setBoth] = useState(false)
-  const checked = query.kind === null && both ? [...KINDS] : checkedKinds(query.kind)
+  const [filter, setFilter] = useListFilter("prompts", PROMPT_FIELDS)
+  const label = useLabel()
   const list = prompts.data
-  const rows = useMemo(
-    () =>
-      list === undefined
-        ? []
-        : list.prompts.filter((p) => fileMatches(p, query.q) && (query.kind === null || kindOf(p) === query.kind)),
-    [list, query.q, query.kind],
+  const searched = useMemo(() => (list?.prompts ?? []).filter((p) => fileMatches(p, filter.q)), [list, filter.q])
+  const rows = useMemo(() => searched.filter((p) => passesAll(p, filter.rules, promptValues)), [searched, filter.rules])
+  const fields = useMemo(
+    () => promptFields(list?.prompts ?? [], searched, filter.rules, label),
+    [list, searched, filter.rules, label],
   )
-  const counts = useMemo(() => kindCounts(list?.prompts ?? [], query.q), [list, query.q])
   const top = (
     <TopBar items={[{ section: "Library" }, { label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
   )
@@ -348,35 +344,26 @@ export function PromptsPage() {
       </>
     )
   }
-  const narrowed = query.q.trim() !== "" || query.kind !== null
   return (
     <>
       {top}
       <PageBody>
-        <div className={COLUMN}>
-          <FilesToolbar count={loaded ? fileCountText(rows.length, list.prompts.length, narrowed, "prompt") : null}>
-            <SearchField label="Search prompts" value={query.q} onChange={(q) => setQuery({ ...query, q }, true)} />
-            <KindFilter
-              checked={checked}
-              counts={counts}
-              onChange={(next) => {
-                setBoth(next.length === KINDS.length)
-                setQuery({ ...query, kind: kindOfChecked(next) })
-              }}
-            />
-          </FilesToolbar>
-          {loaded && rows.length === 0 ? (
-            <NoFileMatch
-              title="No prompt matches"
-              clear={() => {
-                setBoth(false)
-                setQuery({ q: "", kind: null })
-              }}
-            />
-          ) : (
+        <FilterBar
+          fields={fields}
+          filter={filter}
+          onChange={setFilter}
+          searchLabel="Search prompts"
+          shown={loaded ? rows.length : null}
+          total={loaded ? list.prompts.length : null}
+          noun="prompt"
+        />
+        {loaded && rows.length === 0 ? (
+          <NoMatch nouns="prompts" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
+        ) : (
+          <div className={COLUMN}>
             <PromptsGrid rows={rows} isLoading={!loaded} />
-          )}
-        </div>
+          </div>
+        )}
       </PageBody>
     </>
   )

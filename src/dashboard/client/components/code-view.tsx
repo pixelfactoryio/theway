@@ -17,6 +17,7 @@ import {
 import { tags } from "@lezer/highlight"
 import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref } from "react"
 
+import { CODE_TAG_STYLES } from "@/lib/code-languages"
 import { type FileError, lineSeparatorOf } from "@/lib/files"
 
 /** The language of a code view: a workflow's YAML, a prompt (a YAML header over Markdown), or Markdown. */
@@ -28,15 +29,9 @@ export type CodeViewHandle = { goToLine: (line: number) => void }
 /** The style nonce of this page's response, which CodeMirror puts on the `<style>` tags it injects. */
 const nonce = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-nonce"]')?.content ?? ""
 
+/** The code view's colours: fenced code's syntax colours over the whole file, and Markdown headings in bold. */
 const HIGHLIGHT = HighlightStyle.define([
-  { tag: [tags.keyword, tags.meta], color: "var(--code-keyword)" },
-  { tag: [tags.string, tags.special(tags.string)], color: "var(--code-string)" },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom, tags.url, tags.link], color: "var(--code-constant)" },
-  {
-    tag: [tags.propertyName, tags.definition(tags.propertyName), tags.tagName, tags.typeName, tags.labelName],
-    color: "var(--code-property)",
-  },
-  { tag: [tags.comment, tags.lineComment], color: "var(--code-comment)" },
+  ...CODE_TAG_STYLES,
   { tag: tags.heading, color: "var(--foreground)", fontWeight: "bold" },
 ])
 

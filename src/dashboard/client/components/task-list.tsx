@@ -91,10 +91,7 @@ function RowMenu({
             variant="ghost"
             size="icon-sm"
             aria-label={`Task ${n} actions`}
-            className={cn(
-              "shrink-0 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
-              open && "opacity-100",
-            )}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
           />
         }
       >
@@ -182,7 +179,7 @@ function Row({
     >
       <SortableItemHandle
         render={<button type="button" aria-label={`Drag task ${n}`} />}
-        className="absolute top-9 left-0 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute top-9 left-0 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </SortableItemHandle>

@@ -1,17 +1,16 @@
 import { useEffect } from "react"
 import { Link } from "wouter"
 
-import { DraftDialogs, DraftStatus, useFileDraft } from "@/components/draft"
-import { LiveMarkdown } from "@/components/live-markdown"
-import { describeUse, filePath, type PromptRow, workflowCount } from "@/lib/files"
+import { DetailRow } from "@/components/doc-panel"
+import { Dash, InputsList } from "@/components/file-page"
+import { MarkdownView } from "@/components/markdown"
+import { Button } from "@/components/ui/button"
+import { describeUse, filePath, promptReading, type PromptRow, workflowCount } from "@/lib/files"
 import { MAC } from "@/shell/platform"
 import { useFile, useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 
-/**
- * Calls `save` on Cmd+S (Ctrl+S off macOS) anywhere on the page, the browser's own Save page prevented. Several pages
- * parts may listen: each saves its own draft.
- */
+/** Calls `save` on Cmd+S (Ctrl+S off macOS) anywhere on the page, the browser's own Save page prevented. */
 export function useSaveKey(save: () => void): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -31,54 +30,47 @@ export const stepPromptRow = (prompts: readonly PromptRow[], project: string | n
   null
 
 /**
- * A step's prompt in the workflow panel, editable with live preview: its own draft, saved by Cmd/Ctrl+S with the
- * workflow, and its save state; a prompt other workflows use says so.
+ * A step's prompt in the workflow panel, read-only: a row with its file name, how many workflows share it and Open
+ * prompt (its own page, where it is edited); then, scrolling in the pane, its header as fields (description, model,
+ * inputs) and its body rendered at the document scale.
  */
 export function StepPrompt({ row }: { row: PromptRow }) {
   const file = useFile("prompts", row.project, row.name)
-  const draft = useFileDraft({
-    kind: "prompts",
-    project: row.project,
-    name: row.name,
-    file: file.data,
-    fetching: file.isFetching,
-    language: "prompt",
-    docName: `${row.name}.md`,
-  })
-  useSaveKey(() => {
-    if (draft.dirty) void draft.save(false)
-  })
-  const sharedBy = workflowCount(file.data?.usedBy ?? [])
-  if (file.isError && draft.store === null)
-    return <LoadError what="this prompt" error={file.error} retry={() => void file.refetch()} className="m-3 w-auto" />
+  const sharedBy = workflowCount(file.data?.usedBy ?? row.usedBy)
+  const reading = file.data !== undefined ? promptReading(file.data.text, row) : null
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b px-4 text-xs text-muted-foreground">
-        <Link
-          href={`${filePath("prompts", row.project, row.name)}?`}
-          className="font-mono text-foreground underline-offset-4 hover:underline"
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate font-mono">{row.name}.md</span>
+        {sharedBy > 1 ? <span className="shrink-0">Shared by {sharedBy} workflows</span> : null}
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          className="ml-auto"
+          render={<Link href={`${filePath("prompts", row.project, row.name)}?`} />}
         >
-          {row.name}.md
-        </Link>
-        {sharedBy > 1 ? <span className="text-warning">Shared by {sharedBy} workflows</span> : null}
-        <span className="ml-auto">
-          <DraftStatus dirty={draft.dirty} saved={draft.saved} />
-        </span>
+          Open prompt
+        </Button>
       </div>
-      {draft.saveFailure !== null ? (
-        <p role="alert" className="border-b px-4 py-2 text-xs text-destructive">
-          Could not save: {draft.saveFailure}
-        </p>
+      {file.isError ? (
+        <LoadError what="this prompt" error={file.error} retry={() => void file.refetch()} className="m-3 w-auto" />
+      ) : reading !== null ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {reading.fields !== null ? (
+            <dl aria-label="Prompt header" className="flex flex-col border-b py-2">
+              <DetailRow label="Description">{reading.fields.description ?? <Dash />}</DetailRow>
+              <DetailRow label="Model">{reading.fields.model ?? <Dash />}</DetailRow>
+              <DetailRow label="Inputs">
+                <InputsList inputs={reading.fields.inputs} />
+              </DetailRow>
+            </dl>
+          ) : null}
+          <div className="px-4 py-4">
+            <MarkdownView text={reading.body} />
+          </div>
+        </div>
       ) : null}
-      {draft.store !== null ? (
-        <LiveMarkdown
-          key={`${row.project ?? "global"}/${row.name}`}
-          store={draft.store}
-          name={`${row.name}.md`}
-          className="min-h-0 flex-1 [&_.cm-content]:px-4! [&_.cm-content]:py-3!"
-        />
-      ) : null}
-      <DraftDialogs draft={draft} />
     </div>
   )
 }

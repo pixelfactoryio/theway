@@ -24,8 +24,15 @@ function ShowSidebar() {
   return <SidebarTrigger className="mr-1 size-7 self-center text-muted-foreground" />
 }
 
-/** A document's reading column, the same on every document page: its text at most 640px (40rem), with 56px gutters. */
-export const DOC_COLUMN = "max-w-[47rem] px-14"
+/**
+ * A document's reading column, the same on every document page: the whole width between 24px gutters. Within it, prose
+ * keeps its measure (`PROSE_COLUMN`) while code blocks and tables take up to `--read-wide` (64rem), all centred, so
+ * hiding the sidebar or the panel gives code and tables room.
+ */
+export const DOC_COLUMN = "px-6"
+
+/** The measure of prose in the reading column, centred: at most `--read-width` (708px, Notion's text column). */
+export const PROSE_COLUMN = "mx-auto w-full max-w-(--read-width)"
 
 /** One tab of a document: a view of it with its own address, its icon, and a dot while it has unsaved edits. */
 export type FrameTab = { value: string; label: string; href: string; Icon: LucideIcon; dirty?: boolean }

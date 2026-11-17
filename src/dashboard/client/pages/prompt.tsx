@@ -7,7 +7,7 @@ import { DraftDialogs, DraftNotices, DraftStatus, type HeaderFields, useFileDraf
 import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
-import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
+import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { useSaveKey } from "@/components/step-prompt"
 import { FileStatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
@@ -49,7 +49,6 @@ function PromptPanel({
   return (
     <DocPanel
       remember="prompt"
-      topShare="70%"
       label="Prompt"
       header={<FileStatusPill errors={errors} />}
       top={
@@ -284,10 +283,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           />
         }
       >
-        <div className="shrink-0 px-14 pt-5 pb-3">
-          <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
-          <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
-          {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
+        <div className={`shrink-0 pt-5 pb-3 ${DOC_COLUMN}`}>
+          <div className={PROSE_COLUMN}>
+            <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
+            <h1 className="mt-1 text-doc-title font-bold tracking-tight text-doc-foreground">{name}</h1>
+            {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
+          </div>
         </div>
         <DraftNotices draft={draft} lines={lines} history={history} />
         {history ? (

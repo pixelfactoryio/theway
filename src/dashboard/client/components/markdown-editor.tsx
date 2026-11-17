@@ -273,7 +273,11 @@ export function MarkdownEditor({ store, name, startLine }: { store: DraftStore; 
           <ResizablePanel id="source" defaultSize="50%" minSize="25%" className="min-h-0">
             <Source store={store} />
           </ResizablePanel>
-          <ResizableHandle aria-label="Resize the source and the preview" />
+          <ResizableHandle
+            withHandle
+            aria-label="Resize the source and the preview"
+            className="bg-input [&>div]:bg-muted-foreground transition-colors data-[separator=active]:bg-foreground/60 data-[separator=hover]:bg-foreground/40"
+          />
           <ResizablePanel id="preview" defaultSize="50%" minSize="25%" className="min-h-0">
             <Preview store={store} name={name} />
           </ResizablePanel>

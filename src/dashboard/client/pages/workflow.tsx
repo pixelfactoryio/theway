@@ -481,6 +481,18 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     </dl>
   )
 
+  // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
+  const onCanvas = !history && !yamlTab && "drawing" in drawn
+  const heading = (
+    <>
+      <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
+      <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
+      {drawing?.description != null ? (
+        <p className="max-w-xl text-sm text-muted-foreground">{drawing.description}</p>
+      ) : null}
+    </>
+  )
+
   return (
     <>
       <DocFrame
@@ -514,7 +526,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           <DocPanel
             key={promptRow !== null ? "prompt" : "workflow"}
             remember={promptRow !== null ? "workflow-step" : "workflow"}
-            topShare={promptRow !== null ? "45%" : "70%"}
+            topShare={promptRow !== null ? "50%" : "70%"}
             label="Workflow"
             header={
               <>
@@ -554,11 +566,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           />
         }
       >
-        <div className="shrink-0 px-14 pt-5 pb-3">
-          <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
-          <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
-          {drawing?.description != null ? <p className="text-sm text-muted-foreground">{drawing.description}</p> : null}
-        </div>
+        {onCanvas ? null : <div className="shrink-0 px-14 pt-5 pb-3">{heading}</div>}
         <DraftNotices draft={draft} lines={lines} history={history} />
         {!history && !yamlTab && drawing !== null && anchors ? (
           <Alert className={STRIP}>
@@ -582,6 +590,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             onSelect={select}
             store={draft.store}
             edits={edits}
+            header={heading}
           />
         )}
         <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">

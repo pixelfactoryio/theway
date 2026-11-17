@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
 import type { ActiveChange, ChangeList, DashboardSettings, Project } from "../src/dashboard/contract"
+import { NONE, passesAll, valueCounts } from "../src/dashboard/client/lib/list-filter"
 import {
   allEntries,
   countOf,
@@ -7,6 +8,8 @@ import {
   groupId,
   inProgressCount,
   pinnedEntries,
+  PROJECT_FIELDS,
+  projectValues,
   recentEntries,
   renamed,
   suggestions,
@@ -163,4 +166,20 @@ test("countOf writes the noun singular for one and plural otherwise", () => {
   expect(countOf(1, "project")).toBe("1 project")
   expect(countOf(0, "project")).toBe("0 projects")
   expect(countOf(3, "group")).toBe("3 groups")
+})
+
+test("All projects filters a project by its group (none as (none)) and by its pin, its own or its group's", () => {
+  expect(PROJECT_FIELDS).toEqual(["group", "pinned"])
+  const s = settings({ groups: GROUPED.groups, pinned: ["group:acme", "project:-w"] })
+  const values = (key: string, field: string) => projectValues(s, key, field)
+  expect(values("-ad", "group")).toEqual(["acme"])
+  expect(values("-w", "group")).toEqual([NONE])
+  // A grouped project is pinned through its group; one in no group by its own pin.
+  expect(["-a", "-w", "-x"].map((k) => values(k, "pinned"))).toEqual([["yes"], ["yes"], ["no"]])
+  expect(values("-a", "other")).toEqual([])
+  const keys = PROJECTS.map((p) => p.key)
+  const notPinned = [{ field: "pinned", not: false, values: ["no"] }]
+  expect(keys.filter((k) => passesAll(k, notPinned, values))).toEqual(["-as", "-x", "-y"])
+  // Each Group value counts the projects the Pinned rule keeps: Acme's are pinned through it.
+  expect(valueCounts(keys, "group", notPinned, values)).toEqual(new Map([[NONE, 3]]))
 })

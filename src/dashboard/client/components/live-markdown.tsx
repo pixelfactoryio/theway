@@ -1,6 +1,6 @@
 import { defaultKeymap, history, historyKeymap, redo } from "@codemirror/commands"
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
-import { syntaxTree } from "@codemirror/language"
+import { syntaxHighlighting, syntaxTree } from "@codemirror/language"
 import { EditorState, type Extension, Facet, type Range, StateEffect, StateField } from "@codemirror/state"
 import {
   Decoration,
@@ -17,6 +17,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react"
 import type { DraftStore } from "@/components/code-view"
 import { formattingKeymap } from "@/components/markdown-editor"
 import { inlineCode, isLinkTarget } from "@/lib/changes"
+import { CODE_BLOCK_STYLES, CODE_LANGUAGES } from "@/lib/code-languages"
 import {
   activeLines,
   decorationPlan,
@@ -32,7 +33,24 @@ import {
 const nonce = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-nonce"]')?.content ?? ""
 
 const MUTED = { color: "var(--muted-foreground)" }
-const MONO = { fontFamily: "var(--font-mono)", fontSize: "0.75rem" }
+const MONO = { fontFamily: "var(--font-mono)", fontSize: "85%" }
+/** Inline code: 85% Geist Mono on a soft tint, in the text's colour, as the read view's. */
+const INLINE_CODE = {
+  fontFamily: "var(--font-mono)",
+  fontSize: "85%",
+  padding: "0.2em 0.4em",
+  borderRadius: "var(--radius-sm)",
+  backgroundColor: "var(--doc-code-tint)",
+}
+/** The wider room of code blocks and tables, centred in the column. */
+const WIDE = { maxWidth: "var(--read-wide)" }
+/** A heading at Notion's scale: 600, its size and line height from the `--text-doc-*` tokens. */
+const HEADING = (level: string, space: string) => ({
+  fontSize: `var(--text-doc-${level})`,
+  lineHeight: `var(--text-doc-${level}--line-height)`,
+  fontWeight: "600",
+  paddingTop: space,
+})
 
 /** The deepest list level indented; deeper items line up with it. */
 const MAX_DEPTH = 6
@@ -48,30 +66,73 @@ const ITEM_STYLES = Object.fromEntries(
   ]).flat(),
 )
 
+/**
+ * Notion's scale and rhythm, as the read view's: body 16/24 in the document's colour; a blank line between two blocks
+ * 8px tall; space above a heading (with the blank line before it, 32px above h1, 24px above h2, 16px above h3); 36px
+ * from one list item to the next.
+ */
 const THEME = EditorView.theme({
-  "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--foreground)" },
+  "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--doc-foreground)" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { fontFamily: "var(--font-sans)", fontSize: "0.875rem", lineHeight: "1.5rem", overflow: "auto" },
-  ".cm-content": { padding: "2rem 3.5rem", maxWidth: "40rem", boxSizing: "content-box", caretColor: "var(--link)" },
+  ".cm-scroller": {
+    fontFamily: "var(--font-sans)",
+    fontSize: "var(--text-doc)",
+    lineHeight: "var(--text-doc--line-height)",
+    overflow: "auto",
+  },
+  // The column's 24px gutters; each line centred at most `--read-width` wide, code and tables `--read-wide`.
+  // `minWidth: 0` keeps the content to the column, so a table wider than its room scrolls in its own box.
+  ".cm-content": { padding: "1.5rem 1.5rem 4rem", minWidth: "0", caretColor: "var(--link)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--link)" },
-  ".cm-line": { padding: "0" },
-  ".cm-lp-h1": { fontSize: "1rem", fontWeight: "600" },
-  ".cm-lp-h2, .cm-lp-h3": { fontSize: "0.875rem", fontWeight: "600" },
-  ".cm-lp-h4, .cm-lp-h5, .cm-lp-h6": { fontSize: "0.875rem", fontWeight: "600", ...MUTED },
-  ".cm-lp-quote": { borderLeft: "1px solid var(--border)", paddingLeft: "12px", ...MUTED },
-  ".cm-lp-code": { ...MONO, backgroundColor: "var(--muted)", padding: "0 12px" },
+  ".cm-line": { padding: "0", maxWidth: "var(--read-width)", marginInline: "auto", boxSizing: "border-box" },
+  ".cm-lp-blank": { lineHeight: "0.5rem" },
+  ".cm-lp-h1": HEADING("h1", "1.5rem"),
+  ".cm-lp-h2": HEADING("h2", "1rem"),
+  ".cm-lp-h3": HEADING("h3", "0.5rem"),
+  ".cm-lp-h4, .cm-lp-h5, .cm-lp-h6": { fontWeight: "600", paddingTop: "0.5rem" },
+  ".cm-lp-h5, .cm-lp-h6": MUTED,
+  // A heading on the first line has no space above it.
+  ".cm-content > .cm-line:first-child:is(.cm-lp-h1, .cm-lp-h2, .cm-lp-h3, .cm-lp-h4, .cm-lp-h5, .cm-lp-h6)": {
+    paddingTop: "0",
+  },
+  ".cm-lp-quote": { borderLeft: "3px solid var(--input)", paddingLeft: "1rem", ...MUTED },
+  // A code block: on a faint tint of the page, 85% mono at 1.5, 16px by 20px inside its 10px corners.
+  ".cm-lp-code": {
+    ...WIDE,
+    fontFamily: "var(--font-mono)",
+    fontSize: "85%",
+    lineHeight: "1.5",
+    backgroundColor: "var(--code-surface)",
+    padding: "0 1.25rem",
+    tabSize: "4",
+  },
+  ".cm-lp-code-start": {
+    paddingTop: "1rem",
+    borderTopLeftRadius: "var(--doc-code-radius)",
+    borderTopRightRadius: "var(--doc-code-radius)",
+  },
+  ".cm-lp-code-end": {
+    paddingBottom: "1rem",
+    borderBottomLeftRadius: "var(--doc-code-radius)",
+    borderBottomRightRadius: "var(--doc-code-radius)",
+  },
   ".cm-lp-fence": MUTED,
-  ".cm-lp-table": MONO,
+  ".cm-lp-label": { float: "right", ...MUTED, fontSize: "var(--text-xs)" },
+  ".cm-lp-table": { ...MONO, ...WIDE },
   ".cm-lp-strong": { fontWeight: "600" },
   ".cm-lp-em": { fontStyle: "italic" },
   ".cm-lp-strike": { textDecoration: "line-through" },
-  ".cm-lp-inline-code": {
-    ...MONO,
-    backgroundColor: "var(--muted)",
-    borderRadius: "var(--radius-sm)",
-    padding: "0 4px",
+  ".cm-lp-inline-code": INLINE_CODE,
+  ".cm-lp-link": {
+    fontWeight: "500",
+    textDecoration: "underline",
+    textDecorationColor: "var(--input)",
+    textUnderlineOffset: "3px",
+    "&:hover": { textDecorationColor: "currentColor" },
   },
-  ".cm-lp-link": { color: "var(--link)", textDecoration: "underline", textUnderlineOffset: "3px" },
+  // 12px between items; a list's first item, after a blank line, is 8px under the text above it, as a paragraph is.
+  ".cm-lp-item-first": { paddingTop: "0.75rem" },
+  ".cm-lp-blank + .cm-lp-item-first": { paddingTop: "0" },
   ".cm-lp-done, .cm-lp-number": MUTED,
   ".cm-lp-number": { display: "inline-block", minWidth: "1.25em", textIndent: "0" },
   ".cm-lp-bullet": { ...MUTED, display: "inline-block", width: `${INDENT}em`, textIndent: "0" },
@@ -84,21 +145,34 @@ const THEME = EditorView.theme({
     cursor: "pointer",
   },
   ...ITEM_STYLES,
-  ".cm-lp-tablewrap": { padding: "4px 0", overflowX: "auto", cursor: "text" },
-  ".cm-lp-tablewrap table": { borderCollapse: "collapse", fontSize: "0.875rem", lineHeight: "1.25rem" },
+  // A table: 1px rules, the header row on the muted surface at 600, tabular numbers, as the read view's.
+  // Words break as in the read view, not anywhere as wrapped lines do: a column too narrow for a word scrolls instead.
+  ".cm-lp-tablewrap": {
+    ...WIDE,
+    marginInline: "auto",
+    padding: "0.25rem 0",
+    overflowX: "auto",
+    cursor: "text",
+    whiteSpace: "normal",
+    wordBreak: "normal",
+    overflowWrap: "normal",
+  },
+  ".cm-lp-tablewrap table": {
+    width: "100%",
+    borderCollapse: "collapse",
+    border: "1px solid var(--border)",
+    fontSize: "inherit",
+    lineHeight: "var(--text-doc--line-height)",
+    fontVariantNumeric: "tabular-nums",
+  },
   ".cm-lp-tablewrap th, .cm-lp-tablewrap td": {
     border: "1px solid var(--border)",
-    padding: "4px 8px",
+    padding: "0.5em 0.75em",
     verticalAlign: "top",
-    minWidth: "7rem",
   },
   ".cm-lp-tablewrap th": { fontWeight: "600", backgroundColor: "var(--muted)", textAlign: "left" },
-  ".cm-lp-tablewrap code": {
-    ...MONO,
-    backgroundColor: "var(--muted)",
-    borderRadius: "var(--radius-sm)",
-    padding: "0 4px",
-  },
+  // A long path or identifier in a cell breaks anywhere, so it does not set its column's width.
+  ".cm-lp-tablewrap code": { ...INLINE_CODE, overflowWrap: "anywhere" },
   ".cm-lp-hr": {
     display: "inline-block",
     width: "100%",
@@ -116,8 +190,11 @@ const LINE: Record<LineKind, Decoration> = {
   h6: Decoration.line({ class: "cm-lp-h6" }),
   quote: Decoration.line({ class: "cm-lp-quote" }),
   code: Decoration.line({ class: "cm-lp-code" }),
+  "code-start": Decoration.line({ class: "cm-lp-code-start" }),
+  "code-end": Decoration.line({ class: "cm-lp-code-end" }),
   fence: Decoration.line({ class: "cm-lp-fence" }),
   table: Decoration.line({ class: "cm-lp-table" }),
+  blank: Decoration.line({ class: "cm-lp-blank" }),
 }
 
 const MARK: Record<MarkKind, Decoration> = {
@@ -127,6 +204,7 @@ const MARK: Record<MarkKind, Decoration> = {
   code: Decoration.mark({ class: "cm-lp-inline-code" }),
   done: Decoration.mark({ class: "cm-lp-done" }),
   number: Decoration.mark({ class: "cm-lp-number" }),
+  label: Decoration.mark({ class: "cm-lp-label" }),
 }
 
 const HIDE = Decoration.replace({})
@@ -360,9 +438,10 @@ const livePreview = ViewPlugin.fromClass(
 const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length > 0 })
 
 /**
- * The extension set of a live Markdown view: GFM Markdown, the live preview, history with the stock keys and
- * `Mod-Shift-z` as redo, the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator
- * and the style nonce. It binds no `Mod-s`: saving is the page's.
+ * The extension set of a live Markdown view: GFM Markdown with fenced code parsed in the languages of the list and
+ * coloured by their scoped highlight styles, the live preview, history with the stock keys and `Mod-Shift-z` as redo,
+ * the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator and the style nonce.
+ * It binds no `Mod-s`: saving is the page's.
  */
 export function liveExtensions({ name, separator }: { name: string; separator: string }): Extension[] {
   return [
@@ -371,7 +450,8 @@ export function liveExtensions({ name, separator }: { name: string; separator: s
     formattingKeymap,
     keymap.of([...defaultKeymap, ...historyKeymap]),
     keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
-    markdown({ base: markdownLanguage }),
+    markdown({ base: markdownLanguage, codeLanguages: CODE_LANGUAGES }),
+    CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
     livePreview,
     tables,
     tableClick,

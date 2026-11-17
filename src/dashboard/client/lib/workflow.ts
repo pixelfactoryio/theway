@@ -399,23 +399,6 @@ export function selectionOf(line: { text: string; line: number | null }, drawing
   return null
 }
 
-/** Whether any step has an on-fail card. */
-export const hasOnFail = (drawing: Drawing): boolean => drawing.steps.some((s) => s.onFail !== null)
-
-/** A zoom step: the scale minus or plus 0.1, rounded to one decimal, kept within 0.5 and 2. */
-export const zoomStep = (scale: number, delta: number): number =>
-  Math.min(2, Math.max(0.5, Math.round((scale + delta) * 10) / 10))
-
-/**
- * The scale that fits a drawing `boxHeight` tall into `areaHeight`: never above 1, rounded down to a 0.1 step, never
- * below 0.8 (a taller drawing overflows at 0.8, its top shown).
- */
-export const fitScale = (boxHeight: number, areaHeight: number): number =>
-  Math.max(0.8, Math.floor(Math.min(1, areaHeight / boxHeight) * 10 + 1e-9) / 10)
-
-/** The toolbar's percentage: `Math.round(scale * 100)` followed by `%`. */
-export const percent = (scale: number): string => `${Math.round(scale * 100)}%`
-
 /** The label of a YAML key: every `-` and `.` becomes a space and the first letter is upper-cased (`runs-on` → `Runs on`). */
 export function keyLabel(key: string): string {
   const words = key.replace(/[-.]/g, " ")

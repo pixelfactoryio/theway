@@ -1,27 +1,25 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import {
   appliesTo,
-  checkedKinds,
-  fileCountText,
-  filesQueryString,
-  kindOfChecked,
+  GLOBAL,
   lineSeparatorOf,
-  parseFilesQuery,
   previewText,
+  PROMPT_FIELDS,
+  promptReading,
   type PromptRow,
+  promptsByWorkflow,
+  promptValues,
   describeUse,
+  WORKFLOW_FIELDS,
+  type WorkflowRow,
   workflowCount,
+  workflowValues,
 } from "../src/dashboard/client/lib/files"
-import {
-  drawWorkflow,
-  findPrompt,
-  fitScale,
-  isDefaultText,
-  keyLabel,
-  percent,
-  selectionOf,
-  zoomStep,
-} from "../src/dashboard/client/lib/workflow"
+import { NONE } from "../src/dashboard/client/lib/list-filter"
+import { drawWorkflow, findPrompt, isDefaultText, keyLabel, selectionOf } from "../src/dashboard/client/lib/workflow"
+import { fitScale, percent, zoomStep } from "../src/dashboard/client/lib/workflow-layout"
 
 const prompt = (
   name: string,
@@ -46,22 +44,57 @@ const PROMPTS = [
   prompt("fix", null, "Fix it", "haiku"),
 ]
 
-test("the tables' address keeps q and one kind; both or none checked is no kind", () => {
-  expect(parseFilesQuery("?q=imp&kind=step")).toEqual({ q: "imp", kind: "step" })
-  expect(parseFilesQuery("kind=both")).toEqual({ q: "", kind: null })
-  expect(filesQueryString({ q: "a b", kind: "reference" })).toBe("q=a+b&kind=reference")
-  expect(filesQueryString({ q: "", kind: null })).toBe("")
-  expect([kindOfChecked([]), kindOfChecked(["step"]), kindOfChecked(["step", "reference"])]).toEqual([
-    null,
-    "step",
-    null,
+const used = (p: PromptRow, ...uses: [string, string | null][]): PromptRow => ({
+  ...p,
+  usedBy: uses.map(([workflow, project]) => ({ workflow, project, step: 1, as: "step" as const })),
+})
+
+const workflow = (name: string, project: string | null, rest: Partial<WorkflowRow> = {}): WorkflowRow => ({
+  name,
+  project,
+  description: null,
+  default: false,
+  steps: 2,
+  runsOn: "agents",
+  errors: [],
+  ...rest,
+})
+
+test("a prompt's filter values: kind, applies to, model, the workflows using it, status; none as (none)", () => {
+  const p = used(prompt("review", "-p", "Own review", "sonnet"), ["agents", null], ["agents", null], ["ship", "-p"])
+  expect(PROMPT_FIELDS.map((f) => promptValues(p, f))).toEqual([
+    ["step"],
+    ["-p"],
+    ["sonnet"],
+    ["agents", "ship~-p"],
+    ["valid"],
   ])
-  expect(checkedKinds("reference")).toEqual(["reference"])
-  expect([
-    fileCountText(1, 1, false, "workflow"),
-    fileCountText(2, 5, true, "prompt"),
-    fileCountText(0, 1, true, "prompt"),
-  ]).toEqual(["1 workflow", "2 of 5 prompts", "0 of 1 prompt"])
+  const bare = { ...prompt("notes", null, null), header: false, errors: ["bad"] }
+  expect(PROMPT_FIELDS.map((f) => promptValues(bare, f))).toEqual([["reference"], [GLOBAL], [NONE], [NONE], ["error"]])
+})
+
+test("a workflow's filter values read the prompts it uses from the prompts' uses", () => {
+  const uses = promptsByWorkflow([
+    used(prompt("implement", null, null), ["agents", null]),
+    used(prompt("review", "-p", null), ["agents", null], ["ship", "-p"]),
+  ])
+  expect(uses.get("agents")).toEqual(["implement", "review~-p"])
+  expect(uses.get("ship~-p")).toEqual(["review~-p"])
+  expect(WORKFLOW_FIELDS.map((f) => workflowValues(workflow("agents", null, { default: true }), f, uses))).toEqual([
+    [GLOBAL],
+    ["agents"],
+    ["yes"],
+    ["implement", "review~-p"],
+    ["valid"],
+  ])
+  const empty = workflow("draft", "-p", { runsOn: null, steps: null, errors: ["e"] })
+  expect(WORKFLOW_FIELDS.map((f) => workflowValues(empty, f, uses))).toEqual([
+    ["-p"],
+    [NONE],
+    ["no"],
+    [NONE],
+    ["error"],
+  ])
 })
 
 test("labels and uses read as the tables and panels write them", () => {
@@ -72,6 +105,26 @@ test("labels and uses read as the tables and panels write them", () => {
     "agents · tower · on-fail of step 1",
   )
   expect(describeUse({ workflow: "w", project: null, step: 3, as: "value" }, label)).toBe("w · value in step 3")
+})
+
+test("the panel reads a step prompt's header as fields and renders its body without the YAML; a reference file has no fields", () => {
+  const text = "---\ndescription: Review it\nmodel: opus\ninputs:\n  change:\n    required: true\n---\n\n# Review\n"
+  const row: PromptRow = {
+    ...prompt("review", null, "Review it", "opus"),
+    inputs: [{ name: "change", required: true, default: null, description: "The change ID" }],
+  }
+  expect(promptReading(text, row)).toEqual({
+    fields: {
+      description: "Review it",
+      model: "opus",
+      inputs: [{ name: "change", required: true, default: null, description: "The change ID" }],
+    },
+    body: "# Review\n",
+  })
+  expect(promptReading("# Notes\n", { ...prompt("notes", null, null), header: false })).toEqual({
+    fields: null,
+    body: "# Notes\n",
+  })
 })
 
 test("the preview is the text after the header, without a BOM or CRLF; the separator follows the first line break", () => {
@@ -342,4 +395,23 @@ test("workflowCount counts each workflow once, however many of its steps use the
     ]),
   ).toBe(3)
   expect(workflowCount([])).toBe(0)
+})
+
+test("the Workflows and Prompts lists have no tooltip, show whole descriptions and resize their columns", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
+  for (const page of ["workflows-list.tsx", "prompts-list.tsx", "files-table.tsx"]) {
+    const text = read("pages", page)
+    expect([page, /Tooltip|OneLine|truncate/.test(text)]).toEqual([page, false])
+  }
+  // The errors badge of their Status column is the badge alone.
+  expect(read("components", "status.tsx")).not.toContain("Tooltip")
+  for (const page of ["workflows-list.tsx", "prompts-list.tsx"]) {
+    const text = read("pages", page)
+    expect([page, text.includes("columnsResizable: true"), text.includes("<DataGridScrollArea")]).toEqual([
+      page,
+      true,
+      true,
+    ])
+  }
 })
