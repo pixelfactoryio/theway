@@ -55,12 +55,24 @@ function activeRow(store: ChangeStore, key: string, id: string): ActiveChange {
   }
 }
 
-const archivedRow = (e: Dated): ArchivedChange => ({ dir: e.ref, id: e.id, date: e.date })
+/** One archived change of the project `key`, as the list route gives it. */
+const archivedRow = (store: ChangeStore, key: string, e: Dated): ArchivedChange => ({
+  dir: e.ref,
+  id: e.id,
+  date: e.date,
+  updated: store.updated(key, { kind: "archived", ref: e.ref }),
+})
 
-/** The body of `GET /api/projects/:key/changes`: active by ID, archived newest first. */
+/**
+ * The body of `GET /api/projects/:key/changes`: active by ID, archived newest first: by date, then by the time their
+ * `change.yaml` was last written (the folder's name holds the day only), then by folder, last first.
+ */
 export function listChanges(store: ChangeStore, key: string): ChangeList {
   const active = store.activeIds(key).map((id) => activeRow(store, key, id))
-  const archived = datedArchives(store, key).reverse().map(archivedRow)
+  const archived = datedArchives(store, key)
+    .reverse()
+    .map((e) => archivedRow(store, key, e))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.updated.localeCompare(a.updated))
   return { active, archived }
 }
 

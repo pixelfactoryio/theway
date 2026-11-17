@@ -28,11 +28,14 @@ export const ActiveChangeSchema = z.object({
 })
 export type ActiveChange = z.infer<typeof ActiveChangeSchema>
 
-/** One archived change of `GET /api/projects/:key/changes`. */
-export const ArchivedChangeSchema = z.object({ dir: z.string(), id: z.string(), date: z.string() })
+/**
+ * One archived change of `GET /api/projects/:key/changes`: `date` from its folder's name, `updated` the modification
+ * time of its `change.yaml` (when it was archived, for a change left untouched since), which orders one day's archives.
+ */
+export const ArchivedChangeSchema = z.object({ dir: z.string(), id: z.string(), date: z.string(), updated: z.string() })
 export type ArchivedChange = z.infer<typeof ArchivedChangeSchema>
 
-/** The body of `GET /api/projects/:key/changes`: active by ID, archived newest first. */
+/** The body of `GET /api/projects/:key/changes`: active by ID, archived newest first (by date, then by `updated`). */
 export const ChangeListSchema = z.object({
   active: z.array(ActiveChangeSchema),
   archived: z.array(ArchivedChangeSchema),
