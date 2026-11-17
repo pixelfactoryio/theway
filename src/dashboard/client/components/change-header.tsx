@@ -1,6 +1,8 @@
+import { cn } from "cn"
 import { CircleAlertIcon } from "lucide-react"
 
 import { type OpenField, TextField } from "@/components/change-fields"
+import { DOC_COLUMN, PROSE_COLUMN } from "@/components/doc-frame"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import type { ChangeDetail } from "@/lib/changes"
 
@@ -59,16 +61,23 @@ export function DescriptionField({ description, edit }: { description: string | 
 }
 
 /**
- * The top of a change's content: its description as the title (its ID when it has none), its ID in small mono, and
- * the reasons a change that cannot be read gives. Where the change sits shows in the sidebar, not here.
+ * The top of a change's content, the title of the document below it and in its column: its description (its ID when
+ * it has none) at 36/44 and 700, above the document's h1, its ID in small mono, and the reasons a change that cannot
+ * be read gives. Where the change sits shows in the sidebar, not here. The document below gives the space under it.
  */
-export function ChangeTitle({ change }: { change: ChangeDetail }) {
+export function ChangeTitle({ change, className }: { change: ChangeDetail; className?: string }) {
   const invalid = change.archived === null && change.issues.length > 0
   return (
-    <div className="shrink-0 px-14 pt-6 pb-4">
-      <h1 className="max-w-[40rem] text-title font-semibold tracking-tight">{change.description ?? change.id}</h1>
-      {change.description !== null ? <p className="mt-1 font-mono text-xs text-muted-foreground">{change.id}</p> : null}
-      {invalid ? <IssuesAlert issues={change.issues} className="mt-3 max-w-[80ch]" /> : null}
+    <div className={cn("shrink-0 pt-10", DOC_COLUMN, className)}>
+      <div className={PROSE_COLUMN}>
+        <h1 className="text-doc-title font-bold tracking-tight text-doc-foreground">
+          {change.description ?? change.id}
+        </h1>
+        {change.description !== null ? (
+          <p className="mt-2 font-mono text-doc text-muted-foreground">{change.id}</p>
+        ) : null}
+        {invalid ? <IssuesAlert issues={change.issues} className="mt-3" /> : null}
+      </div>
     </div>
   )
 }

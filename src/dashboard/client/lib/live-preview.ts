@@ -10,11 +10,19 @@ type SyntaxNode = Tree["topNode"]
 /** A range of the document. */
 export type Span = { from: number; to: number }
 
-/** The style of a whole line: a heading level, a blockquote, a fenced or indented code line, a fence or a table row. */
-export type LineKind = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "quote" | "code" | "fence" | "table"
+/**
+ * The style of a whole line: a heading level, a blockquote, a fenced or indented code line (and the first and last
+ * lines of its block, which round its corners), a fence, a table row, or a blank line outside code (the space between
+ * two blocks, which is shorter than a line of text).
+ */
+export type LineKind =
+  "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "quote" | "code" | "code-start" | "code-end" | "fence" | "table" | "blank"
 
-/** The style of a range within a line: inline formatting, a link's text, a done task's text, an ordered list number. */
-export type MarkKind = "strong" | "em" | "strike" | "code" | "done" | "number"
+/**
+ * The style of a range within a line: inline formatting, a link's text, a done task's text, an ordered list number, a
+ * fence's info string (the block's language label, set at the right off its line).
+ */
+export type MarkKind = "strong" | "em" | "strike" | "code" | "done" | "number" | "label"
 
 export type LineStyle = { from: number; kind: LineKind }
 
@@ -91,7 +99,8 @@ function children(node: SyntaxNode, name: string): SyntaxNode[] {
 /**
  * The decorations of the live preview of `doc` for the parts of `tree` within `ranges` (the visible ranges): a syntax
  * mark is hidden, and a list marker, task box or thematic break replaced by a widget, only off the `active` lines; line
- * and range styles apply everywhere. Fenced code keeps its fences; tables and raw HTML stay as source.
+ * and range styles apply everywhere. Fenced code keeps its fences; tables and raw HTML stay as source. A blank line
+ * outside code is styled as one, active or not, so the space between blocks does not change as the cursor moves.
  */
 export function decorationPlan(
   doc: Text,
@@ -135,6 +144,12 @@ export function decorationPlan(
       const at = doc.line(n).from
       if (once(`l${kind}${at}`)) plan.lines.push({ from: at, kind })
     }
+  }
+  // Styles the lines of code block `node` as code, its first line also as the block's start and its last as its end.
+  const block = (node: SyntaxNode, range: Span): void => {
+    lines(node.from, node.to, "code", range)
+    lines(node.from, node.from, "code-start", range)
+    lines(node.to, node.to, "code-end", range)
   }
   // The blanks (spaces and tabs) from `pos` forward, or backward with `step` -1, within the line.
   const blanks = (pos: number, step: 1 | -1): number => {
@@ -236,12 +251,15 @@ export function decorationPlan(
           case "Table":
             lines(node.from, node.to, "table", range)
             return false
-          case "FencedCode":
-            lines(node.from, node.to, "code", range)
+          case "FencedCode": {
+            block(node, range)
             for (const m of children(node, "CodeMark")) lines(m.from, m.from, "fence", range)
+            const info = node.getChild("CodeInfo")
+            if (info !== null && !shown(info.from, info.to)) mark({ from: info.from, to: info.to, kind: "label" })
             return false
+          }
           case "CodeBlock":
-            lines(node.from, node.to, "code", range)
+            block(node, range)
             return false
           case "Blockquote":
             lines(node.from, node.to, "quote", range)
@@ -273,6 +291,13 @@ export function decorationPlan(
         }
       },
     })
+    // The blank lines of the range that no code block holds.
+    const last = doc.lineAt(range.to).number
+    for (let n = doc.lineAt(range.from).number; n <= last; n++) {
+      const line = doc.line(n)
+      if (line.text.trim() === "" && !seen.has(`lcode${line.from}`) && once(`lblank${line.from}`))
+        plan.lines.push({ from: line.from, kind: "blank" })
+    }
   }
   return plan
 }
@@ -321,7 +346,8 @@ export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>):
   const blocks: TableBlock[] = []
   tree.iterate({
     enter: (ref) => {
-      if (SOURCE.has(ref.name)) return false
+      // Raw HTML and code (whose nested language's tree it would otherwise walk) hold no table.
+      if (SOURCE.has(ref.name) || ref.name === "FencedCode" || ref.name === "CodeBlock") return false
       if (ref.name !== "Table") return undefined
       const first = doc.lineAt(ref.from)
       const last = doc.lineAt(Math.max(ref.from, ref.to - 1))

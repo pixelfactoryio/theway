@@ -1,0 +1,169 @@
+import { expect, test } from "bun:test"
+import { type Drawing, drawWorkflow } from "../src/dashboard/client/lib/workflow"
+import {
+  ADD_CLEARANCE,
+  ADD_SIZE,
+  addCentre,
+  ARROW,
+  CARD,
+  fitView,
+  GAP,
+  KEEP,
+  layoutDrawing,
+  ON_FAIL_GAP,
+  ON_FAIL_RISE,
+  ON_FAIL_WIDTH,
+  overflows,
+  revealDelta,
+  UNDER_HEADING,
+} from "../src/dashboard/client/lib/workflow-layout"
+
+/** The drawing of a workflow file with these steps (YAML block list items, without their leading `- `). */
+function drawing(...steps: string[]): Drawing {
+  const text = `version: theway.workflow/v1beta1\nsteps:${steps.length === 0 ? " []" : ""}\n${steps.map((s) => `  - ${s}\n`).join("")}`
+  const drawn = drawWorkflow(text, [], [], null)
+  if (!("drawing" in drawn)) throw new Error(drawn.reason)
+  return drawn.drawing
+}
+
+const ROW = CARD.height + GAP
+const THREE = drawing(
+  "uses: prompts/a.md",
+  "uses: prompts/b.md\n    on-fail: prompts/fix.md\n    tries: 2",
+  "uses: prompts/c.md",
+)
+
+test("the column is Inputs then each step in order, one card and a gap apart, each on-fail card at its step's right", () => {
+  const { nodes } = layoutDrawing(THREE, null, false)
+  expect(nodes.map((n) => [n.id, n.x, n.y, n.width, n.height])).toEqual([
+    ["inputs", 0, 0, CARD.width, CARD.height],
+    ["step-0", 0, ROW, CARD.width, CARD.height],
+    ["step-1", 0, 2 * ROW, CARD.width, CARD.height],
+    ["on-fail-1", CARD.width + ON_FAIL_GAP, 2 * ROW - ON_FAIL_RISE, ON_FAIL_WIDTH, CARD.height],
+    ["step-2", 0, 3 * ROW, CARD.width, CARD.height],
+  ])
+})
+
+test("the cards stand 64px apart, and an on-fail card clears the step card above its own step", () => {
+  expect(GAP).toBe(64)
+  const { nodes } = layoutDrawing(THREE, null, false)
+  const at = (id: string) => nodes.find((n) => n.id === id)!
+  expect(at("step-1").y - (at("step-0").y + CARD.height)).toBe(64)
+  expect(at("on-fail-1").y).toBeGreaterThan(at("step-0").y + CARD.height)
+})
+
+test("a line's '+' stands centred between the card above and the arrow head, as far from each; the last '+' as far under its card", () => {
+  expect(ADD_CLEARANCE).toBe(19)
+  // A line from a card's bottom at 100 to the next card's top at 164: the "+" is 20px, its arrow head 6px.
+  const centre = addCentre(100, 100 + GAP)
+  const top = centre - ADD_SIZE / 2
+  const bottom = centre + ADD_SIZE / 2
+  expect(top - 100).toBe(ADD_CLEARANCE)
+  expect(100 + GAP - ARROW - bottom).toBe(ADD_CLEARANCE)
+  const { nodes } = layoutDrawing(THREE, null, true)
+  const add = nodes.find((n) => n.kind === "add")!
+  expect(add.y - (3 * ROW + CARD.height)).toBe(ADD_CLEARANCE)
+})
+
+test("read-only, the edges join the column with arrows and no '+', and the on-fail edge carries its tries", () => {
+  const { edges } = layoutDrawing(THREE, null, false)
+  expect(edges).toEqual([
+    { id: "inputs->step-0", source: "inputs", target: "step-0", kind: "flow", add: null, arrow: true },
+    { id: "step-0->step-1", source: "step-0", target: "step-1", kind: "flow", add: null, arrow: true },
+    { id: "step-1->on-fail-1", source: "step-1", target: "on-fail-1", kind: "on-fail", tries: "2" },
+    { id: "step-1->step-2", source: "step-1", target: "step-2", kind: "flow", add: null, arrow: true },
+  ])
+})
+
+test("editable, each edge into a step adds a step at its index, and the round '+' under the last card adds at the end", () => {
+  const { nodes, edges } = layoutDrawing(THREE, null, true)
+  expect(edges.filter((e) => e.kind === "flow").map((e) => [e.target, e.kind === "flow" ? e.add : null])).toEqual([
+    ["step-0", 0],
+    ["step-1", 1],
+    ["step-2", 2],
+    ["add", null],
+  ])
+  expect(edges.at(-1)).toMatchObject({ source: "step-2", target: "add", arrow: false })
+  expect(nodes.at(-1)).toEqual({
+    id: "add",
+    kind: "add",
+    at: 3,
+    x: (CARD.width - ADD_SIZE) / 2,
+    y: 3 * ROW + CARD.height + ADD_CLEARANCE,
+    width: ADD_SIZE,
+    height: ADD_SIZE,
+  })
+})
+
+test("the placeholder stands where the step goes in, moving the cards after it down; its edge in keeps the '+'", () => {
+  const { nodes, edges } = layoutDrawing(THREE, 1, true)
+  expect(nodes.map((n) => [n.id, n.y])).toEqual([
+    ["inputs", 0],
+    ["step-0", ROW],
+    ["placeholder", 2 * ROW],
+    ["step-1", 3 * ROW],
+    ["on-fail-1", 3 * ROW - ON_FAIL_RISE],
+    ["step-2", 4 * ROW],
+    ["add", 4 * ROW + CARD.height + ADD_CLEARANCE],
+  ])
+  const into = (target: string) => edges.find((e) => e.target === target)
+  expect(into("placeholder")).toMatchObject({ source: "step-0", add: 1, arrow: true })
+  expect(into("step-1")).toMatchObject({ source: "placeholder", add: null, arrow: true })
+})
+
+test("a placeholder at the end replaces the round '+' under the last card", () => {
+  const { nodes, edges } = layoutDrawing(THREE, 3, true)
+  expect(nodes.map((n) => n.id).slice(-2)).toEqual(["step-2", "placeholder"])
+  expect(edges.at(-1)).toMatchObject({ source: "step-2", target: "placeholder", add: 3, arrow: true })
+})
+
+test("no steps: Inputs alone read-only, Inputs and the '+' editable; the bounds hold every node", () => {
+  const none = drawing()
+  expect(layoutDrawing(none, null, false)).toEqual({
+    nodes: [{ id: "inputs", kind: "inputs", x: 0, y: 0, ...CARD }],
+    edges: [],
+    bounds: { x: 0, y: 0, ...CARD },
+  })
+  const editable = layoutDrawing(none, null, true)
+  expect(editable.nodes.map((n) => n.id)).toEqual(["inputs", "add"])
+  expect(editable.bounds).toEqual({ x: 0, y: 0, width: CARD.width, height: CARD.height + ADD_CLEARANCE + ADD_SIZE })
+  expect(layoutDrawing(THREE, null, false).bounds).toEqual({
+    x: 0,
+    y: 0,
+    width: CARD.width + ON_FAIL_GAP + ON_FAIL_WIDTH,
+    height: 3 * ROW + CARD.height,
+  })
+})
+
+test("fit: between 80% and 100% for height and width, the top under the heading, centred when it fits", () => {
+  const bounds = { x: 0, y: 0, width: 300, height: 500 }
+  // Room for it all at 100%: centred across, its top 24px under a 100px heading.
+  expect(fitView(bounds, { width: 800, height: 900 }, 100)).toEqual({ x: 250, y: 100 + UNDER_HEADING, zoom: 1 })
+  // Without a heading, its top 16px under the pane's top.
+  expect(fitView(bounds, { width: 800, height: 900 }).y).toBe(KEEP.top)
+  // Too tall: the largest 0.1 step that fits the height, never below 0.8.
+  expect(fitView(bounds, { width: 800, height: 16 + 450 + KEEP.bottom }).zoom).toBe(0.9)
+  expect(fitView(bounds, { width: 800, height: 300 }).zoom).toBe(0.8)
+  // Too wide: the width's step wins; too wide at 0.8, its left edge 16px from the pane's left.
+  expect(fitView({ x: 0, y: 0, width: 700, height: 100 }, { width: 600, height: 900 }).zoom).toBe(0.8)
+  expect(fitView({ x: 0, y: 0, width: 900, height: 100 }, { width: 600, height: 900 })).toEqual({
+    x: KEEP.side,
+    y: KEEP.top,
+    zoom: 0.8,
+  })
+})
+
+test("the drawing overflows when any edge of it leaves the pane; a box out of view pans in, above the toolbar's band", () => {
+  const bounds = { x: 0, y: 0, width: 300, height: 500 }
+  const pane = { width: 800, height: 600 }
+  expect(overflows(bounds, { x: 10, y: 10, zoom: 1 }, pane)).toBe(false)
+  expect(overflows(bounds, { x: 10, y: 10, zoom: 1.2 }, pane)).toBe(true)
+  expect(overflows(bounds, { x: -1, y: 10, zoom: 1 }, pane)).toBe(true)
+  expect(revealDelta({ left: 100, right: 400, top: 100, bottom: 172 }, pane)).toEqual({ dx: 0, dy: 0 })
+  expect(revealDelta({ left: 100, right: 400, top: 560, bottom: 632 }, pane)).toEqual({
+    dx: 0,
+    dy: pane.height - KEEP.bottom - 632,
+  })
+  expect(revealDelta({ left: -50, right: 250, top: -10, bottom: 62 }, pane)).toEqual({ dx: 66, dy: 26 })
+  expect(revealDelta({ left: 700, right: 1000, top: 100, bottom: 172 }, pane)).toEqual({ dx: -216, dy: 0 })
+})

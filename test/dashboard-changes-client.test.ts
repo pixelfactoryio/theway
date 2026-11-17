@@ -11,7 +11,7 @@ import {
   seriesStatus,
   shownTab,
 } from "../src/dashboard/client/lib/changes"
-import { fileCountText } from "../src/dashboard/client/lib/files"
+import { resultText } from "../src/dashboard/client/lib/list-filter"
 
 const c = (
   id: string,
@@ -84,10 +84,9 @@ test("the search and the filter keep changes; a narrowed series lists the kept m
   expect(activeRows(ACTIVE, "ay", ["not-started"]).map((r) => r.id)).toEqual(["add-a"])
 })
 
-test("the count reads N changes, or N of M changes while narrowed", () => {
-  expect(fileCountText(24, 24, false, "change")).toBe("24 changes")
-  expect(fileCountText(1, 1, false, "change")).toBe("1 change")
-  expect(fileCountText(3, 24, true, "change")).toBe("3 of 24 changes")
+test("the result line reads N of M changes", () => {
+  expect(resultText(3, 24, "change")).toBe("3 of 24 changes")
+  expect(resultText(0, 1, "change")).toBe("0 of 1 change")
 })
 
 test("Updated is the local date", () => {

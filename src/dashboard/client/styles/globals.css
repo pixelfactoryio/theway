@@ -1,4 +1,7 @@
+/* React Flow's base styles sit in a layer of their own, after Tailwind's reset and before its utilities. */
+@layer theme, base, xyflow, components, utilities;
 @import "tailwindcss" source(none);
+@import "@xyflow/react/dist/base.css" layer(xyflow);
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
@@ -110,29 +113,43 @@
   /* A list page's title in its top row: 14/20, set apart by its weight. */
   --text-heading: 0.875rem;
   --text-heading--line-height: 1.25rem;
-  /* A document's title: 21/29. */
+  /* A workflow's or prompt's name: 21/29. */
   --text-title: 1.3125rem;
   --text-title--line-height: 1.8125rem;
+  /*
+   * A document read or edited, at Notion's scale: body 16/24, h1 30/39, h2 24/31, h3 20/26; the change's title 36/44
+   * (Notion's page title is 40/48), above h1 by size and weight.
+   */
+  --text-doc: 1rem;
+  --text-doc--line-height: 1.5rem;
+  --text-doc-h1: 1.875rem;
+  --text-doc-h1--line-height: 2.4375rem;
+  --text-doc-h2: 1.5rem;
+  --text-doc-h2--line-height: 1.9375rem;
+  --text-doc-h3: 1.25rem;
+  --text-doc-h3--line-height: 1.625rem;
+  --text-doc-title: 2.25rem;
+  --text-doc-title--line-height: 2.75rem;
 }
 
 /* Markdown colours from the theme tokens, so prose follows the tint and the theme switch. */
 @utility prose-theway {
-  --tw-prose-body: var(--foreground);
-  --tw-prose-headings: var(--foreground);
-  --tw-prose-lead: var(--foreground);
+  --tw-prose-body: var(--doc-foreground);
+  --tw-prose-headings: var(--doc-foreground);
+  --tw-prose-lead: var(--doc-foreground);
   --tw-prose-links: var(--link);
-  --tw-prose-bold: var(--foreground);
+  --tw-prose-bold: var(--doc-foreground);
   --tw-prose-counters: var(--muted-foreground);
   --tw-prose-bullets: var(--muted-foreground);
   --tw-prose-hr: var(--border);
-  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quotes: var(--doc-foreground);
   --tw-prose-quote-borders: var(--border);
   --tw-prose-captions: var(--muted-foreground);
   --tw-prose-kbd: var(--foreground);
   --tw-prose-kbd-shadows: var(--border);
-  --tw-prose-code: var(--foreground);
-  --tw-prose-pre-code: var(--foreground);
-  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-code: var(--doc-foreground);
+  --tw-prose-pre-code: var(--doc-foreground);
+  --tw-prose-pre-bg: var(--code-surface);
   --tw-prose-th-borders: var(--border);
   --tw-prose-td-borders: var(--border);
 }
@@ -211,6 +228,10 @@
   --code-constant: #1f55ad;
   --code-property: #1a6640;
   --code-comment: #63636b;
+  --code-function: #6639ba;
+  --code-type: #953800;
+  /* A code block's surface: a faint warm tint of the page. */
+  --code-surface: rgb(135 131 120 / 0.07);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -233,7 +254,7 @@
     --accent: #252528;
     --accent-foreground: #ececee;
     --destructive: #ef6a5b;
-    --border: #262628;
+    --border: #2e2e31;
     --input: #343438;
     --ring: #6aa7ff;
     --link: #6aa7ff;
@@ -254,7 +275,7 @@
     --sidebar-primary-foreground: #131314;
     --sidebar-accent: #252528;
     --sidebar-accent-foreground: #ececee;
-    --sidebar-border: #262628;
+    --sidebar-border: #2e2e31;
     --sidebar-ring: #6aa7ff;
     --destructive-foreground: #ef6a5b;
     --success: #45b97c;
@@ -270,6 +291,9 @@
     --code-constant: #79c0ff;
     --code-property: #7ee787;
     --code-comment: #8d8d93;
+    --code-function: #d2a8ff;
+    --code-type: #ffa657;
+    --code-surface: rgb(255 255 255 / 0.03);
   }
 }
 
@@ -292,7 +316,7 @@
   --accent: #252528;
   --accent-foreground: #ececee;
   --destructive: #ef6a5b;
-  --border: #262628;
+  --border: #2e2e31;
   --input: #343438;
   --ring: #6aa7ff;
   --link: #6aa7ff;
@@ -313,7 +337,7 @@
   --sidebar-primary-foreground: #131314;
   --sidebar-accent: #252528;
   --sidebar-accent-foreground: #ececee;
-  --sidebar-border: #262628;
+  --sidebar-border: #2e2e31;
   --sidebar-ring: #6aa7ff;
   --destructive-foreground: #ef6a5b;
   --success: #45b97c;
@@ -329,6 +353,9 @@
   --code-constant: #79c0ff;
   --code-property: #7ee787;
   --code-comment: #8d8d93;
+  --code-function: #d2a8ff;
+  --code-type: #ffa657;
+  --code-surface: rgb(255 255 255 / 0.03);
 }
 
 @layer base {
@@ -374,4 +401,256 @@
 
 [data-slot="switch"][data-checked]:not([data-checked="false"]) {
   background-color: var(--foreground);
+}
+
+/* A grouped list's header band: one surface step above the page, in each theme. */
+@theme inline {
+  --color-band: var(--band);
+  --color-doc-foreground: var(--doc-foreground);
+}
+
+:root {
+  --band: #f4f4f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --band: #1c1c1f;
+  }
+}
+
+:root[data-theme="dark"] {
+  --band: #1c1c1f;
+}
+
+/* React Flow's attribution on the workflow canvas: the theme's muted text, on no background. */
+.react-flow__attribution {
+  background: transparent;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+}
+
+.react-flow__attribution a {
+  color: var(--muted-foreground);
+}
+
+/*
+ * Reading a document, at Notion's scale: the text column (708px) and the wider room of code blocks and tables (64rem),
+ * both centred; the document's text, a warm off-white in dark and a warm ink in light; inline code on a soft tint;
+ * code blocks on a faint one, with 10px corners. The interface around a document stays at 14px.
+ */
+:root {
+  --read-width: 44.25rem;
+  --read-wide: 64rem;
+  --doc-code-radius: 0.625rem;
+  --doc-foreground: #37352f;
+  --doc-code-tint: rgb(135 131 120 / 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --doc-foreground: #f0efed;
+    --doc-code-tint: rgb(255 255 255 / 0.055);
+  }
+}
+
+:root[data-theme="dark"] {
+  --doc-foreground: #f0efed;
+  --doc-code-tint: rgb(255 255 255 / 0.055);
+}
+
+/*
+ * The read view's Markdown over the typography plugin, with Notion's rhythm: 8px between paragraphs, 36px from one list
+ * item to the next, and clear space above a heading (32px above h1, 24px above h2, 16px above h3), 8px below it.
+ */
+.doc-prose {
+  max-width: none;
+  color: var(--doc-foreground);
+  font-size: var(--text-doc);
+  line-height: var(--text-doc--line-height);
+}
+.doc-prose > * {
+  max-width: var(--read-width);
+  margin-inline: auto;
+}
+.doc-prose > .doc-code,
+.doc-prose > .doc-table {
+  max-width: var(--read-wide);
+}
+.doc-prose :is([data-level]) {
+  color: var(--doc-foreground);
+  font-weight: 600;
+}
+.doc-prose [data-level="1"] {
+  margin-block: 2rem 0.5rem;
+  font-size: var(--text-doc-h1);
+  line-height: var(--text-doc-h1--line-height);
+}
+.doc-prose [data-level="2"] {
+  margin-block: 1.5rem 0.5rem;
+  font-size: var(--text-doc-h2);
+  line-height: var(--text-doc-h2--line-height);
+}
+.doc-prose [data-level="3"] {
+  margin-block: 1rem 0.5rem;
+  font-size: var(--text-doc-h3);
+  line-height: var(--text-doc-h3--line-height);
+}
+.doc-prose :is([data-level="4"], [data-level="5"], [data-level="6"]) {
+  margin-block: 1rem 0.5rem;
+  font-size: var(--text-doc);
+  line-height: var(--text-doc--line-height);
+}
+.doc-prose :is([data-level="5"], [data-level="6"]) {
+  color: var(--muted-foreground);
+}
+.doc-prose > [data-level]:first-child {
+  margin-top: 0;
+}
+.doc-prose p {
+  margin-block: 0 0.5rem;
+}
+.doc-prose strong {
+  color: inherit;
+  font-weight: 600;
+}
+.doc-prose a {
+  color: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--input);
+  text-underline-offset: 3px;
+}
+.doc-prose a:hover {
+  text-decoration-color: currentColor;
+}
+.doc-prose :is(ul, ol) {
+  margin-block: 0 0.5rem;
+  padding-left: 1.5rem;
+}
+.doc-prose li {
+  margin-block: 0.75rem 0;
+  padding: 0;
+}
+.doc-prose :is(ul, ol) > li:first-child {
+  margin-top: 0;
+}
+.doc-prose li > :is(p, ul, ol) {
+  margin-block: 0;
+}
+.doc-prose li > :is(ul, ol) {
+  margin-top: 0.75rem;
+}
+.doc-prose li::marker {
+  color: var(--muted-foreground);
+}
+.doc-prose blockquote {
+  margin-block: 0 0.5rem;
+  padding-left: 1rem;
+  border-left: 3px solid var(--input);
+  color: var(--muted-foreground);
+  font-style: normal;
+  font-weight: 400;
+}
+.doc-prose blockquote p::before,
+.doc-prose blockquote p::after {
+  content: none;
+}
+.doc-prose hr {
+  margin-block: 1rem;
+  border-color: var(--border);
+}
+/* Inline code: 85% Geist Mono on a soft tint, in the text's colour. */
+.doc-prose code {
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-sm);
+  background: var(--doc-code-tint);
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 85%;
+  font-weight: 400;
+}
+.doc-prose code::before,
+.doc-prose code::after {
+  content: none;
+}
+.doc-code {
+  position: relative;
+  margin-block: 0.25rem 0.75rem;
+}
+.doc-code pre {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  border-radius: var(--doc-code-radius);
+  background: var(--code-surface);
+  color: var(--doc-foreground);
+  font-family: var(--font-mono);
+  font-size: 85%;
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 4;
+}
+.doc-code pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: inherit;
+}
+.doc-code-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  pointer-events: none;
+}
+.doc-table {
+  margin-block: 0.25rem 0.75rem;
+  overflow-x: auto;
+}
+.doc-table table {
+  width: 100%;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-collapse: collapse;
+  font-size: inherit;
+  line-height: var(--text-doc--line-height);
+  font-variant-numeric: tabular-nums;
+}
+.doc-table :is(th, td) {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--border);
+  color: var(--doc-foreground);
+  text-align: start;
+  vertical-align: top;
+}
+.doc-table th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.code-keyword {
+  color: var(--code-keyword);
+}
+.code-string {
+  color: var(--code-string);
+}
+.code-constant {
+  color: var(--code-constant);
+}
+.code-function {
+  color: var(--code-function);
+}
+.code-type {
+  color: var(--code-type);
+}
+.code-property {
+  color: var(--code-property);
+}
+.code-comment {
+  color: var(--code-comment);
+  font-style: italic;
 }

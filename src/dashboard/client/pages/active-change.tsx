@@ -414,18 +414,21 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const lineCount = (text: string): number =>
     text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0)
 
+  // A Markdown file scrolls with the change's title above it, its document title; the editor grows to its text.
   let content: ReactNode
   if (current.file !== null) {
-    content =
-      draft !== null ? (
-        <LiveMarkdown key={name} store={draft.store} name={name} className="min-h-0 flex-1" />
-      ) : (
-        <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-          <div className={`${DOC_COLUMN} py-8`}>
+    content = (
+      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+        <ChangeTitle change={shown} />
+        {draft !== null ? (
+          <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
+        ) : (
+          <div className={`${DOC_COLUMN} py-6`}>
             <MarkdownView key={name} text={fileText(name)} onToggle={null} />
           </div>
-        </div>
-      )
+        )}
+      </div>
+    )
   } else if (textView && yaml !== null) {
     content = (
       <div className="min-h-0 flex-1">
@@ -443,7 +446,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const shownName = current.file ?? CHANGE_FILE
   const body = (
     <>
-      <ChangeTitle change={shown} />
+      {current.file === null ? <ChangeTitle change={shown} className="pb-4" /> : null}
       {notices}
       {content}
       <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">

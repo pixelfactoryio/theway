@@ -76,7 +76,9 @@ function Row({
         className={cn(ROW, bar)}
       >
         <span className="min-w-0 flex-1 truncate">{label}</span>
-        <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{value}</span>
+        <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums group-data-[collapsible=icon]:hidden">
+          {value}
+        </span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
@@ -229,7 +231,7 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
     <>
       {pinned.length > 0 ? (
         <SidebarGroup className="py-1">
-          <SidebarGroupLabel className="h-7">Pinned</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Pinned</SidebarGroupLabel>
           <SidebarMenu className="gap-0.5">
             {pinned.map((e) => (
               <Place key={e.id} entry={e} lists={lists} label={label} active={active(e)} activeKey={activeKey} />
@@ -239,7 +241,7 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
       ) : null}
       {recent.length > 0 ? (
         <SidebarGroup className="py-1">
-          <SidebarGroupLabel className="h-7">Recent</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Recent</SidebarGroupLabel>
           <SidebarMenu className="gap-0.5">
             {recent.map((e) => (
               <Place
@@ -290,7 +292,7 @@ function Library() {
   ]
   return (
     <SidebarGroup className="py-1">
-      <SidebarGroupLabel className="h-7">Library</SidebarGroupLabel>
+      <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Library</SidebarGroupLabel>
       <SidebarMenu className="gap-0.5">
         {rows.map((row) => {
           const broken = row.list?.filter((f) => f.errors.length > 0).length ?? 0
@@ -333,10 +335,10 @@ export function AppSidebar() {
     ? [...lists.values()].reduce((n, l) => n + inProgressCount(l), 0)
     : null
   return (
-    <Sidebar collapsible="offcanvas">
+    <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1 p-2 pt-0">
-        <div className="flex h-11 items-center justify-between pl-2">
-          <Logo />
+        <div className="flex h-11 items-center justify-between pl-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pl-0">
+          <Logo className="group-data-[collapsible=icon]:hidden" />
           <SidebarTrigger className="size-7 text-muted-foreground" />
         </div>
         <Entries inProgress={inProgress} />
@@ -345,11 +347,11 @@ export function AppSidebar() {
         <Places lists={lists} />
         <Library />
       </SidebarContent>
-      <SidebarFooter className="flex-row items-center gap-1 py-2 pr-2 pl-3">
-        <span className="rounded-md border px-2 font-mono text-xs leading-5 text-muted-foreground">
+      <SidebarFooter className="flex-row items-center gap-1 py-2 pr-2 pl-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-2">
+        <span className="rounded-md border px-2 font-mono text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
           {shown !== "" ? `theway ${shown}` : "theway"}
         </span>
-        <span className="flex-1" />
+        <span className="flex-1 group-data-[collapsible=icon]:hidden" />
         <Tooltip>
           <TooltipTrigger
             render={

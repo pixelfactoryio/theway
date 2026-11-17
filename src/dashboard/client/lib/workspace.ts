@@ -1,6 +1,7 @@
 /** The sidebar's pinned and recent entries and the grouping suggestions. Pure: no React, no DOM. */
 import type { ChangeList, DashboardSettings, Project } from "../../contract"
 import { activeRows, rowStatus } from "./changes"
+import { NONE } from "./list-filter"
 import { byLabel } from "./projects"
 
 /** An entry of the sidebar or of All projects: a project, or a group of projects made by hand. */
@@ -167,3 +168,20 @@ export const inProgressCount = (list: ChangeList | undefined): number =>
 
 /** `n` and `noun`, plural unless `n` is 1: `1 project`, `3 projects`. */
 export const countOf = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`
+
+/** The fields of All projects' filter bar: the project's group, and whether it is pinned. */
+export const PROJECT_FIELDS = ["group", "pinned"] as const
+
+/**
+ * A project's values in All projects' filter fields: `group` its group's ID (`NONE` when in none); `pinned` `yes` when
+ * it is pinned, itself or through its group, else `no`.
+ */
+export function projectValues(settings: DashboardSettings, key: string, field: string): string[] {
+  const group = settings.groups.find((g) => g.projects.includes(key))
+  if (field === "group") return [group?.id ?? NONE]
+  if (field === "pinned") {
+    const id = group !== undefined ? `group:${group.id}` : `project:${key}`
+    return [settings.pinned.includes(id) ? "yes" : "no"]
+  }
+  return []
+}

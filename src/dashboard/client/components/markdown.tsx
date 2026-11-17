@@ -2,6 +2,7 @@ import {
   Children,
   cloneElement,
   createContext,
+  Fragment,
   isValidElement,
   useContext,
   type ComponentProps,
@@ -13,6 +14,7 @@ import remarkGfm from "remark-gfm"
 
 import { Checkbox } from "@/components/ui/checkbox"
 import { headingTag, isLinkTarget } from "@/lib/changes"
+import { codeLabel, codeTokens } from "@/lib/code-languages"
 
 /** The first source line of a block, from react-markdown's node position. */
 const line = (props: ExtraProps): number | undefined => props.node?.position?.start.line
@@ -47,7 +49,7 @@ function heading(depth: number) {
   const Tag = headingTag(depth) as "h2"
   return function Heading({ node, children, ...props }: ComponentProps<"h1"> & ExtraProps) {
     return (
-      <Tag {...props} data-line={line({ node })}>
+      <Tag {...props} data-line={line({ node })} data-level={depth}>
         {children}
       </Tag>
     )
@@ -97,6 +99,64 @@ function ListItem({ node, children, className, ...props }: ComponentProps<"li"> 
   )
 }
 
+/** A node of the rendered tree (hast), as react-markdown passes it. */
+type Node = NonNullable<ExtraProps["node"]>
+type Child = Node["children"][number]
+
+/** The text of a node: its text descendants' values, joined. */
+function textOf(node: Node | Child | undefined): string {
+  if (node === undefined) return ""
+  if (node.type === "text") return node.value
+  return "children" in node ? node.children.map(textOf).join("") : ""
+}
+
+/** The info word of a fenced block, from its `code` element's `language-*` class; empty without one. */
+function infoOf(code: Child | undefined): string {
+  if (code === undefined || code.type !== "element") return ""
+  const classes = code.properties.className
+  const names = Array.isArray(classes) ? classes.map(String) : []
+  return names.find((c) => c.startsWith("language-"))?.slice("language-".length) ?? ""
+}
+
+/**
+ * A code block: on a faint tint of the page, scrolling sideways rather than wrapping, coloured when its info word names
+ * a language of the list, that word as a muted label at the right.
+ */
+function CodeBlock({ node }: ComponentProps<"pre"> & ExtraProps) {
+  const code = node?.children[0]
+  const info = infoOf(code)
+  const label = codeLabel(info)
+  const lines = codeTokens(textOf(code), info)
+  return (
+    <div className="doc-code" data-line={line({ node })}>
+      {label !== "" ? (
+        <span className="doc-code-label" aria-hidden="true">
+          {label}
+        </span>
+      ) : null}
+      {/* Focusable, so a block wider than the column scrolls from the keyboard. */}
+      <pre role="group" tabIndex={0} aria-label={label !== "" ? `${label} code` : "Code"}>
+        <code>
+          {lines.map((runs, i) => (
+            <Fragment key={i}>
+              {i > 0 ? "\n" : null}
+              {runs.map((run, j) =>
+                run.classes === "" ? (
+                  <Fragment key={j}>{run.text}</Fragment>
+                ) : (
+                  <span key={j} className={run.classes}>
+                    {run.text}
+                  </span>
+                ),
+              )}
+            </Fragment>
+          ))}
+        </code>
+      </pre>
+    </div>
+  )
+}
+
 const COMPONENTS: Components = {
   h1: heading(1),
   h2: heading(2),
@@ -106,9 +166,14 @@ const COMPONENTS: Components = {
   h6: heading(6),
   p: ({ node, ...props }) => <p {...props} data-line={line({ node })} />,
   li: ListItem,
-  pre: ({ node, ...props }) => <pre {...props} data-line={line({ node })} />,
+  pre: CodeBlock,
   blockquote: ({ node, ...props }) => <blockquote {...props} data-line={line({ node })} />,
-  table: ({ node, ...props }) => <table {...props} data-line={line({ node })} />,
+  // Focusable, so a table wider than the column scrolls from the keyboard.
+  table: ({ node, ...props }) => (
+    <div className="doc-table" data-line={line({ node })} role="group" tabIndex={0} aria-label="Table">
+      <table {...props} />
+    </div>
+  ),
   a: ({ href, children, ...props }) => {
     delete props.node
     return isLinkTarget(href) ? (
@@ -123,16 +188,12 @@ const COMPONENTS: Components = {
   input: TaskInput,
 }
 
-const PROSE = [
-  "prose prose-sm prose-theway max-w-[80ch]",
-  "prose-headings:font-semibold prose-h2:text-base prose-h3:text-sm prose-h4:text-sm prose-h5:text-sm prose-h6:text-sm",
-  "prose-pre:bg-muted prose-pre:text-foreground [&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  "prose-code:font-mono prose-code:font-normal prose-code:text-xs prose-code:bg-muted prose-code:rounded-sm prose-code:px-1",
-  "prose-code:before:content-none prose-code:after:content-none",
-].join(" ")
+/** The typography plugin's prose, its colours from the theme, Notion's scale and the widths from `.doc-prose`. */
+const PROSE = "prose prose-theway doc-prose"
 
 /**
- * A Markdown file, rendered read-only: GFM tables and task lists, raw HTML dropped, headings one level down. With
+ * A Markdown file, rendered read-only: GFM tables and task lists, raw HTML dropped, headings one level down, fenced
+ * code coloured; prose at most `--read-width` wide, code blocks and tables up to `--read-wide`, centred. With
  * `onToggle`, a task item's box can be ticked, and gives the item's first source line.
  */
 export function MarkdownView({

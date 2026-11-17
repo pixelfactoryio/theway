@@ -1,5 +1,6 @@
 import { SearchIcon, XIcon } from "lucide-react"
 import type { ReactNode } from "react"
+import { cn } from "cn"
 
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -28,13 +29,15 @@ export function SearchField({
   value,
   onChange,
   label = "Search changes",
+  className,
 }: {
   value: string
   onChange: (value: string) => void
   label?: string
+  className?: string
 }) {
   return (
-    <InputGroup className="w-full sm:w-64">
+    <InputGroup className={cn("w-full sm:w-64", className)}>
       <InputGroupAddon align="inline-start">
         <SearchIcon aria-hidden="true" />
       </InputGroupAddon>

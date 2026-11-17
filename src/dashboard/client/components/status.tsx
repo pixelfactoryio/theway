@@ -2,7 +2,6 @@ import { CircleAlertIcon } from "lucide-react"
 import { cn } from "cn"
 
 import { Badge } from "@/components/reui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { STATUS_LABEL, type Status } from "@/lib/changes"
 import { errorCount } from "@/lib/files"
 
@@ -28,20 +27,14 @@ export function StatusMark({ status, className }: { status: Status; className?: 
   )
 }
 
-/** The `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`), the first line in its tooltip. */
+/** The `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`); nothing when there is none. */
 export function ErrorsBadge({ errors }: { errors: readonly string[] }) {
-  const badge = (
+  if (errors.length === 0) return null
+  return (
     <Badge variant="destructive-light" className="tabular-nums">
       <CircleAlertIcon aria-hidden="true" />
       {errorCount(errors.length)}
     </Badge>
-  )
-  if (errors.length === 0) return null
-  return (
-    <Tooltip>
-      <TooltipTrigger render={<span className="inline-flex" />}>{badge}</TooltipTrigger>
-      <TooltipContent className="max-w-md">{errors[0]}</TooltipContent>
-    </Tooltip>
   )
 }
 

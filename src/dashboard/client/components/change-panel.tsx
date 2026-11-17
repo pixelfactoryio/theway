@@ -148,7 +148,6 @@ export function ChangePanel({
     <DocPanel
       remember={tasks === null ? "change-details" : "change"}
       label="Change"
-      topShare="70%"
       header={
         <>
           <StatusPill status={change.status} />

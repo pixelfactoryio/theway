@@ -83,10 +83,32 @@ test("GET …/changes lists the active changes by ID with their status, and the 
     issues: ["not found"],
     updated: statSync(bare).mtime.toISOString(),
   })
-  expect(body.archived).toEqual([
+  const archived = body.archived as { updated: string }[]
+  expect(archived).toMatchObject([
     { dir: "2026-03-04-add-y", id: "add-y", date: "2026-03-04" },
     { dir: "2026-01-02-add-x-01", id: "add-x-01", date: "2026-01-02" },
   ])
+  // No `change.yaml`: the folder's own modification time.
+  expect(archived[0]?.updated).toBe(statSync(join(changes(h), "archive", "2026-03-04-add-y")).mtime.toISOString())
+})
+
+test("GET …/changes orders one day's archives by when their change.yaml was last written, newest first", async () => {
+  const h = home()
+  const at = (name: string, iso: string) => {
+    const dir = change(h, `archive/2026-11-16-${name}`, yaml(name, [true]))
+    const when = new Date(iso)
+    utimesSync(join(dir, "change.yaml"), when, when)
+  }
+  at("add-a", "2026-11-16T09:00:00.000Z")
+  at("add-z", "2026-11-16T08:00:00.000Z")
+  at("add-m", "2026-11-16T10:00:00.000Z")
+  at("add-x-01", "2026-11-16T11:00:00.000Z")
+  change(h, "archive/2026-11-15-add-old", yaml("Old", [true]))
+
+  const { body } = await get(h, `/api/projects/${KEY}/changes`)
+  const archived = body.archived as { id: string; updated: string }[]
+  expect(archived.map((a) => a.id)).toEqual(["add-x-01", "add-m", "add-a", "add-z", "add-old"])
+  expect(archived[0]?.updated).toBe("2026-11-16T11:00:00.000Z")
 })
 
 test("GET …/changes/:id gives the change, its tasks, its Markdown files in order, its folder and its series", async () => {

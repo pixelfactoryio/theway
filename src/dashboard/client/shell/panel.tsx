@@ -152,8 +152,15 @@ export function PanelArea() {
           if (e.key === "ArrowLeft") setWidth((w) => Math.min(MAX, w + 16))
           if (e.key === "ArrowRight") setWidth((w) => Math.max(MIN, w - 16))
         }}
-        className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize outline-none hover:bg-border/60 focus-visible:bg-ring/40"
-      />
+        className="group/edge absolute inset-y-0 -left-1 z-10 flex w-2 cursor-col-resize items-center justify-center outline-none focus-visible:bg-ring/40"
+      >
+        {/* The edge's grip, seen at rest like the panes' split; the line tints while hovered. */}
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-input transition-colors group-hover/edge:bg-foreground/40"
+        />
+        <span aria-hidden="true" className="relative h-6 w-1 rounded-lg bg-muted-foreground" />
+      </div>
       <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
     </aside>
   )

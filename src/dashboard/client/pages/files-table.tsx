@@ -1,38 +1,16 @@
+import { cn } from "cn"
 import { CircleCheckIcon } from "lucide-react"
-import { useMemo, type ReactNode } from "react"
-import { Link, useLocation, useSearch } from "wouter"
+import type { ReactNode } from "react"
+import { Link } from "wouter"
 
 import { Badge } from "@/components/reui/badge"
 import { ErrorsBadge } from "@/components/status"
-import { OneLine } from "@/components/text"
-import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { type FilesQuery, filesQueryString, parseFilesQuery } from "@/lib/files"
 
-/** A table's state in the address (`q`, and `kind` on Prompts), and the navigation that changes it. */
-export function useFilesQuery(
-  section: "workflows" | "prompts",
-): [FilesQuery, (next: FilesQuery, replace?: boolean) => void] {
-  const search = useSearch()
-  const [, navigate] = useLocation()
-  const query = useMemo(() => parseFilesQuery(search), [search])
-  const set = (next: FilesQuery, replace = false) => navigate(`/${section}?${filesQueryString(next)}`, { replace })
-  return [query, set]
-}
-
-/** The toolbar above a table: its controls, then the count at the right. */
-export function FilesToolbar({ children, count }: { children: ReactNode; count: string | null }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 pb-3">
-      {children}
-      <span className="ml-auto text-sm text-muted-foreground tabular-nums" aria-live="polite">
-        {count}
-      </span>
-    </div>
-  )
-}
-
-/** A file's name cell: the name, a link, a `default` badge for the default workflow, then its description. */
+/**
+ * A file's name cell: the name, a link, a `default` badge for the default workflow, then its whole description. Both
+ * wrap onto more lines when the column is narrow: nothing is cut.
+ */
 export function NameCell({
   href,
   name,
@@ -45,26 +23,37 @@ export function NameCell({
   isDefault?: boolean
 }) {
   return (
-    <div className="flex min-h-10 min-w-0 flex-col justify-center">
-      <div className="flex min-w-0 items-center gap-2">
+    <div className={cn(WRAP, "flex min-h-10 min-w-0 flex-col justify-center gap-0.5")}>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <Link
           href={href}
           onClick={(e) => e.stopPropagation()}
-          className="truncate font-medium text-foreground hover:underline"
+          className="min-w-0 font-medium text-foreground hover:underline"
         >
           {name}
         </Link>
         {isDefault ? <Badge variant="outline">default</Badge> : null}
       </div>
-      {description !== null ? <OneLine text={description} className="text-muted-foreground" /> : null}
+      {description !== null ? <p className="text-muted-foreground">{description}</p> : null}
     </div>
   )
+}
+
+/**
+ * Text that wraps inside a grid cell: the grid's resizable columns keep each cell on one line, cut at its edge, so a cell's
+ * own element takes normal wrapping back, breaking a long word rather than overflowing.
+ */
+export const WRAP = "whitespace-normal wrap-break-word"
+
+/** A cell's text, wrapping onto more lines when its column is narrow. */
+export function Wrapped({ children }: { children: ReactNode }) {
+  return <span className={WRAP}>{children}</span>
 }
 
 /** The Status column's header: it does not sort, and reads as the sortable headers' buttons do. */
 export const STATUS_HEADER = "text-sm font-medium text-foreground"
 
-/** The Status cell: the `Valid` badge, or the `N errors` badge. */
+/** The Status cell: the `Valid` badge, or the `N errors` badge; the errors themselves are on the file's page. */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
   if (errors.length === 0) {
     return (
@@ -98,23 +87,6 @@ export function NoFile({
         </EmptyDescription>
       </EmptyHeader>
       {action !== undefined ? <EmptyContent>{action}</EmptyContent> : null}
-    </Empty>
-  )
-}
-
-/** A search (or filter) that keeps no file. */
-export function NoFileMatch({ title, clear }: { title: string; clear: () => void }) {
-  return (
-    <Empty className="py-12">
-      <EmptyHeader>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>Nothing matches the search.</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" onClick={clear}>
-          Clear
-        </Button>
-      </EmptyContent>
     </Empty>
   )
 }

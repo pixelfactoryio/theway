@@ -39,7 +39,7 @@ const project = (key: string, label: string, n: number): Project => ({ key, labe
 
 const changes: ChangeList = {
   active: [active("add-x", "Add X"), active("fix-y", null)],
-  archived: [{ dir: "2026-10-30-add-w", id: "add-w", date: "2026-10-30" }],
+  archived: [{ dir: "2026-10-30-add-w", id: "add-w", date: "2026-10-30", updated: "2026-10-30T12:00:00.000Z" }],
 }
 
 const label = (key: string): string => (key === "-k" ? "kt" : key)

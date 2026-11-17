@@ -177,7 +177,7 @@ test("every runtime package the client adds is imported by a kept file", () => {
     "@codemirror/lang-markdown",
     "@codemirror/lint",
     "@lezer/highlight",
-    "@panzoom/panzoom",
+    "@xyflow/react",
     "@codemirror/merge",
     "@dnd-kit/core",
     "@dnd-kit/sortable",

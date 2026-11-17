@@ -3,7 +3,7 @@ import { CheckIcon, FileTextIcon, ListChecksIcon } from "lucide-react"
 
 import { ChangeTitle, IssuesAlert } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
-import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
+import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { MarkdownView } from "@/components/markdown"
 import { TaskText } from "@/components/text"
 import { splitTask } from "@/lib/change-edit"
@@ -79,8 +79,14 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
     >
       <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
         <ChangeTitle change={data} />
-        <div className={`${DOC_COLUMN} pb-10`}>
-          {file !== undefined ? <MarkdownView key={file.name} text={file.text} /> : <Tasks change={data} />}
+        <div className={`${DOC_COLUMN} pt-6 pb-10`}>
+          {file !== undefined ? (
+            <MarkdownView key={file.name} text={file.text} />
+          ) : (
+            <div className={PROSE_COLUMN}>
+              <Tasks change={data} />
+            </div>
+          )}
         </div>
       </div>
       <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">

@@ -115,14 +115,41 @@ test("a thematic break becomes a rule off its line", () => {
 
 test("a fenced code block styles its lines, keeps its fences visible and renders nothing inside", () => {
   const { doc, plan: p } = plan("```ts\n**not bold**\n```")
-  expect(lines(doc, p)).toEqual(["code:1", "code:2", "code:3", "fence:1", "fence:3"])
+  expect(lines(doc, p)).toEqual(["code:1", "code:2", "code:3", "code-start:1", "code-end:3", "fence:1", "fence:3"])
   expect(p.hidden).toEqual([])
-  expect(p.marks).toEqual([])
+  expect(marks(doc, p)).toEqual(["label:ts"])
+})
+
+test("a fence's info string is its label off its line, and shows as written on it", () => {
+  const { doc, plan: p } = plan("```go title=x\na\n```")
+  expect(marks(doc, p)).toEqual(["label:go title=x"])
+  expect(plan("```go\na\n```", [1]).plan.marks).toEqual([])
+  expect(plan("```\na\n```").plan.marks).toEqual([])
+})
+
+test("an indented code block's first and last lines start and end its block", () => {
+  const { doc, plan: p } = plan("a\n\n    one\n    two\n\nb")
+  expect(lines(doc, p)).toEqual(["code:3", "code:4", "code-start:3", "code-end:4", "blank:2", "blank:5"])
+})
+
+test("a blank line between blocks is styled as one, active or not, but a blank line of code is code", () => {
+  const source = "a\n\n  \n# H\n\n```\nx\n\ny\n```"
+  for (const active of [[], [2, 8]]) {
+    const { doc, plan: p } = plan(source, active)
+    expect(lines(doc, p).filter((l) => l.startsWith("blank:"))).toEqual(["blank:2", "blank:3", "blank:5"])
+    expect(lines(doc, p)).toContain("code:8")
+  }
+})
+
+test("a table inside fenced code is not drawn", () => {
+  const source = "```md\n| a | b |\n|---|---|\n| 1 | 2 |\n```"
+  const doc = Text.of(source.split("\n"))
+  expect(tableBlocks(doc, markdownLanguage.parser.parse(source), new Set())).toEqual([])
 })
 
 test("tables and raw HTML stay as source", () => {
   const { doc, plan: p } = plan("| **a** | b |\n|---|---|\n| 1 | 2 |\n\n<div>**x**</div>")
-  expect(lines(doc, p)).toEqual(["table:1", "table:2", "table:3"])
+  expect(lines(doc, p)).toEqual(["table:1", "table:2", "table:3", "blank:4"])
   expect(p.hidden).toEqual([])
   expect(p.marks).toEqual([])
   expect(p.widgets).toEqual([])
