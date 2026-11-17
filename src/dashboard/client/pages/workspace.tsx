@@ -32,6 +32,7 @@ import {
 import { changePath, type Project } from "@/lib/projects"
 import {
   allEntries,
+  countOf,
   type Entry,
   entryOf,
   renamed,
@@ -80,7 +81,7 @@ function Progress({ done, total }: { done: number; total: number }) {
       <span className="relative h-1 flex-1 overflow-hidden rounded-full bg-accent">
         <span className="absolute inset-y-0 left-0 rounded-full bg-warning" style={{ width: `${ratio * 100}%` }} />
       </span>
-      <span className="w-10 text-right">
+      <span className="w-14 text-right">
         {done}/{total}
       </span>
     </span>
@@ -109,7 +110,7 @@ function ChangeRow({
         className={cn(
           "grid grid-cols-[minmax(0,1fr)_10rem_2.75rem] items-center gap-4 border-b py-2 pr-3",
           member ? "pl-9" : "pl-3",
-          "outline-none hover:bg-accent/50 focus-visible:bg-accent md:grid-cols-[minmax(0,1fr)_9.375rem_10rem_2.75rem]",
+          "outline-none hover:bg-accent/50 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:grid-cols-[minmax(0,1fr)_9.375rem_10rem_2.75rem]",
         )}
       >
         <span className="min-w-0">
@@ -177,7 +178,7 @@ function SeriesRowItem({
         data-nav-item=""
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="grid w-full grid-cols-[minmax(0,1fr)_10rem_2.75rem] items-center gap-4 border-b px-3 py-2 text-left outline-none hover:bg-accent/50 focus-visible:bg-accent md:grid-cols-[minmax(0,1fr)_9.375rem_10rem_2.75rem]"
+        className="grid w-full grid-cols-[minmax(0,1fr)_10rem_2.75rem] items-center gap-4 border-b px-3 py-2 text-left outline-none hover:bg-accent/50 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset md:grid-cols-[minmax(0,1fr)_9.375rem_10rem_2.75rem]"
       >
         <span className="flex min-w-0 items-start gap-2">
           <ChevronRightIcon
@@ -369,12 +370,12 @@ export function NowPage() {
   const { lists, failed } = useListsOf(list.map((p) => p.key))
   return (
     <>
-      <PageHeader title="Now" detail={projects !== null ? `across ${list.length} projects` : undefined} />
+      <PageHeader title="Now" detail={projects !== null ? `across ${countOf(list.length, "project")}` : undefined} />
       <Body>
         {gate}
         {failed.length > 0 ? (
           <p className="mb-3 text-sm text-destructive">
-            Could not load the changes of {failed.length} project{failed.length === 1 ? "" : "s"}.
+            Could not load the changes of {countOf(failed.length, "project")}.
           </p>
         ) : null}
         <OpenChanges
@@ -463,7 +464,7 @@ export function ProjectsPage() {
     keys.map((k) => lastArchived(lists.get(k)?.archived)).reduce((a, b) => (a > b ? a : b), "")
   const inProgress = (keys: readonly string[]) =>
     keys.reduce((n, k) => n + (lists.get(k)?.active.filter((c) => c.status === "in-progress").length ?? 0), 0)
-  const open = (keys: readonly string[]) => keys.reduce((n, k) => n + toDo(lists.get(k)), 0)
+  const toDoOf = (keys: readonly string[]) => keys.reduce((n, k) => n + toDo(lists.get(k)), 0)
   const needle = q.trim().toLowerCase()
   const entries = useMemo(
     () =>
@@ -539,7 +540,7 @@ export function ProjectsPage() {
         aria-pressed={pinned}
         aria-label={pinned ? `Unpin ${e.label}` : `Pin ${e.label}`}
         onClick={() => save((s) => togglePin(s, e.id))}
-        className={pinned ? "text-brand" : "text-muted-foreground"}
+        className={pinned ? "text-foreground" : "text-muted-foreground"}
       >
         <StarIcon aria-hidden="true" className={cn(pinned && "fill-current")} />
       </Button>
@@ -552,7 +553,7 @@ export function ProjectsPage() {
       <span className="font-mono text-xs tabular-nums">
         <span className={inProgress(keys) > 0 ? "text-warning" : "text-muted-foreground"}>{inProgress(keys)}</span>
       </span>
-      <span className="font-mono text-xs text-muted-foreground tabular-nums">{open(keys)}</span>
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">{toDoOf(keys)}</span>
       <span className="font-mono text-xs text-muted-foreground tabular-nums">{latest(keys) || "–"}</span>
     </>
   )
@@ -561,11 +562,7 @@ export function ProjectsPage() {
     <>
       <PageHeader
         title="All projects"
-        detail={
-          projects !== null
-            ? `${list.length} repositories · ${groupCount} group${groupCount === 1 ? "" : "s"}`
-            : undefined
-        }
+        detail={projects !== null ? `${countOf(list.length, "project")} · ${countOf(groupCount, "group")}` : undefined}
         actions={<FilterField value={q} onChange={setQ} label="Filter projects" />}
       />
       <Body>
@@ -601,7 +598,7 @@ export function ProjectsPage() {
           <span />
           <span>Project</span>
           <span>In progress</span>
-          <span>Open</span>
+          <span>To do</span>
           <span>Last archived</span>
           <span />
         </div>
@@ -609,7 +606,7 @@ export function ProjectsPage() {
           {entries.map((e) => (
             <li key={e.id}>
               <div data-nav-item="" className={cn(GRID, "border-b py-2 hover:bg-accent/40")}>
-                <span className="flex size-[22px] items-center justify-center rounded-md bg-accent text-xs font-semibold uppercase">
+                <span className="flex size-5 items-center justify-center rounded-sm bg-accent text-xs font-semibold uppercase">
                   {e.label.slice(0, 1)}
                 </span>
                 <Link
@@ -619,7 +616,7 @@ export function ProjectsPage() {
                   <span className="block truncate">{e.label}</span>
                   <span className="block truncate text-xs text-muted-foreground">
                     {e.kind === "group"
-                      ? `group · ${e.keys.length} repos`
+                      ? `group · ${countOf(e.keys.length, "project")}`
                       : (list.find((p) => p.key === e.keys[0])?.path ?? "")}
                   </span>
                 </Link>
@@ -712,13 +709,13 @@ function Archive({
     <>
       {months.map((m) => (
         <div key={m.month}>
-          <h3 className="mt-4 mb-0.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">{m.month}</h3>
+          <h3 className="mt-4 mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{m.month}</h3>
           <ul data-nav-list="">
             {m.rows.map(({ key, a }) => (
               <li key={`${key}/${a.dir}`} data-nav-item="">
                 <Link
                   href={`/${key}/changes/archive/${encodeURIComponent(a.dir)}?`}
-                  className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] gap-3 border-b px-3 py-2 text-sm outline-none hover:bg-accent/50 focus-visible:bg-accent"
+                  className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] gap-3 border-b px-3 py-2 text-sm outline-none hover:bg-accent/50 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 >
                   <span className="pt-px font-mono text-xs text-muted-foreground tabular-nums">
                     {a.date.slice(5, 10)}
@@ -774,8 +771,8 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
         detail={
           entry !== null ? (
             <>
-              {entry.kind === "group" ? `${keys.length} repos · ` : ""}
-              {keys.reduce((n, k) => n + toDo(lists.get(k)), 0)} open · {archived} archived
+              {entry.kind === "group" ? `${countOf(keys.length, "project")} · ` : ""}
+              {keys.reduce((n, k) => n + toDo(lists.get(k)), 0)} to do · {archived} archived
             </>
           ) : undefined
         }

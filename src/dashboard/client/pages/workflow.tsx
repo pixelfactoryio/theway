@@ -11,18 +11,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
+import { DraftDialogs, DraftNotices, DraftStatus, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
-import {
-  type AlertLine,
-  Dash,
-  InputsList,
-  LinesAlert,
-  PanelRow,
-  SavedStatus,
-  STRIP,
-  UnknownFile,
-} from "@/components/file-page"
+import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, STRIP, UnknownFile } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, stepPromptRow, useSaveKey } from "@/components/step-prompt"
@@ -57,7 +48,6 @@ import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { MAC } from "@/shell/platform"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
@@ -494,6 +484,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   return (
     <>
       <DocFrame
+        title={`${name} · Workflows`}
         label="Workflow views"
         page={history ? "history" : "workflow"}
         value={history ? "history" : yamlTab ? "yaml" : "editor"}
@@ -563,7 +554,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           />
         }
       >
-        <div className="shrink-0 px-12 pt-5 pb-3">
+        <div className="shrink-0 px-14 pt-5 pb-3">
           <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
           <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
           {drawing?.description != null ? <p className="text-sm text-muted-foreground">{drawing.description}</p> : null}
@@ -596,11 +587,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
           <span className="font-mono">{name}.yaml</span>
           <span className="ml-auto">
-            {draft.dirty ? (
-              <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"} to save</span>
-            ) : (
-              <SavedStatus saved={draft.saved} />
-            )}
+            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
           </span>
         </div>
       </DocFrame>

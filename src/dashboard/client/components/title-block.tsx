@@ -41,7 +41,7 @@ export function Problems({ lines }: { lines: readonly { text: string; onClick: (
             <button
               type="button"
               onClick={line.onClick}
-              className="flex w-full gap-2 px-4 py-2 text-left text-sm transition-colors outline-none hover:bg-accent focus-visible:bg-accent"
+              className="flex w-full gap-2 px-4 py-2 text-left text-sm transition-colors outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
               <span aria-hidden="true" className="mt-2 size-2 shrink-0 rounded-[2px] bg-destructive" />
               <span className="min-w-0 flex-1">{line.text}</span>

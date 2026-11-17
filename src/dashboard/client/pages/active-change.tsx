@@ -29,9 +29,10 @@ import { ChangeDrafts, type Loaded } from "@/components/change-drafts"
 import { type DescriptionEdit, DescriptionField, IssuesAlert } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
-import { DocFrame } from "@/components/doc-frame"
+import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
+import { DraftStatus } from "@/components/draft"
+import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { LiveMarkdown } from "@/components/live-markdown"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
@@ -41,7 +42,6 @@ import { keptIds, leavesChange, oneLine } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
-import { MAC } from "@/shell/search"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
 function loadedFiles(data: ChangeDetail): ({ name: string } & Loaded)[] {
@@ -421,7 +421,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         <LiveMarkdown key={name} store={draft.store} name={name} className="min-h-0 flex-1" />
       ) : (
         <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-          <div className="max-w-[calc(720px+112px)] px-14 py-8">
+          <div className={`${DOC_COLUMN} py-8`}>
             <MarkdownView key={name} text={fileText(name)} onToggle={null} />
           </div>
         </div>
@@ -451,11 +451,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         <span aria-hidden="true">·</span>
         <span className="tabular-nums">{lineCount(fileText(shownName))} lines</span>
         <span className="ml-auto">
-          {drafts.isDirty(shownName) ? (
-            <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"} to save</span>
-          ) : (
-            <SavedStatus saved={drafts.isSaved(shownName)} />
-          )}
+          <DraftStatus dirty={drafts.isDirty(shownName)} saved={drafts.isSaved(shownName)} />
         </span>
       </div>
     </>
@@ -520,6 +516,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   return (
     <>
       <DocFrame
+        title={data.id}
         label="Change files"
         page="change"
         value={current.slug}

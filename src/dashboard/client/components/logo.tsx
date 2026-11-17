@@ -7,9 +7,9 @@ export function Logo({ className }: { className?: string }) {
     <span className={cn("flex items-center gap-2", className)}>
       <span
         aria-hidden="true"
-        className="flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-brand/15 text-brand"
+        className="flex size-5 shrink-0 items-center justify-center rounded-sm bg-brand/15 text-brand"
       >
-        <RouteIcon className="size-3.5" strokeWidth={2.2} />
+        <RouteIcon className="size-3.5" />
       </span>
       <span className="text-sm font-semibold tracking-tight">theway</span>
     </span>

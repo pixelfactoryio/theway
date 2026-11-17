@@ -164,3 +164,6 @@ export const toDo = (list: ChangeList | undefined): number =>
 /** The rows Now lists as In progress: a change, or a series In progress as a whole counted once. */
 export const inProgressCount = (list: ChangeList | undefined): number =>
   activeRows(list?.active ?? [], "", []).filter((r) => rowStatus(r) === "in-progress").length
+
+/** `n` and `noun`, plural unless `n` is 1: `1 project`, `3 projects`. */
+export const countOf = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`

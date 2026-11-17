@@ -75,8 +75,8 @@ test("a hidden range never holds a line break", () => {
 test("bullet markers become bullets off active lines; ordered numbers stay muted text", () => {
   const { doc, plan: p } = plan("- a\n* b\n+ c\n1. one", [2])
   expect(p.widgets).toEqual([
-    { kind: "bullet", from: 0, to: 1 },
-    { kind: "bullet", from: 8, to: 9 },
+    { kind: "bullet", from: 0, to: 2 },
+    { kind: "bullet", from: 8, to: 10 },
   ])
   expect(marks(doc, p)).toEqual(["number:1."])
 })
@@ -162,4 +162,16 @@ test("a table no active line touches is drawn, over its whole lines, with its al
   // The cursor on any of its lines shows its source.
   expect(tableBlocks(doc, tree, new Set([5]))).toEqual([])
   expect(tableBlocks(doc, tree, new Set([1, 8]))).toHaveLength(1)
+})
+
+/** The line number, depth and hanging flag of each list item line. */
+const items = (doc: Text, p: Plan): string[] =>
+  p.items.map((i) => `${doc.lineAt(i.from).number}:${i.depth}${i.first ? ":first" : ""}`)
+
+test("list item lines are indented by depth, the marker hanging on its line, the blanks before it hidden off active lines", () => {
+  const source = "- top\n  - nested\n    more text\n1. one\n\n> - quoted"
+  const { doc, plan: p } = plan(source)
+  expect(items(doc, p)).toEqual(["1:1:first", "2:2:first", "3:2", "4:1:first", "6:1:first"])
+  expect(hidden(doc, p)).toEqual(["  ", "    ", "> "])
+  expect(hidden(doc, plan(source, [2]).plan)).toEqual(["    ", "> "])
 })

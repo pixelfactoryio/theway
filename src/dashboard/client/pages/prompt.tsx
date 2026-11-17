@@ -3,14 +3,14 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, type HeaderFields, useFileDraft } from "@/components/draft"
+import { DraftDialogs, DraftNotices, DraftStatus, type HeaderFields, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, SavedStatus, UnknownFile } from "@/components/file-page"
+import { type AlertLine, Dash, InputsList, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
-import { DocFrame } from "@/components/doc-frame"
+import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
 import { useSaveKey } from "@/components/step-prompt"
 import { FileStatusPill } from "@/components/status"
-import { CopyButton, DetailRow, DocPanel } from "@/components/doc-panel"
+import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
 import {
   appliesTo,
@@ -25,13 +25,12 @@ import {
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { MAC } from "@/shell/platform"
 import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
 
-/** The prompt page's side panel: its status and Copy path; Inputs and Used by (or the versions); then its Details. */
+/** The prompt page's side panel: its status; Inputs and Used by (or the versions); then its Details. */
 function PromptPanel({
   file,
   fields,
@@ -52,13 +51,7 @@ function PromptPanel({
       remember="prompt"
       topShare="70%"
       label="Prompt"
-      header={
-        <>
-          <FileStatusPill errors={errors} />
-          <span className="flex-1" />
-          <CopyButton value={file.path} label="Copy path" />
-        </>
-      }
+      header={<FileStatusPill errors={errors} />}
       top={
         versions !== null
           ? [{ value: "versions", label: "Versions", content: versions }]
@@ -265,6 +258,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   return (
     <>
       <DocFrame
+        title={`${name} · Prompts`}
         label="Prompt views"
         page={history ? "history" : "prompt"}
         value={view}
@@ -290,7 +284,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           />
         }
       >
-        <div className="shrink-0 px-12 pt-5 pb-3">
+        <div className="shrink-0 px-14 pt-5 pb-3">
           <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
           <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
           {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
@@ -300,7 +294,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           historyTab.main
         ) : view === "preview" ? (
           <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-            <div className="max-w-[53rem] px-12 py-6">
+            <div className={`${DOC_COLUMN} py-6`}>
               <MarkdownView text={previewText(draft.text, fields.header)} />
             </div>
           </div>
@@ -311,14 +305,8 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         )}
         <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
           <span className="font-mono">{name}.md</span>
-          <span aria-hidden="true">·</span>
-          <span>{appliesTo(project, label)}</span>
           <span className="ml-auto">
-            {draft.dirty ? (
-              <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"} to save</span>
-            ) : (
-              <SavedStatus saved={draft.saved} />
-            )}
+            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
           </span>
         </div>
       </DocFrame>

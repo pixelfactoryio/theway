@@ -87,6 +87,10 @@ export function describeUse(use: Use, label: (key: string) => string): string {
   return use.project === null ? `${use.workflow} · ${where}` : `${use.workflow} · ${label(use.project)} · ${where}`
 }
 
+/** The number of distinct workflows among `uses`: a workflow using a prompt in several steps counts once. */
+export const workflowCount = (uses: readonly Use[]): number =>
+  new Set(uses.map((u) => `${u.project ?? ""}/${u.workflow}`)).size
+
 /** The address of a file's page: `/<kind>/global/<name>` or `/<kind>/projects/<key>/<name>`. */
 export const filePath = (kind: "workflows" | "prompts", project: string | null, name: string): string =>
   project === null ? `/${kind}/global/${name}` : `/${kind}/projects/${project}/${name}`

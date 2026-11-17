@@ -1,10 +1,9 @@
 import { useEffect } from "react"
 import { Link } from "wouter"
 
-import { DraftDialogs, useFileDraft } from "@/components/draft"
-import { SavedStatus } from "@/components/file-page"
+import { DraftDialogs, DraftStatus, useFileDraft } from "@/components/draft"
 import { LiveMarkdown } from "@/components/live-markdown"
-import { describeUse, filePath, type PromptRow } from "@/lib/files"
+import { describeUse, filePath, type PromptRow, workflowCount } from "@/lib/files"
 import { MAC } from "@/shell/platform"
 import { useFile, useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
@@ -49,7 +48,7 @@ export function StepPrompt({ row }: { row: PromptRow }) {
   useSaveKey(() => {
     if (draft.dirty) void draft.save(false)
   })
-  const others = (file.data?.usedBy ?? []).length
+  const sharedBy = workflowCount(file.data?.usedBy ?? [])
   if (file.isError && draft.store === null)
     return <LoadError what="this prompt" error={file.error} retry={() => void file.refetch()} className="m-3 w-auto" />
   return (
@@ -61,13 +60,9 @@ export function StepPrompt({ row }: { row: PromptRow }) {
         >
           {row.name}.md
         </Link>
-        {others > 1 ? <span className="text-warning">Shared by {others} workflows</span> : null}
+        {sharedBy > 1 ? <span className="text-warning">Shared by {sharedBy} workflows</span> : null}
         <span className="ml-auto">
-          {draft.dirty ? (
-            <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"}</span>
-          ) : (
-            <SavedStatus saved={draft.saved} />
-          )}
+          <DraftStatus dirty={draft.dirty} saved={draft.saved} />
         </span>
       </div>
       {draft.saveFailure !== null ? (

@@ -29,7 +29,7 @@ const MOD = MAC ? "⌘" : "Ctrl"
 export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: [MOD, "K"], action: "Open the palette: go to anything, run an action" },
   { keys: [MOD, "P"], action: "Open the palette (also inside an editor)" },
-  { keys: [MOD, "S"], action: "Save the shown file" },
+  { keys: [MOD, "S"], action: "Save the page's unsaved files" },
   { keys: [MOD, "B"], action: "Show or hide the sidebar (outside an editor)" },
   { keys: ["↑", "↓"], action: "Move in a list (J and K too)" },
   { keys: ["Enter"], action: "Open the item" },

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ChangeList } from "@/lib/changes"
-import { type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
+import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
 import { version } from "@/shell/api"
 import { useChangesOf } from "@/shell/changes"
 import { usePrompts, useWorkflows } from "@/shell/files"
@@ -122,7 +122,7 @@ function Entries({ inProgress }: { inProgress: number | null }) {
   )
 }
 
-/** A project or group row: its initial tile, its label (a group's repo count after it) and its open count. */
+/** A project or group row: its initial tile, its label (a group's project count after it) and its count to do. */
 function EntryRow({ entry, open, active }: { entry: Entry; open: number | null; active: boolean }) {
   return (
     <SidebarMenuButton render={<Link href={entry.href} />} isActive={active} className="h-8" title={entry.label}>
@@ -134,7 +134,7 @@ function EntryRow({ entry, open, active }: { entry: Entry; open: number | null; 
       </span>
       <span className="truncate">{entry.label}</span>
       {entry.kind === "group" ? (
-        <span className="shrink-0 text-xs text-muted-foreground">{entry.keys.length} repos</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{countOf(entry.keys.length, "project")}</span>
       ) : null}
       <span
         className={cn("ml-auto font-mono text-xs text-muted-foreground tabular-nums", entry.kind === "group" && "mr-6")}
@@ -149,8 +149,8 @@ function EntryRow({ entry, open, active }: { entry: Entry; open: number | null; 
 const groupKey = (id: string): string => `theway-sidebar-group:${id}`
 
 /**
- * A pinned or recent entry; a group opens to list its repos, each its own page with its open count. A group opens by
- * itself while one of its repos is shown, and keeps the state chosen with its chevron in this browser.
+ * A pinned or recent entry; a group opens to list its projects, each its own page with its count to do. A group opens
+ * by itself while one of its projects is shown, and keeps the state chosen with its chevron in this browser.
  */
 function Place({
   entry,
@@ -185,7 +185,7 @@ function Place({
     <SidebarMenuItem data-nav-item="">
       <EntryRow entry={entry} open={open(entry.keys)} active={active} />
       <SidebarMenuAction
-        aria-label={expanded ? `Hide the repos of ${entry.label}` : `Show the repos of ${entry.label}`}
+        aria-label={expanded ? `Hide the projects of ${entry.label}` : `Show the projects of ${entry.label}`}
         aria-expanded={expanded}
         onClick={() => {
           setChosen(!expanded)

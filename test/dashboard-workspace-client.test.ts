@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import type { ActiveChange, ChangeList, DashboardSettings, Project } from "../src/dashboard/contract"
 import {
   allEntries,
+  countOf,
   entryOf,
   groupId,
   inProgressCount,
@@ -156,4 +157,10 @@ test("to do leaves out Ready; In progress counts a series In progress as a whole
   expect(toDo(undefined)).toBe(0)
   // add-a, and the series add-s (one Ready, one Not started: In progress).
   expect(inProgressCount(list)).toBe(2)
+})
+
+test("countOf writes the noun singular for one and plural otherwise", () => {
+  expect(countOf(1, "project")).toBe("1 project")
+  expect(countOf(0, "project")).toBe("0 projects")
+  expect(countOf(3, "group")).toBe("3 groups")
 })

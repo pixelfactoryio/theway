@@ -1,11 +1,21 @@
 import { cn } from "cn"
 import type { LucideIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { type ReactNode, useEffect } from "react"
 import { Link } from "wouter"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 import type { PanelPage } from "@/lib/panel"
+
+/**
+ * Names the browser tab after the page: `<title> · theway`, or `theway` for an empty `title`, so tabs, history and
+ * bookmarks tell pages apart.
+ */
+export function useDocumentTitle(title: string): void {
+  useEffect(() => {
+    document.title = title === "" ? "theway" : `${title} · theway`
+  }, [title])
+}
 
 /** The sidebar's button, shown at the left of a top row while the sidebar is hidden. */
 function ShowSidebar() {
@@ -13,6 +23,9 @@ function ShowSidebar() {
   if (!sidebar.isMobile && sidebar.state !== "collapsed") return null
   return <SidebarTrigger className="mr-1 size-7 self-center text-muted-foreground" />
 }
+
+/** A document's reading column, the same on every document page: at most 832px, with 56px gutters. */
+export const DOC_COLUMN = "max-w-[52rem] px-14"
 
 /** One tab of a document: a view of it with its own address, its icon, and a dot while it has unsaved edits. */
 export type FrameTab = { value: string; label: string; href: string; Icon: LucideIcon; dirty?: boolean }
@@ -42,6 +55,7 @@ export function PageHeader({
   actions?: ReactNode
   parent?: { label: string; href: string }
 }) {
+  useDocumentTitle(title)
   return (
     <TopRow className="px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -71,6 +85,7 @@ export function PageHeader({
  * the panel's toggle; the content below; the panel `panel`, named `panelName`, in the shell's right column.
  */
 export function DocFrame({
+  title,
   tabs,
   value,
   label,
@@ -79,6 +94,8 @@ export function DocFrame({
   panel,
   children,
 }: {
+  /** The browser tab's title. */
+  title: string
   tabs: FrameTab[]
   value: string
   label: string
@@ -88,6 +105,7 @@ export function DocFrame({
   children: ReactNode
 }) {
   const [open, setOpen] = usePanelOpen()
+  useDocumentTitle(title)
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <TopRow>
@@ -100,7 +118,7 @@ export function DocFrame({
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-2 px-4 text-sm transition-colors outline-none focus-visible:bg-accent",
+                  "relative flex shrink-0 items-center gap-2 px-4 text-sm transition-colors outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
                   active
                     ? "font-medium text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-foreground"
                     : "text-muted-foreground hover:text-foreground",

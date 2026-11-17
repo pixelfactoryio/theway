@@ -10,6 +10,7 @@ import {
   previewText,
   type PromptRow,
   describeUse,
+  workflowCount,
 } from "../src/dashboard/client/lib/files"
 import {
   drawWorkflow,
@@ -324,4 +325,21 @@ test("a YAML key's label turns every - and . into a space and upper-cases its fi
     "Uses",
     "Description",
   ])
+})
+
+test("workflowCount counts each workflow once, however many of its steps use the prompt", () => {
+  expect(
+    workflowCount([
+      { workflow: "review", project: null, step: 3, as: "step" },
+      { workflow: "review", project: null, step: 5, as: "on-fail" },
+    ]),
+  ).toBe(1)
+  expect(
+    workflowCount([
+      { workflow: "review", project: null, step: 3, as: "step" },
+      { workflow: "review", project: "-acme", step: 1, as: "step" },
+      { workflow: "ship", project: null, step: 2, as: "value" },
+    ]),
+  ).toBe(3)
+  expect(workflowCount([])).toBe(0)
 })

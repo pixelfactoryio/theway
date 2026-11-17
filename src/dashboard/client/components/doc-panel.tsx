@@ -1,6 +1,5 @@
 import { cn } from "cn"
-import { CheckIcon, CopyIcon } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { readStored, writeStored } from "@/shell/storage"
@@ -101,30 +100,6 @@ export function DocPanel({
         <Pane tabs={bottom} remember={`${remember}:bottom`} label={`${label}: details`} className="flex-1 border-t" />
       ) : null}
     </div>
-  )
-}
-
-/** A small outline button of the panel header that copies `value`, with a check for 1.5s after a copy. */
-export function CopyButton({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
-  return (
-    <button
-      type="button"
-      onClick={() => void navigator.clipboard.writeText(value).then(() => setCopied(true))}
-      className="flex h-7 items-center gap-2 rounded-md border px-3 text-sm text-foreground/85 transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      {copied ? (
-        <CheckIcon className="size-3.5" aria-hidden="true" />
-      ) : (
-        <CopyIcon className="size-3.5" aria-hidden="true" />
-      )}
-      {copied ? "Copied" : label}
-    </button>
   )
 }
 

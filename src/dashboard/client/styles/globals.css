@@ -99,7 +99,6 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 0 0 / 0.1);
   --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.12), 0 8px 16px -4px rgb(0 0 0 / 0.18);
   --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.14), 0 16px 40px -8px rgb(0 0 0 / 0.28);
-  /* A desktop app's scale: 13px for body and controls, 12px for secondary text. */
   /* Conductor's type scale: text-sm 14/20, text-xs 12/16. */
   --text-sm: 0.875rem;
   --text-sm--line-height: 1.25rem;
@@ -108,8 +107,8 @@
   /* A task's lead: 14/21. */
   --text-md: 0.875rem;
   --text-md--line-height: 1.3125rem;
-  /* A list page's title in its top row: 15/20. */
-  --text-heading: 0.9375rem;
+  /* A list page's title in its top row: 14/20, set apart by its weight. */
+  --text-heading: 0.875rem;
   --text-heading--line-height: 1.25rem;
   /* A document's title: 21/29. */
   --text-title: 1.3125rem;
@@ -138,11 +137,12 @@
   --tw-prose-td-borders: var(--border);
 }
 
-/* Reduced motion: overlays keep their fade but no longer scale, slide or rotate. */
+/* Reduced motion: overlays keep their fade but no longer scale, slide or rotate, and nothing turns or moves. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
   ::after {
+    transition-property: opacity, color, background-color, border-color !important;
     --tw-enter-scale: 1 !important;
     --tw-exit-scale: 1 !important;
     --tw-enter-translate-x: 0 !important;

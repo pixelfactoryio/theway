@@ -177,23 +177,26 @@ function Row({
       onKeyDown={onKeyDown}
       className={cn(
         "group/row relative flex items-start gap-3 border-t px-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-        next && "bg-warning/[0.045] shadow-[inset_2px_0_0_var(--warning)]",
+        next && "bg-warning/5 shadow-[inset_2px_0_0_var(--warning)]",
       )}
     >
       <SortableItemHandle
         render={<button type="button" aria-label={`Drag task ${n}`} />}
-        className="absolute top-3.5 left-0 flex h-5 w-3 items-center justify-center text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute top-9 left-0 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </SortableItemHandle>
-      <Checkbox
-        checked={row.done}
-        onCheckedChange={(next) => actions.toggle(index, next === true)}
-        aria-label={`Task ${n} done`}
-        className={cn("mt-5", next && "border-warning")}
-      />
+      {/* Level with the lead's first line: under the number line, as tall as the lead's line. */}
+      <span className="mt-5 flex h-(--text-md--line-height) shrink-0 items-center">
+        <Checkbox
+          checked={row.done}
+          onCheckedChange={(next) => actions.toggle(index, next === true)}
+          aria-label={`Task ${n} done`}
+          className={cn(next && "border-warning")}
+        />
+      </span>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
+        <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
           <span>{n}</span>
           {next ? <span className="font-medium text-warning">Next</span> : null}
         </div>

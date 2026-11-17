@@ -29,8 +29,17 @@ export type Widget =
   | (Span & { kind: "checkbox"; checked: boolean; toggle: number; label: string })
   | (Span & { kind: "hr" })
 
-/** The decorations of a live preview: line styles, range styles, hidden ranges and widgets, none of which edits the text. */
-export type Plan = { lines: LineStyle[]; marks: MarkStyle[]; hidden: Span[]; widgets: Widget[] }
+/**
+ * A list item's line, indented by its depth (1 for a top-level item): `first`, the line of its marker, hangs the marker
+ * in the indent so wrapped text lines up after it; a later line of the item starts at the indent.
+ */
+export type ItemLine = { from: number; depth: number; first: boolean }
+
+/**
+ * The decorations of a live preview: line styles, list item indents, range styles, hidden ranges and widgets, none of
+ * which edits the text.
+ */
+export type Plan = { lines: LineStyle[]; items: ItemLine[]; marks: MarkStyle[]; hidden: Span[]; widgets: Widget[] }
 
 /** The line numbers (from 1) the selection's ranges touch while the editor has focus; none without focus. */
 export function activeLines(doc: Text, selection: readonly Span[], focused: boolean): Set<number> {
@@ -90,7 +99,7 @@ export function decorationPlan(
   active: ReadonlySet<number>,
   ranges: readonly Span[] = [{ from: 0, to: doc.length }],
 ): Plan {
-  const plan: Plan = { lines: [], marks: [], hidden: [], widgets: [] }
+  const plan: Plan = { lines: [], items: [], marks: [], hidden: [], widgets: [] }
   const seen = new Set<string>()
   const once = (key: string): boolean => {
     if (seen.has(key)) return false
@@ -136,8 +145,33 @@ export function decorationPlan(
     return pos
   }
 
+  // Indents the lines of list item `item`: its marker's line hangs the marker, its other text lines start at the
+  // indent; off the active lines, the blanks before the marker or the text are hidden, the indent standing for them.
+  const indent = (item: SyntaxNode, mark: SyntaxNode): void => {
+    let depth = 0
+    for (let p = item.parent; p !== null; p = p.parent) if (p.name === "BulletList" || p.name === "OrderedList") depth++
+    const first = doc.lineAt(mark.from)
+    const at = (line: { from: number; number: number }, start: number, isFirst: boolean): void => {
+      if (once(`i${line.from}`)) plan.items.push({ from: line.from, depth, first: isFirst })
+      // Only blanks before it: a blockquote's marks are hidden on their own.
+      const from = blanks(start, -1)
+      if (!active.has(line.number) && from === line.from) hide(from, start)
+    }
+    at(first, mark.from, true)
+    for (let c = item.firstChild; c !== null; c = c.nextSibling) {
+      if (c.name !== "Paragraph" && c.name !== "Task") continue
+      const last = doc.lineAt(c.to).number
+      for (let n = doc.lineAt(c.from).number; n <= last; n++) {
+        if (n === first.number) continue
+        const line = doc.line(n)
+        at(line, blanks(line.from, 1), false)
+      }
+    }
+  }
+
   const listMark = (node: SyntaxNode): void => {
     const item = node.parent
+    if (item !== null) indent(item, node)
     const off = !shown(node.from, node.from)
     const task = item?.getChild("Task") ?? null
     const box = task?.getChild("TaskMarker") ?? null
@@ -158,7 +192,10 @@ export function decorationPlan(
       return
     }
     if (item?.parent?.name === "OrderedList") mark({ from: node.from, to: node.to, kind: "number" })
-    else if (off) widget({ kind: "bullet", from: node.from, to: node.to })
+    else if (off) {
+      const end = doc.sliceString(node.to, node.to + 1) === " " ? node.to + 1 : node.to
+      widget({ kind: "bullet", from: node.from, to: end })
+    }
   }
 
   const link = (node: SyntaxNode): void => {

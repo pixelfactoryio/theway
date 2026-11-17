@@ -32,18 +32,31 @@ import {
 const nonce = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-nonce"]')?.content ?? ""
 
 const MUTED = { color: "var(--muted-foreground)" }
-const MONO = { fontFamily: "var(--font-mono)", fontSize: "0.78rem" }
+const MONO = { fontFamily: "var(--font-mono)", fontSize: "0.75rem" }
+
+/** The deepest list level indented; deeper items line up with it. */
+const MAX_DEPTH = 6
+
+/** A list level's indent: room for its marker, one per level. */
+const INDENT = 1.5
+
+/** Each list level's indent: a marker's line hangs its marker, a later line starts at the text. */
+const ITEM_STYLES = Object.fromEntries(
+  Array.from({ length: MAX_DEPTH }, (_, i) => [
+    [`.cm-lp-item-${i + 1}`, { paddingLeft: `${(i + 1) * INDENT}em` }],
+    [`.cm-lp-item-${i + 1}.cm-lp-item-first`, { textIndent: `-${INDENT}em` }],
+  ]).flat(),
+)
 
 const THEME = EditorView.theme({
   "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--foreground)" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { fontFamily: "var(--font-sans)", fontSize: "0.875rem", lineHeight: "1.65", overflow: "auto" },
+  ".cm-scroller": { fontFamily: "var(--font-sans)", fontSize: "0.875rem", lineHeight: "1.5rem", overflow: "auto" },
   ".cm-content": { padding: "2rem 3.5rem", maxWidth: "45rem", boxSizing: "content-box", caretColor: "var(--link)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--link)" },
   ".cm-line": { padding: "0" },
-  ".cm-lp-h1": { fontSize: "1.375rem", lineHeight: "1.4", fontWeight: "600" },
-  ".cm-lp-h2": { fontSize: "1rem", lineHeight: "1.5", fontWeight: "600" },
-  ".cm-lp-h3": { fontSize: "0.875rem", lineHeight: "1.6", fontWeight: "600" },
+  ".cm-lp-h1": { fontSize: "1rem", fontWeight: "600" },
+  ".cm-lp-h2, .cm-lp-h3": { fontSize: "0.875rem", fontWeight: "600" },
   ".cm-lp-h4, .cm-lp-h5, .cm-lp-h6": { fontSize: "0.875rem", fontWeight: "600", ...MUTED },
   ".cm-lp-quote": { borderLeft: "1px solid var(--border)", paddingLeft: "12px", ...MUTED },
   ".cm-lp-code": { ...MONO, backgroundColor: "var(--muted)", padding: "0 12px" },
@@ -52,21 +65,40 @@ const THEME = EditorView.theme({
   ".cm-lp-strong": { fontWeight: "600" },
   ".cm-lp-em": { fontStyle: "italic" },
   ".cm-lp-strike": { textDecoration: "line-through" },
-  ".cm-lp-inline-code": { ...MONO, backgroundColor: "var(--muted)", borderRadius: "4px", padding: "1px 3px" },
+  ".cm-lp-inline-code": {
+    ...MONO,
+    backgroundColor: "var(--muted)",
+    borderRadius: "var(--radius-sm)",
+    padding: "0 4px",
+  },
   ".cm-lp-link": { color: "var(--link)", textDecoration: "underline", textUnderlineOffset: "3px" },
   ".cm-lp-done, .cm-lp-number": MUTED,
-  ".cm-lp-bullet": MUTED,
-  ".cm-lp-task": { margin: "0 6px 0 0", verticalAlign: "middle", accentColor: "var(--link)", cursor: "pointer" },
+  ".cm-lp-number": { display: "inline-block", minWidth: "1.25em", textIndent: "0" },
+  ".cm-lp-bullet": { ...MUTED, display: "inline-block", width: `${INDENT}em`, textIndent: "0" },
+  ".cm-lp-task": {
+    width: "13px",
+    height: "13px",
+    margin: "0 8px 0 0",
+    verticalAlign: "middle",
+    accentColor: "var(--link)",
+    cursor: "pointer",
+  },
+  ...ITEM_STYLES,
   ".cm-lp-tablewrap": { padding: "4px 0", overflowX: "auto", cursor: "text" },
-  ".cm-lp-tablewrap table": { borderCollapse: "collapse", fontSize: "0.8125rem", lineHeight: "1.55" },
+  ".cm-lp-tablewrap table": { borderCollapse: "collapse", fontSize: "0.875rem", lineHeight: "1.25rem" },
   ".cm-lp-tablewrap th, .cm-lp-tablewrap td": {
     border: "1px solid var(--border)",
-    padding: "4px 10px",
+    padding: "4px 8px",
     verticalAlign: "top",
     minWidth: "7rem",
   },
   ".cm-lp-tablewrap th": { fontWeight: "600", backgroundColor: "var(--muted)", textAlign: "left" },
-  ".cm-lp-tablewrap code": { ...MONO, backgroundColor: "var(--muted)", borderRadius: "4px", padding: "1px 3px" },
+  ".cm-lp-tablewrap code": {
+    ...MONO,
+    backgroundColor: "var(--muted)",
+    borderRadius: "var(--radius-sm)",
+    padding: "0 4px",
+  },
   ".cm-lp-hr": {
     display: "inline-block",
     width: "100%",
@@ -98,6 +130,12 @@ const MARK: Record<MarkKind, Decoration> = {
 }
 
 const HIDE = Decoration.replace({})
+
+/** A list item line's indent at `depth`, the marker hanging on its `first` line. */
+const ITEM = (depth: number, first: boolean): Decoration =>
+  Decoration.line({
+    class: `cm-lp-item-${Math.min(depth, MAX_DEPTH)}${first ? " cm-lp-item-first" : ""}`,
+  })
 
 /** A bullet list marker, drawn as a bullet. */
 class BulletWidget extends WidgetType {
@@ -261,6 +299,7 @@ function decorations(view: EditorView): DecorationSet {
   const plan = decorationPlan(state.doc, syntaxTree(state), active, view.visibleRanges)
   const ranges: Range<Decoration>[] = [
     ...plan.lines.map((l) => LINE[l.kind].range(l.from)),
+    ...plan.items.map((i) => ITEM(i.depth, i.first).range(i.from)),
     ...plan.marks.map((m) =>
       m.kind === "link"
         ? Decoration.mark({ class: "cm-lp-link", attributes: { "data-href": m.href } }).range(m.from, m.to)
