@@ -74,7 +74,7 @@ export function ChangeTitle({ change, className }: { change: ChangeDetail; class
           {change.description ?? change.id}
         </h1>
         {change.description !== null ? (
-          <p className="mt-1 font-mono text-xs text-muted-foreground">{change.id}</p>
+          <p className="mt-2 font-mono text-doc text-muted-foreground">{change.id}</p>
         ) : null}
         {invalid ? <IssuesAlert issues={change.issues} className="mt-3" /> : null}
       </div>

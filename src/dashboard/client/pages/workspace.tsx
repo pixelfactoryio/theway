@@ -123,62 +123,64 @@ function NoProgress() {
 
 /** A row's frame: one 36px line, 24px gutters, a subtle fill on hover, no divider. */
 const ROW =
-  "flex h-9 w-full items-center gap-2 px-6 text-left outline-none hover:bg-accent/40 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+  "flex min-h-9 w-full items-center gap-2 px-6 py-2 text-left outline-none hover:bg-accent/40 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
 
 /** The frame of a row with actions after its link or button: `ROW`'s line, its right gutter after the actions. */
-const ROW_FRAME = "flex h-9 w-full items-center gap-2 pr-6 hover:bg-accent/40"
+const ROW_FRAME = "flex min-h-9 w-full items-center gap-2 pr-6 hover:bg-accent/40"
 
 /** The link or button of a row with actions: `ROW`'s cells, its left gutter, the width the actions leave. */
 const ROW_MAIN =
-  "flex h-full min-w-0 flex-1 items-center gap-2 pl-6 text-left outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+  "flex min-w-0 flex-1 items-center gap-2 self-stretch py-2 pl-6 text-left outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
 
 /** The members of an opened row, indented beneath it along a guide line under its chevron. */
-const MEMBERS = "relative before:absolute before:inset-y-0 before:left-17 before:w-px before:bg-border"
+const MEMBERS = "relative before:absolute before:inset-y-0 before:left-8 before:w-px before:bg-border"
 
 /**
- * A row's lead (a chevron) and its title, then its ID in muted mono: the ID truncates first, then the title. A member
- * of an opened row is indented.
+ * A row's head: its ID (a change's, a series', a project's or a group's name) in mono on a first line, and its text
+ * under it in muted (a change's description, a series' number of changes, a project's path), each truncating. A row
+ * that opens has its chevron (`lead`) first, level with the ID; a row that does not starts its ID where a chevron
+ * would be, so it never reads as a member of the opened row above it. A member of an opened row is indented past the
+ * opened row's ID.
  */
 function RowHead({
   lead,
-  title,
   id,
+  text,
   member = false,
 }: {
   lead?: ReactNode
-  title: string
-  /** Left out when the title is the ID already. */
-  id?: ReactNode
+  id: string
+  text?: ReactNode
   member?: boolean
 }) {
   return (
-    <>
-      <span className="flex w-4 shrink-0 justify-center text-muted-foreground">{lead}</span>
-      {/* The title never shrinks below the line: the ID gives way first, then the title truncates at the line's end
-          (the ID and its 8px margin pushed past it, clipped). */}
-      <span className={cn("flex min-w-0 flex-1 items-baseline overflow-hidden", member ? "pl-10" : "pl-4")}>
-        <span className="max-w-full shrink-0 truncate text-sm text-foreground">{title}</span>
-        {id !== undefined ? (
-          <span className="ml-2 min-w-0 truncate font-mono text-xs text-muted-foreground">{id}</span>
+    <span className={cn("flex min-w-0 flex-1 items-start gap-2", member && "pl-10")}>
+      {lead !== undefined ? (
+        <span className="flex h-5 w-4 shrink-0 items-center justify-center text-muted-foreground">{lead}</span>
+      ) : null}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-mono text-sm text-foreground">{id}</span>
+        {text !== undefined && text !== null ? (
+          <span className="truncate text-sm text-muted-foreground">{text}</span>
         ) : null}
       </span>
-    </>
+    </span>
   )
 }
 
-/** A change row's cells on one line: its head (`RowHead`), its project, its progress and its age. */
+/** A change row's cells: its head (`RowHead`), its project, its progress and its age. */
 function RowCells({
   lead,
-  title,
   id,
+  text,
   project,
   progress,
   age,
   member = false,
 }: {
   lead?: ReactNode
-  title: string
-  id?: ReactNode
+  id: string
+  text?: ReactNode
   project?: string
   progress: ReactNode
   age: string
@@ -186,12 +188,12 @@ function RowCells({
 }) {
   return (
     <>
-      <RowHead lead={lead} title={title} id={id} member={member} />
+      <RowHead lead={lead} id={id} text={text} member={member} />
       {project !== undefined ? (
         <span className="hidden w-35 shrink-0 truncate pl-4 text-sm text-muted-foreground md:block">{project}</span>
       ) : null}
       {progress}
-      <span className="w-12 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{age}</span>
+      <span className="w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{age}</span>
     </>
   )
 }
@@ -259,8 +261,8 @@ function ChangeRow({
     <li data-nav-item="">
       <Link href={changePath(projectKey, change.id)} className={ROW}>
         <RowCells
-          title={change.description ?? change.id}
-          id={change.description !== null ? change.id : undefined}
+          id={change.id}
+          text={change.description ?? undefined}
           project={project}
           progress={<Progress done={change.done} total={change.total} status={change.status} />}
           age={ageOf(change.updated, now)}
@@ -272,8 +274,8 @@ function ChangeRow({
 }
 
 /**
- * A series' row: the description of its next member not Ready (its ID when none), the series ID and its number of
- * changes, its summed progress and latest age; it opens to list its members, indented along a guide line.
+ * A series' row: the series ID and its number of changes, its summed progress and latest age; it opens to list its
+ * members, indented along a guide line, each with its ID over its description.
  */
 function SeriesRowItem({
   projectKey,
@@ -287,7 +289,6 @@ function SeriesRowItem({
   now: number
 }) {
   const [open, setOpen] = useState(false)
-  const next = row.children.find((c) => c.change.status !== "ready") ?? row.children[0]
   return (
     <OpenRow
       open={open}
@@ -295,12 +296,8 @@ function SeriesRowItem({
       cells={(lead) => (
         <RowCells
           lead={lead}
-          title={next?.change.description ?? row.id}
-          id={
-            <>
-              {row.id} · series of {row.count}
-            </>
-          }
+          id={row.id}
+          text={`series of ${row.count}`}
           project={project}
           progress={
             row.progress !== null ? (
@@ -475,7 +472,7 @@ const archivedValues = (r: Archived, field: string): string[] =>
 const archivesOf = (lists: Map<string, ChangeList>, keys: readonly string[]): Archived[] =>
   keys
     .flatMap((k) => (lists.get(k)?.archived ?? []).map((a) => ({ key: k, a })))
-    .sort((x, y) => y.a.date.localeCompare(x.a.date))
+    .sort((x, y) => y.a.date.localeCompare(x.a.date) || y.a.updated.localeCompare(x.a.updated))
 
 /** The archived changes of `rows` whose ID holds `q`, ignoring case. */
 const archivesMatching = (rows: readonly Archived[], q: string): Archived[] => {
@@ -508,10 +505,10 @@ function archiveGroups(rows: readonly Archived[], withProject: boolean, label: (
           <li key={`${key}/${a.dir}`} data-nav-item="">
             <Link href={`/${key}/changes/archive/${encodeURIComponent(a.dir)}?`} className={ROW}>
               <RowCells
-                title={a.id}
+                id={a.id}
                 project={withProject ? label(key) : undefined}
                 progress={<NoProgress />}
-                age={a.date.slice(5, 10)}
+                age={a.date}
               />
             </Link>
           </li>
@@ -854,7 +851,7 @@ export function ProjectsPage() {
     <li key={key}>
       <div className={ROW_FRAME}>
         <Link href={`/${key}?`} data-nav-item="" className={ROW_MAIN}>
-          <RowHead title={label(key)} id={list.find((p) => p.key === key)?.path ?? undefined} member={member} />
+          <RowHead id={label(key)} text={list.find((p) => p.key === key)?.path ?? undefined} member={member} />
           {counts([key])}
         </Link>
         <span className={ACTIONS}>
@@ -875,7 +872,7 @@ export function ProjectsPage() {
         onToggle={() => choices.set([e.id], open)}
         cells={(lead) => (
           <>
-            <RowHead lead={lead} title={e.label} id={countOf(keys.length, "project")} />
+            <RowHead lead={lead} id={e.label} text={countOf(keys.length, "project")} />
             {counts(e.keys)}
           </>
         )}

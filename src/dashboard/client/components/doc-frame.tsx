@@ -17,10 +17,13 @@ export function useDocumentTitle(title: string): void {
   }, [title])
 }
 
-/** The sidebar's button, shown at the left of a top row while the sidebar is hidden. */
+/**
+ * The sidebar's button at the left of a top row, below 768px only, where the sidebar opens over the page. Wider, the
+ * collapsed sidebar is a rail of icons that keeps its own button.
+ */
 function ShowSidebar() {
   const sidebar = useSidebar()
-  if (!sidebar.isMobile && sidebar.state !== "collapsed") return null
+  if (!sidebar.isMobile) return null
   return <SidebarTrigger className="mr-1 size-7 self-center text-muted-foreground" />
 }
 
