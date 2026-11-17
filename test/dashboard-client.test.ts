@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join, relative, sep } from "node:path"
-import { byLabel, changesPath, currentKey, overviewPath, type Project } from "../src/dashboard/client/lib/projects"
+import { byLabel, currentKey, projectPath, type Project } from "../src/dashboard/client/lib/projects"
 import {
   locationAction,
   type Moving,
@@ -202,8 +202,7 @@ test("the current project is the route's, else the stored, else start, else the 
   expect(currentKey({ ...list, start: null }, null, null)).toBe("-s")
   expect(currentKey({ projects: [p("-t", "Tower"), p("-w", "theway")], start: null }, null, null)).toBe("-w")
   expect(currentKey({ projects: [], start: null }, "-x", "-y")).toBeNull()
-  expect(changesPath("-w")).toBe("/-w/changes?")
-  expect(overviewPath("-w")).toBe("/-w?")
+  expect(projectPath("-w")).toBe("/-w?")
 })
 
 test("the theme is light or dark when stored, else System with no data-theme", () => {
@@ -333,8 +332,8 @@ test("the code view holds its own extension set, read-only through EditorState.r
 
 test("the five syntax colours are defined light and dark", () => {
   const css = readFileSync(join(CLIENT, "styles", "globals.css"), "utf-8")
-  const light = { keyword: "#cf222e", string: "#0a3069", constant: "#0550ae", property: "#116329", comment: "#6e7781" }
-  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#8b949e" }
+  const light = { keyword: "#b0322a", string: "#0a3d75", constant: "#1f55ad", property: "#1a6640", comment: "#63636b" }
+  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#8d8d93" }
   for (const [k, v] of Object.entries(light)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(1)
   for (const [k, v] of Object.entries(dark)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(2)
 })

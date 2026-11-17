@@ -24,11 +24,8 @@ export function currentKey(list: ProjectList, routeKey: string | null, stored: s
   return byLabel(list.projects)[0]?.key ?? null
 }
 
-/** The address of a project's changes: `/<key>/changes?`, its `?` clearing the search part. */
-export const changesPath = (key: string): string => `/${key}/changes?`
-
 /** The address of a change's page: `/<key>/changes/<id>?`, its `?` clearing the search part. */
 export const changePath = (key: string, id: string): string => `/${key}/changes/${id}?`
 
-/** The address of a project's Overview: `/<key>?`, its `?` clearing the search part. */
-export const overviewPath = (key: string): string => `/${key}?`
+/** The address of a project with no tab open: `/<key>?`, its `?` clearing the search part. */
+export const projectPath = (key: string): string => `/${key}?`

@@ -4,12 +4,13 @@ import { Link } from "wouter"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ChangeDetailSchema } from "@/lib/changes"
-import { changesPath } from "@/lib/projects"
+import { projectPath } from "@/lib/projects"
 import { ActiveChange } from "@/pages/active-change"
 import { ArchivedChange } from "@/pages/archived-change"
 import { LoadError } from "@/shell/load-error"
 import { getJson, useProjects } from "@/shell/projects"
-import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
+import { PageBody } from "@/shell/top-bar"
+import { PageHeader } from "@/components/doc-frame"
 
 /** The errors of a `404` on a change's route. */
 const UNKNOWN = ["unknown change", "unknown archive folder"]
@@ -26,8 +27,8 @@ function Unknown({ projectKey, name }: { projectKey: string; name: string }) {
         </EmptyTitle>
       </EmptyHeader>
       <EmptyContent>
-        <Button variant="outline" render={<Link href={changesPath(projectKey)} />}>
-          Back to Changes
+        <Button variant="outline" render={<Link href={projectPath(projectKey)} />}>
+          Back to {label}
         </Button>
       </EmptyContent>
     </Empty>
@@ -56,16 +57,11 @@ export function ChangePage({
   const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson(path, ChangeDetailSchema) })
 
   const name = dir ?? id ?? ""
-  const crumbs = (label: string): TopBarItem[] => [
-    { selector: true },
-    { label: "Changes", href: changesPath(projectKey) },
-    { label },
-  ]
 
   if (change.isPending) {
     return (
       <>
-        <TopBar items={crumbs(name)} heading={false} />
+        <PageHeader title={name} />
         <PageBody>{null}</PageBody>
       </>
     )
@@ -74,7 +70,7 @@ export function ChangePage({
     const unknown = UNKNOWN.includes(change.error.message)
     return (
       <>
-        <TopBar items={crumbs(name)} heading={false} />
+        <PageHeader title={name} />
         <PageBody>
           {unknown ? (
             <Unknown projectKey={projectKey} name={name} />
@@ -92,7 +88,6 @@ export function ChangePage({
   }
 
   const data = change.data
-  if (data.archived !== null)
-    return <ArchivedChange projectKey={projectKey} data={data} tab={tab} crumbs={crumbs(data.id)} />
-  return <ActiveChange projectKey={projectKey} data={data} tab={tab} crumbs={crumbs(data.id)} />
+  if (data.archived !== null) return <ArchivedChange projectKey={projectKey} data={data} tab={tab} />
+  return <ActiveChange projectKey={projectKey} data={data} tab={tab} />
 }

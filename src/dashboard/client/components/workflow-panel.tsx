@@ -2,9 +2,8 @@ import { PlusIcon, TextCursorInputIcon, XIcon } from "lucide-react"
 import { useId, useState } from "react"
 
 import { WORKFLOW_INPUT_TYPES } from "../../../core/language-schema"
-import { KeyLabelText, LinesAlert, PanelRow } from "@/components/file-page"
+import { KeyLabelText, LinesAlert } from "@/components/file-page"
 import { IconTile } from "@/components/reui/icon-tile"
-import { CopyField } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
@@ -23,7 +22,6 @@ import {
   RUNS_ON_OPTIONS,
   type Write,
 } from "@/components/workflow-fields"
-import { appliesTo, type FileBody } from "@/lib/files"
 import {
   addInput,
   type InputKey,
@@ -35,7 +33,6 @@ import {
 } from "@/lib/workflow-edit"
 import { type InputForm, keyError, workflowForm } from "@/lib/workflow-form"
 import { placeLine } from "@/lib/workflow-place"
-import { useLabel } from "@/shell/files"
 
 const TYPE_OPTIONS: Option[] = WORKFLOW_INPUT_TYPES.map((t) => ({ value: t, label: t }))
 
@@ -149,19 +146,8 @@ function InputBox({
  * inputs with Add input, then Applies to and File, read-only. The workflow's lines go under their fields; the others
  * in the alert under the title row.
  */
-export function WorkflowEditPanel({
-  file,
-  text,
-  lines,
-  write,
-}: {
-  file: FileBody
-  text: string
-  lines: readonly string[]
-  write: Write
-}) {
+export function WorkflowEditPanel({ text, lines, write }: { text: string; lines: readonly string[]; write: Write }) {
   const uid = useId()
-  const label = useLabel()
   const form = workflowForm(text)
   if (form === null) return null
   const names = form.inputs.map((i) => i.name)
@@ -250,12 +236,6 @@ export function WorkflowEditPanel({
         </div>
         {!form.inputsEditable ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
       </FieldSet>
-      <dl className="flex flex-col gap-4">
-        <PanelRow label="Applies to">{appliesTo(file.project, label)}</PanelRow>
-        <PanelRow label="File">
-          <CopyField value={file.path} name="the file path" />
-        </PanelRow>
-      </dl>
     </div>
   )
 }

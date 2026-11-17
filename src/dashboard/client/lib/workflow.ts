@@ -408,10 +408,10 @@ export const zoomStep = (scale: number, delta: number): number =>
 
 /**
  * The scale that fits a drawing `boxHeight` tall into `areaHeight`: never above 1, rounded down to a 0.1 step, never
- * below 0.5.
+ * below 0.8 (a taller drawing overflows at 0.8, its top shown).
  */
 export const fitScale = (boxHeight: number, areaHeight: number): number =>
-  Math.max(0.5, Math.floor(Math.min(1, areaHeight / boxHeight) * 10 + 1e-9) / 10)
+  Math.max(0.8, Math.floor(Math.min(1, areaHeight / boxHeight) * 10 + 1e-9) / 10)
 
 /** The toolbar's percentage: `Math.round(scale * 100)` followed by `%`. */
 export const percent = (scale: number): string => `${Math.round(scale * 100)}%`

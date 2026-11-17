@@ -1,10 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react"
+import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 
 import { ChangeDialogs, type Confirm } from "@/components/change-dialogs"
 import { type CodeLanguage, DraftStore, draftState } from "@/components/code-view"
-import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
+import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
 import { leavesPage } from "@/lib/edit"
@@ -20,6 +20,7 @@ import {
 } from "@/lib/files"
 import { failureOf, sendJson } from "@/shell/api"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
+import { MAC } from "@/shell/platform"
 import { getJson } from "@/shell/projects"
 
 /** The header fields a check answers for a prompt, as a row of `GET /api/prompts` gives them. */
@@ -331,8 +332,8 @@ export function useFileDraft({
 export type FileDraft = ReturnType<typeof useFileDraft>
 
 /**
- * The stack under the tabs, from the top: the conflict, the save failure, the unsaved bar, then the check failure or
- * the error alert. On History the unsaved bar and the error alert are hidden.
+ * The stack under the tabs, from the top: the conflict, the save failure, then the check failure or the error alert. On
+ * History the error alert is hidden. Unsaved edits show in the footer, with `DraftStatus`.
  */
 export function DraftNotices({
   draft,
@@ -363,20 +364,6 @@ export function DraftNotices({
           <AlertDescription>{draft.saveFailure}</AlertDescription>
         </Alert>
       ) : null}
-      {!history && draft.dirty ? (
-        <Alert variant="info" className={STRIP}>
-          <InfoIcon aria-hidden="true" />
-          <AlertTitle>Unsaved changes</AlertTitle>
-          <AlertAction>
-            <Button variant="outline" onClick={draft.discard}>
-              Discard
-            </Button>
-            <Button disabled={draft.saving} onClick={() => void draft.save(true)}>
-              Save
-            </Button>
-          </AlertAction>
-        </Alert>
-      ) : null}
       {draft.checkFailure !== null ? (
         <Alert variant="destructive" className={STRIP}>
           <CircleAlertIcon aria-hidden="true" />
@@ -387,6 +374,28 @@ export function DraftNotices({
         <ErrorStrip lines={lines} />
       )}
     </>
+  )
+}
+
+/**
+ * A footer's save state: `Unsaved · ⌘S to save` (Ctrl+S off macOS) with Discard when `onDiscard` is given, while
+ * `dirty`; else Saved for a moment after a save.
+ */
+export function DraftStatus({ dirty, saved, onDiscard }: { dirty: boolean; saved: boolean; onDiscard?: () => void }) {
+  if (!dirty) return <SavedStatus saved={saved} />
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"} to save</span>
+      {onDiscard !== undefined ? (
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="rounded-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Discard
+        </button>
+      ) : null}
+    </span>
   )
 }
 

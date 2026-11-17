@@ -1,11 +1,11 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
-/** The Changes page of a home with no project: "No project yet" under the breadcrumb of the selector (empty) and "Changes". */
+/** A home with no project: "No project yet". */
 export function NoProjectPage() {
   return (
     <>
-      <TopBar items={[{ selector: true }, { label: "Changes" }]} />
+      <TopBar items={[{ label: "theway" }]} />
       <PageBody>
         <div data-scroll-root className="flex min-h-0 flex-1 flex-col overflow-auto">
           <Empty>

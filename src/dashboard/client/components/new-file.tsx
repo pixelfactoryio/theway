@@ -211,31 +211,43 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
   )
 }
 
-/**
- * "New workflow" or "New prompt": the button (primary in the top bar, `outline` in the table's empty state) and its
- * dialog. Closing the dialog resets every field.
- */
-export function NewFileButton({ kind, variant = "default" }: { kind: Kind; variant?: "default" | "outline" }) {
-  const [open, setOpen] = useState(false)
+/** The "New workflow" or "New prompt" dialog, controlled by `open`; closing it resets every field. */
+export function NewFileDialog({
+  kind,
+  open,
+  onOpenChange,
+}: {
+  kind: Kind
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const [instance, setInstance] = useState(0)
   const close = () => {
-    setOpen(false)
+    onOpenChange(false)
     setInstance((n) => n + 1)
   }
   return (
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{TITLE[kind]}</DialogTitle>
+        </DialogHeader>
+        <NewFileForm key={instance} kind={kind} close={close} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** "New workflow" or "New prompt": the button (primary at the strip's right, `outline` in an empty list) and its dialog. */
+export function NewFileButton({ kind, variant = "default" }: { kind: Kind; variant?: "default" | "outline" }) {
+  const [open, setOpen] = useState(false)
+  return (
     <>
-      <Button variant={variant} onClick={() => setOpen(true)}>
+      <Button variant={variant} size="sm" onClick={() => setOpen(true)}>
         <PlusIcon data-icon="inline-start" aria-hidden="true" />
         {TITLE[kind]}
       </Button>
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{TITLE[kind]}</DialogTitle>
-          </DialogHeader>
-          <NewFileForm key={instance} kind={kind} close={close} />
-        </DialogContent>
-      </Dialog>
+      <NewFileDialog kind={kind} open={open} onOpenChange={setOpen} />
     </>
   )
 }

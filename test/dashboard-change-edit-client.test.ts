@@ -9,6 +9,7 @@ import {
   oneLine,
   prefixed,
   shortcutTip,
+  splitTask,
   taskBox,
   taskBoxColumn,
   taskName,
@@ -112,4 +113,34 @@ test("the client imports the check and the edits from src/core/change-text", () 
   expect(page).toMatch(/from "\.\.\/\.\.\/\.\.\/core\/change-text"/)
   for (const name of ["checkChangeText", "changeTextErrors", "changeStatus", "editedChangeText"])
     expect(page).toContain(name)
+})
+
+test("splitTask cuts a task at its first clause or sentence, outside code, within 160 characters", () => {
+  expect(splitTask("In `a.go` select the services: list the files, then pin them")).toEqual({
+    lead: "In `a.go` select the services",
+    detail: "list the files, then pin them",
+  })
+  expect(splitTask("Add the store; with tests")).toEqual({ lead: "Add the store", detail: "with tests" })
+  expect(splitTask("Wire the middleware. Keep the order.")).toEqual({
+    lead: "Wire the middleware.",
+    detail: "Keep the order.",
+  })
+  expect(splitTask("Set `key: value` in the file")).toEqual({ lead: "Set `key: value` in the file", detail: "" })
+  expect(splitTask("Return 429")).toEqual({ lead: "Return 429", detail: "" })
+  const long = `${"x".repeat(170)}: rest`
+  expect(splitTask(long)).toEqual({ lead: long, detail: "" })
+})
+
+test("splitTask falls back to the first ' (' or ', ' outside code, the lead at least 12 characters", () => {
+  expect(splitTask("Write `apps/package.json` (`name`, `private`) and the lockfile")).toEqual({
+    lead: "Write `apps/package.json`",
+    detail: "(`name`, `private`) and the lockfile",
+  })
+  expect(
+    splitTask("Move the handling into a helper shared with the unpin, then apply the order (files first)"),
+  ).toEqual({
+    lead: "Move the handling into a helper shared with the unpin",
+    detail: "then apply the order (files first)",
+  })
+  expect(splitTask("Add x, then y")).toEqual({ lead: "Add x, then y", detail: "" })
 })

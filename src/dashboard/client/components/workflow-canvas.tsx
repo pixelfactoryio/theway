@@ -23,8 +23,8 @@ import { type Drawing, fitScale, hasOnFail, percent, sameSelection, type Selecti
 /** The rem in pixels, for the narrow-surface rule. */
 const REM = 16
 
-/** Room kept around a card panned into view: 16px from the top, left and right, 72px from the bottom (the toolbar). */
-const KEEP = { top: 16, left: 16, right: 16, bottom: 72 }
+/** Room kept around a card panned into view, 16px from each edge of the cards' area (the toolbar sits below it). */
+const KEEP = { top: 16, left: 16, right: 16, bottom: 16 }
 
 /** The Undo and Redo buttons: they act on the draft's state through its dispatch, and update on every transaction. */
 function HistoryButtons({ store }: { store: DraftStore }) {
@@ -54,8 +54,9 @@ export type CanvasEdits = {
 
 /**
  * The Editor tab's canvas: one column of cards (Inputs, then each step with its on-fail at its right) on a `muted`
- * surface, panned and zoomed with Panzoom, and a floating toolbar with Undo, Redo and the zoom. With `edits`, a "+" on
- * each vertical connector and under the last card, and a menu on each step card.
+ * surface, panned and zoomed with Panzoom, and a toolbar with Undo, Redo and the zoom in a band of its own at the
+ * bottom, so no card ever passes under it. With `edits`, a "+" on each vertical connector and under the last card, and
+ * a menu on each step card.
  */
 export function WorkflowCanvas({
   drawing,
@@ -143,9 +144,9 @@ export function WorkflowCanvas({
   const zoomTo = (next: number) => panzoom.current?.zoom(next, { animate: false })
 
   /**
-   * Fits the drawing's height between the surface's top + 16px and its bottom − 72px, at the largest 0.1 step from 0.5
-   * to 1, its top 16px under the surface's top, at Panzoom's start x. The drawing is the column and every card (an
-   * on-fail card stands outside the column's box). Panzoom writes its transform on the next animation frame, so the
+   * Fits the drawing's height between the surface's top + 16px and its bottom − 16px, at the largest 0.1 step from 0.8
+   * to 1, its top 16px under the surface's top, at Panzoom's start x: a drawing too tall at 0.8 shows its top. The
+   * drawing is the column and every card (an on-fail card stands outside the column's box). Panzoom writes its transform on the next animation frame, so the
    * boxes are measured once, from the transform the page shows now, and never after a Panzoom call.
    */
   const fit = () => {
@@ -183,7 +184,7 @@ export function WorkflowCanvas({
     return () => clearTimeout(timer)
   }, [width])
 
-  // A placeholder card that appears out of view is panned in: 96px above the bottom edge, or 16px under the top edge.
+  // A placeholder card that appears out of view is panned in: 16px above the bottom edge, or 16px under the top edge.
   const placeholderRef = useRef<HTMLDivElement>(null)
   const placeholderAt = edits?.placeholder ?? null
   useEffect(() => {
@@ -193,8 +194,8 @@ export function WorkflowCanvas({
     if (placeholderAt === null || node === null || pz === null || box === undefined) return
     const r = node.getBoundingClientRect()
     let dy = 0
-    if (r.bottom > box.bottom) dy = box.bottom - 96 - r.bottom
-    else if (r.top < box.top) dy = box.top + 16 - r.top
+    if (r.bottom > box.bottom) dy = box.bottom - KEEP.bottom - r.bottom
+    else if (r.top < box.top) dy = box.top + KEEP.top - r.top
     if (dy === 0) return
     pz.pan(0, dy / pz.getScale(), { relative: true, force: true })
   }, [placeholderAt])
@@ -210,152 +211,162 @@ export function WorkflowCanvas({
     ) : null
 
   return (
-    <div
-      ref={surface}
-      // The dot grid is painted by the surface, not by the transformed inner node: it stays put and keeps its 16px while the cards pan and zoom.
-      className="relative min-h-0 flex-1 overflow-hidden bg-canvas bg-[image:radial-gradient(var(--canvas-dot)_1px,transparent_1px)] bg-size-[16px_16px]"
-      // Capture phase: Panzoom's own pointerdown on this surface stops the event before it bubbles to React.
-      onPointerDownCapture={(e) => {
-        down.current = { x: e.clientX, y: e.clientY }
-      }}
-      onPointerUp={(e) => {
-        const start = down.current
-        down.current = null
-        if (start === null || start.x !== e.clientX || start.y !== e.clientY) return
-        // A menu's content is portalled: its events reach this surface through React, not through the DOM.
-        if (!(surface.current?.contains(e.target as Node) ?? false)) return
-        if ((e.target as HTMLElement).closest(".panzoom-exclude") !== null) return
-        onSelect(null)
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && (surface.current?.contains(e.target as Node) ?? false)) onSelect(null)
-      }}
-    >
-      <div ref={inner} className={cn("flex w-max flex-col px-12 pt-12 pb-40", !narrow && "mx-auto")}>
-        <div className={cn("flex w-80 flex-col", onFail && !narrow && "me-104")}>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">Workflow</span>
-            <Card
-              label="Inputs"
-              icon={<TextCursorInputIcon aria-hidden="true" />}
-              tone="inputs"
-              name="Inputs"
-              code={false}
-              badge={null}
-              second={drawing.inputs.length === 0 ? "No input" : drawing.inputs.join(", ")}
-              third={[]}
-              errors={drawing.errors.length}
-              selected={sameSelection(selection, { kind: "inputs" })}
-              port
-              onSelect={() => onSelect({ kind: "inputs" })}
-              onFocusCard={reveal}
-            />
-          </div>
-          {drawing.steps.map((step) => {
-            const n = step.index + 1
-            return (
-              <div key={step.index} className="flex flex-col">
-                <Connector onAdd={add(step.index)} onFocusButton={reveal} />
-                {placeholder(step.index)}
-                <div className="relative">
-                  <Card
-                    label={`Step ${n}: ${step.name}`}
-                    icon={<FileTextIcon aria-hidden="true" />}
-                    tone={step.target}
-                    name={step.name}
-                    code={step.code}
-                    badge={step.badge}
-                    second={step.valid ? (step.description ?? "No description") : "Invalid step"}
-                    third={
-                      step.matrix !== null
-                        ? [
-                            <Badge key="matrix" variant="outline">
-                              {step.matrix}
-                            </Badge>,
-                          ]
-                        : []
-                    }
-                    errors={step.errors.length}
-                    selected={sameSelection(selection, { kind: "step", index: step.index })}
-                    port
-                    menu={
-                      edits === null ? null : (
-                        <StepMenu
-                          first={step.index === 0}
-                          last={step.index === total - 1}
-                          onMove={(delta) => edits.onMove(step.index, delta)}
-                          onRemove={() => edits.onRemove(step.index)}
-                          onFocusButton={reveal}
+    // The dot grid is painted here, not by the transformed inner node: it stays put and keeps its 16px while the cards
+    // pan and zoom.
+    <div className="flex min-h-0 flex-1 flex-col bg-canvas bg-[image:radial-gradient(var(--canvas-dot)_1px,transparent_1px)] bg-size-[16px_16px]">
+      <div
+        ref={surface}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        // Capture phase: Panzoom's own pointerdown on this surface stops the event before it bubbles to React.
+        onPointerDownCapture={(e) => {
+          down.current = { x: e.clientX, y: e.clientY }
+        }}
+        onPointerUp={(e) => {
+          const start = down.current
+          down.current = null
+          if (start === null || start.x !== e.clientX || start.y !== e.clientY) return
+          // A menu's content is portalled: its events reach this surface through React, not through the DOM.
+          if (!(surface.current?.contains(e.target as Node) ?? false)) return
+          if ((e.target as HTMLElement).closest(".panzoom-exclude") !== null) return
+          onSelect(null)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && (surface.current?.contains(e.target as Node) ?? false)) onSelect(null)
+        }}
+      >
+        <div ref={inner} className={cn("flex w-max flex-col px-12 pt-12 pb-40", !narrow && "mx-auto")}>
+          <div className={cn("flex w-80 flex-col", onFail && !narrow && "me-104")}>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Workflow</span>
+              <Card
+                label="Inputs"
+                icon={<TextCursorInputIcon aria-hidden="true" />}
+                tone="inputs"
+                name="Inputs"
+                code={false}
+                badge={null}
+                second={drawing.inputs.length === 0 ? "No input" : drawing.inputs.join(", ")}
+                third={[]}
+                errors={drawing.errors.length}
+                selected={sameSelection(selection, { kind: "inputs" })}
+                port
+                onSelect={() => onSelect({ kind: "inputs" })}
+                onFocusCard={reveal}
+              />
+            </div>
+            {drawing.steps.map((step) => {
+              const n = step.index + 1
+              return (
+                <div key={step.index} className="flex flex-col">
+                  <Connector onAdd={add(step.index)} onFocusButton={reveal} />
+                  {placeholder(step.index)}
+                  <div className="relative">
+                    <Card
+                      label={`Step ${n}: ${step.name}`}
+                      icon={<FileTextIcon aria-hidden="true" />}
+                      tone={step.target}
+                      name={step.name}
+                      code={step.code}
+                      badge={step.badge}
+                      second={step.valid ? (step.description ?? "No description") : "Invalid step"}
+                      third={
+                        step.matrix !== null
+                          ? [
+                              <Badge key="matrix" variant="outline">
+                                {step.matrix}
+                              </Badge>,
+                            ]
+                          : []
+                      }
+                      errors={step.errors.length}
+                      selected={sameSelection(selection, { kind: "step", index: step.index })}
+                      port
+                      menu={
+                        edits === null ? null : (
+                          <StepMenu
+                            first={step.index === 0}
+                            last={step.index === total - 1}
+                            onMove={(delta) => edits.onMove(step.index, delta)}
+                            onRemove={() => edits.onRemove(step.index)}
+                            onFocusButton={reveal}
+                          />
+                        )
+                      }
+                      onSelect={() => onSelect({ kind: "step", index: step.index })}
+                      onFocusCard={reveal}
+                    />
+                    {step.onFail !== null ? (
+                      <div className="absolute top-0 left-full flex items-start">
+                        <div aria-hidden="true" className="relative mt-8 flex w-24 items-center">
+                          <span className="absolute bottom-full left-0 w-full truncate px-1 pb-1 text-xs text-muted-foreground">
+                            on fail · tries {step.tries ?? "–"}
+                          </span>
+                          <span className="h-px flex-1 bg-muted-foreground/40" />
+                          <ArrowHead right />
+                        </div>
+                        <Card
+                          label={`On fail of step ${n}: ${step.onFail.name}`}
+                          icon={<RotateCcwIcon aria-hidden="true" />}
+                          tone="on-fail"
+                          name={step.onFail.name}
+                          code={step.onFail.code}
+                          badge={step.onFail.badge}
+                          second={step.onFail.description ?? "No description"}
+                          third={[]}
+                          errors={step.onFail.errors.length}
+                          selected={sameSelection(selection, { kind: "on-fail", index: step.index })}
+                          port={false}
+                          onSelect={() => onSelect({ kind: "on-fail", index: step.index })}
+                          onFocusCard={reveal}
                         />
-                      )
-                    }
-                    onSelect={() => onSelect({ kind: "step", index: step.index })}
-                    onFocusCard={reveal}
-                  />
-                  {step.onFail !== null ? (
-                    <div className="absolute top-0 left-full flex items-start">
-                      <div aria-hidden="true" className="relative mt-8 flex w-24 items-center">
-                        <span className="absolute bottom-full left-0 w-full truncate px-1 pb-1 text-xs text-muted-foreground">
-                          on fail · tries {step.tries ?? "–"}
-                        </span>
-                        <span className="h-px flex-1 bg-muted-foreground/40" />
-                        <ArrowHead right />
                       </div>
-                      <Card
-                        label={`On fail of step ${n}: ${step.onFail.name}`}
-                        icon={<RotateCcwIcon aria-hidden="true" />}
-                        tone="on-fail"
-                        name={step.onFail.name}
-                        code={step.onFail.code}
-                        badge={step.onFail.badge}
-                        second={step.onFail.description ?? "No description"}
-                        third={[]}
-                        errors={step.onFail.errors.length}
-                        selected={sameSelection(selection, { kind: "on-fail", index: step.index })}
-                        port={false}
-                        onSelect={() => onSelect({ kind: "on-fail", index: step.index })}
-                        onFocusCard={reveal}
-                      />
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-          {edits !== null ? (
-            <>
-              <Connector arrow={placeholderAt === total} onAdd={add(total)} onFocusButton={reveal} />
-              {placeholder(total)}
-            </>
-          ) : null}
+              )
+            })}
+            {edits !== null ? (
+              <>
+                <Connector arrow={placeholderAt === total} onAdd={add(total)} onFocusButton={reveal} />
+                {placeholder(total)}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
-      <div
-        role="toolbar"
-        aria-label="Canvas"
-        className="panzoom-exclude absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
-      >
-        <HistoryButtons store={store} />
-        <ToolbarButton
-          tip="Zoom out"
-          label="Zoom out"
-          disabled={scale <= 0.5}
-          onClick={() => zoomTo(zoomStep(scale, -0.1))}
+      <div className="flex shrink-0 justify-center pt-2 pb-4">
+        <div
+          role="toolbar"
+          aria-label="Canvas"
+          className="flex items-center gap-1 rounded-lg border bg-background p-1 shadow-sm"
         >
-          <MinusIcon aria-hidden="true" />
-        </ToolbarButton>
-        <ToolbarButton
-          tip="Fit to view"
-          label={`Zoom ${percent(scale)}, fit to view`}
-          className="w-16 tabular-nums"
-          onClick={fit}
-          size="default"
-        >
-          {percent(scale)}
-        </ToolbarButton>
-        <ToolbarButton tip="Zoom in" label="Zoom in" disabled={scale >= 2} onClick={() => zoomTo(zoomStep(scale, 0.1))}>
-          <PlusIcon aria-hidden="true" />
-        </ToolbarButton>
+          <HistoryButtons store={store} />
+          <ToolbarButton
+            tip="Zoom out"
+            label="Zoom out"
+            disabled={scale <= 0.5}
+            onClick={() => zoomTo(zoomStep(scale, -0.1))}
+          >
+            <MinusIcon aria-hidden="true" />
+          </ToolbarButton>
+          <ToolbarButton
+            tip="Fit to view"
+            label={`Zoom ${percent(scale)}, fit to view`}
+            className="w-16 tabular-nums"
+            onClick={fit}
+            size="default"
+          >
+            {percent(scale)}
+          </ToolbarButton>
+          <ToolbarButton
+            tip="Zoom in"
+            label="Zoom in"
+            disabled={scale >= 2}
+            onClick={() => zoomTo(zoomStep(scale, 0.1))}
+          >
+            <PlusIcon aria-hidden="true" />
+          </ToolbarButton>
+        </div>
       </div>
     </div>
   )

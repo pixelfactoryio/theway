@@ -182,3 +182,34 @@ export type Saved = z.infer<typeof SavedSchema>
 /** The body of an error answer. */
 export const ErrorBodySchema = z.object({ error: z.string() })
 export type ErrorBody = z.infer<typeof ErrorBodySchema>
+
+/** Whether a list holds no value twice. */
+const distinct = (values: string[]): boolean => new Set(values).size === values.length
+
+/** An entry of the sidebar's `pinned` and `recent`: `project:<key>` or `group:<id>`. */
+const SidebarIdSchema = z.string().regex(/^(?:project:.+|group:.{1,80})$/)
+
+/** A hand-made group of the sidebar: its id, its name (trimmed) and the keys of its projects. */
+export const DashboardGroupSchema = z.strictObject({
+  id: z.string().min(1).max(80),
+  name: z.string().trim().min(1).max(80),
+  projects: z.array(z.string().min(1)),
+})
+export type DashboardGroup = z.infer<typeof DashboardGroupSchema>
+
+/**
+ * The body of `GET` and `PUT /api/dashboard`, kept in `<home>/dashboard.json`: the sidebar's pinned entries, its groups
+ * (a project key in one group at most), the recently opened entries, newest first, and the dismissed grouping
+ * suggestions' keys.
+ */
+export const DashboardSettingsSchema = z.strictObject({
+  pinned: z.array(SidebarIdSchema).max(50).refine(distinct, "duplicate id"),
+  groups: z
+    .array(DashboardGroupSchema)
+    .max(50)
+    .refine((groups) => distinct(groups.map((g) => g.id)), "duplicate group id")
+    .refine((groups) => distinct(groups.flatMap((g) => g.projects)), "a project key is in more than one group"),
+  recent: z.array(SidebarIdSchema).max(10).refine(distinct, "duplicate id"),
+  dismissed: z.array(z.string()).max(200),
+})
+export type DashboardSettings = z.infer<typeof DashboardSettingsSchema>

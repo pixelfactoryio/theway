@@ -1,27 +1,28 @@
-import { FileTextIcon, InfoIcon, RotateCcwIcon, TextCursorInputIcon } from "lucide-react"
+import {
+  CodeIcon,
+  FileTextIcon,
+  HistoryIcon,
+  InfoIcon,
+  RotateCcwIcon,
+  TextCursorInputIcon,
+  WorkflowIcon,
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, useFileDraft } from "@/components/draft"
+import { DraftDialogs, DraftNotices, DraftStatus, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
-import {
-  type AlertLine,
-  Dash,
-  InputsList,
-  LinesAlert,
-  PanelRow,
-  SavedStatus,
-  STRIP,
-  UnknownFile,
-} from "@/components/file-page"
-import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
-import { RecordTabs } from "@/components/record-tabs"
+import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, STRIP, UnknownFile } from "@/components/file-page"
+import { DocFrame } from "@/components/doc-frame"
+import { usePanelOpen } from "@/components/record-panel"
+import { StepPrompt, StepPromptUses, stepPromptRow, useSaveKey } from "@/components/step-prompt"
 import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
-import { ErrorsBadge } from "@/components/status"
-import { CopyField } from "@/components/text"
+import { DetailRow, DocPanel } from "@/components/doc-panel"
+import { FileStatusPill } from "@/components/status"
+import { CopyPath, Problems } from "@/components/title-block"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { StepPicker } from "@/components/step-picker"
@@ -30,7 +31,7 @@ import { toneTile } from "@/components/workflow-card"
 import { applyEdit, type HistoryMode, type Write } from "@/components/workflow-fields"
 import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepEditPanel } from "@/components/workflow-step-panel"
-import { appliesTo, type FileBody, filePath, type PromptRow } from "@/lib/files"
+import { appliesTo, filePath, type PromptRow } from "@/lib/files"
 import {
   type Drawing,
   drawWorkflow,
@@ -90,8 +91,7 @@ function WithValue({ value }: { value: NonNullable<StepCard["fields"]["with"]> }
 }
 
 /** The Workflow panel: with no card or the Inputs card selected. */
-function WorkflowPanel({ file, drawing }: { file: FileBody; drawing: Drawing | null }) {
-  const label = useLabel()
+function WorkflowPanel({ drawing }: { drawing: Drawing | null }) {
   return (
     <div className="flex flex-col gap-6 p-4">
       <div className="flex items-center gap-3">
@@ -112,10 +112,6 @@ function WorkflowPanel({ file, drawing }: { file: FileBody; drawing: Drawing | n
             </PanelRow>
           </>
         ) : null}
-        <PanelRow label="Applies to">{appliesTo(file.project, label)}</PanelRow>
-        <PanelRow label="File">
-          <CopyField value={file.path} name="the file path" />
-        </PanelRow>
       </dl>
     </div>
   )
@@ -241,7 +237,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     docName: `${name}.yaml`,
   })
   const label = useLabel()
-  const [open, setOpen] = usePanelOpen()
+  const [, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const [selection, setSelection] = useState<Selection | null>(null)
   const code = useRef<CodeViewHandle>(null)
@@ -249,6 +245,9 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const history = tab === "history"
   const base = filePath("workflows", project, name)
   const historyTab = useHistoryTab({ draft, kind: "workflows", project, name, language: "yaml", active: history })
+  useSaveKey(() => {
+    if (draft.dirty) void draft.save(false)
+  })
 
   const data = file.data
   const text = draft.text
@@ -451,7 +450,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         onRemove={() => removeSelected(step.index)}
       />
     ) : editable && text !== null ? (
-      <WorkflowEditPanel file={data} text={text} lines={lineTexts} write={write} />
+      <WorkflowEditPanel text={text} lines={lineTexts} write={write} />
     ) : step !== null && drawing !== null ? (
       <StepPanel
         step={step}
@@ -461,77 +460,137 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         project={project}
       />
     ) : (
-      <WorkflowPanel file={data} drawing={drawing} />
+      <WorkflowPanel drawing={drawing} />
     )
+
+  const promptName =
+    kept?.kind === "step" && step !== null && step.fields.uses !== null && "prompt" in step.fields.uses
+      ? step.fields.uses.prompt
+      : null
+  const promptRow = promptName !== null ? stepPromptRow(promptRows, project, promptName) : null
+  const details = (
+    <dl className="flex flex-col py-2">
+      <DetailRow label="Applies to">{appliesTo(project, label)}</DetailRow>
+      <DetailRow label="Steps">
+        <span className="tabular-nums">{drawing === null ? "–" : drawing.steps.length}</span>
+      </DetailRow>
+      <DetailRow label="Runs on">{drawing?.runsOn ?? "–"}</DetailRow>
+      <DetailRow label="File">
+        <CopyPath value={data.path} name="the file path" />
+      </DetailRow>
+    </dl>
+  )
 
   return (
     <>
-      <TopBar
-        items={crumbs}
-        actions={<PanelToggle page={history ? "history" : "workflow"} open={open} onOpenChange={setOpen} />}
-      />
-      <PageBody>
-        <RecordTabs
-          column={false}
-          label="Workflow views"
-          value={history ? "history" : yamlTab ? "yaml" : "editor"}
-          tabs={[
-            { value: "editor", label: "Editor", href: `${base}?` },
-            { value: "yaml", label: "YAML", href: `${base}/yaml?` },
-            { value: "history", label: "History", href: `${base}/history?` },
-          ]}
-          right={
-            <>
-              <SavedStatus saved={draft.saved} />
-              {isDefault ? <Badge variant="outline">default</Badge> : null}
-              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-              <ErrorsBadge errors={errors.map((e) => e.text)} />
-            </>
-          }
-        />
-        <RecordBody
-          name={
-            history
-              ? "Versions"
-              : editable && picker !== null
-                ? picker.mode === "add"
-                  ? "Add a step"
-                  : "Change the prompt"
-                : step !== null
-                  ? `Step ${step.index + 1}`
-                  : "Workflow"
-          }
-          open={open}
-          onOpenChange={setOpen}
-          panel={history ? historyTab.panel : panel}
-        >
-          <DraftNotices draft={draft} lines={lines} history={history} />
-          {!history && !yamlTab && drawing !== null && anchors ? (
-            <Alert className={STRIP}>
-              <InfoIcon aria-hidden="true" />
-              <AlertTitle>This file uses YAML anchors. Edit it on the YAML tab.</AlertTitle>
-            </Alert>
-          ) : null}
-          {history ? (
-            historyTab.main
-          ) : yamlTab ? (
-            <div className="min-h-0 flex-1">
-              <EditableCodeView ref={code} draft={draft.store} errors={errors} />
-            </div>
-          ) : "reason" in drawn ? (
-            <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
-          ) : (
-            <WorkflowCanvas
-              key={`${project ?? "global"}/${name}`}
-              drawing={drawn.drawing}
-              selection={kept}
-              onSelect={select}
-              store={draft.store}
-              edits={edits}
-            />
-          )}
-        </RecordBody>
-      </PageBody>
+      <DocFrame
+        title={`${name} · Workflows`}
+        label="Workflow views"
+        page={history ? "history" : "workflow"}
+        value={history ? "history" : yamlTab ? "yaml" : "editor"}
+        tabs={[
+          {
+            value: "editor",
+            label: "Editor",
+            href: `${base}?`,
+            Icon: WorkflowIcon,
+            dirty: draft.dirty && !yamlTab && !history,
+          },
+          { value: "yaml", label: "YAML", href: `${base}/yaml?`, Icon: CodeIcon, dirty: draft.dirty && yamlTab },
+          { value: "history", label: "History", href: `${base}/history?`, Icon: HistoryIcon },
+        ]}
+        panelName={
+          history
+            ? "Versions"
+            : editable && picker !== null
+              ? picker.mode === "add"
+                ? "Add a step"
+                : "Change the prompt"
+              : step !== null
+                ? `Step ${step.index + 1}`
+                : "Workflow"
+        }
+        panel={
+          <DocPanel
+            key={promptRow !== null ? "prompt" : "workflow"}
+            remember={promptRow !== null ? "workflow-step" : "workflow"}
+            topShare={promptRow !== null ? "45%" : "70%"}
+            label="Workflow"
+            header={
+              <>
+                <FileStatusPill errors={errors.length} />
+                {isDefault ? <Badge variant="outline">default</Badge> : null}
+              </>
+            }
+            top={
+              history
+                ? [{ value: "versions", label: "Versions", content: historyTab.panel }]
+                : [
+                    {
+                      value: "inspector",
+                      label: step !== null ? `Step ${step.index + 1} · ${step.name}` : "Workflow",
+                      content: panel,
+                    },
+                    {
+                      value: "problems",
+                      label: "Problems",
+                      count: errors.length > 0 ? errors.length : undefined,
+                      content: <Problems lines={lines} />,
+                    },
+                  ]
+            }
+            bottom={
+              promptRow !== null && !history
+                ? [
+                    {
+                      value: "prompt",
+                      label: "Prompt",
+                      content: <StepPrompt key={`${promptRow.project ?? ""}/${promptRow.name}`} row={promptRow} />,
+                    },
+                    { value: "used-by", label: "Used by", content: <StepPromptUses row={promptRow} /> },
+                  ]
+                : [{ value: "details", label: "Details", content: details }]
+            }
+          />
+        }
+      >
+        <div className="shrink-0 px-14 pt-5 pb-3">
+          <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
+          <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
+          {drawing?.description != null ? <p className="text-sm text-muted-foreground">{drawing.description}</p> : null}
+        </div>
+        <DraftNotices draft={draft} lines={lines} history={history} />
+        {!history && !yamlTab && drawing !== null && anchors ? (
+          <Alert className={STRIP}>
+            <InfoIcon aria-hidden="true" />
+            <AlertTitle>This file uses YAML anchors. Edit it on the YAML tab.</AlertTitle>
+          </Alert>
+        ) : null}
+        {history ? (
+          historyTab.main
+        ) : yamlTab ? (
+          <div className="min-h-0 flex-1 border-t">
+            <EditableCodeView ref={code} draft={draft.store} errors={errors} />
+          </div>
+        ) : "reason" in drawn ? (
+          <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
+        ) : (
+          <WorkflowCanvas
+            key={`${project ?? "global"}/${name}`}
+            drawing={drawn.drawing}
+            selection={kept}
+            onSelect={select}
+            store={draft.store}
+            edits={edits}
+          />
+        )}
+        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
+          <span className="font-mono">{name}.yaml</span>
+          <span className="ml-auto">
+            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+          </span>
+        </div>
+      </DocFrame>
       <DraftDialogs draft={draft} />
     </>
   )

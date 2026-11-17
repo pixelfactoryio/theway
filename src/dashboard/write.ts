@@ -1,17 +1,20 @@
 /**
  * The dashboard's writes: a file saved or created under `<home>/workflows`, `<home>/prompts` or the same two folders of
  * a project, the text it replaces kept as a version under `<home>/history/`, and those versions listed, read and
- * restored; and a file of an active change saved in place. Every path is built from a listed project key, a listed
- * change, a listed file name, a name matching `NAME` and a version id matching its pattern, never taken from the request.
+ * restored; a file of an active change saved in place; and the sidebar's settings, `<home>/dashboard.json`, read and
+ * written. Every path is built from a listed project key, a listed change, a listed file name, a name matching `NAME`
+ * and a version id matching its pattern, never taken from the request.
  */
 import { mkdirSync, readdirSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { diffLines } from "diff"
 import { isFile, readBytes, writeAtomic } from "../core/io"
+import { warning } from "../core/output"
 import type { Kind } from "../core/step-files"
 import type { ChangeStore } from "../core/store"
 import { sha256 } from "../core/store/files"
-import type { Version, VersionList, VersionText } from "./contract"
+import { escaped } from "../core/text"
+import type { DashboardGroup, DashboardSettings, Version, VersionList, VersionText } from "./contract"
 import { absPath, refused } from "./files"
 
 /** How many versions a file keeps: the newest. */
@@ -188,4 +191,91 @@ export function writeChangeFile(
   } catch (e) {
     return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }
   }
+}
+
+/** The settings of a home with no `dashboard.json`. */
+const emptySettings = (): DashboardSettings => ({ pinned: [], groups: [], recent: [], dismissed: [] })
+
+/** An entry of `pinned` and `recent`: `project:<key>` or `group:<id>`, as `DashboardSettingsSchema` has it. */
+const SIDEBAR_ID = /^(?:project:.+|group:.{1,80})$/
+
+/** Whether `v` is an object with exactly the keys `keys`. */
+const exactly = (v: unknown, keys: string[]): v is Record<string, unknown> =>
+  v !== null &&
+  typeof v === "object" &&
+  !Array.isArray(v) &&
+  Object.keys(v).length === keys.length &&
+  keys.every((k) => Object.hasOwn(v, k))
+
+/** `v` when it is an array of at most `max` strings, each passing `ok`, none twice when `distinct`; else `null`. */
+function strings(v: unknown, max: number, ok: (s: string) => boolean, distinct: boolean): string[] | null {
+  if (!Array.isArray(v) || v.length > max) return null
+  if (!v.every((s) => typeof s === "string" && ok(s))) return null
+  return distinct && new Set(v).size !== v.length ? null : (v as string[])
+}
+
+/**
+ * The settings `body` holds, its group names trimmed, or `null` when it breaks a rule of `DashboardSettingsSchema`,
+ * which the server does not import so zod stays out of the CLI: no other field; `recent` 10 entries at most, `pinned`
+ * 50, `groups` 50, `dismissed` 200; ids of 1 to 80 characters, names of 1 to 80 once trimmed; no id twice; a project
+ * key in one group at most.
+ */
+export function settingsOf(body: unknown): DashboardSettings | null {
+  if (!exactly(body, ["pinned", "groups", "recent", "dismissed"])) return null
+  const entry = (s: string) => SIDEBAR_ID.test(s)
+  const pinned = strings(body.pinned, 50, entry, true)
+  const recent = strings(body.recent, 10, entry, true)
+  const dismissed = strings(body.dismissed, 200, () => true, false)
+  if (pinned === null || recent === null || dismissed === null) return null
+  if (!Array.isArray(body.groups) || body.groups.length > 50) return null
+  const groups: DashboardGroup[] = []
+  for (const g of body.groups as unknown[]) {
+    if (!exactly(g, ["id", "name", "projects"])) return null
+    const { id, name } = g
+    const projects = strings(g.projects, Infinity, (s) => s.length > 0, false)
+    if (typeof id !== "string" || id.length < 1 || id.length > 80 || typeof name !== "string" || projects === null)
+      return null
+    const trimmed = name.trim()
+    if (trimmed.length < 1 || trimmed.length > 80) return null
+    groups.push({ id, name: trimmed, projects })
+  }
+  if (new Set(groups.map((g) => g.id)).size !== groups.length) return null
+  const keys = groups.flatMap((g) => g.projects)
+  if (new Set(keys).size !== keys.length) return null
+  return { pinned, groups, recent, dismissed }
+}
+
+/** `<home>/dashboard.json`, the sidebar's settings. */
+const settingsPath = (home: string): string => join(home, "dashboard.json")
+
+/**
+ * `GET /api/dashboard`: the settings of `<home>/dashboard.json`; the empty settings when it is missing, and with a
+ * `theway: warning:` line on stderr when it cannot be read, is not JSON or breaks a rule.
+ */
+export function readSettings(home: string): DashboardSettings {
+  const path = settingsPath(home)
+  if (!isFile(path)) return emptySettings()
+  const bytes = readBytes(path)
+  let settings: DashboardSettings | null = null
+  if (bytes !== null) {
+    try {
+      settings = settingsOf(JSON.parse(bytes.toString("utf-8")))
+    } catch {
+      settings = null
+    }
+  }
+  if (settings !== null) return settings
+  warning(`${escaped(path)} is not valid dashboard settings; the sidebar starts empty`)
+  return emptySettings()
+}
+
+/** `PUT /api/dashboard`: writes `settings` whole to `<home>/dashboard.json` and answers them; no version is kept. */
+export function writeSettings(home: string, settings: DashboardSettings): Answer {
+  try {
+    mkdirSync(home, { recursive: true })
+    writeAtomic(settingsPath(home), `${JSON.stringify(settings, null, 2)}\n`)
+  } catch (e) {
+    return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }
+  }
+  return { status: 200, body: settings }
 }

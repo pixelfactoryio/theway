@@ -10,6 +10,7 @@ import {
   previewText,
   type PromptRow,
   describeUse,
+  workflowCount,
 } from "../src/dashboard/client/lib/files"
 import {
   drawWorkflow,
@@ -313,8 +314,8 @@ test("the prompt of a step is its project's own, else the global one; zoom steps
   expect([percent(1), percent(0.734), percent(2)]).toEqual(["100%", "73%", "200%"])
 })
 
-test("fitScale fits a drawing between 50% and 100%", () => {
-  expect([fitScale(552, 610), fitScale(934, 610), fitScale(2000, 610), fitScale(100, 70)]).toEqual([1, 0.6, 0.5, 0.7])
+test("fitScale fits a drawing between 80% and 100%", () => {
+  expect([fitScale(552, 610), fitScale(650, 610), fitScale(934, 610), fitScale(2000, 610)]).toEqual([1, 0.9, 0.8, 0.8])
 })
 
 test("a YAML key's label turns every - and . into a space and upper-cases its first letter", () => {
@@ -324,4 +325,21 @@ test("a YAML key's label turns every - and . into a space and upper-cases its fi
     "Uses",
     "Description",
   ])
+})
+
+test("workflowCount counts each workflow once, however many of its steps use the prompt", () => {
+  expect(
+    workflowCount([
+      { workflow: "review", project: null, step: 3, as: "step" },
+      { workflow: "review", project: null, step: 5, as: "on-fail" },
+    ]),
+  ).toBe(1)
+  expect(
+    workflowCount([
+      { workflow: "review", project: null, step: 3, as: "step" },
+      { workflow: "review", project: "-acme", step: 1, as: "step" },
+      { workflow: "ship", project: null, step: 2, as: "value" },
+    ]),
+  ).toBe(3)
+  expect(workflowCount([])).toBe(0)
 })

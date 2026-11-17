@@ -26,6 +26,40 @@ export const taskName = (n: number, text: string, done: boolean): string => `Tas
 /** A description as one line: each run of line breaks turned into one space. */
 export const oneLine = (text: string): string => text.replace(/[\r\n]+/g, " ")
 
+/** The longest lead a task shows before its detail. */
+const LEAD_MAX = 160
+
+/**
+ * A task's text cut for reading: its lead and the rest as its detail. The lead ends at the first ": " or "; " within its
+ * first 160 characters, else at the end of its first sentence, else before the first " (" or ", " (whichever comes
+ * first, the lead at least 12 characters); breaks inside backtick code spans do not count. A text with none is all
+ * lead. Display only: the text itself is unchanged.
+ */
+export function splitTask(text: string): { lead: string; detail: string } {
+  const flat = text.trim()
+  /** The first index within the lead's reach where `test` holds outside a backtick code span. */
+  const find = (test: (c: string, next: string) => boolean): number => {
+    let code = false
+    for (let i = 0; i < Math.min(flat.length - 1, LEAD_MAX + 1); i++) {
+      const c = flat[i] as string
+      if (c === "`") code = !code
+      else if (!code && i > 0 && test(c, flat[i + 1] as string)) return i
+    }
+    return -1
+  }
+  const space = (n: string) => n === " " || n === "\n"
+  const clause = find((c, n) => (c === ":" || c === ";") && space(n))
+  if (clause !== -1) return { lead: flat.slice(0, clause), detail: flat.slice(clause + 1).trim() }
+  const sentence = find((c, n) => (c === "." || c === "!" || c === "?") && space(n))
+  if (sentence !== -1) return { lead: flat.slice(0, sentence + 1), detail: flat.slice(sentence + 1).trim() }
+  const aside = find((c, n) => c === " " && n === "(")
+  const comma = find((c, n) => c === "," && space(n))
+  const at = [aside, comma].filter((i) => i >= 12).sort((a, b) => a - b)[0]
+  if (at === aside && at !== undefined) return { lead: flat.slice(0, at), detail: flat.slice(at + 1) }
+  if (at !== undefined) return { lead: flat.slice(0, at), detail: flat.slice(at + 1).trim() }
+  return { lead: flat, detail: "" }
+}
+
 /** The title of a file's unsaved bar. */
 export const unsavedTitle = (name: string): string => `Unsaved changes in ${name}`
 

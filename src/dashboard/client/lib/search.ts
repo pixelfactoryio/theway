@@ -2,7 +2,7 @@
 
 import type { ChangeList } from "./changes"
 import { appliesTo, filePath, type PromptRow, type WorkflowRow } from "./files"
-import { byLabel, changePath, overviewPath, type Project } from "./projects"
+import { byLabel, changePath, projectPath, type Project } from "./projects"
 
 /** One entry: its cmdk `value` (unique), the text shown, the text beside it, and the page it opens. */
 export type SearchEntry = { value: string; label: string; detail: string; href: string }
@@ -11,12 +11,11 @@ export type SearchEntry = { value: string; label: string; detail: string; href: 
 type SearchGroup = { heading: string; entries: SearchEntry[] }
 
 /**
- * What the search lists: the current project's key (`null`: no Changes group), the lists loaded so far (`undefined`
- * while one loads: no entries from it) and a project's label.
+ * What the search lists: each project's change list loaded so far (with its key), the lists of workflows, prompts and
+ * projects (`undefined` while one loads: no entries from it) and a project's label.
  */
 export type SearchInput = {
-  key: string | null
-  changes: ChangeList | undefined
+  changes: readonly { key: string; list: ChangeList }[]
   workflows: readonly WorkflowRow[] | undefined
   prompts: readonly PromptRow[] | undefined
   projects: readonly Project[] | undefined
@@ -39,24 +38,26 @@ function fileEntry(
 
 /** The groups Changes, Workflows, Prompts and Projects, in this order, an empty one dropped. */
 export function searchGroups(input: SearchInput): SearchGroup[] {
-  const { key, changes, label } = input
-  const changeEntries: SearchEntry[] =
-    key === null || changes === undefined
-      ? []
-      : [
-          ...changes.active.map((c) => ({
-            value: `change:${c.id}`,
-            label: c.id,
-            detail: c.description ?? "",
-            href: changePath(key, c.id),
-          })),
-          ...changes.archived.map((a) => ({
-            value: `archived:${a.dir}`,
-            label: a.id,
-            detail: `Archived ${a.date}`,
-            href: `/${key}/changes/archive/${a.dir}?`,
-          })),
-        ]
+  const { label } = input
+  // Every project's active changes first, then the archives, each detail naming the project.
+  const changeEntries: SearchEntry[] = [
+    ...input.changes.flatMap(({ key, list }) =>
+      list.active.map((c) => ({
+        value: `change:${key}/${c.id}`,
+        label: c.id,
+        detail: [c.description ?? "", label(key)].filter((s) => s !== "").join(" · "),
+        href: changePath(key, c.id),
+      })),
+    ),
+    ...input.changes.flatMap(({ key, list }) =>
+      list.archived.map((a) => ({
+        value: `archived:${key}/${a.dir}`,
+        label: a.id,
+        detail: `${label(key)} · archived ${a.date}`,
+        href: `/${key}/changes/archive/${a.dir}?`,
+      })),
+    ),
+  ]
   const groups: SearchGroup[] = [
     { heading: "Changes", entries: changeEntries },
     { heading: "Workflows", entries: (input.workflows ?? []).map((w) => fileEntry("workflows", w, label)) },
@@ -67,7 +68,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         value: `project:${p.key}`,
         label: p.label,
         detail: `${p.active} active`,
-        href: overviewPath(p.key),
+        href: projectPath(p.key),
       })),
     },
   ]

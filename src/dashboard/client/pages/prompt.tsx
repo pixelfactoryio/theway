@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useRef } from "react"
+import { EyeIcon, FileTextIcon, HistoryIcon } from "lucide-react"
+import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, type HeaderFields, useFileDraft } from "@/components/draft"
+import { DraftDialogs, DraftNotices, DraftStatus, type HeaderFields, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, PanelRow, SavedStatus, UnknownFile } from "@/components/file-page"
+import { type AlertLine, Dash, InputsList, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
-import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
-import { RecordTabs } from "@/components/record-tabs"
-import { ErrorsBadge } from "@/components/status"
-import { CopyField } from "@/components/text"
+import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
+import { useSaveKey } from "@/components/step-prompt"
+import { FileStatusPill } from "@/components/status"
+import { DetailRow, DocPanel } from "@/components/doc-panel"
+import { CopyPath, Problems } from "@/components/title-block"
 import {
   appliesTo,
   type FileBody,
@@ -28,46 +30,92 @@ import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
 
-/** The prompt page's Details panel: `fields`, the file's header fields or the draft's while it differs from the file. */
-function DetailsPanel({ file, fields }: { file: FileBody; fields: HeaderFields }) {
+/** The prompt page's side panel: its status; Inputs and Used by (or the versions); then its Details. */
+function PromptPanel({
+  file,
+  fields,
+  errors,
+  lines,
+  versions,
+}: {
+  file: FileBody
+  fields: HeaderFields
+  errors: number
+  lines: AlertLine[]
+  versions: ReactNode | null
+}) {
   const label = useLabel()
   const usedBy = file.usedBy ?? []
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-medium">Details</h2>
-      <dl className="flex flex-col gap-4">
-        <PanelRow yamlKey="description">
-          {fields.header && fields.description !== null ? fields.description : <Dash />}
-        </PanelRow>
-        <PanelRow label="Kind">{KIND_LABEL[kindOf(fields)]}</PanelRow>
-        <PanelRow yamlKey="model">{fields.model ?? <Dash />}</PanelRow>
-        <PanelRow yamlKey="inputs">
-          <InputsList inputs={fields.inputs} />
-        </PanelRow>
-        <PanelRow label="Used by">
-          {usedBy.length === 0 ? (
-            <Dash />
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {usedBy.map((use, i) => (
-                <li key={i}>
-                  <Link
-                    href={`${filePath("workflows", use.project, use.workflow)}?`}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {describeUse(use, label)}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </PanelRow>
-        <PanelRow label="Applies to">{appliesTo(file.project, label)}</PanelRow>
-        <PanelRow label="File">
-          <CopyField value={file.path} name="the file path" />
-        </PanelRow>
-      </dl>
-    </div>
+    <DocPanel
+      remember="prompt"
+      topShare="70%"
+      label="Prompt"
+      header={<FileStatusPill errors={errors} />}
+      top={
+        versions !== null
+          ? [{ value: "versions", label: "Versions", content: versions }]
+          : [
+              {
+                value: "inputs",
+                label: "Inputs",
+                count: fields.inputs.length > 0 ? fields.inputs.length : undefined,
+                content: (
+                  <div className="p-4">
+                    <InputsList inputs={fields.inputs} />
+                  </div>
+                ),
+              },
+              {
+                value: "used-by",
+                label: "Used by",
+                count: usedBy.length > 0 ? usedBy.length : undefined,
+                content:
+                  usedBy.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-muted-foreground">No workflow uses this prompt.</p>
+                  ) : (
+                    <ul className="flex flex-col py-1">
+                      {usedBy.map((use, i) => (
+                        <li key={i}>
+                          <Link
+                            href={`${filePath("workflows", use.project, use.workflow)}?`}
+                            className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
+                          >
+                            {describeUse(use, label)}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ),
+              },
+              {
+                value: "problems",
+                label: "Problems",
+                count: errors > 0 ? errors : undefined,
+                content: <Problems lines={lines} />,
+              },
+            ]
+      }
+      bottom={[
+        {
+          value: "details",
+          label: "Details",
+          content: (
+            <dl className="flex flex-col py-2">
+              <DetailRow label="Description">
+                {fields.header && fields.description !== null ? fields.description : <Dash />}
+              </DetailRow>
+              <DetailRow label="Kind">{KIND_LABEL[kindOf(fields)]}</DetailRow>
+              <DetailRow label="Model">{fields.model ?? <Dash />}</DetailRow>
+              <DetailRow label="Applies to">{appliesTo(file.project, label)}</DetailRow>
+              <DetailRow label="File">
+                <CopyPath value={file.path} name="the file path" />
+              </DetailRow>
+            </dl>
+          ),
+        },
+      ]}
+    />
   )
 }
 
@@ -88,8 +136,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     language: "prompt",
     docName: `${name}.md`,
   })
-  const label = useLabel()
-  const [open, setOpen] = usePanelOpen()
   const [, navigate] = useLocation()
   const code = useRef<CodeViewHandle>(null)
   // A placed line clicked on the Preview tab, for the Prompt tab's code view.
@@ -104,6 +150,10 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     language: "prompt",
     active: view === "history",
   })
+  useSaveKey(() => {
+    if (draft.dirty) void draft.save(false)
+  })
+  const label = useLabel()
 
   // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there: the child's
   // mount effect, which attaches its editor to the draft, runs before this one.
@@ -207,48 +257,59 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
 
   return (
     <>
-      <TopBar
-        items={crumbs}
-        actions={<PanelToggle page={history ? "history" : "prompt"} open={open} onOpenChange={setOpen} />}
-      />
-      <PageBody>
-        <RecordTabs
-          column={false}
-          label="Prompt views"
-          value={view}
-          tabs={[
-            { value: "prompt", label: "Prompt", href: `${base}?` },
-            { value: "preview", label: "Preview", href: `${base}/preview?` },
-            { value: "history", label: "History", href: `${base}/history?` },
-          ]}
-          right={
-            <>
-              <SavedStatus saved={draft.saved} />
-              <span className="text-sm text-muted-foreground">{appliesTo(project, label)}</span>
-              <ErrorsBadge errors={errors.map((e) => e.text)} />
-            </>
-          }
-        />
-        <RecordBody
-          name={history ? "Versions" : "Details"}
-          open={open}
-          onOpenChange={setOpen}
-          panel={history ? historyTab.panel : <DetailsPanel file={data} fields={fields} />}
-        >
-          <DraftNotices draft={draft} lines={lines} history={history} />
-          {history ? (
-            historyTab.main
-          ) : view === "preview" ? (
-            <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+      <DocFrame
+        title={`${name} · Prompts`}
+        label="Prompt views"
+        page={history ? "history" : "prompt"}
+        value={view}
+        tabs={[
+          {
+            value: "prompt",
+            label: "Prompt",
+            href: `${base}?`,
+            Icon: FileTextIcon,
+            dirty: draft.dirty && view === "prompt",
+          },
+          { value: "preview", label: "Preview", href: `${base}/preview?`, Icon: EyeIcon },
+          { value: "history", label: "History", href: `${base}/history?`, Icon: HistoryIcon },
+        ]}
+        panelName={history ? "Versions" : "Details"}
+        panel={
+          <PromptPanel
+            file={data}
+            fields={fields}
+            errors={errors.length}
+            lines={lines}
+            versions={history ? historyTab.panel : null}
+          />
+        }
+      >
+        <div className="shrink-0 px-14 pt-5 pb-3">
+          <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
+          <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
+          {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
+        </div>
+        <DraftNotices draft={draft} lines={lines} history={history} />
+        {history ? (
+          historyTab.main
+        ) : view === "preview" ? (
+          <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+            <div className={`${DOC_COLUMN} py-6`}>
               <MarkdownView text={previewText(draft.text, fields.header)} />
             </div>
-          ) : (
-            <div className="min-h-0 flex-1">
-              <EditableCodeView ref={code} draft={draft.store} errors={errors} />
-            </div>
-          )}
-        </RecordBody>
-      </PageBody>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1">
+            <EditableCodeView ref={code} draft={draft.store} errors={errors} />
+          </div>
+        )}
+        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
+          <span className="font-mono">{name}.md</span>
+          <span className="ml-auto">
+            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+          </span>
+        </div>
+      </DocFrame>
       <DraftDialogs draft={draft} />
     </>
   )

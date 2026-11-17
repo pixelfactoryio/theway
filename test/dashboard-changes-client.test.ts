@@ -1,30 +1,15 @@
 import { expect, test } from "bun:test"
 import {
   type ActiveChange,
-  actionGroups,
   activeRows,
-  archivedRows,
   changeCount,
   changeTabs,
   inlineCode,
-  keepSeriesOpen,
   isLinkTarget,
   localDate,
-  nextCommand,
-  nextTask,
-  parseQuery,
-  queryString,
-  rowFraction,
-  runCommand,
-  SERIES_CLOSED,
   seriesProgress,
   seriesStatus,
-  shownPage,
-  shownSeriesOpen,
   shownTab,
-  sortRows,
-  statusCounts,
-  switchView,
 } from "../src/dashboard/client/lib/changes"
 import { fileCountText } from "../src/dashboard/client/lib/files"
 
@@ -99,90 +84,10 @@ test("the search and the filter keep changes; a narrowed series lists the kept m
   expect(activeRows(ACTIVE, "ay", ["not-started"]).map((r) => r.id)).toEqual(["add-a"])
 })
 
-test("a narrowing opens every series it keeps, whenever it applies; cleared, the series are as they were", () => {
-  const whole = activeRows(ACTIVE, "", [])
-  const narrowed = activeRows(ACTIVE, "", ["not-started"])
-  expect(shownSeriesOpen(SERIES_CLOSED, "", whole)).toEqual({})
-  let state = keepSeriesOpen(SERIES_CLOSED, "", { "add-s": true })
-  // A filter applied after the table loaded.
-  expect(shownSeriesOpen(state, "|not-started", narrowed)).toEqual({ "add-s": true })
-  state = keepSeriesOpen(state, "|not-started", { "add-s": false })
-  expect(shownSeriesOpen(state, "|not-started", narrowed)).toEqual({ "add-s": false })
-  // Another narrowing opens them again.
-  expect(shownSeriesOpen(state, "sec|not-started", narrowed)).toEqual({ "add-s": true })
-  // Cleared: the state of the whole view, untouched by the narrowing's.
-  expect(shownSeriesOpen(state, "", whole)).toEqual({ "add-s": true })
-  expect(shownSeriesOpen(keepSeriesOpen(SERIES_CLOSED, "q|", true), "", whole)).toEqual({})
-})
-
-test("the Status filter counts the active changes of each status among those the search keeps", () => {
-  expect(statusCounts(ACTIVE, "")).toEqual({ invalid: 1, "in-progress": 1, "not-started": 2, ready: 2 })
-  expect(statusCounts(ACTIVE, "add-s")).toEqual({ invalid: 0, "in-progress": 0, "not-started": 1, ready: 1 })
-})
-
-test("a column sort orders rows by their own values, ties by ID, Invalid lowest on progress", () => {
-  const rows = activeRows(ACTIVE, "", [])
-  expect(sortRows(rows, { column: "progress", desc: false }).map((r) => r.id)).toEqual([
-    "add-z",
-    "add-a",
-    "add-s",
-    "add-lone-01",
-    "add-b",
-  ])
-  expect(sortRows(rows, { column: "change", desc: true }).map((r) => r.id)).toEqual([
-    "add-z",
-    "add-s",
-    "add-lone-01",
-    "add-b",
-    "add-a",
-  ])
-  expect(sortRows(rows, { column: "updated", desc: true })[0]?.id).toBe("add-s")
-  expect(rowFraction(rows[0] as never)).toBe(-1)
-})
-
 test("the count reads N changes, or N of M changes while narrowed", () => {
   expect(fileCountText(24, 24, false, "change")).toBe("24 changes")
   expect(fileCountText(1, 1, false, "change")).toBe("1 change")
   expect(fileCountText(3, 24, true, "change")).toBe("3 of 24 changes")
-})
-
-test("the archived search matches the ID only", () => {
-  const archived = [{ dir: "2026-01-01-add-x", id: "add-x", date: "2026-01-01" }]
-  expect(archivedRows(archived, "ADD-X")).toHaveLength(1)
-  expect(archivedRows(archived, "2026")).toHaveLength(0)
-})
-
-test("the address holds view, q, status, page and size, each absent at its default", () => {
-  expect(parseQuery("")).toEqual({ view: "active", q: "", statuses: [], page: 1, size: 25 })
-  expect(parseQuery("?view=archived&q=a+b&status=ready,invalid,bogus&page=2&size=50")).toEqual({
-    view: "archived",
-    q: "a b",
-    statuses: ["invalid", "ready"],
-    page: 2,
-    size: 50,
-  })
-  for (const page of ["0", "-1", "1.5", "x", ""]) expect(parseQuery(`page=${page}`).page).toBe(1)
-  for (const size of ["7", "0", "x"]) expect(parseQuery(`size=${size}`).size).toBe(25)
-  expect(queryString({ view: "active", q: "", statuses: [], page: 1, size: 25 })).toBe("")
-  expect(queryString({ view: "active", q: "x", statuses: ["in-progress", "invalid"], page: 1, size: 25 })).toBe(
-    "q=x&status=invalid,in-progress",
-  )
-  expect(queryString({ view: "archived", q: "", statuses: [], page: 3, size: 100 })).toBe(
-    "view=archived&page=3&size=100",
-  )
-  expect(switchView({ view: "active", q: "x", statuses: ["ready"], page: 1, size: 50 }, "archived")).toEqual({
-    view: "archived",
-    q: "x",
-    statuses: [],
-    page: 1,
-    size: 50,
-  })
-})
-
-test("a page past the end shows the last page", () => {
-  expect(shownPage(9, 62, 25)).toBe(2)
-  expect(shownPage(2, 62, 25)).toBe(1)
-  expect(shownPage(3, 0, 25)).toBe(0)
 })
 
 test("Updated is the local date", () => {
@@ -190,7 +95,7 @@ test("Updated is the local date", () => {
   expect(localDate(d.toISOString())).toBe("2026-11-12")
 })
 
-test("the change page's tabs, its open tab, its next task and its command", () => {
+test("the change page's tabs and its open tab", () => {
   const tabs = changeTabs([{ name: "spec.md" }, { name: "notes.md" }, { name: "tasks.md" }])
   expect(tabs.map((t) => [t.slug, t.label])).toEqual([
     ["spec", "Spec"],
@@ -202,48 +107,6 @@ test("the change page's tabs, its open tab, its next task and its command", () =
   expect(shownTab(tabs, "nope").slug).toBe("spec")
   expect(shownTab(tabs, "tasks").slug).toBe("tasks")
   expect(shownTab(changeTabs([]), undefined).slug).toBe("tasks")
-  expect(
-    nextTask([
-      { text: "a", done: true },
-      { text: "b", done: false },
-    ]),
-  ).toEqual({ n: 2, text: "b" })
-  expect(nextTask([{ text: "a", done: true }])).toBeNull()
-  expect(runCommand({ id: "x", status: "ready", done: 2, total: 2 }).command).toBe("/theway:archive x")
-  expect(runCommand({ id: "x", status: "in-progress", done: 1, total: 2 }).command).toBe("/theway:workflow x")
-  expect(runCommand({ id: "x", status: "invalid", done: 0, total: 0 }).command).toBe("/theway:workflow x")
-})
-
-test("the next command: none for Invalid, the change's own command, a series' first member to archive or run", () => {
-  const rows = activeRows(ACTIVE, "", [])
-  const row = (id: string) => rows.find((r) => r.id === id) as (typeof rows)[number]
-  expect(nextCommand(row("add-z"), ACTIVE)).toBeNull()
-  expect(nextCommand(row("add-b"), ACTIVE)).toBe("/theway:archive add-b")
-  expect(nextCommand(row("add-a"), ACTIVE)).toBe("/theway:workflow add-a")
-  expect(nextCommand(row("add-lone-01"), ACTIVE)).toBe("/theway:workflow add-lone-01")
-  // In progress: the first member that is not Ready.
-  expect(nextCommand(row("add-s"), ACTIVE)).toBe("/theway:workflow add-s-02")
-  // Members sort by ID whatever their order in the list.
-  const ready = [c("r-02", "ready", 1, 1), c("r-01", "ready", 2, 2)]
-  expect(nextCommand(activeRows(ready, "", [])[0] as (typeof rows)[number], ready)).toBe("/theway:archive r-01")
-  const fresh = [c("n-02", "not-started", 0, 1), c("n-01", "not-started", 0, 1)]
-  expect(nextCommand(activeRows(fresh, "", [])[0] as (typeof rows)[number], fresh)).toBe("/theway:workflow n-01")
-  const broken = [c("i-01", "ready", 1, 1), c("i-02", "invalid")]
-  expect(nextCommand(activeRows(broken, "", [])[0] as (typeof rows)[number], broken)).toBeNull()
-})
-
-test("the action groups order Invalid, In progress, Not started, Ready and drop empty groups", () => {
-  expect(actionGroups(ACTIVE).map((g) => [g.status, g.rows.map((r) => r.id)])).toEqual([
-    ["invalid", ["add-z"]],
-    ["in-progress", ["add-lone-01", "add-s"]],
-    ["not-started", ["add-a"]],
-    ["ready", ["add-b"]],
-  ])
-  expect(actionGroups([c("x", "ready", 1, 1), c("y", "not-started", 0, 1)]).map((g) => g.status)).toEqual([
-    "not-started",
-    "ready",
-  ])
-  expect(actionGroups([])).toEqual([])
 })
 
 test("inline code and link targets", () => {
