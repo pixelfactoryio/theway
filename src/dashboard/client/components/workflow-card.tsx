@@ -1,6 +1,6 @@
 import { cn } from "cn"
 import { ArrowDownIcon, ArrowUpIcon, CircleAlertIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react"
-import { type ReactNode } from "react"
+import { type ReactNode, useId } from "react"
 
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
@@ -64,11 +64,14 @@ export function Card({
   menu?: ReactNode
   onSelect: () => void
 }) {
+  const line = useId()
   return (
     <div className="pointer-events-auto relative size-full">
+      {/* Named by `label` and its badges, described by its muted line, so its errors are announced too. */}
       <button
         type="button"
-        aria-label={label}
+        aria-label={[label, ...badges].join(", ")}
+        aria-describedby={line}
         aria-pressed={selected}
         onClick={onSelect}
         className={cn(
@@ -98,7 +101,7 @@ export function Card({
             </span>
           ) : null}
         </span>
-        <span className="flex h-5 min-w-0 items-center gap-2">
+        <span id={line} className="flex h-5 min-w-0 items-center gap-2">
           {errors > 0 ? (
             <Badge variant="destructive-light">
               <CircleAlertIcon aria-hidden="true" />

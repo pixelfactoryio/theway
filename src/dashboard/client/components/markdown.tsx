@@ -168,8 +168,9 @@ const COMPONENTS: Components = {
   li: ListItem,
   pre: CodeBlock,
   blockquote: ({ node, ...props }) => <blockquote {...props} data-line={line({ node })} />,
+  // Focusable, so a table wider than the column scrolls from the keyboard.
   table: ({ node, ...props }) => (
-    <div className="doc-table" data-line={line({ node })}>
+    <div className="doc-table" data-line={line({ node })} role="group" tabIndex={0} aria-label="Table">
       <table {...props} />
     </div>
   ),

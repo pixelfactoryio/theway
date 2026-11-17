@@ -43,7 +43,9 @@ test("a heading renders one level down and keeps its Markdown level, which sets 
   expect(html).toContain('<h3 data-line="3" data-level="2">Two</h3>')
 })
 
-test("a table sits in a scrolling wrapper that breaks out to the wider room", () => {
+test("a table sits in a focusable scrolling wrapper that breaks out to the wider room", () => {
   const html = renderToStaticMarkup(<MarkdownView text={"| a | b |\n|---|--:|\n| 1 | 2 |\n"} />)
-  expect(html).toMatch(/^<div class="[^"]*doc-prose[^"]*"><div class="doc-table" data-line="1"><table>/)
+  expect(html).toMatch(
+    /^<div class="[^"]*doc-prose[^"]*"><div class="doc-table" data-line="1" role="group" tabindex="0" aria-label="Table"><table>/,
+  )
 })

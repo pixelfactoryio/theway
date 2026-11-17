@@ -73,7 +73,12 @@ function Pane({
         {action !== undefined ? <div className="flex shrink-0 items-center">{action}</div> : null}
       </div>
       {tabs.map((t) => (
-        <TabsContent key={t.value} value={t.value} inert={collapsed} className="min-h-0 flex-1 overflow-y-auto">
+        <TabsContent
+          key={t.value}
+          value={t.value}
+          inert={collapsed}
+          className="relative min-h-0 flex-1 overflow-y-auto"
+        >
           {t.content}
         </TabsContent>
       ))}

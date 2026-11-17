@@ -631,10 +631,6 @@
   background: var(--muted);
   font-weight: 600;
 }
-/* A long path or identifier in a cell breaks anywhere, so it does not set its column's width. */
-.doc-table code {
-  overflow-wrap: anywhere;
-}
 
 .code-keyword {
   color: var(--code-keyword);

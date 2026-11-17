@@ -403,7 +403,8 @@ function RowList({ rows, showProject, now }: { rows: Located[]; showProject: boo
 
 /**
  * The status groups of `rows`: Needs fixing, In progress, Not started, then Ready to archive (as rows, or with
- * `readyByProject` as one count per project, which opens that project's page). Ready to archive starts collapsed.
+ * `readyByProject` as one count per project, which opens that project's page). Each band counts its rows, a series
+ * once; Ready to archive by project counts its changes. Ready to archive starts collapsed.
  */
 function statusGroups(
   rows: readonly Located[],
@@ -873,7 +874,7 @@ export function ProjectsPage() {
         cells={(lead) => (
           <>
             <RowHead lead={lead} id={e.label} text={countOf(keys.length, "project")} />
-            {counts(e.keys)}
+            {counts(keys)}
           </>
         )}
         actions={
@@ -944,8 +945,7 @@ export function ProjectsPage() {
           aria-hidden="true"
           className="flex h-8 shrink-0 items-center gap-2 border-b px-6 text-xs text-muted-foreground"
         >
-          <span className="w-4 shrink-0" />
-          <span className="min-w-0 flex-1 pl-4">Project</span>
+          <span className="min-w-0 flex-1">Project</span>
           <span className={cn("shrink-0 text-right", IN_PROGRESS)}>In progress</span>
           <span className={cn("shrink-0 text-right", TO_DO)}>To do</span>
           <span className={cn("shrink-0 text-right", LAST_ARCHIVED)}>Last archived</span>
