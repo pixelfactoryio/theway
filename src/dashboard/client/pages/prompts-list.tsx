@@ -57,7 +57,7 @@ const PAGE = { pageIndex: 0, pageSize: 1000 }
 const COLUMN = "flex min-h-0 w-full max-w-[65rem] flex-1 flex-col px-7 pt-5"
 
 /** From this width the grid shows every column; below, Model and Used by are hidden. */
-const WIDE = "(min-width: 1024px)"
+const WIDE = "(min-width: 1280px)"
 const NARROW_COLUMNS = { model: false, usedBy: false }
 const ALL_COLUMNS = {}
 
