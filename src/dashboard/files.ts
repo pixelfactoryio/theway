@@ -14,8 +14,9 @@ import { sha256 } from "../core/store/files"
 import { byFile, parseYaml, pathSegments, splitHeader, yamlErrorLine } from "../core/text"
 import { joinAnd, markedPath } from "../core/workflow"
 import { tildePath } from "./changes"
+import { type DashboardContext, knownProject, UNKNOWN_PROJECT } from "./context"
 import type { CheckBody, FileBody, FileError, PromptList, PromptRow, Use, WorkflowList, WorkflowRow } from "./contract"
-import { projectKeys } from "./projects"
+import type { Answer } from "./write"
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"]
 
@@ -23,10 +24,10 @@ const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"]
 const relPath = (kind: Kind, project: string | null, name: string): string =>
   project === null ? `${kind}/${name}${EXT[kind]}` : `projects/${project}/${kind}/${name}${EXT[kind]}`
 
-export const absPath = (home: string, kind: Kind, project: string | null, name: string): string =>
+export const absPath = (ctx: DashboardContext, kind: Kind, project: string | null, name: string): string =>
   project === null
-    ? join(home, kind, `${name}${EXT[kind]}`)
-    : join(projectDir(home, project), kind, `${name}${EXT[kind]}`)
+    ? join(ctx.home, kind, `${name}${EXT[kind]}`)
+    : join(projectDir(ctx.home, project), kind, `${name}${EXT[kind]}`)
 
 /** A line without the prefix naming its own file. */
 const own = (line: string, prefix: string): string => (line.startsWith(prefix) ? line.slice(prefix.length) : line)
@@ -38,11 +39,11 @@ const unique = (items: string[]): string[] => [...new Set(items)]
 type ListedWorkflow = { name: string; project: string | null; item: WorkflowFileItem; context: WorkflowFileItem[] }
 
 /** Every workflow file of the home: the global ones, then each project's own, each with its check lines. */
-function workflowFiles(home: string): ListedWorkflow[] {
-  const global = listWorkflowFiles(home, null, warnQuiet)
+function workflowFiles(ctx: DashboardContext): ListedWorkflow[] {
+  const global = listWorkflowFiles(ctx.home, null, warnQuiet)
   const out: ListedWorkflow[] = global.map((item) => ({ name: item.name, project: null, item, context: global }))
-  for (const key of projectKeys(home)) {
-    const listed = listWorkflowFiles(home, key, warnQuiet)
+  for (const key of ctx.store.projectKeys()) {
+    const listed = listWorkflowFiles(ctx.home, key, warnQuiet)
     for (const item of listed) {
       if (item.scope === "project") out.push({ name: item.name, project: key, item, context: listed })
     }
@@ -69,8 +70,8 @@ function runsOnOf(steps: { runs_on: "agents" | "session" }[]): WorkflowRow["runs
 }
 
 /** The body of `GET /api/workflows`. */
-export function listWorkflows(home: string): WorkflowList {
-  const workflows = workflowFiles(home).map(({ name, project, item, context }): WorkflowRow => {
+export function listWorkflows(ctx: DashboardContext): WorkflowList {
+  const workflows = workflowFiles(ctx).map(({ name, project, item, context }): WorkflowRow => {
     const second = secondDefault(context, project, name)
     return {
       name,
@@ -82,7 +83,7 @@ export function listWorkflows(home: string): WorkflowList {
       errors: [...item.errors.map((l) => own(l, `workflows/${name}.yaml: `)), ...(second === null ? [] : [second])],
     }
   })
-  return { folder: tildePath(join(home, "workflows")), workflows }
+  return { folder: tildePath(join(ctx.home, "workflows")), workflows }
 }
 
 /**
@@ -129,12 +130,12 @@ const byUse = (a: Use, b: Use): number =>
  * The uses of every prompt file, by its `<project>/<name>` (`/<name>` for a global one): a global workflow counts for
  * the global prompt of that name, a project's workflow for its project's own prompt of that name, else the global one.
  */
-function usesByPrompt(home: string, prompts: { name: string; project: string | null }[]): Map<string, Use[]> {
+function usesByPrompt(ctx: DashboardContext, prompts: { name: string; project: string | null }[]): Map<string, Use[]> {
   const id = (project: string | null, name: string) => `${project ?? ""}/${name}`
   const listed = new Set(prompts.map((p) => id(p.project, p.name)))
   const out = new Map<string, Use[]>()
-  for (const { name, project } of workflowFiles(home)) {
-    const bytes = readBytes(absPath(home, "workflows", project, name))
+  for (const { name, project } of workflowFiles(ctx)) {
+    const bytes = readBytes(absPath(ctx, "workflows", project, name))
     if (bytes === null) continue
     for (const u of usesOf(bytes.toString("utf-8"))) {
       const target = project !== null && listed.has(id(project, u.prompt)) ? id(project, u.prompt) : id(null, u.prompt)
@@ -151,10 +152,10 @@ function usesByPrompt(home: string, prompts: { name: string; project: string | n
 }
 
 /** The workflows whose lines count for a prompt: the global ones for a global prompt, the project's own for a project's. */
-function contextWorkflows(home: string, project: string | null, overlay?: Overlay) {
+function contextWorkflows(ctx: DashboardContext, project: string | null, overlay?: Overlay) {
   return project === null
-    ? listWorkflowFiles(home, null, warnQuiet, overlay)
-    : listWorkflowFiles(home, project, warnQuiet, overlay).filter((w) => w.scope === "project")
+    ? listWorkflowFiles(ctx.home, null, warnQuiet, overlay)
+    : listWorkflowFiles(ctx.home, project, warnQuiet, overlay).filter((w) => w.scope === "project")
 }
 
 /** A prompt's check lines: its header errors, then every line of `workflows` about it, its own prefix removed, deduplicated. */
@@ -167,29 +168,29 @@ function promptLines(name: string, text: string, workflows: { errors: string[] }
 }
 
 /** Every prompt file of the home: the global ones, then each project's own, sorted. */
-function promptFiles(home: string): { name: string; project: string | null }[] {
-  const out: { name: string; project: string | null }[] = listPromptFiles(home, null).map((p) => ({
+function promptFiles(ctx: DashboardContext): { name: string; project: string | null }[] {
+  const out: { name: string; project: string | null }[] = listPromptFiles(ctx.home, null).map((p) => ({
     name: p.name,
     project: null,
   }))
-  for (const key of projectKeys(home)) {
-    for (const p of listPromptFiles(home, key)) if (p.scope === "project") out.push({ name: p.name, project: key })
+  for (const key of ctx.store.projectKeys()) {
+    for (const p of listPromptFiles(ctx.home, key)) if (p.scope === "project") out.push({ name: p.name, project: key })
   }
   return out.sort(byFile)
 }
 
 /** The body of `GET /api/prompts`. */
-export function listPrompts(home: string): PromptList {
-  const files = promptFiles(home)
-  const uses = usesByPrompt(home, files)
+export function listPrompts(ctx: DashboardContext): PromptList {
+  const files = promptFiles(ctx)
+  const uses = usesByPrompt(ctx, files)
   const workflows = new Map<string | null, ReturnType<typeof contextWorkflows>>()
   const workflowsOf = (project: string | null) => {
-    if (!workflows.has(project)) workflows.set(project, contextWorkflows(home, project))
+    if (!workflows.has(project)) workflows.set(project, contextWorkflows(ctx, project))
     return workflows.get(project) as ReturnType<typeof contextWorkflows>
   }
   const prompts = files.map(({ name, project }): PromptRow => {
     const usedBy = uses.get(`${project ?? ""}/${name}`) ?? []
-    const bytes = readBytes(absPath(home, "prompts", project, name))
+    const bytes = readBytes(absPath(ctx, "prompts", project, name))
     if (bytes === null) {
       return {
         name,
@@ -215,7 +216,7 @@ export function listPrompts(home: string): PromptList {
       usedBy,
     }
   })
-  return { folder: tildePath(join(home, "prompts")), prompts }
+  return { folder: tildePath(join(ctx.home, "prompts")), prompts }
 }
 
 /**
@@ -281,26 +282,23 @@ function promptLine(text: string, line: string): number | null {
   return found === null ? null : found + 1
 }
 
-/** What a file route answers: its body, or the status and error. */
-export type FileAnswer = { status: 200; body: FileBody } | { status: 404 | 500; body: { error: string } }
-
 /** The answer refusing an unlisted project or an invalid name, `null` when both are valid. */
-export function refused(
-  home: string,
-  project: string | null,
-  name: string,
-): { status: 404; body: { error: string } } | null {
-  if (project !== null && !projectKeys(home).includes(project))
-    return { status: 404, body: { error: "unknown project" } }
+export function refused(ctx: DashboardContext, project: string | null, name: string): Answer<never> | null {
+  if (project !== null && !knownProject(ctx, project)) return UNKNOWN_PROJECT
   if (!NAME.test(name)) return { status: 404, body: { error: "unknown file" } }
   return null
 }
 
 /** The file `name` of `kind` in the global folder (`project` `null`) or in the project's own folder. */
-function readListed(home: string, kind: Kind, project: string | null, name: string): { bytes: Buffer } | FileAnswer {
-  const refusal = refused(home, project, name)
+function readListed(
+  ctx: DashboardContext,
+  kind: Kind,
+  project: string | null,
+  name: string,
+): { bytes: Buffer } | Answer<FileBody> {
+  const refusal = refused(ctx, project, name)
   if (refusal !== null) return refusal
-  const path = absPath(home, kind, project, name)
+  const path = absPath(ctx, kind, project, name)
   if (!isFile(path)) return { status: 404, body: { error: "unknown file" } }
   const bytes = readBytes(path)
   if (bytes === null) return { status: 500, body: { error: "cannot be read" } }
@@ -313,29 +311,29 @@ function readListed(home: string, kind: Kind, project: string | null, name: stri
  * `overlay`, the files it holds are read from it.
  */
 function workflowErrors(
-  home: string,
+  ctx: DashboardContext,
   project: string | null,
   name: string,
   text: string,
   overlay?: Overlay,
 ): FileError[] {
-  const result = resolveWorkflowFile(home, project, name, {}, overlay)
+  const result = resolveWorkflowFile(ctx.home, project, name, {}, overlay)
   const lines = "errors" in result ? result.errors.map((l) => own(l, `workflows/${name}.yaml: `)) : []
   const out = lines.map((l) => ({ text: l, line: workflowLine(text, l) }))
-  const second = secondDefault(listWorkflowFiles(home, project, warnQuiet, overlay), project, name)
+  const second = secondDefault(listWorkflowFiles(ctx.home, project, warnQuiet, overlay), project, name)
   if (second !== null) out.push({ text: second, line: lineOfPath(text, ["default"]) })
   return out
 }
 
 /** The check lines of the prompt `name` of `project` if it held `text`, each on its line; `overlay` as in `workflowErrors`. */
 function promptErrors(
-  home: string,
+  ctx: DashboardContext,
   project: string | null,
   name: string,
   text: string,
   overlay?: Overlay,
 ): FileError[] {
-  return promptLines(name, text, contextWorkflows(home, project, overlay)).map((l) => ({
+  return promptLines(name, text, contextWorkflows(ctx, project, overlay)).map((l) => ({
     text: l,
     line: promptLine(text, l),
   }))
@@ -361,8 +359,8 @@ function promptHeader(text: string): Pick<PromptRow, "header" | "description" | 
 }
 
 /** `GET /api/workflows/global/:name` and `…/projects/:key/:name`. */
-export function workflowFile(home: string, project: string | null, name: string): FileAnswer {
-  const read = readListed(home, "workflows", project, name)
+export function workflowFile(ctx: DashboardContext, project: string | null, name: string): Answer<FileBody> {
+  const read = readListed(ctx, "workflows", project, name)
   if ("status" in read) return read
   const text = read.bytes.toString("utf-8")
   return {
@@ -373,17 +371,17 @@ export function workflowFile(home: string, project: string | null, name: string)
       path: relPath("workflows", project, name),
       text,
       version: sha256(read.bytes),
-      errors: workflowErrors(home, project, name, text),
+      errors: workflowErrors(ctx, project, name, text),
     },
   }
 }
 
 /** `GET /api/prompts/global/:name` and `…/projects/:key/:name`. */
-export function promptFile(home: string, project: string | null, name: string): FileAnswer {
-  const read = readListed(home, "prompts", project, name)
+export function promptFile(ctx: DashboardContext, project: string | null, name: string): Answer<FileBody> {
+  const read = readListed(ctx, "prompts", project, name)
   if ("status" in read) return read
   const text = read.bytes.toString("utf-8")
-  const usedBy = usesByPrompt(home, promptFiles(home)).get(`${project ?? ""}/${name}`) ?? []
+  const usedBy = usesByPrompt(ctx, promptFiles(ctx)).get(`${project ?? ""}/${name}`) ?? []
   return {
     status: 200,
     body: {
@@ -392,7 +390,7 @@ export function promptFile(home: string, project: string | null, name: string): 
       path: relPath("prompts", project, name),
       text,
       version: sha256(read.bytes),
-      errors: promptErrors(home, project, name, text),
+      errors: promptErrors(ctx, project, name, text),
       usedBy,
     },
   }
@@ -403,15 +401,15 @@ export function promptFile(home: string, project: string | null, name: string): 
  * overlay that holds it at the file's path; nothing is written.
  */
 export function checkDraft(
-  home: string,
+  ctx: DashboardContext,
   kind: Kind,
   project: string | null,
   name: string,
   text: string,
-): { status: 200; body: CheckBody } | { status: 404; body: { error: string } } {
-  const refusal = refused(home, project, name)
+): Answer<CheckBody> {
+  const refusal = refused(ctx, project, name)
   if (refusal !== null) return refusal
-  const overlay: Overlay = new Map([[absPath(home, kind, project, name), text]])
-  if (kind === "workflows") return { status: 200, body: { errors: workflowErrors(home, project, name, text, overlay) } }
-  return { status: 200, body: { errors: promptErrors(home, project, name, text, overlay), ...promptHeader(text) } }
+  const overlay: Overlay = new Map([[absPath(ctx, kind, project, name), text]])
+  if (kind === "workflows") return { status: 200, body: { errors: workflowErrors(ctx, project, name, text, overlay) } }
+  return { status: 200, body: { errors: promptErrors(ctx, project, name, text, overlay), ...promptHeader(text) } }
 }

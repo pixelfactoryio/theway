@@ -14,6 +14,7 @@ import { version } from "../../package.json" with { type: "json" }
 import { fileStore } from "../core/store/files"
 import { escaped } from "../core/text"
 import { changeDetail, datedArchives, listChanges } from "./changes"
+import { type DashboardContext, knownProject, UNKNOWN_PROJECT } from "./context"
 import type { ProjectList } from "./contract"
 import { checkDraft, listPrompts, listWorkflows, promptFile, workflowFile } from "./files"
 import { projects } from "./projects"
@@ -95,9 +96,10 @@ export function createApp(
   log: (message: string) => void = () => {},
 ): Hono<Env> {
   const app = new Hono<Env>()
-  const store = fileStore(home)
+  const ctx: DashboardContext = { home, store: fileStore(home) }
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } })
+  const reply = (a: Answer<unknown>): Response => json(a.status, a.body)
   /** This server's own hosts, `<loopback name>:<port>`, and the bare names on port 80. */
   const loopback = (): string[] => {
     const p = port()
@@ -174,45 +176,43 @@ export function createApp(
   app.get("/favicon.ico", () => new Response(null, { status: 204 }))
 
   app.get("/api/projects", () => {
-    const list = projects(home, store)
+    const list = projects(ctx)
     const body: ProjectList = { projects: list, start: list.some((p) => p.key === startKey) ? startKey : null }
     return json(200, body)
   })
 
   // Route parameters arrive decoded (`%2F` is `/`), so each is checked against the names the store lists before it is
   // passed to the store.
-  const known = (key: string): boolean => store.projectKeys().includes(key)
   app.get("/api/projects/:key/changes", (c) => {
     const key = c.req.param("key")
-    if (!known(key)) return json(404, { error: "unknown project" })
-    return json(200, listChanges(store, key))
+    if (!knownProject(ctx, key)) return reply(UNKNOWN_PROJECT)
+    return json(200, listChanges(ctx, key))
   })
   app.get("/api/projects/:key/changes/archive/:dir", (c) => {
     const key = c.req.param("key")
-    if (!known(key)) return json(404, { error: "unknown project" })
+    if (!knownProject(ctx, key)) return reply(UNKNOWN_PROJECT)
     const ref = c.req.param("dir")
-    const archive = datedArchives(store, key).find((e) => e.ref === ref)
+    const archive = datedArchives(ctx, key).find((e) => e.ref === ref)
     if (archive === undefined) return json(404, { error: "unknown archive folder" })
-    return json(200, changeDetail(store, key, archive.id, archive))
+    return json(200, changeDetail(ctx, key, archive.id, archive))
   })
   app.get("/api/projects/:key/changes/:id", (c) => {
     const key = c.req.param("key")
-    if (!known(key)) return json(404, { error: "unknown project" })
+    if (!knownProject(ctx, key)) return reply(UNKNOWN_PROJECT)
     const id = c.req.param("id")
-    if (!store.activeIds(key).includes(id)) return json(404, { error: "unknown change" })
-    return json(200, changeDetail(store, key, id))
+    if (!ctx.store.activeIds(key).includes(id)) return json(404, { error: "unknown change" })
+    return json(200, changeDetail(ctx, key, id))
   })
 
-  app.get("/api/workflows", () => json(200, listWorkflows(home)))
-  app.get("/api/prompts", () => json(200, listPrompts(home)))
-  const reply = (a: Answer): Response => json(a.status, a.body)
+  app.get("/api/workflows", () => json(200, listWorkflows(ctx)))
+  app.get("/api/prompts", () => json(200, listPrompts(ctx)))
   // Each file route serves only the file in its own folder: the global one, or the project's own (never the global one).
-  app.get("/api/workflows/global/:name", (c) => reply(workflowFile(home, null, c.req.param("name"))))
+  app.get("/api/workflows/global/:name", (c) => reply(workflowFile(ctx, null, c.req.param("name"))))
   app.get("/api/workflows/projects/:key/:name", (c) =>
-    reply(workflowFile(home, c.req.param("key"), c.req.param("name"))),
+    reply(workflowFile(ctx, c.req.param("key"), c.req.param("name"))),
   )
-  app.get("/api/prompts/global/:name", (c) => reply(promptFile(home, null, c.req.param("name"))))
-  app.get("/api/prompts/projects/:key/:name", (c) => reply(promptFile(home, c.req.param("key"), c.req.param("name"))))
+  app.get("/api/prompts/global/:name", (c) => reply(promptFile(ctx, null, c.req.param("name"))))
+  app.get("/api/prompts/projects/:key/:name", (c) => reply(promptFile(ctx, c.req.param("key"), c.req.param("name"))))
 
   // The check and write routes. A body that is not JSON, or misses a field or has one of the wrong type, gets 400.
   const invalid = (): Response => json(400, { error: "invalid body" })
@@ -226,7 +226,7 @@ export function createApp(
   app.post("/api/check", async (c) => {
     const f = fields(await body(c), { kind: "string", project: "string?", name: "string", text: "string" })
     if (f === null || (f.kind !== "workflows" && f.kind !== "prompts")) return invalid()
-    return reply(checkDraft(home, f.kind, f.project, f.name, f.text))
+    return reply(checkDraft(ctx, f.kind, f.project, f.name, f.text))
   })
   for (const kind of ["workflows", "prompts"] as const) {
     for (const [scope, projectOfParams] of [
@@ -239,21 +239,21 @@ export function createApp(
         const f = fields(await body(c), { text: "string", base: "string?" })
         if (f === null) return invalid()
         const { project, name } = at(c)
-        return reply(writeFile(home, kind, project, name, f.text, f.base))
+        return reply(writeFile(ctx, kind, project, name, f.text, f.base))
       })
       app.get(`${route}/history`, (c) => {
         const { project, name } = at(c)
-        return reply(listVersions(home, kind, project, name))
+        return reply(listVersions(ctx, kind, project, name))
       })
       app.get(`${route}/history/:id`, (c) => {
         const { project, name } = at(c)
-        return reply(readVersion(home, kind, project, name, c.req.param("id")))
+        return reply(readVersion(ctx, kind, project, name, c.req.param("id")))
       })
       app.post(`${route}/history/:id/restore`, async (c) => {
         const f = fields(await body(c), { base: "string?" })
         if (f === null) return invalid()
         const { project, name } = at(c)
-        return reply(restoreVersion(home, kind, project, name, c.req.param("id"), f.base))
+        return reply(restoreVersion(ctx, kind, project, name, c.req.param("id"), f.base))
       })
     }
   }
@@ -261,15 +261,15 @@ export function createApp(
   app.put("/api/projects/:key/changes/:id/files/:name", async (c) => {
     const f = fields(await body(c), { text: "string", base: "string" })
     if (f === null) return invalid()
-    return reply(writeChangeFile(store, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base))
+    return reply(writeChangeFile(ctx, c.req.param("key"), c.req.param("id"), c.req.param("name"), f.text, f.base))
   })
 
   // The sidebar's settings, `<home>/dashboard.json`: read as empty when missing or invalid, written whole.
-  app.get("/api/dashboard", () => json(200, readSettings(home)))
+  app.get("/api/dashboard", () => json(200, readSettings(ctx)))
   app.put("/api/dashboard", async (c) => {
     const settings = settingsOf(await body(c))
     if (settings === null) return invalid()
-    return reply(writeSettings(home, settings))
+    return reply(writeSettings(ctx, settings))
   })
 
   app.notFound(() => json(404, { error: "not found" }))

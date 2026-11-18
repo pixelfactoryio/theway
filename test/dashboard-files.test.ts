@@ -71,6 +71,26 @@ async function get(h: string, path: string): Promise<{ status: number; body: Rec
   return { status: res.status, body: (await res.json()) as Record<string, unknown> }
 }
 
+/** A write as the page sends it: this server's Origin, the token and a JSON body. */
+async function send(
+  h: string,
+  method: string,
+  path: string,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const res = await app(h).request(`http://127.0.0.1:4870${path}`, {
+    method,
+    headers: {
+      Host: "127.0.0.1:4870",
+      Origin: "http://127.0.0.1:4870",
+      "X-Theway-Token": TOKEN,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+  return { status: res.status, body: (await res.json()) as Record<string, unknown> }
+}
+
 type Row = Record<string, unknown>
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex")
 
@@ -376,6 +396,18 @@ test("the file routes answer 404 outside their own folder", async () => {
     status: 404,
     body: { error: "unknown file" },
   })
+})
+
+test("a file, check or change-file route naming an unknown project answers 404 unknown project", async () => {
+  const h = home()
+  const unknown = { status: 404, body: { error: "unknown project" } }
+  expect(await get(h, "/api/workflows/projects/-nope/agents")).toEqual(unknown)
+  expect(
+    await send(h, "POST", "/api/check", { kind: "workflows", project: "-nope", name: "agents", text: AGENTS }),
+  ).toEqual(unknown)
+  expect(
+    await send(h, "PUT", "/api/projects/-nope/changes/add-x/files/spec.md", { text: "# Spec\n", base: sha("") }),
+  ).toEqual(unknown)
 })
 
 // Needs a chmod-based permission error.

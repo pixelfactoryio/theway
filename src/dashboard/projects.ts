@@ -3,13 +3,9 @@ import { readdirSync } from "node:fs"
 import { basename, join, parse } from "node:path"
 import { isDir } from "../core/io"
 import { keyOf, recordedRoot } from "../core/project"
-import type { ChangeStore } from "../core/store"
-import { fileStore } from "../core/store/files"
 import { byText } from "../core/text"
+import type { DashboardContext } from "./context"
 import type { Project } from "./contract"
-
-/** The project keys of a home, sorted: the non-hidden folders of its `projects/` whose name is a valid key. */
-export const projectKeys = (home: string): string[] => fileStore(home).projectKeys()
 
 /** The subfolder names of `dir`; none when it cannot be read. */
 function subfolders(dir: string): string[] {
@@ -82,22 +78,22 @@ function labels(keys: string[], find: (key: string) => string | null): string[] 
 }
 
 /** The folder of a project: the root its `root` file records when that is a folder, else the one `folderOf` finds. */
-function folderIn(home: string, key: string): string | null {
-  const recorded = recordedRoot(home, key)
+function folderIn(ctx: DashboardContext, key: string): string | null {
+  const recorded = recordedRoot(ctx.home, key)
   return recorded !== null && isDir(recorded) ? recorded : folderOf(key)
 }
 
 /** Every project of a home, sorted by key, with its label, its number of active changes and its folder. */
-export function projects(home: string, store: ChangeStore): Project[] {
-  const keys = store.projectKeys()
-  const found = new Map(keys.map((key) => [key, folderIn(home, key)] as const))
+export function projects(ctx: DashboardContext): Project[] {
+  const keys = ctx.store.projectKeys()
+  const found = new Map(keys.map((key) => [key, folderIn(ctx, key)] as const))
   const names = labels(keys, (k) => found.get(k) ?? null)
   return keys.map((key, i) => {
     const folder = found.get(key) ?? null
     return {
       key,
       label: names[i] as string,
-      active: store.activeIds(key).length,
+      active: ctx.store.activeIds(key).length,
       path: folder === null || isRoot(folder) ? null : folder,
     }
   })
