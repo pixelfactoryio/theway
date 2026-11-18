@@ -10,6 +10,7 @@ import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
 import { useSaveKey } from "@/components/step-prompt"
 import { StatusPill } from "@/components/status"
@@ -308,12 +309,10 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             <EditableCodeView ref={code} draft={draft.store} errors={errors} />
           </div>
         )}
-        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-          <span className="font-mono">{name}.md</span>
-          <span className="ml-auto">
-            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
-          </span>
-        </div>
+        <DocFooter
+          file={`${name}.md`}
+          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
+        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

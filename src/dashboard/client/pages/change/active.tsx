@@ -11,6 +11,7 @@ import { DescriptionField, IssuesAlert } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
 import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
 import { type CodeLanguage, type CodeViewHandle, EditableCodeView, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
 import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
@@ -245,14 +246,11 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       {current.file === null ? <ChangeTitle change={shown} className="pb-4" /> : null}
       {notices}
       {content}
-      <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-        <span className="font-mono">{shownName}</span>
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums">{lineCount(fileText(shownName))} lines</span>
-        <span className="ml-auto">
-          <DraftStatus dirty={drafts.isDirty(shownName)} saved={drafts.isSaved(shownName)} />
-        </span>
-      </div>
+      <DocFooter
+        file={shownName}
+        details={[<span className="tabular-nums">{lineCount(fileText(shownName))} lines</span>]}
+        status={<DraftStatus dirty={drafts.isDirty(shownName)} saved={drafts.isSaved(shownName)} />}
+      />
     </>
   )
 

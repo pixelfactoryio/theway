@@ -4,6 +4,7 @@ import { CheckIcon, FileTextIcon, ListChecksIcon } from "lucide-react"
 import { ChangeTitle, IssuesAlert } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
 import { MarkdownView } from "@/components/markdown"
 import { TaskText } from "@/components/text"
 import { splitTask } from "@/lib/change-edit"
@@ -89,11 +90,10 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
           )}
         </div>
       </div>
-      <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-        {file !== undefined ? <span className="font-mono">{file.name}</span> : <span>Tasks</span>}
-        <span aria-hidden="true">·</span>
-        <span>Archived {data.archived}, read-only</span>
-      </div>
+      <DocFooter
+        file={file !== undefined ? file.name : <span className="font-sans">Tasks</span>}
+        details={[`Archived ${data.archived}, read-only`]}
+      />
     </DocFrame>
   )
 }

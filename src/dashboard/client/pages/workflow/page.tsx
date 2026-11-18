@@ -8,6 +8,7 @@ import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
 import { type AlertLine, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
@@ -455,12 +456,10 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             header={heading}
           />
         )}
-        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-          <span className="font-mono">{name}.yaml</span>
-          <span className="ml-auto">
-            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
-          </span>
-        </div>
+        <DocFooter
+          file={`${name}.yaml`}
+          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
+        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>
