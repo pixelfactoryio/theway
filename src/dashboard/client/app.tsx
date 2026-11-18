@@ -157,7 +157,7 @@ function Shell() {
                     groupResizeBehavior="preserve-pixel-size"
                     className="flex min-h-0 flex-col"
                   >
-                    <aside aria-label={panelName ?? undefined} className="flex h-svh flex-col border-l bg-sidebar">
+                    <aside aria-label={panelName ?? undefined} className="flex h-svh flex-col bg-sidebar">
                       <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
                     </aside>
                   </ResizablePanel>
