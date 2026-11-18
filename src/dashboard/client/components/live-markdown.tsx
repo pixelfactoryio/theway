@@ -24,6 +24,7 @@ import {
   decorationPlan,
   type LineKind,
   type MarkKind,
+  softBreaks as softBreakSpans,
   type TableBlock,
   tableBlocks,
   taskToggle,
@@ -357,6 +358,35 @@ export const tables = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 })
 
+/** A soft line break, joined: one space in place of the break and the next line's indentation and quote marks. */
+class SpaceWidget extends WidgetType {
+  eq(): boolean {
+    return true
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement("span")
+    span.textContent = " "
+    return span
+  }
+}
+
+const SPACE = Decoration.replace({ widget: new SpaceWidget() })
+
+const softBreakDecorations = (state: EditorState): DecorationSet =>
+  Decoration.set(softBreakSpans(state.doc, syntaxTree(state)).map((b) => SPACE.range(b.from, b.to)))
+
+/**
+ * A read view's soft line breaks, each replaced by a space so a paragraph flows as one, as CommonMark renders it. The
+ * replacements cover line breaks, which only decorations given directly from state may do.
+ */
+export const softBreaks = StateField.define<DecorationSet>({
+  create: softBreakDecorations,
+  update: (set, tr) =>
+    tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? softBreakDecorations(tr.state) : set,
+  provide: (field) => EditorView.decorations.from(field),
+})
+
 /** A mousedown on a drawn table puts the cursor at its start, so its source shows for editing. */
 const tableClick = EditorView.domEventHandlers({
   mousedown(event, view) {
@@ -466,7 +496,7 @@ const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length
  * coloured by their scoped highlight styles, the live preview, history with the stock keys and `Mod-Shift-z` as redo,
  * the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator and the style nonce.
  * It binds no `Mod-s`: saving is the page's. `readOnly` gives the set of a read view: not editable, no history, no keys,
- * no table click, and no line ever active, so the text always shows formatted.
+ * no table click, no line ever active, so the text always shows formatted, and soft line breaks joined.
  */
 export function liveExtensions({
   name,
@@ -487,6 +517,7 @@ export function liveExtensions({
     return [
       LIVE.of(true),
       ...preview,
+      softBreaks,
       THEME,
       EditorView.lineWrapping,
       EditorState.readOnly.of(true),

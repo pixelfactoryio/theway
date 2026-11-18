@@ -371,3 +371,51 @@ export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>):
   })
   return blocks
 }
+
+/**
+ * The soft line breaks of `tree`'s paragraphs (a task item's text included), to join into one flowing paragraph as CommonMark renders them: each from
+ * the end of a paragraph's line to the first character of its text on the next line, so the next line's indentation and
+ * blockquote marks are covered too. A hard break (two or more trailing spaces, or a backslash) keeps its line break;
+ * headings, code, tables, raw HTML, blank lines and a list item's own first line are no paragraph's soft break.
+ */
+export function softBreaks(doc: Text, tree: Tree): Span[] {
+  const breaks: Span[] = []
+  tree.iterate({
+    enter: (ref) => {
+      if (SOURCE.has(ref.name) || ref.name === "FencedCode" || ref.name === "CodeBlock" || ref.name === "Table")
+        return false
+      // A task item's paragraph is its `Task` node.
+      if (ref.name !== "Paragraph" && ref.name !== "Task") return undefined
+      const first = doc.lineAt(ref.from).number
+      const last = doc.lineAt(ref.to).number
+      if (last === first) return false
+      // The lines that end in a hard break, and where the paragraph's blockquote marks start.
+      const hard = new Set<number>()
+      const quotes = new Map<number, number>()
+      tree.iterate({
+        from: ref.from,
+        to: ref.to,
+        enter: (c) => {
+          if (c.from < ref.from) return undefined
+          if (c.name === "HardBreak") hard.add(doc.lineAt(c.from).number)
+          else if (c.name === "QuoteMark") quotes.set(c.from, c.to)
+          return undefined
+        },
+      })
+      for (let n = first; n < last; n++) {
+        if (hard.has(n)) continue
+        const next = doc.line(n + 1)
+        let to = next.from
+        for (;;) {
+          while (to < next.to && /^[ \t]$/.test(doc.sliceString(to, to + 1))) to++
+          const quote = quotes.get(to)
+          if (quote === undefined) break
+          to = quote
+        }
+        breaks.push({ from: doc.line(n).to, to })
+      }
+      return false
+    },
+  })
+  return breaks
+}

@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { historyField } from "@codemirror/commands"
 import { EditorState } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
-import { liveExtensions, tables } from "../src/dashboard/client/components/live-markdown"
+import { liveExtensions, softBreaks, tables } from "../src/dashboard/client/components/live-markdown"
 
 const realDocument = (globalThis as { document?: unknown }).document
 
@@ -35,6 +35,22 @@ test("the read-only set is read-only, not editable and keeps no history", () => 
 test("a read-only state draws a table on the selection's line; an editable one shows its source", () => {
   expect(stateOf(TABLE, true).field(tables).size).toBe(1)
   expect(stateOf(TABLE, false).field(tables).size).toBe(0)
+})
+
+test("a read-only state joins a paragraph's soft line breaks, not its hard breaks or code; an editable one has none", () => {
+  const doc = "a\nb\n\n- c\n  d\n\n> e\n> f\n\ng  \nh\n\n```\nx\ny\n```"
+  const joined: { from: number; to: number; text: string }[] = []
+  stateOf(doc, true)
+    .field(softBreaks)
+    .between(0, doc.length, (from, to) => {
+      joined.push({ from, to, text: doc.slice(from, to) })
+    })
+  expect(joined).toEqual([
+    { from: 1, to: 2, text: "\n" },
+    { from: 8, to: 11, text: "\n  " },
+    { from: 17, to: 20, text: "\n> " },
+  ])
+  expect(stateOf(doc, false).field(softBreaks, false)).toBeUndefined()
 })
 
 test("the editable set is unchanged: editable, with history", () => {
