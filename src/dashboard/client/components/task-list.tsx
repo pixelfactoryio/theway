@@ -4,7 +4,6 @@ import {
   ArrowUpIcon,
   ChevronRightIcon,
   GripVerticalIcon,
-  MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -12,18 +11,11 @@ import {
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
 import { TextField } from "@/components/change-fields"
+import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
 import { TaskText } from "@/components/text"
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { splitTask, taskName } from "@/lib/change-edit"
 import type { OpenField } from "@/lib/task-fields"
 
@@ -44,83 +36,6 @@ export type TaskListActions = {
 }
 
 const LAST_TASK = "A change keeps at least one task."
-
-/** A row's menu: Edit, Move up, Move down, Add a task below, then Delete. */
-function RowMenu({
-  n,
-  first,
-  last,
-  only,
-  onEdit,
-  onMove,
-  onAddBelow,
-  onDelete,
-}: {
-  n: number
-  first: boolean
-  last: boolean
-  only: boolean
-  onEdit: () => void
-  onMove: (delta: -1 | 1) => void
-  onAddBelow: () => void
-  onDelete: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  // An action that moves the focus elsewhere keeps the menu from giving it back to its button.
-  const keep = useRef(false)
-  const act = (f: () => void) => () => {
-    keep.current = true
-    f()
-  }
-  const remove = (
-    <DropdownMenuItem variant="destructive" disabled={only} onClick={act(onDelete)}>
-      <Trash2Icon aria-hidden="true" />
-      Delete
-    </DropdownMenuItem>
-  )
-  return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(next) => {
-        if (next) keep.current = false
-        setOpen(next)
-      }}
-    >
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Task ${n} actions`}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-          />
-        }
-      >
-        <MoreHorizontalIcon aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48" finalFocus={() => !keep.current}>
-        <DropdownMenuItem onClick={act(onEdit)}>
-          <PencilIcon aria-hidden="true" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={first} onClick={act(() => onMove(-1))}>
-          <ArrowUpIcon aria-hidden="true" />
-          Move up
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={last} onClick={act(() => onMove(1))}>
-          <ArrowDownIcon aria-hidden="true" />
-          Move down
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={act(onAddBelow)}>
-          <PlusIcon aria-hidden="true" />
-          Add a task below
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {only ? <span title={LAST_TASK}>{remove}</span> : remove}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 /** One task: a focusable row with its handle, checkbox, number, text (or its field) and menu. */
 function Row({
@@ -143,6 +58,13 @@ function Row({
 }) {
   const n = index + 1
   const [more, setMore] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  // A menu action that moves the focus elsewhere keeps the menu from giving it back to its button.
+  const keepFocus = useRef(false)
+  const act = (f: () => void) => () => {
+    keepFocus.current = true
+    f()
+  }
   const { lead, detail } = splitTask(row.text)
   const clamped = !next && !more
   const editing = field?.kind === "task" && field.id === row.id ? field : null
@@ -240,19 +162,50 @@ function Row({
           </button>
         ) : null}
       </div>
-      <RowMenu
-        n={n}
-        first={index === 0}
-        last={index === count - 1}
-        only={count === 1}
-        onEdit={edit}
-        onMove={move}
-        onAddBelow={() => actions.open({ kind: "below", id: row.id, value: "", error: null })}
-        onDelete={() => {
-          actions.remove(index)
-          const next = index + 1 < count ? index : index - 1
-          if (next >= 0) focusRow(`#${next}`)
+      <ReorderMenu
+        label={`Task ${n} actions`}
+        size="icon-sm"
+        triggerClassName="shrink-0 text-muted-foreground hover:text-foreground"
+        contentClassName="w-48"
+        open={menuOpen}
+        onOpenChange={(open) => {
+          if (open) keepFocus.current = false
+          setMenuOpen(open)
         }}
+        finalFocus={() => !keepFocus.current}
+        items={[
+          { label: "Edit", icon: <PencilIcon aria-hidden="true" />, onSelect: act(edit) },
+          {
+            label: "Move up",
+            icon: <ArrowUpIcon aria-hidden="true" />,
+            disabled: index === 0,
+            onSelect: act(() => move(-1)),
+          },
+          {
+            label: "Move down",
+            icon: <ArrowDownIcon aria-hidden="true" />,
+            disabled: index === count - 1,
+            onSelect: act(() => move(1)),
+          },
+          {
+            label: "Add a task below",
+            icon: <PlusIcon aria-hidden="true" />,
+            onSelect: act(() => actions.open({ kind: "below", id: row.id, value: "", error: null })),
+          },
+          "separator",
+          {
+            label: "Delete",
+            icon: <Trash2Icon aria-hidden="true" />,
+            destructive: true,
+            disabled: count === 1,
+            title: count === 1 ? LAST_TASK : undefined,
+            onSelect: act(() => {
+              actions.remove(index)
+              const next = index + 1 < count ? index : index - 1
+              if (next >= 0) focusRow(`#${next}`)
+            }),
+          },
+        ]}
       />
     </SortableItem>
   )

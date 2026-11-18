@@ -21,6 +21,8 @@ import {
 } from "@xyflow/react"
 import { cn } from "cn"
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   FileTextIcon,
   MinusIcon,
   PlusIcon,
@@ -28,6 +30,7 @@ import {
   RotateCcwIcon,
   ScanIcon,
   TextCursorInputIcon,
+  Trash2Icon,
   Undo2Icon,
 } from "lucide-react"
 import {
@@ -47,7 +50,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { AddButton, Card, CardLine, Placeholder, StepMenu } from "@/components/workflow-card"
+import { ReorderMenu } from "@/components/reorder-menu"
+import { AddButton, Card, CardLine, Placeholder } from "@/components/workflow-card"
 import type { DraftStore } from "@/drafts/draft-store"
 import { type Drawing, sameSelection, type Selection } from "@/lib/workflow"
 import {
@@ -155,11 +159,32 @@ function StepNode({ data }: NodeProps<FlowNode>) {
         selected={sameSelection(selection, own)}
         menu={
           edits === null ? null : (
-            <StepMenu
-              first={index === 0}
-              last={index === total - 1}
-              onMove={(delta) => edits.onMove(index, delta)}
-              onRemove={() => edits.onRemove(index)}
+            <ReorderMenu
+              label="Step actions"
+              size="icon-xs"
+              triggerClassName="absolute top-3 right-2"
+              contentClassName="w-auto"
+              items={[
+                {
+                  label: "Move up",
+                  icon: <ArrowUpIcon aria-hidden="true" />,
+                  disabled: index === 0,
+                  onSelect: () => edits.onMove(index, -1),
+                },
+                {
+                  label: "Move down",
+                  icon: <ArrowDownIcon aria-hidden="true" />,
+                  disabled: index === total - 1,
+                  onSelect: () => edits.onMove(index, 1),
+                },
+                "separator",
+                {
+                  label: "Remove step",
+                  icon: <Trash2Icon aria-hidden="true" />,
+                  destructive: true,
+                  onSelect: () => edits.onRemove(index),
+                },
+              ]}
             />
           )
         }
