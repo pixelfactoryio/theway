@@ -44,12 +44,12 @@ import {
   useSyncExternalStore,
 } from "react"
 
-import type { DraftStore } from "@/components/code-view"
 import { Kbd } from "@/components/ui/kbd"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { AddButton, Card, CardLine, Placeholder, StepMenu } from "@/components/workflow-card"
+import type { DraftStore } from "@/drafts/draft-store"
 import { type Drawing, sameSelection, type Selection } from "@/lib/workflow"
 import {
   addCentre,

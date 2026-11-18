@@ -8,14 +8,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import type { Confirm } from "@/drafts/use-drafts"
 import { saveWithErrors } from "@/lib/edit"
-
-/** The confirmation open on the page. */
-export type Confirm =
-  | { kind: "discard"; name: string }
-  | { kind: "reload"; name: string }
-  | { kind: "errors"; n: number; answer: (yes: boolean) => void }
-  | { kind: "leave"; proceed: () => void }
 
 /** The page's confirmations: Discard, Reload, Save with errors, and leaving the page. */
 export function ChangeDialogs({

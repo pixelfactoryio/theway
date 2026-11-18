@@ -5,7 +5,7 @@ import { HighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/l
 import { type Diagnostic, lintGutter, setDiagnostics } from "@codemirror/lint"
 import { MergeView, unifiedMergeView } from "@codemirror/merge"
 import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
-import { EditorSelection, EditorState, type Extension, Transaction, type TransactionSpec } from "@codemirror/state"
+import { EditorSelection, EditorState, type Extension } from "@codemirror/state"
 import {
   drawSelection,
   EditorView,
@@ -18,6 +18,7 @@ import { tags } from "@lezer/highlight"
 import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref } from "react"
 
 import { meta } from "@/data/api"
+import type { DraftStore } from "@/drafts/draft-store"
 import { CODE_TAG_STYLES } from "@/lib/code-languages"
 import { type FileError, lineSeparatorOf } from "@/lib/files"
 
@@ -137,66 +138,6 @@ export function draftState(text: string, language: CodeLanguage, name: string): 
     doc: text,
     extensions: editableExtensions({ language, name, separator: lineSeparatorOf(text) }),
   })
-}
-
-/**
- * A file page's draft: one CodeMirror state and one dispatch function. A mounted editable view shows that state and
- * its transactions update it; with no view mounted, `dispatch` applies them to the state alone.
- */
-export class DraftStore {
-  state: EditorState
-  view: EditorView | null = null
-  /** Counts the states taken by `replace`. */
-  generation = 0
-  private readonly listeners = new Set<() => void>()
-
-  constructor(state: EditorState) {
-    this.state = state
-  }
-
-  subscribe = (l: () => void): (() => void) => {
-    this.listeners.add(l)
-    return () => this.listeners.delete(l)
-  }
-
-  getState = (): EditorState => this.state
-
-  /**
-   * The one dispatch function: through the mounted view, else on the state. It takes transaction specs, or a
-   * transaction made from the current state (as `undo` and `redo` of `@codemirror/commands` give it).
-   */
-  dispatch = (...specs: (TransactionSpec | Transaction)[]): void => {
-    const [first] = specs
-    if (first instanceof Transaction) {
-      if (this.view !== null) this.view.dispatch(first)
-      else this.set(first.state)
-      return
-    }
-    if (this.view !== null) this.view.dispatch(...(specs as TransactionSpec[]))
-    else this.set(this.state.update(...(specs as TransactionSpec[])).state)
-  }
-
-  /** Makes `v` the mounted view the store dispatches through. */
-  attach(v: EditorView): void {
-    this.view = v
-  }
-
-  /** Forgets `v` when it is still the mounted view. */
-  detach(v: EditorView): void {
-    if (this.view === v) this.view = null
-  }
-
-  /** Takes a new state (Discard, Reload, Restore): an empty undo history. */
-  replace(state: EditorState): void {
-    this.generation += 1
-    this.view?.setState(state)
-    this.set(state)
-  }
-
-  set(state: EditorState): void {
-    this.state = state
-    for (const l of this.listeners) l()
-  }
 }
 
 /** The marks of `errors` that have a line within the document: from the line's first non-blank character to its end. */

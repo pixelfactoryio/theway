@@ -1,5 +1,5 @@
 /** The home's workflow and prompt files as the Workflows and Prompts pages show them. Pure: no React, no DOM. */
-import type { PromptRow, Use, WorkflowRow } from "../../contract"
+import type { CheckBody, FileError, PromptRow, Use, WorkflowRow } from "../../contract"
 import { byText, splitHeader } from "../../../core/text"
 import { countOf, NONE } from "./list-filter"
 
@@ -158,3 +158,16 @@ export const lineSeparatorOf = (text: string): string => {
 
 /** A default value as the Details panel writes it: JSON-quoted. */
 export const quoted = (value: string): string => JSON.stringify(value)
+
+/** The header fields a check answers for a prompt, as a row of `GET /api/prompts` gives them. */
+export type HeaderFields = Pick<PromptRow, "header" | "description" | "model" | "inputs">
+
+/** A check answer applied to the page: the text it checked, its lines and, for a prompt, its header fields. */
+export type CheckResult = { text: string; errors: FileError[]; header: HeaderFields | null }
+
+export const headerOf = (body: CheckBody): HeaderFields => ({
+  header: body.header === true,
+  description: body.description ?? null,
+  model: body.model ?? null,
+  inputs: body.inputs ?? [],
+})

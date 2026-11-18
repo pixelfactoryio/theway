@@ -29,7 +29,13 @@ test("the strings of the save confirmation and the versions list", () => {
 test("the editable set adds Mod-Shift-z as redo, and the draft is read with sliceDoc only", () => {
   const code = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
   expect(code).toContain('{ key: "Mod-Shift-z", run: redo, preventDefault: true }')
-  const sources = ["components/draft.tsx", "pages/prompt.tsx", "pages/workflow.tsx"]
+  const sources = [
+    "drafts/draft-set.ts",
+    "drafts/use-drafts.ts",
+    "components/file-draft.ts",
+    "pages/prompt.tsx",
+    "pages/workflow.tsx",
+  ]
     .map((f) => readFileSync(join(CLIENT, f), "utf-8"))
     .join("\n")
   expect(sources).not.toContain("doc.toString()")

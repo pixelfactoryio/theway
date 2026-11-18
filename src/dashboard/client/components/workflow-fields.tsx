@@ -2,12 +2,12 @@ import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
 import { useEffect, useRef, useState } from "react"
 
-import type { DraftStore } from "@/components/code-view"
 import { KeyLabelText } from "@/components/file-page"
 import { FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import type { DraftStore } from "@/drafts/draft-store"
 import { keyError, RUNS_ON_ORDER, type TextValue } from "@/lib/workflow-form"
 import type { Place } from "@/lib/workflow-place"
 

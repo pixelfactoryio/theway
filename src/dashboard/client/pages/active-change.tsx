@@ -1,18 +1,9 @@
 import { isolateHistory, undo } from "@codemirror/commands"
-import type { Text } from "@codemirror/state"
+import { EditorState, type Text } from "@codemirror/state"
 import { arrayMove } from "@dnd-kit/sortable"
 import { useQueryClient } from "@tanstack/react-query"
 import { CircleAlertIcon, FileCodeIcon, FileTextIcon, Trash2Icon, XIcon } from "lucide-react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { useLocation } from "wouter"
 
 import {
@@ -24,32 +15,51 @@ import {
   editedChangeText,
 } from "../../../core/change-text"
 import { DESCRIPTION_EMPTY, type OpenField, TASK_EMPTY } from "@/components/change-fields"
-import { ChangeDialogs, type Confirm } from "@/components/change-dialogs"
-import { ChangeDrafts, type Loaded } from "@/components/change-drafts"
+import { ChangeDialogs } from "@/components/change-dialogs"
 import { type DescriptionEdit, DescriptionField, IssuesAlert } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
 import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
-import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft"
+import { type CodeLanguage, type CodeViewHandle, EditableCodeView, editableExtensions } from "@/components/code-view"
+import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
 import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { LiveMarkdown } from "@/components/live-markdown"
+import { formattingKeymap } from "@/components/markdown-editor"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { useSaveKey } from "@/components/step-prompt"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
 import { getJson } from "@/data/api"
 import { apiPath, queryKeys, useWrites } from "@/data/queries"
+import type { SyncedFile } from "@/drafts/draft-set"
+import { useDrafts } from "@/drafts/use-drafts"
 import { keptIds, oneLine } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
+import { lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
-import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
-function loadedFiles(data: ChangeDetail): ({ name: string } & Loaded)[] {
+function loadedFiles(data: ChangeDetail): SyncedFile[] {
   const files = data.files.map((f) => ({ name: f.name, text: f.text, version: f.version ?? "" }))
   return data.changeFile ? [...files, { name: CHANGE_FILE, ...data.changeFile }] : files
+}
+
+/** A file's language: YAML for `change.yaml`, Markdown for the others. */
+const languageOf = (name: string): CodeLanguage => (name === CHANGE_FILE ? "yaml" : "markdown")
+
+/**
+ * A new state of `text` for the file `name`, with an empty undo history and the file's line separator; a Markdown
+ * file's state also holds the formatting keys.
+ */
+function stateOf(name: string, text: string): EditorState {
+  return EditorState.create({
+    doc: text,
+    extensions: [
+      ...editableExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }),
+      ...(languageOf(name) === "markdown" ? [formattingKeymap] : []),
+    ],
+  })
 }
 
 let lastId = 0
@@ -80,13 +90,49 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const queryClient = useQueryClient()
   const writes = useWrites()
   const [, navigate] = useLocation()
-  const [drafts] = useState(
-    () => new ChangeDrafts((file, text, base) => writes.saveChangeFile(projectKey, data.id, file, text, base)),
-  )
+  const [undoNote, setUndoNote] = useState<{ n: number; doc: Text } | null>(null)
   const files = useMemo(() => loadedFiles(data), [data])
-  if (drafts.drafts.size === 0 && files.length > 0) drafts.sync(files)
-  useEffect(() => drafts.sync(files), [drafts, files])
-  useSyncExternalStore(drafts.subscribe, drafts.getVersion)
+  /** Every file in tab order: the Markdown files, then `change.yaml` at the Tasks tab's place. */
+  const order = useMemo(() => files.map((f) => f.name), [files])
+  // A save, a discard or a reload of `change.yaml` drops the undo notice.
+  const clearUndo = (file: string) => {
+    if (file === CHANGE_FILE) setUndoNote(null)
+  }
+  const {
+    set: drafts,
+    confirm,
+    setConfirm,
+    save,
+    doDiscard,
+    reload,
+    doReload,
+    saveAll,
+  } = useDrafts({
+    files,
+    stateOf,
+    put: (file, text, base) => writes.saveChangeFile(projectKey, data.id, file, text, base),
+    /** Loads the change again and picks that file. */
+    refetch: async (file) => {
+      const path = apiPath.change(projectKey, data.id)
+      let fresh: ChangeDetail
+      try {
+        fresh = await getJson(path, ChangeDetailSchema)
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e)
+      }
+      const loaded = loadedFiles(fresh).find((f) => f.name === file)
+      if (loaded === undefined) return "unknown file"
+      queryClient.setQueryData(queryKeys.change(path), fresh)
+      return loaded
+    },
+    errorCount: (file, text) => (file === CHANGE_FILE ? changeTextErrors(text).length : 0),
+    leaves: (target) => leavesChange({ key: projectKey, id: data.id }, target),
+    extraDirty: () => fieldDiffers(),
+    onSaved: clearUndo,
+    onDiscarded: clearUndo,
+    onReloaded: clearUndo,
+    order,
+  })
 
   // Everything on the page reads the `change.yaml` draft.
   const yaml = drafts.get(CHANGE_FILE) ?? null
@@ -132,9 +178,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const rows: TaskRow[] = tasks.map((t, i) => ({ id: ids[i] as string, text: t.text, done: t.done }))
 
   const [actionError, setActionError] = useState<string | null>(null)
-  const [undoNote, setUndoNote] = useState<{ n: number; doc: Text } | null>(null)
   const [focus, setFocus] = useState<string | null>(null)
-  const [confirm, setConfirm] = useState<Confirm | null>(null)
   const code = useRef<CodeViewHandle>(null)
 
   // The latest field, tasks and row ids, for the event handlers.
@@ -267,79 +311,24 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const name = current.file ?? CHANGE_FILE
   const draft = drafts.get(name) ?? null
   const textView = current.file === null && yaml !== null
-  /** Every file in tab order: the Markdown files, then `change.yaml` at the Tasks tab's place. */
-  const order = [...data.files.map((f) => f.name), ...(yaml !== null ? [CHANGE_FILE] : [])]
   const tabOf = (file: string): ChangeTab | undefined => tabs.find((t) => (t.file ?? CHANGE_FILE) === file)
-  const anyDirty = useCallback((): boolean => [...drafts.drafts.keys()].some((n) => drafts.isDirty(n)), [drafts])
 
   // The undo notice goes away at the next edit of the draft.
   const undoShown = undoNote !== null && yaml !== null && yaml.store.state.doc === undoNote.doc
-
-  /** Writes a file's draft; `ask` asks "Save anyway" first when the `change.yaml` draft has errors. */
-  const save = async (file: string, ask: boolean): Promise<boolean> => {
-    if (ask && file === CHANGE_FILE) {
-      const text = drafts.text(CHANGE_FILE)
-      const n = text === null ? 0 : changeTextErrors(text).length
-      if (n > 0 && !(await new Promise<boolean>((answer) => setConfirm({ kind: "errors", n, answer })))) return false
-    }
-    const ok = await drafts.save(file)
-    if (ok && file === CHANGE_FILE) setUndoNote(null)
-    return ok
-  }
-
-  const discard = (file: string) => {
-    drafts.discard(file)
-    if (file === CHANGE_FILE) setUndoNote(null)
-  }
-
-  /** Loads the change again and drops that file's draft only. */
-  const reload = async (file: string) => {
-    const path = apiPath.change(projectKey, data.id)
-    let fresh: ChangeDetail
-    try {
-      fresh = await getJson(path, ChangeDetailSchema)
-    } catch (e) {
-      drafts.fail(file, e instanceof Error ? e.message : String(e))
-      return
-    }
-    const loaded = loadedFiles(fresh).find((f) => f.name === file)
-    if (loaded === undefined) {
-      drafts.fail(file, "unknown file")
-      return
-    }
-    drafts.reload(file, loaded)
-    if (file === CHANGE_FILE) setUndoNote(null)
-    queryClient.setQueryData(queryKeys.change(path), fresh)
-  }
 
   /** The leave dialog's Save: the open field applied, then every dirty draft written in tab order. */
   const saveAndLeave = async (proceed: () => void) => {
     setConfirm(null)
     const f = live.current.field
     if (f !== null && fieldDiffers() && !applyField(f, false)) return
-    for (const file of order) {
-      if (!drafts.isDirty(file)) continue
-      if (!(await save(file, false))) {
-        const t = tabOf(file)
-        if (t !== undefined) navigate(to.change(projectKey, data.id, t.slug))
-        return
-      }
+    const failed = await saveAll()
+    if (failed === null) {
+      proceed()
+      return
     }
-    proceed()
+    const t = tabOf(failed)
+    if (t !== undefined) navigate(to.change(projectKey, data.id, t.slug))
   }
-
-  // Leaving the change page asks first while a draft is dirty or an open field holds another text; closing or
-  // reloading the browser tab gets the browser's prompt.
-  useEffect(
-    () =>
-      setLeaveGuard({
-        leaves: (target) => leavesChange({ key: projectKey, id: data.id }, target),
-        isDirty: () => anyDirty() || fieldDiffers(),
-        ask: (proceed) => setConfirm({ kind: "leave", proceed }),
-      }),
-    [projectKey, data.id, anyDirty, fieldDiffers],
-  )
-  useBeforeUnload(anyDirty() || differs(field, tasks, description, ids))
 
   const lines = useMemo<AlertLine[]>(
     () =>
@@ -359,26 +348,22 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   )
 
   /** ⌘S / Ctrl+S: writes every file of the change with unsaved edits, `change.yaml` checked first. */
-  const saveAll = async () => {
+  const saveDirty = async () => {
     const f = live.current.field
     if (f !== null && fieldDiffers() && !applyField(f, false)) return
     for (const file of order) {
       if (drafts.isDirty(file) && !(await save(file, true))) return
     }
   }
-  const saveRef = useRef(saveAll)
+  const saveRef = useRef(saveDirty)
   useLayoutEffect(() => {
-    saveRef.current = saveAll
+    saveRef.current = saveDirty
   })
   useSaveKey(useCallback(() => void saveRef.current(), []))
 
   const notices = (
     <>
-      {draft?.conflict ? (
-        <ConflictNotice
-          onReload={() => (drafts.isDirty(name) ? setConfirm({ kind: "reload", name }) : void reload(name))}
-        />
-      ) : null}
+      {draft?.conflict ? <ConflictNotice onReload={() => reload(name)} /> : null}
       {draft !== null && draft.saveFailure !== null ? <SaveFailureNotice message={draft.saveFailure} /> : null}
       {textView ? <ErrorStrip lines={lines} /> : null}
     </>
@@ -517,8 +502,8 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       <ChangeDialogs
         confirm={confirm}
         setConfirm={setConfirm}
-        onDiscard={discard}
-        onReload={(file) => void reload(file)}
+        onDiscard={doDiscard}
+        onReload={(file) => void doReload(file)}
         onLeaveSave={(proceed) => void saveAndLeave(proceed)}
       />
     </>

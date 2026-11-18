@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 
 import { type CodeLanguage, CodeView, DiffView } from "@/components/code-view"
-import type { FileDraft } from "@/components/draft"
+import type { FileDraft } from "@/components/file-draft"
 import { Badge } from "@/components/reui/badge"
 import {
   Timeline,
