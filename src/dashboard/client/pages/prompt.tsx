@@ -3,7 +3,8 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, DraftStatus, type HeaderFields, useFileDraft } from "@/components/draft"
+import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
@@ -13,7 +14,16 @@ import { FileStatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
-import { appliesTo, type FileBody, KIND_LABEL, kindOf, previewText, type PromptRow, describeUse } from "@/lib/files"
+import {
+  appliesTo,
+  type FileBody,
+  type HeaderFields,
+  KIND_LABEL,
+  kindOf,
+  previewText,
+  type PromptRow,
+  describeUse,
+} from "@/lib/files"
 import { to } from "@/lib/routes"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, TopBar } from "@/shell/top-bar"

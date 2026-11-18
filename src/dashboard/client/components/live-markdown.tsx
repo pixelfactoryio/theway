@@ -14,9 +14,9 @@ import {
 import { cn } from "cn"
 import { useEffect, useRef, useSyncExternalStore } from "react"
 
-import type { DraftStore } from "@/components/code-view"
 import { formattingKeymap } from "@/components/markdown-editor"
 import { meta } from "@/data/api"
+import type { DraftStore } from "@/drafts/draft-store"
 import { inlineCode, isLinkTarget } from "@/lib/changes"
 import { CODE_BLOCK_STYLES, CODE_LANGUAGES } from "@/lib/code-languages"
 import {
