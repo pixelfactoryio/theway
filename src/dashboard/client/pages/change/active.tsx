@@ -13,7 +13,7 @@ import {
   changeTextErrors,
   checkChangeText,
   editedChangeText,
-} from "../../../core/change-text"
+} from "../../../../core/change-text"
 import { DESCRIPTION_EMPTY, type OpenField, TASK_EMPTY } from "@/components/change-fields"
 import { ChangeDialogs } from "@/components/change-dialogs"
 import { type DescriptionEdit, DescriptionField, IssuesAlert } from "@/components/change-header"

@@ -38,7 +38,7 @@ import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
-import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/pages/files-table"
+import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/components/files-table"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
