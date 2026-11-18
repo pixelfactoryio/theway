@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { useCallback } from "react"
 
+import { getJson } from "@/data/api"
 import { FileBodySchema, fileApi, PromptListSchema, WorkflowListSchema } from "@/lib/files"
-import { getJson, useProjects } from "@/shell/projects"
+import { useProjects } from "@/shell/projects"
 
 /** `GET /api/workflows`. */
 export function useWorkflows() {

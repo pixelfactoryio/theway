@@ -316,7 +316,7 @@ test("the code view holds its own extension set, read-only through EditorState.r
   expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/)
   expect(text).toContain("EditorState.readOnly.of(true)")
   expect(text).toContain('EditorView.cspNonce.of(meta("nonce"))')
-  expect(readFileSync(join(CLIENT, "shell", "api.ts"), "utf-8")).toContain('`meta[name="theway-${name}"]`')
+  expect(readFileSync(join(CLIENT, "data", "api.ts"), "utf-8")).toContain('`meta[name="theway-${name}"]`')
 })
 
 test("the five syntax colours are defined light and dark", () => {

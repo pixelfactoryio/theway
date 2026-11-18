@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { SavedSchema, VersionTextSchema } from "../src/dashboard/client/lib/files"
-import { NO_ANSWER, sendJson } from "../src/dashboard/client/shell/api"
-import { getJson } from "../src/dashboard/client/shell/projects"
+import { getJson, NO_ANSWER, sendJson } from "../src/dashboard/client/data/api"
 
 /** zod's message for a required string that is missing. */
 const MISSING_STRING = "Invalid input: expected string, received undefined"

@@ -2,8 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect } from "react"
 
 import { type DashboardSettings, DashboardSettingsSchema } from "../../contract"
-import { failureOf, sendJson } from "@/shell/api"
-import { getJson } from "@/shell/projects"
+import { failureOf, getJson, sendJson } from "@/data/api"
 
 export type { DashboardSettings } from "../../contract"
 

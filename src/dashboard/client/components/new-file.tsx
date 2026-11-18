@@ -17,12 +17,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { failureOf, getJson, sendJson } from "@/data/api"
 import { emptyText, NAME } from "@/lib/edit"
 import { FileBodySchema, fileApi, rowId, SavedSchema } from "@/lib/files"
 import { to } from "@/lib/routes"
-import { failureOf, sendJson } from "@/shell/api"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
-import { getJson, useCurrentKey, useProjects } from "@/shell/projects"
+import { useCurrentKey, useProjects } from "@/shell/projects"
 
 type Kind = "workflows" | "prompts"
 

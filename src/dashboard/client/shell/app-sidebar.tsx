@@ -31,10 +31,10 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { version } from "@/data/api"
 import type { ChangeList } from "@/lib/changes"
 import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
-import { version } from "@/shell/api"
 import { useChangesOf } from "@/shell/changes"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"

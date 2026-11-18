@@ -2,8 +2,8 @@ import { EditorState, type Text } from "@codemirror/state"
 
 import { type CodeLanguage, DraftStore, editableExtensions } from "@/components/code-view"
 import { formattingKeymap } from "@/components/markdown-editor"
+import { failureOf, sendJson } from "@/data/api"
 import { lineSeparatorOf, SavedSchema } from "@/lib/files"
-import { failureOf, sendJson } from "@/shell/api"
 
 /** One file of a change as the page loaded it, or last saved it. */
 export type Loaded = { text: string; version: string }

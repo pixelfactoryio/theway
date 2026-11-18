@@ -28,10 +28,10 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { getJson } from "@/data/api"
 import { lineCounts, localTime } from "@/lib/edit"
 import { fileApi, VersionListSchema, VersionTextSchema } from "@/lib/files"
 import { LoadError } from "@/shell/load-error"
-import { getJson } from "@/shell/projects"
 import { readStored, writeStored } from "@/shell/storage"
 
 type Layout = "unified" | "split"

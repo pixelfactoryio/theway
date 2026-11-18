@@ -39,11 +39,11 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/r
 import { useSaveKey } from "@/components/step-prompt"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
+import { getJson } from "@/data/api"
 import { keptIds, oneLine } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { leavesChange, to } from "@/lib/routes"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
-import { getJson } from "@/shell/projects"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
 function loadedFiles(data: ChangeDetail): ({ name: string } & Loaded)[] {

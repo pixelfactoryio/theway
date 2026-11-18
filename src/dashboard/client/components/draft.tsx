@@ -7,6 +7,7 @@ import { type CodeLanguage, DraftStore, draftState } from "@/components/code-vie
 import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
+import { failureOf, getJson, sendJson } from "@/data/api"
 import {
   type CheckBody,
   CheckBodySchema,
@@ -18,10 +19,8 @@ import {
   SavedSchema,
 } from "@/lib/files"
 import { leavesFile } from "@/lib/routes"
-import { failureOf, sendJson } from "@/shell/api"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { MAC } from "@/shell/platform"
-import { getJson } from "@/shell/projects"
 
 /** The header fields a check answers for a prompt, as a row of `GET /api/prompts` gives them. */
 export type HeaderFields = Pick<PromptRow, "header" | "description" | "model" | "inputs">

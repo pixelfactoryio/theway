@@ -26,7 +26,7 @@ export function unexpectedAnswer(path: string, error: z.ZodError): string {
  * A write's answer: its status, the 200 body parsed with the write's schema (`null` otherwise) and `error`: for a 200,
  * `""` or the parse failure; else the answer's `error`, `""` without one, or `NO_ANSWER` without a JSON answer.
  */
-type Sent<T> = { status: number; body: T | null; error: string }
+export type Sent<T> = { status: number; body: T | null; error: string }
 
 /** A failed write's text: its `error`, else its status. */
 export const failureOf = (res: Sent<unknown>): string => (res.error !== "" ? res.error : `${res.status}`)
@@ -59,4 +59,21 @@ export async function sendJson<S extends z.ZodType>(
     return { status: res.status, body: null, error: NO_ANSWER }
   const failure = ErrorBodySchema.safeParse(json)
   return { status: res.status, body: null, error: failure.success ? failure.data.error : "" }
+}
+
+/**
+ * A JSON read of the API, parsed with `schema`: a non-2xx answer throws its `error` text, an answer `schema` does not
+ * parse throws where and how it differs.
+ */
+export async function getJson<S extends z.ZodType>(path: string, schema: S): Promise<z.infer<S>> {
+  const res = await fetch(path, { headers: { Accept: "application/json" } })
+  const body: unknown = await res.json().catch(() => null)
+  if (!res.ok) {
+    const failure = ErrorBodySchema.safeParse(body)
+    const error = failure.success ? failure.data.error : ""
+    throw new Error(error !== "" ? error : `${res.status} ${res.statusText}`)
+  }
+  const parsed = schema.safeParse(body)
+  if (!parsed.success) throw new Error(unexpectedAnswer(path, parsed.error))
+  return parsed.data
 }

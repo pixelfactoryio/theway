@@ -1,7 +1,7 @@
 import { useQueries } from "@tanstack/react-query"
 
+import { getJson } from "@/data/api"
 import { ChangeListSchema } from "@/lib/changes"
-import { getJson } from "@/shell/projects"
 
 /** `GET /api/projects/:key/changes` of each of `keys`, in their order: each `undefined` while it loads or after a failure. */
 export function useChangesOf(keys: readonly string[]) {
