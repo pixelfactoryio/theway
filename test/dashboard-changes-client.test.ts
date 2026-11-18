@@ -11,7 +11,6 @@ import {
   seriesStatus,
   shownTab,
 } from "../src/dashboard/client/lib/changes"
-import { resultText } from "../src/dashboard/client/lib/list-filter"
 
 const c = (
   id: string,
@@ -55,7 +54,7 @@ const ACTIVE = [
 ]
 
 test("series of two or more active changes group under one row; the default order is status then ID", () => {
-  const rows = activeRows(ACTIVE, "", [])
+  const rows = activeRows(ACTIVE, "")
   expect(rows.map((r) => r.id)).toEqual(["add-z", "add-lone-01", "add-s", "add-a", "add-b"])
   const series = rows.find((r) => r.kind === "series")
   expect(series).toMatchObject({
@@ -68,8 +67,8 @@ test("series of two or more active changes group under one row; the default orde
   expect(changeCount(rows)).toBe(6)
 })
 
-test("the search and the filter keep changes; a narrowed series lists the kept members and keeps its own values", () => {
-  const rows = activeRows(ACTIVE, "SECOND", [])
+test("the search keeps changes; a narrowed series lists the kept members and keeps its own values", () => {
+  const rows = activeRows(ACTIVE, "SECOND")
   expect(rows.map((r) => r.id)).toEqual(["add-s"])
   const s = rows[0]
   expect(s?.kind === "series" ? [s.children.map((m) => m.id), s.count, s.status, s.progress] : null).toEqual([
@@ -79,14 +78,7 @@ test("the search and the filter keep changes; a narrowed series lists the kept m
     { done: 2, total: 5 },
   ])
   expect(changeCount(rows)).toBe(1)
-  expect(activeRows(ACTIVE, "", ["ready"]).map((r) => r.id)).toEqual(["add-s", "add-b"])
-  expect(activeRows(ACTIVE, "zzz", [])).toEqual([])
-  expect(activeRows(ACTIVE, "ay", ["not-started"]).map((r) => r.id)).toEqual(["add-a"])
-})
-
-test("the result line reads N of M changes", () => {
-  expect(resultText(3, 24, "change")).toBe("3 of 24 changes")
-  expect(resultText(0, 1, "change")).toBe("0 of 1 change")
+  expect(activeRows(ACTIVE, "zzz")).toEqual([])
 })
 
 test("Updated is the local date", () => {

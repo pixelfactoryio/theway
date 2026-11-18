@@ -25,7 +25,7 @@ import {
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
+import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
@@ -182,7 +182,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     [errors, view, base, navigate],
   )
 
-  const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Prompts", href: "/prompts?" }, { label: name }]
   const unknownKey =
     project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
@@ -190,7 +189,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   if (unknown) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>
           <UnknownFile noun="prompt" name={name} back="Back to Prompts" href="/prompts?" />
         </PageBody>
@@ -200,7 +199,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>
           {projects.isError ? (
             <LoadError
@@ -235,7 +234,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   ) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>{null}</PageBody>
       </>
     )

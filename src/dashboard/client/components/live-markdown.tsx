@@ -28,9 +28,7 @@ import {
   taskToggle,
   type Widget,
 } from "@/lib/live-preview"
-
-/** The style nonce of this page's response, which CodeMirror puts on the `<style>` tags it injects. */
-const nonce = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-nonce"]')?.content ?? ""
+import { meta } from "@/shell/api"
 
 const MUTED = { color: "var(--muted-foreground)" }
 const MONO = { fontFamily: "var(--font-mono)", fontSize: "85%" }
@@ -459,7 +457,7 @@ export function liveExtensions({ name, separator }: { name: string; separator: s
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ "aria-label": name }),
     EditorState.lineSeparator.of(separator),
-    EditorView.cspNonce.of(nonce()),
+    EditorView.cspNonce.of(meta("nonce")),
   ]
 }
 

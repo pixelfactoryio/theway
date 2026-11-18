@@ -10,12 +10,3 @@ export function put(path: string, text: string): void {
 
 /** A string escaped for use inside a regular expression. */
 export const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-
-/** The token a dashboard app's page carries in its `<meta name="theway-token">`, the app answering on `port`. */
-export async function pageToken(
-  app: { request: (url: string, init: RequestInit) => Response | Promise<Response> },
-  port: number,
-): Promise<string> {
-  const res = await app.request(`http://127.0.0.1:${port}/`, { headers: { Host: `127.0.0.1:${port}` } })
-  return /<meta name="theway-token" content="([^"]+)">/.exec(await res.text())?.[1] as string
-}

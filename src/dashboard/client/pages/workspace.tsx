@@ -43,8 +43,9 @@ import {
   type Status,
 } from "@/lib/changes"
 import { monthGroup } from "@/lib/collapse"
+import { fileMatches } from "@/lib/files"
 import { isNarrowed, NO_FILTER, NONE, passesAll, picks, valueCounts } from "@/lib/list-filter"
-import { changePath, type Project } from "@/lib/projects"
+import { archivePath, changePath, type Project, projectPath } from "@/lib/projects"
 import {
   allEntries,
   countOf,
@@ -62,6 +63,7 @@ import {
   withProjectIn,
 } from "@/lib/workspace"
 import { useChangesOf } from "@/shell/changes"
+import { useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
 import { recordedId, useEditSettings, useRecordVisit, useSettings } from "@/shell/settings"
@@ -324,9 +326,7 @@ type Located = { key: string; label: string; row: ActiveRow }
 function located(lists: Map<string, ChangeList>, projects: readonly Project[], q: string): Located[] {
   const updated = (r: ActiveRow) => (r.kind === "series" ? r.updated : r.change.updated)
   return projects
-    .flatMap((p) =>
-      activeRows(lists.get(p.key)?.active ?? [], q, []).map((row) => ({ key: p.key, label: p.label, row })),
-    )
+    .flatMap((p) => activeRows(lists.get(p.key)?.active ?? [], q).map((row) => ({ key: p.key, label: p.label, row })))
     .sort((a, b) => updated(b.row).localeCompare(updated(a.row)))
 }
 
@@ -439,7 +439,7 @@ function statusGroups(
         {perProject.map((p) => (
           <Link
             key={p.key}
-            href={`/${p.key}?`}
+            href={projectPath(p.key)}
             className="rounded-md border px-3 py-1 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
           >
             {p.label}
@@ -476,10 +476,8 @@ const archivesOf = (lists: Map<string, ChangeList>, keys: readonly string[]): Ar
     .sort((x, y) => y.a.date.localeCompare(x.a.date) || y.a.updated.localeCompare(x.a.updated))
 
 /** The archived changes of `rows` whose ID holds `q`, ignoring case. */
-const archivesMatching = (rows: readonly Archived[], q: string): Archived[] => {
-  const needle = q.trim().toLowerCase()
-  return rows.filter(({ a }) => needle === "" || a.id.toLowerCase().includes(needle))
-}
+const archivesMatching = (rows: readonly Archived[], q: string): Archived[] =>
+  rows.filter(({ a }) => fileMatches({ name: a.id }, q))
 
 /**
  * The archive months of `rows` (newest first), each a group of its rows; the first open, the older ones collapsed.
@@ -504,7 +502,7 @@ function archiveGroups(rows: readonly Archived[], withProject: boolean, label: (
       <ul data-nav-list="">
         {m.rows.map(({ key, a }) => (
           <li key={`${key}/${a.dir}`} data-nav-item="">
-            <Link href={`/${key}/changes/archive/${encodeURIComponent(a.dir)}?`} className={ROW}>
+            <Link href={archivePath(key, a.dir)} className={ROW}>
               <RowCells
                 id={a.id}
                 project={withProject ? label(key) : undefined}
@@ -584,7 +582,7 @@ export function NowPage() {
   const { lists, failed } = useListsOf(keys)
   const now = useNow()
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
-  const label = (k: string) => list.find((p) => p.key === k)?.label ?? k
+  const label = useLabel()
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
@@ -729,7 +727,7 @@ export function ProjectsPage() {
     setError(null)
     edit(f).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
   }
-  const label = (key: string) => list.find((p) => p.key === key)?.label ?? key
+  const label = useLabel()
   const latest = (keys: readonly string[]) =>
     keys.map((k) => lastArchived(lists.get(k)?.archived)).reduce((a, b) => (a > b ? a : b), "")
   const inProgress = (keys: readonly string[]) =>
@@ -851,7 +849,7 @@ export function ProjectsPage() {
   const projectRow = (e: Entry, key: string, member = false) => (
     <li key={key}>
       <div className={ROW_FRAME}>
-        <Link href={`/${key}?`} data-nav-item="" className={ROW_MAIN}>
+        <Link href={projectPath(key)} data-nav-item="" className={ROW_MAIN}>
           <RowHead id={label(key)} text={list.find((p) => p.key === key)?.path ?? undefined} member={member} />
           {counts([key])}
         </Link>
@@ -1001,9 +999,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const keys = entry?.keys ?? []
   const { lists } = useListsOf(keys)
   const now = useNow()
-  const [filter, setFilter] = useListFilter(id.startsWith("group:") ? id : `project:${id}`, SCOPE_FIELDS)
+  const [filter, setFilter] = useListFilter(id, SCOPE_FIELDS)
   const scoped = list.filter((p) => keys.includes(p.key))
-  const label = (k: string) => list.find((p) => p.key === k)?.label ?? k
+  const label = useLabel()
   const isGroup = entry?.kind === "group"
 
   const searched = all ? [] : located(lists, scoped, filter.q)

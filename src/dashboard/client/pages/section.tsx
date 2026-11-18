@@ -5,7 +5,7 @@ import { PageBody, TopBar } from "@/shell/top-bar"
 export function NoProjectPage() {
   return (
     <>
-      <TopBar items={[{ label: "theway" }]} />
+      <TopBar title="theway" />
       <PageBody>
         <div data-scroll-root className="flex min-h-0 flex-1 flex-col overflow-auto">
           <Empty>

@@ -2,7 +2,7 @@ import { isolateHistory, undo } from "@codemirror/commands"
 import type { Text } from "@codemirror/state"
 import { arrayMove } from "@dnd-kit/sortable"
 import { useQueryClient } from "@tanstack/react-query"
-import { CircleAlertIcon, FileCodeIcon, FileTextIcon, Trash2Icon, TriangleAlertIcon, XIcon } from "lucide-react"
+import { CircleAlertIcon, FileCodeIcon, FileTextIcon, Trash2Icon, XIcon } from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -31,11 +31,12 @@ import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
 import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { DraftStatus } from "@/components/draft"
+import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft"
 import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { LiveMarkdown } from "@/components/live-markdown"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
+import { useSaveKey } from "@/components/step-prompt"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
 import { keptIds, leavesChange, oneLine } from "@/lib/change-edit"
@@ -372,40 +373,16 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   useLayoutEffect(() => {
     saveRef.current = saveAll
   })
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "s" || !(event.metaKey || event.ctrlKey) || event.altKey) return
-      event.preventDefault()
-      void saveRef.current()
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [])
+  useSaveKey(useCallback(() => void saveRef.current(), []))
 
   const notices = (
     <>
       {draft?.conflict ? (
-        <Alert variant="warning" className={STRIP}>
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>This file changed on disk since you opened it.</AlertTitle>
-          <AlertAction>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => (drafts.isDirty(name) ? setConfirm({ kind: "reload", name }) : void reload(name))}
-            >
-              Reload
-            </Button>
-          </AlertAction>
-        </Alert>
+        <ConflictNotice
+          onReload={() => (drafts.isDirty(name) ? setConfirm({ kind: "reload", name }) : void reload(name))}
+        />
       ) : null}
-      {draft !== null && draft.saveFailure !== null ? (
-        <Alert variant="destructive" className={STRIP}>
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>The file could not be saved</AlertTitle>
-          <AlertDescription>{draft.saveFailure}</AlertDescription>
-        </Alert>
-      ) : null}
+      {draft !== null && draft.saveFailure !== null ? <SaveFailureNotice message={draft.saveFailure} /> : null}
       {textView ? <ErrorStrip lines={lines} /> : null}
     </>
   )
@@ -540,8 +517,6 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         setConfirm={setConfirm}
         onDiscard={discard}
         onReload={(file) => void reload(file)}
-        onDoneSave={async (file) => void (await save(file, false))}
-        onDoneDiscard={(file) => discard(file)}
         onLeaveSave={(proceed) => void saveAndLeave(proceed)}
       />
     </>

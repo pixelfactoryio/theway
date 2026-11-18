@@ -10,13 +10,14 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
+import { promptUses } from "../../../core/language-schema"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus, useFileDraft } from "@/components/draft"
 import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, STRIP, UnknownFile } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { usePanelOpen } from "@/components/record-panel"
-import { StepPrompt, StepPromptUses, stepPromptRow, useSaveKey } from "@/components/step-prompt"
+import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
 import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
@@ -48,7 +49,7 @@ import { UNKNOWN_FILE } from "@/pages/prompt"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { PageBody, TopBar, type TopBarItem } from "@/shell/top-bar"
+import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
 function ShownValue({
@@ -61,7 +62,7 @@ function ShownValue({
   project: string | null
 }) {
   if ("source" in shown) return <span className="font-mono text-sm">{shown.source}</span>
-  const text = `prompts/${shown.prompt}.md`
+  const text = promptUses(shown.prompt)
   const row = findPrompt(prompts, project, shown.prompt)
   if (row === null) return <span className="text-sm">{text}</span>
   return (
@@ -328,14 +329,13 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     [errors, yamlTab, drawing, select],
   )
 
-  const crumbs: TopBarItem[] = [{ section: "Library" }, { label: "Workflows", href: "/workflows?" }, { label: name }]
   const unknownKey =
     project !== null && projects.data !== undefined && !projects.data.projects.some((p) => p.key === project)
   const fileFailed = file.isError && draft.store === null
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>
           <UnknownFile noun="workflow" name={name} back="Back to Workflows" href="/workflows?" />
         </PageBody>
@@ -345,7 +345,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>
           {projects.isError ? (
             <LoadError
@@ -382,7 +382,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   ) {
     return (
       <>
-        <TopBar items={crumbs} />
+        <TopBar title={name} />
         <PageBody>{null}</PageBody>
       </>
     )
@@ -467,7 +467,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     kept?.kind === "step" && step !== null && step.fields.uses !== null && "prompt" in step.fields.uses
       ? step.fields.uses.prompt
       : null
-  const promptRow = promptName !== null ? stepPromptRow(promptRows, project, promptName) : null
+  const promptRow = promptName !== null ? findPrompt(promptRows, project, promptName) : null
   const details = (
     <dl className="flex flex-col py-2">
       <DetailRow label="Applies to">{appliesTo(project, label)}</DetailRow>

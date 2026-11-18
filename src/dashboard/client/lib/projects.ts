@@ -13,13 +13,12 @@ export function byLabel(projects: readonly Project[]): Project[] {
 }
 
 /**
- * The current project's key: `routeKey` when it is listed; else `stored` (the last chosen in this browser) when listed;
- * else `start` when listed; else the first project by label. `null` with no project.
+ * The current project's key: `routeKey` when it is listed; else `start` when listed; else the first project by label.
+ * `null` with no project.
  */
-export function currentKey(list: ProjectList, routeKey: string | null, stored: string | null): string | null {
+export function currentKey(list: ProjectList, routeKey: string | null): string | null {
   const listed = (key: string | null): key is string => key !== null && list.projects.some((p) => p.key === key)
   if (listed(routeKey)) return routeKey
-  if (listed(stored)) return stored
   if (listed(list.start)) return list.start
   return byLabel(list.projects)[0]?.key ?? null
 }
@@ -29,3 +28,6 @@ export const changePath = (key: string, id: string): string => `/${key}/changes/
 
 /** The address of a project with no tab open: `/<key>?`, its `?` clearing the search part. */
 export const projectPath = (key: string): string => `/${key}?`
+
+/** The address of an archived change's page: `/<key>/changes/archive/<dir>?`, its `?` clearing the search part. */
+export const archivePath = (key: string, dir: string): string => `/${key}/changes/archive/${encodeURIComponent(dir)}?`

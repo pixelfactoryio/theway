@@ -14,15 +14,17 @@ export const NONE = "(none)"
 /** Whether the filter narrows the list at all. */
 export const isNarrowed = (filter: ListFilter): boolean => filter.q.trim() !== "" || filter.rules.length > 0
 
-/** One `key=value` pair of a search part, decoded; `+` reads as a space, as a form writes it. */
-function pairs(search: string): { raw: string; key: string; value: string }[] {
-  const decode = (s: string): string => {
-    try {
-      return decodeURIComponent(s.replaceAll("+", " "))
-    } catch {
-      return s
-    }
+/** `s` decoded, `+` read as a space, as a form writes it; `s` as is when it is not valid percent-encoding. */
+function decode(s: string): string {
+  try {
+    return decodeURIComponent(s.replaceAll("+", " "))
+  } catch {
+    return s
   }
+}
+
+/** One `key=value` pair of a search part, its key decoded. */
+function pairs(search: string): { raw: string; key: string; value: string }[] {
   return search
     .replace(/^\?/, "")
     .split("&")
@@ -38,13 +40,7 @@ function pairs(search: string): { raw: string; key: string; value: string }[] {
 const valuesOf = (value: string): string[] =>
   value
     .split(",")
-    .map((v) => {
-      try {
-        return decodeURIComponent(v.replaceAll("+", " "))
-      } catch {
-        return v
-      }
-    })
+    .map(decode)
     .filter((v) => v !== "")
 
 /** The field and negation a key names among `fields`: `kind` keeps, `kind!` drops; `null` for any other key. */
@@ -160,9 +156,11 @@ export function filterText(
   ].join(" and ")
 }
 
+/** `n` and `noun`, plural unless `n` is 1: `1 project`, `3 projects`. */
+export const countOf = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`
+
 /** The result line: `N of M <noun>s` (`1 of 1 <noun>`). */
-export const resultText = (shown: number, all: number, noun: string): string =>
-  `${shown} of ${all} ${all === 1 ? noun : `${noun}s`}`
+export const resultText = (shown: number, all: number, noun: string): string => `${shown} of ${countOf(all, noun)}`
 
 /** The `localStorage` key of a list page's remembered filter: `theway-filter:<page>` (`now`, `project:<key>`, …). */
 export const filterKey = (page: string): string => `theway-filter:${page}`

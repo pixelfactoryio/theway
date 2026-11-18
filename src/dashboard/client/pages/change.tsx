@@ -8,7 +8,8 @@ import { projectPath } from "@/lib/projects"
 import { ActiveChange } from "@/pages/active-change"
 import { ArchivedChange } from "@/pages/archived-change"
 import { LoadError } from "@/shell/load-error"
-import { getJson, useProjects } from "@/shell/projects"
+import { useLabel } from "@/shell/files"
+import { getJson } from "@/shell/projects"
 import { PageBody } from "@/shell/top-bar"
 import { PageHeader } from "@/components/doc-frame"
 
@@ -17,8 +18,7 @@ const UNKNOWN = ["unknown change", "unknown archive folder"]
 
 /** The unknown change, or unknown archive folder, state. */
 function Unknown({ projectKey, name }: { projectKey: string; name: string }) {
-  const projects = useProjects()
-  const label = projects.data?.projects.find((p) => p.key === projectKey)?.label ?? projectKey
+  const label = useLabel()(projectKey)
   return (
     <Empty>
       <EmptyHeader>

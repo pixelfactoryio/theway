@@ -70,7 +70,6 @@ test("pinned entries keep their order; recent ones leave out the pinned, at most
   })
   expect(pinnedEntries(PROJECTS, s).map((e) => e.id)).toEqual(["project:-w", "group:acme"])
   expect(recentEntries(PROJECTS, s).map((e) => e.id)).toEqual(["project:-x", "project:-y", "project:-as"])
-  expect(recentEntries(PROJECTS, s, 2).map((e) => e.id)).toEqual(["project:-x", "project:-y"])
 })
 
 test("All projects lists each group, then each project in no group, by label", () => {

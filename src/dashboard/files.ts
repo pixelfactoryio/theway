@@ -5,24 +5,19 @@
 import { join } from "node:path"
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml"
 import { isFile, type Overlay, readBytes } from "../core/io"
-import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile, splitHeader } from "../core/language"
+import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language"
 import { FILE_PREFIX, matrixOf, NAME, promptRef, VERSION, type WorkflowFileItem } from "../core/language-schema"
 import { warnQuiet } from "../core/output"
 import { projectDir } from "../core/project"
 import { EXT, type Kind } from "../core/step-files"
 import { sha256 } from "../core/store/files"
-import { byText, parseYaml, pathSegments, yamlErrorLine } from "../core/text"
+import { byFile, parseYaml, pathSegments, splitHeader, yamlErrorLine } from "../core/text"
 import { joinAnd, markedPath } from "../core/workflow"
 import { tildePath } from "./changes"
 import type { CheckBody, FileBody, FileError, PromptList, PromptRow, Use, WorkflowList, WorkflowRow } from "./contract"
 import { projectKeys } from "./projects"
 
 const AS_ORDER: Use["as"][] = ["step", "on-fail", "value"]
-
-/** Name, then a global file before a project's, then project key. */
-const byFile = (a: { name: string; project: string | null }, b: { name: string; project: string | null }): number =>
-  byText(a.name, b.name) ||
-  (a.project === null ? (b.project === null ? 0 : -1) : b.project === null ? 1 : byText(a.project, b.project))
 
 /** The home-relative path of a file: `<kind>/<name>.<ext>` or `projects/<key>/<kind>/<name>.<ext>`. */
 const relPath = (kind: Kind, project: string | null, name: string): string =>

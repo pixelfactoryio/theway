@@ -17,7 +17,12 @@ export function CopyPath({ value, name }: { value: string; name: string }) {
       <button
         type="button"
         aria-label={`Copy ${name}`}
-        onClick={() => void navigator.clipboard.writeText(value).then(() => setCopied(true))}
+        onClick={() =>
+          void navigator.clipboard.writeText(value).then(
+            () => setCopied(true),
+            () => setCopied(false),
+          )
+        }
         className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         {copied ? (

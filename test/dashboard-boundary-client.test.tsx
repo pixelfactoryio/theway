@@ -3,15 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
-import { resetOnKeyChange } from "../src/dashboard/client/lib/boundary"
 import { ErrorBoundary, PageError, RootError } from "../src/dashboard/client/shell/error-boundary"
-
-test("a boundary clears its error only when its key changes", () => {
-  expect(resetOnKeyChange("/a", "/b", false)).toBe(false)
-  expect(resetOnKeyChange("/a", "/a", true)).toBe(false)
-  expect(resetOnKeyChange("/a", "/b", true)).toBe(true)
-  expect(resetOnKeyChange(undefined, "/a", true)).toBe(true)
-})
 
 test("a boundary keeps an error caught in the update that changed its key, and clears one shown before it", () => {
   const fallback = () => null

@@ -60,18 +60,6 @@ export function splitTask(text: string): { lead: string; detail: string } {
   return { lead: flat, detail: "" }
 }
 
-/** The title of a file's unsaved bar. */
-export const unsavedTitle = (name: string): string => `Unsaved changes in ${name}`
-
-/**
- * The column (from 0) of the first `[ ]`, `[x]` or `[X]` of `line`, `-1` when it has none: what a Markdown task item's
- * checkbox flips on its first source line.
- */
-export const taskBoxColumn = (line: string): number => line.search(/\[[ xX]\]/)
-
-/** The text of a task box: `[x]` when checked, `[ ]` otherwise. */
-export const taskBox = (checked: boolean): string => (checked ? "[x]" : "[ ]")
-
 /** A selection's replacement: the range it replaces, the text put there, and the selection after. */
 export type Replace = { from: number; to: number; insert: string; anchor: number; head: number }
 
@@ -98,32 +86,3 @@ export function linked(doc: string, from: number, to: number): Replace {
   const selected = doc.slice(from, to)
   return { from, to, insert: `[${selected}](https://)`, anchor: from + 1, head: from + 1 + selected.length }
 }
-
-/** The line prefixes of the toolbar. */
-export type LinePrefix = "heading" | "bullet" | "numbered" | "task"
-
-const PREFIX: Record<Exclude<LinePrefix, "numbered">, string> = { heading: "## ", bullet: "- ", task: "- [ ] " }
-const NUMBERED = /^\d+\. /
-
-const hasPrefix = (line: string, kind: LinePrefix): boolean =>
-  kind === "numbered" ? NUMBERED.test(line) : line.startsWith(PREFIX[kind])
-
-/**
- * The selected lines with a prefix toggled: removed from every line when all of them have it, otherwise added to the
- * lines that lack it. A numbered line's prefix is any `<digits>. `; one added is the line's number in the selection.
- */
-export function prefixed(lines: readonly string[], kind: LinePrefix): string[] {
-  const all = lines.every((l) => hasPrefix(l, kind))
-  return lines.map((line, i) => {
-    if (all) return kind === "numbered" ? line.replace(NUMBERED, "") : line.slice(PREFIX[kind].length)
-    if (hasPrefix(line, kind)) return line
-    return (kind === "numbered" ? `${i + 1}. ` : PREFIX[kind]) + line
-  })
-}
-
-/** The index of the block that holds `line`: the last of `lines` (each block's first line, in document order) at or before it. */
-export const blockAt = (lines: readonly number[], line: number): number => lines.findLastIndex((l) => l <= line)
-
-/** A toolbar tooltip: `<label> (⌘B)` on macOS, `<label> (Ctrl+B)` elsewhere. */
-export const shortcutTip = (label: string, key: string, mac: boolean): string =>
-  `${label} (${mac ? `⌘${key}` : `Ctrl+${key}`})`

@@ -2,18 +2,12 @@ import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
-  blockAt,
   keptIds,
   leavesChange,
   linked,
   oneLine,
-  prefixed,
-  shortcutTip,
   splitTask,
-  taskBox,
-  taskBoxColumn,
   taskName,
-  unsavedTitle,
   wrapped,
 } from "../src/dashboard/client/lib/change-edit"
 
@@ -50,19 +44,10 @@ test("row ids are kept by position for the first min(old, new) tasks, the rest n
   expect(keptIds([], 1, make)).toEqual(["n3"])
 })
 
-test("a task row's name, a one-line description and the unsaved bar's title", () => {
+test("a task row's name and a one-line description", () => {
   expect(taskName(3, "Ship it", false)).toBe("Task 3: Ship it")
   expect(taskName(1, "Plan", true)).toBe("Task 1, done: Plan")
   expect(oneLine("a\nb\r\n\r\nc\rd")).toBe("a b c d")
-  expect(unsavedTitle("spec.md")).toBe("Unsaved changes in spec.md")
-})
-
-test("a Markdown checkbox flips the first [ ], [x] or [X] of its line and nothing else", () => {
-  expect(taskBoxColumn("- [ ] works")).toBe(2)
-  expect(taskBoxColumn("  * [X] done [ ] not")).toBe(4)
-  expect(taskBoxColumn("1. [x] a")).toBe(3)
-  expect(taskBoxColumn("- plain [y]")).toBe(-1)
-  expect([taskBox(true), taskBox(false)]).toEqual(["[x]", "[ ]"])
 })
 
 const apply = (doc: string, r: { from: number; to: number; insert: string; anchor: number; head: number }) => ({
@@ -77,24 +62,6 @@ test("Bold, Italic and Code wrap the selection, insert the pair at an empty one,
   expect(apply("a `b` c", wrapped("a `b` c", 3, 4, "`"))).toEqual({ text: "a b c", selected: [2, 3] })
   expect(apply("x", linked("x", 0, 1))).toEqual({ text: "[x](https://)", selected: [1, 2] })
   expect(apply("", linked("", 0, 0))).toEqual({ text: "[](https://)", selected: [1, 1] })
-})
-
-test("a line prefix is removed only when every selected line has it, else added to the lines that lack it", () => {
-  expect(prefixed(["a", "## b"], "heading")).toEqual(["## a", "## b"])
-  expect(prefixed(["## a", "## b"], "heading")).toEqual(["a", "b"])
-  expect(prefixed(["a", "- b"], "bullet")).toEqual(["- a", "- b"])
-  expect(prefixed(["- [ ] a", "b"], "task")).toEqual(["- [ ] a", "- [ ] b"])
-  expect(prefixed(["- [ ] a", "- [ ] b"], "task")).toEqual(["a", "b"])
-  expect(prefixed(["a", "b", "7. c"], "numbered")).toEqual(["1. a", "2. b", "7. c"])
-  expect(prefixed(["12. a", "3. b"], "numbered")).toEqual(["a", "b"])
-})
-
-test("the preview's block of a line is the last in document order at or before it", () => {
-  expect(blockAt([1, 3, 7, 12], 8)).toBe(2)
-  expect(blockAt([1, 3, 7, 12], 1)).toBe(0)
-  expect(blockAt([3, 7], 2)).toBe(-1)
-  expect(blockAt([1, 5, 2, 9], 4)).toBe(2)
-  expect([shortcutTip("Bold", "B", true), shortcutTip("Bold", "B", false)]).toEqual(["Bold (⌘B)", "Bold (Ctrl+B)"])
 })
 
 test("the formatting keys take precedence, prevent the default and stop the event; no sonner, no toast", () => {

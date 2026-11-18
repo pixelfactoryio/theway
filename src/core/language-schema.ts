@@ -36,6 +36,9 @@ export const STEP_KEYS = ["uses", "with", "matrix", "on-fail", "tries", "runs-on
 /** The keys of an on-fail map. */
 export const ON_FAIL_KEYS = ["uses", "with", "model"] as const
 
+/** The reference to prompt `name`: `prompts/<name>.md`. */
+export const promptUses = (name: string): string => `prompts/${name}.md`
+
 /** The name a value names when it is a prompt reference, else `null`. */
 export function promptRef(v: unknown): string | null {
   const m = typeof v === "string" ? PROMPT_REF.exec(v) : null

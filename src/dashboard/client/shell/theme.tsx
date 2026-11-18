@@ -43,8 +43,7 @@ export function SettingsMenu() {
   const choose = (value: unknown) => {
     const next = themeOf(typeof value === "string" ? value : null)
     setTheme(next)
-    applyTheme(next)
-    writeStored(THEME_KEY, next === "system" ? null : next)
+    chooseTheme(next)
   }
 
   return (

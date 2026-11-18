@@ -14,8 +14,10 @@ import {
   ON_FAIL_RISE,
   ON_FAIL_WIDTH,
   overflows,
+  percent,
   revealDelta,
   UNDER_HEADING,
+  zoomStep,
 } from "../src/dashboard/client/lib/workflow-layout"
 
 /** The drawing of a workflow file with these steps (YAML block list items, without their leading `- `). */
@@ -151,6 +153,11 @@ test("fit: between 80% and 100% for height and width, the top under the heading,
     y: KEEP.top,
     zoom: 0.8,
   })
+})
+
+test("zoom steps by 0.1 within 50% and 200%, shown as a whole percent", () => {
+  expect([zoomStep(1, 0.1), zoomStep(0.5, -0.1), zoomStep(1.95, 0.1), zoomStep(0.73, -0.1)]).toEqual([1.1, 0.5, 2, 0.6])
+  expect([percent(1), percent(0.734), percent(2)]).toEqual(["100%", "73%", "200%"])
 })
 
 test("the drawing overflows when any edge of it leaves the pane; a box out of view pans in, above the toolbar's band", () => {

@@ -184,7 +184,6 @@ export type Saved = z.infer<typeof SavedSchema>
 
 /** The body of an error answer. */
 export const ErrorBodySchema = z.object({ error: z.string() })
-export type ErrorBody = z.infer<typeof ErrorBodySchema>
 
 /** Whether a list holds no value twice. */
 const distinct = (values: string[]): boolean => new Set(values).size === values.length

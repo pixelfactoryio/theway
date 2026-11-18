@@ -26,6 +26,12 @@ const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-[0-9a-f
 /** What a write route answers. */
 export type Answer = { status: number; body: unknown }
 
+/** The answer to a write that failed with `e`. */
+const cannotWrite = (e: unknown): Answer => ({
+  status: 500,
+  body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` },
+})
+
 /** The folder of a file's versions: `<home>/history/global/<kind>/<name>` or `<home>/history/projects/<key>/<kind>/<name>`. */
 const historyDir = (home: string, kind: Kind, project: string | null, name: string): string =>
   project === null
@@ -108,7 +114,7 @@ export function writeFile(
     writeAtomic(path, bytes)
   } catch (e) {
     if (kept !== null) rmSync(kept, { force: true })
-    return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }
+    return cannotWrite(e)
   }
   if (kept !== null) pruneVersions(dir)
   return { status: 200, body: { version: sha256(bytes) } }
@@ -189,7 +195,7 @@ export function writeChangeFile(
     }
     return { status: 200, body: { version: written.version } }
   } catch (e) {
-    return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }
+    return cannotWrite(e)
   }
 }
 
@@ -275,7 +281,7 @@ export function writeSettings(home: string, settings: DashboardSettings): Answer
     mkdirSync(home, { recursive: true })
     writeAtomic(settingsPath(home), `${JSON.stringify(settings, null, 2)}\n`)
   } catch (e) {
-    return { status: 500, body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` } }
+    return cannotWrite(e)
   }
   return { status: 200, body: settings }
 }

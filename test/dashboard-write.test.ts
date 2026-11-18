@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { createApp, MAX_BODY } from "../src/dashboard/server"
-import { pageToken, put } from "./helpers"
+import { put } from "./helpers"
 
 const TOKEN = "cd".repeat(32)
 const PORT = 4870
@@ -41,15 +41,11 @@ async function call(
   body?: unknown,
   headers: Record<string, string | undefined> = {},
 ): Promise<Res> {
-  const token = await pageToken(
-    createApp(h, () => PORT, "", TOKEN),
-    PORT,
-  )
   const all: Record<string, string> = {}
   for (const [k, v] of Object.entries({
     Host: `127.0.0.1:${PORT}`,
     Origin: ORIGIN,
-    "X-Theway-Token": token,
+    "X-Theway-Token": TOKEN,
     "Content-Type": "application/json",
     ...headers,
   })) {

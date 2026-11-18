@@ -1,9 +1,10 @@
 import { cn } from "cn"
-import { ArrowDownIcon, ArrowUpIcon, CircleAlertIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { type ReactNode, useId } from "react"
 
 import { Badge } from "@/components/reui/badge"
 import { IconTile } from "@/components/reui/icon-tile"
+import { ErrorsBadge } from "@/components/status"
 import { OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { errorCount } from "@/lib/files"
 
 /** A block's kind, which tints its icon tile; `null` (a step with no valid target) leaves the tile untinted. */
 export type Tone = "inputs" | "session" | "agents" | "on-fail" | null
@@ -102,12 +102,7 @@ export function Card({
           ) : null}
         </span>
         <span id={line} className="flex h-5 min-w-0 items-center gap-2">
-          {errors > 0 ? (
-            <Badge variant="destructive-light">
-              <CircleAlertIcon aria-hidden="true" />
-              {errorCount(errors)}
-            </Badge>
-          ) : null}
+          <ErrorsBadge count={errors} />
           {second}
         </span>
       </button>

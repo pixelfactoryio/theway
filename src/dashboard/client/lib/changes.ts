@@ -65,17 +65,17 @@ const matches = (change: { id: string; description?: string | null }, q: string)
   fileMatches({ name: change.id, description: change.description }, q)
 
 /**
- * The rows of the Active grid: the changes the search and the status filter keep, two or more active changes of one
+ * The rows of the Active grid: the changes the search keeps, two or more active changes of one
  * series grouped under a series row (members in ordinal order, listing only those kept; its status, progress, Updated
  * and count over all its active members). In the default order: status, then ID.
  */
-export function activeRows(active: readonly ActiveChange[], q: string, statuses: readonly ActiveStatus[]): ActiveRow[] {
+export function activeRows(active: readonly ActiveChange[], q: string): ActiveRow[] {
   const groups = new Map<string, ActiveChange[]>()
   for (const c of active) {
     const m = memberOf(c.id)
     if (m !== null) groups.set(m.series, [...(groups.get(m.series) ?? []), c])
   }
-  const kept = (c: ActiveChange): boolean => matches(c, q) && (statuses.length === 0 || statuses.includes(c.status))
+  const kept = (c: ActiveChange): boolean => matches(c, q)
   const rows: ActiveRow[] = []
   const seen = new Set<string>()
   for (const c of active) {

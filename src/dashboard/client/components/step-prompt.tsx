@@ -23,12 +23,6 @@ export function useSaveKey(save: () => void): void {
   }, [save])
 }
 
-/** The prompt a step's `uses: prompts/<name>.md` resolves to: the project's own, else the global one. */
-export const stepPromptRow = (prompts: readonly PromptRow[], project: string | null, name: string): PromptRow | null =>
-  (project !== null ? prompts.find((p) => p.name === name && p.project === project) : undefined) ??
-  prompts.find((p) => p.name === name && p.project === null) ??
-  null
-
 /**
  * A step's prompt in the workflow panel, read-only: a row with its file name, how many workflows share it and Open
  * prompt (its own page, where it is edited); then, scrolling in the pane, its header as fields (description, model,

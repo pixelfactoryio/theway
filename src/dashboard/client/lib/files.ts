@@ -1,8 +1,9 @@
 /** The home's workflow and prompt files as the Workflows and Prompts pages show them. Pure: no React, no DOM. */
 import type { PromptRow, Use, WorkflowRow } from "../../contract"
-import { byText } from "../../../core/text"
-import { NONE } from "./list-filter"
+import { byText, splitHeader } from "../../../core/text"
+import { countOf, NONE } from "./list-filter"
 
+export { byFile } from "../../../core/text"
 export type { CheckBody, FileBody, FileError, PromptInputRow, PromptRow, Use, WorkflowRow } from "../../contract"
 export {
   CheckBodySchema,
@@ -87,7 +88,7 @@ export function workflowValues(row: WorkflowRow, field: string, uses: ReadonlyMa
 }
 
 /** The status cell's error text: `1 error`, `N errors`. */
-export const errorCount = (n: number): string => (n === 1 ? "1 error" : `${n} errors`)
+export const errorCount = (n: number): string => countOf(n, "error")
 
 /** The Applies to text: "All projects", or "`<label>` only". */
 export const appliesTo = (project: string | null, label: (key: string) => string): string =>
@@ -124,14 +125,6 @@ export function compareText(a: string | null, b: string | null): number {
   return byText(a, b)
 }
 
-/** Name, then a global file before a project's, then project key. */
-export const byFile = (
-  a: { name: string; project: string | null },
-  b: { name: string; project: string | null },
-): number =>
-  compareText(a.name, b.name) ||
-  (a.project === b.project ? 0 : a.project === null ? -1 : b.project === null ? 1 : compareText(a.project, b.project))
-
 /** A file's row id: `<project>/<name>`, `/<name>` for a global one. */
 export const rowId = (row: { name: string; project: string | null }): string => `${row.project ?? ""}/${row.name}`
 
@@ -140,12 +133,8 @@ export const rowId = (row: { name: string; project: string | null }): string => 
  * when the prompt has a header; else the whole text. A BOM is dropped and `\r\n` read as `\n`.
  */
 export function previewText(raw: string, header: boolean): string {
-  const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n")
-  if (!header) return text
-  const lines = text.split("\n")
-  if (lines[0] !== "---") return text
-  const end = lines.findIndex((l, i) => i > 0 && l === "---")
-  if (end === -1) return text
+  const { text, lines, end } = splitHeader(raw)
+  if (!header || end === -1) return text
   return lines
     .slice(end + 1)
     .join("\n")

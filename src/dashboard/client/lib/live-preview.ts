@@ -77,7 +77,7 @@ const INLINE: Record<string, { kind: MarkKind; mark: string }> = {
   InlineCode: { kind: "code", mark: "CodeMark" },
 }
 
-/** Nodes left as source, children included: tables and raw HTML; images and autolinks as written. */
+/** Nodes left as source, children included: raw HTML; images and autolinks as written. */
 const SOURCE = new Set([
   "HTMLBlock",
   "HTMLTag",
@@ -309,30 +309,34 @@ export type TableBlock = Span & {
   rows: string[][]
 }
 
-/** The cells of a table line: split on the pipes outside code spans and not escaped, the outer pipes dropped, trimmed. */
-export function tableCells(line: string): string[] {
-  const text = line.trim()
+/**
+ * The cells of a table's header or row node, cut at the parser's pipes as GFM cuts them: the outer pipes dropped,
+ * trimmed, `\|` read as `|`.
+ */
+function rowCells(doc: Text, row: SyntaxNode): string[] {
+  const edges = [row.from, ...children(row, "TableDelimiter").flatMap((p) => [p.from, p.to]), row.to]
   const cells: string[] = []
-  let cell = ""
-  let code = false
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i] as string
-    if (c === "\\" && text[i + 1] === "|") {
-      cell += "|"
-      i++
-    } else if (c === "`") {
-      code = !code
-      cell += c
-    } else if (c === "|" && !code) {
-      cells.push(cell)
-      cell = ""
-    } else cell += c
+  for (let i = 0; i + 1 < edges.length; i += 2) {
+    cells.push(
+      doc
+        .sliceString(edges[i] as number, edges[i + 1] as number)
+        .trim()
+        .replaceAll("\\|", "|"),
+    )
   }
-  cells.push(cell)
-  if (text.startsWith("|")) cells.shift()
-  if (text.endsWith("|") && !text.endsWith("\\|")) cells.pop()
-  return cells.map((s) => s.trim())
+  if (row.firstChild?.name === "TableDelimiter") cells.shift()
+  if (row.lastChild?.name === "TableDelimiter") cells.pop()
+  return cells
 }
+
+/** The cells of a delimiter row, which holds only pipes, dashes, colons and spaces: the outer pipes dropped, trimmed. */
+const delimiterCells = (line: string): string[] =>
+  line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((c) => c.trim())
 
 /** A delimiter cell's alignment: `:--` left, `:-:` center, `--:` right, else none. */
 const alignOf = (cell: string): TableBlock["align"][number] => {
@@ -352,16 +356,15 @@ export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>):
       const first = doc.lineAt(ref.from)
       const last = doc.lineAt(Math.max(ref.from, ref.to - 1))
       for (let n = first.number; n <= last.number; n++) if (active.has(n)) return false
-      const texts: string[] = []
-      for (let n = first.number; n <= last.number; n++) texts.push(doc.line(n).text)
-      const [head, delimiter, ...rest] = texts
-      if (head === undefined || delimiter === undefined) return false
+      const head = ref.node.getChild("TableHeader")
+      const delimiter = ref.node.getChild("TableDelimiter")
+      if (head === null || delimiter === null) return false
       blocks.push({
         from: first.from,
         to: last.to,
-        header: tableCells(head),
-        align: tableCells(delimiter).map(alignOf),
-        rows: rest.filter((r) => r.trim() !== "").map(tableCells),
+        header: rowCells(doc, head),
+        align: delimiterCells(doc.sliceString(delimiter.from, delimiter.to)).map(alignOf),
+        rows: children(ref.node, "TableRow").map((r) => rowCells(doc, r)),
       })
       return false
     },

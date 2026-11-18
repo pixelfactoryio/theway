@@ -2,7 +2,7 @@
 
 import type { ChangeList } from "./changes"
 import { appliesTo, filePath, type PromptRow, type WorkflowRow } from "./files"
-import { byLabel, changePath, projectPath, type Project } from "./projects"
+import { archivePath, byLabel, changePath, projectPath, type Project } from "./projects"
 
 /** One entry: its cmdk `value` (unique), the text shown, the text beside it, and the page it opens. */
 export type SearchEntry = { value: string; label: string; detail: string; href: string }
@@ -54,7 +54,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         value: `archived:${key}/${a.dir}`,
         label: a.id,
         detail: `${label(key)} · archived ${a.date}`,
-        href: `/${key}/changes/archive/${a.dir}?`,
+        href: archivePath(key, a.dir),
       })),
     ),
   ]
