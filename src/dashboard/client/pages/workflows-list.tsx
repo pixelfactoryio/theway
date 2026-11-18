@@ -101,33 +101,12 @@ function workflowFields(
   }))
 }
 
-type Column = "name" | "applies" | "steps" | "runsOn"
-
-/** `rows` in the order of `sort`, ties broken by name then project. */
-function sortWorkflows(
-  rows: readonly WorkflowRow[],
-  sort: { id: Column; desc: boolean } | undefined,
-  label: (key: string) => string,
-) {
-  if (sort === undefined) return [...rows].sort(byFile)
-  const sign = sort.desc ? -1 : 1
-  const applies = (r: WorkflowRow) => appliesTo(r.project, label)
-  const compare = (a: WorkflowRow, b: WorkflowRow): number => {
-    if (sort.id === "name") return byFile(a, b)
-    if (sort.id === "applies") return compareText(applies(a), applies(b))
-    if (sort.id === "steps")
-      return a.steps === b.steps ? 0 : a.steps === null ? 1 : b.steps === null ? -1 : a.steps - b.steps
-    return compareText(a.runsOn, b.runsOn)
-  }
-  return [...rows].sort((a, b) => sign * compare(a, b) || byFile(a, b))
-}
-
 function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: boolean }) {
   const [, navigate] = useLocation()
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
-  const sort = sorting[0] as { id: Column; desc: boolean } | undefined
-  const data = useMemo(() => sortWorkflows(rows, sort, label), [rows, sort, label])
+  // By file: the grid's sort keeps this order among the rows its column ties.
+  const data = useMemo(() => [...rows].sort(byFile), [rows])
 
   const columns = useMemo<ColumnDef<DataGridFeatures, WorkflowRow>[]>(
     () => [
@@ -143,6 +122,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
             isDefault={row.original.default}
           />
         ),
+        sortFn: (a, b) => byFile(a.original, b.original),
         size: 280,
         minSize: 200,
         enableSorting: true,
@@ -153,6 +133,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
         cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
+        sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
         size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -162,6 +143,9 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => row.steps,
         header: ({ column }) => <DataGridColumnHeader title="Steps" column={column} />,
         cell: ({ row }) => (row.original.steps === null ? <Dash /> : row.original.steps),
+        // A workflow without steps after every count.
+        sortFn: ({ original: { steps: a } }, { original: { steps: b } }) =>
+          a === b ? 0 : a === null ? 1 : b === null ? -1 : a - b,
         size: 80,
         enableSorting: true,
         meta: {
@@ -175,6 +159,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         accessorFn: (row) => row.runsOn,
         header: ({ column }) => <DataGridColumnHeader title="Runs on" column={column} />,
         cell: ({ row }) => (row.original.runsOn === null ? <Dash /> : <Wrapped>{row.original.runsOn}</Wrapped>),
+        sortFn: (a, b) => compareText(a.original.runsOn, b.original.runsOn),
         size: 100,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-16") },
@@ -199,7 +184,6 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
     getRowId: rowId,
     state: isLoading ? { sorting } : { sorting, pagination: PAGE },
     manualPagination: true,
-    manualSorting: true,
     onSortingChange: setSorting,
   })
 
@@ -240,9 +224,7 @@ export function WorkflowsPage() {
     () => workflowFields(list?.workflows ?? [], searched, filter.rules, valuesOf, prompts.data?.prompts ?? [], label),
     [list, searched, filter.rules, valuesOf, prompts.data, label],
   )
-  const top = (
-    <TopBar items={[{ section: "Library" }, { label: "Workflows" }]} actions={<NewFileButton kind="workflows" />} />
-  )
+  const top = <TopBar title="Workflows" actions={<NewFileButton kind="workflows" />} />
 
   if (workflows.isError || projects.isError) {
     return (

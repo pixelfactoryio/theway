@@ -5,10 +5,6 @@ import type { z } from "zod"
 import { ErrorBodySchema } from "@/lib/files"
 import { currentKey, ProjectListSchema } from "@/lib/projects"
 import { unexpectedAnswer } from "@/shell/api"
-import { readStored, writeStored } from "@/shell/storage"
-
-/** The `localStorage` key of the last chosen project. */
-const PROJECT_KEY = "theway-project"
 
 /**
  * A JSON read of the API, parsed with `schema`: a non-2xx answer throws its `error` text, an answer `schema` does not
@@ -32,11 +28,6 @@ export function useProjects() {
   return useQuery({ queryKey: ["projects"], queryFn: () => getJson("/api/projects", ProjectListSchema) })
 }
 
-const storedProject = (): string | null => readStored(PROJECT_KEY)
-
-/** Keeps the chosen project; without storage, `#/` falls back to the start project. */
-export const storeProject = (key: string): void => writeStored(PROJECT_KEY, key)
-
 /** The key of the `#/<key>/changes…` and `#/<key>` routes, `null` on any other route. */
 function useRouteKey(): string | null {
   const [changes, c] = useRoute<{ key: string }>("/:key/changes/*?")
@@ -50,5 +41,5 @@ export function useCurrentKey(): string | null {
   const projects = useProjects()
   const routeKey = useRouteKey()
   if (projects.data === undefined) return null
-  return currentKey(projects.data, routeKey, storedProject())
+  return currentKey(projects.data, routeKey)
 }

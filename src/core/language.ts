@@ -31,7 +31,7 @@ import {
 import { isMap, nonEmpty } from "./change-text"
 import { changeIdReason } from "./path"
 import { dirsOf, EXT, fileOf, namesIn, searched } from "./step-files"
-import { byText, escaped, parseYaml } from "./text"
+import { byText, escaped, parseYaml, splitHeader } from "./text"
 
 /** The version of the language this one replaces. */
 const V1 = "theway.workflow/v1"
@@ -131,18 +131,6 @@ function declarations(v: unknown, at: string, errors: string[], workflow: boolea
     }
   }
   return out
-}
-
-/**
- * A prompt file's text with a leading BOM dropped and CRLF read as LF, its lines, and the index of the header's closing
- * `---` line (`-1` when the file has no fenced header).
- */
-export function splitHeader(raw: string): { text: string; lines: string[]; end: number } {
-  const text = raw.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n")
-  const lines = text.split("\n")
-  const fence = (l: string | undefined) => l !== undefined && l.replace(/\r$/, "") === "---"
-  const end = fence(lines[0]) ? lines.findIndex((l, i) => i > 0 && fence(l)) : -1
-  return { text, lines, end }
 }
 
 /**

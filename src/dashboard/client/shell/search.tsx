@@ -17,11 +17,8 @@ import { useSidebar } from "@/components/ui/sidebar"
 import { openDialog } from "@/shell/keys"
 import { usePanelName, usePanelOpen } from "@/shell/panel"
 import { useProjects } from "@/shell/projects"
-import { chooseTheme } from "@/shell/theme"
-
 import { MAC } from "@/shell/platform"
-
-export { MAC } from "@/shell/platform"
+import { chooseTheme } from "@/shell/theme"
 
 /** The search's open state, provided by the shell so the sidebar entry and the shortcut share it. */
 export const SearchOpen = createContext<{ open: boolean; setOpen: Dispatch<SetStateAction<boolean>> }>({

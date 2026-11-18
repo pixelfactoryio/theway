@@ -4,7 +4,7 @@ import { useLocation } from "wouter"
 import { NewFileDialog } from "@/components/new-file"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
-import { MAC } from "@/shell/platform"
+import { MOD } from "@/shell/platform"
 
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
 type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
@@ -22,8 +22,6 @@ const subscribe = (l: () => void): (() => void) => {
   listeners.add(l)
   return () => listeners.delete(l)
 }
-
-const MOD = MAC ? "⌘" : "Ctrl"
 
 /** Every shortcut of the dashboard, as the sheet lists them. */
 export const SHORTCUTS: { keys: string[]; action: string }[] = [

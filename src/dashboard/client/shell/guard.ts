@@ -122,7 +122,7 @@ function onLocationEvent(): void {
 addEventListener("popstate", onLocationEvent)
 addEventListener("hashchange", onLocationEvent)
 
-/** The guarded `navigate`: every link, the sidebar and the project selector ask first when they leave unsaved changes. */
+/** The guarded `navigate`: every link and the sidebar ask first when they leave unsaved changes. */
 function navigate(to: string, options?: { replace?: boolean; state?: unknown }): void {
   if (blocks(to.replace(/^#?/, ""))) {
     guard?.ask(() => go(to, options))

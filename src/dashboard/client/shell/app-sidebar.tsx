@@ -32,13 +32,15 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ChangeList } from "@/lib/changes"
+import { projectPath } from "@/lib/projects"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
 import { version } from "@/shell/api"
 import { useChangesOf } from "@/shell/changes"
-import { usePrompts, useWorkflows } from "@/shell/files"
+import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
-import { MAC, useSearchOpen } from "@/shell/search"
+import { MAC } from "@/shell/platform"
+import { useSearchOpen } from "@/shell/search"
 import { useSettings } from "@/shell/settings"
 import { readStored, writeStored } from "@/shell/storage"
 import { SettingsMenu } from "@/shell/theme"
@@ -56,7 +58,6 @@ function Row({
   label,
   value,
   title,
-  onDoubleClick,
 }: {
   href: string
   active: boolean
@@ -64,12 +65,11 @@ function Row({
   label: ReactNode
   value: ReactNode
   title?: string
-  onDoubleClick?: () => void
 }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        render={<Link href={href} onDoubleClick={onDoubleClick} data-nav-item="" />}
+        render={<Link href={href} data-nav-item="" />}
         isActive={active}
         aria-current={active ? "page" : undefined}
         title={title}
@@ -93,7 +93,7 @@ function useShows(): (path: string) => boolean {
   }
 }
 
-/** Now, Search and All projects: Now counts the changes in progress across every project. */
+/** Now and Search: Now counts the changes in progress across every project. */
 function Entries({ inProgress }: { inProgress: number | null }) {
   const { setOpen } = useSearchOpen()
   const [location] = useLocation()
@@ -200,7 +200,7 @@ function Place({
         <SidebarMenuSub className="mr-0 pr-0">
           {entry.keys.map((k) => (
             <SidebarMenuSubItem key={k} data-nav-item="">
-              <SidebarMenuSubButton render={<Link href={`/${k}?`} />} isActive={k === activeKey} title={label(k)}>
+              <SidebarMenuSubButton render={<Link href={projectPath(k)} />} isActive={k === activeKey} title={label(k)}>
                 <span className="min-w-0 flex-1 truncate">{label(k)}</span>
                 <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {open([k]) ?? ""}
@@ -223,7 +223,7 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
   const list = projects.data?.projects ?? []
   const pinned = pinnedEntries(list, settings)
   const recent = recentEntries(list, settings)
-  const label = (k: string) => list.find((p) => p.key === k)?.label ?? k
+  const label = useLabel()
   // The repo the page shows: its own page, or one of its changes.
   const activeKey = list.find((p) => location === `/${p.key}` || location.startsWith(`/${p.key}/`))?.key ?? null
   const active = (e: Entry) => shows(e.href)

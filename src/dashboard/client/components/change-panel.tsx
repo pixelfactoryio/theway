@@ -6,11 +6,12 @@ import { DetailRow, DocPanel, type PaneTab } from "@/components/doc-panel"
 import { StatusMark, StatusPill } from "@/components/status"
 import { OneLine } from "@/components/text"
 import { type ChangeDetail, localDate, memberOf, type SeriesMember } from "@/lib/changes"
-import { changePath } from "@/lib/projects"
-import { useProjects } from "@/shell/projects"
+import { archivePath, changePath } from "@/lib/projects"
+import { useLabel } from "@/shell/files"
 
-const memberHref = (key: string, m: { active: string | null; archived: string | null }): string =>
-  m.active !== null ? changePath(key, m.active) : `/${key}/changes/archive/${m.archived}?`
+/** A member's page, `null` for a member with neither an active ID nor an archive reference. */
+const memberHref = (key: string, m: { active: string | null; archived: string | null }): string | null =>
+  m.active !== null ? changePath(key, m.active) : m.archived !== null ? archivePath(key, m.archived) : null
 
 /** One ordinal of the series list; the current change's row shows the current change itself. */
 function SeriesRow({
@@ -35,7 +36,8 @@ function SeriesRow({
         }
       : member
   const classes = cn("flex h-8 min-w-0 items-center gap-3 px-4 text-sm", current !== null && "bg-accent")
-  if (shown.status === null || (shown.active === null && shown.archived === null)) {
+  const href = memberHref(projectKey, shown)
+  if (shown.status === null || href === null) {
     return (
       <li className={classes} aria-current={current !== null ? "true" : undefined}>
         <span className="text-muted-foreground tabular-nums">{member.ordinal}</span>
@@ -51,7 +53,7 @@ function SeriesRow({
   return (
     <li className={classes} aria-current={current !== null ? "true" : undefined}>
       <StatusMark status={shown.status} />
-      <Link href={memberHref(projectKey, shown)} className="min-w-0 flex-1 underline-offset-4 hover:underline">
+      <Link href={href} className="min-w-0 flex-1 underline-offset-4 hover:underline">
         <OneLine text={shown.id} />
       </Link>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{right}</span>
@@ -93,7 +95,7 @@ export function ChangePanel({
 }) {
   const archived = change.archived !== null
   const invalid = change.status === "invalid"
-  const project = useProjects().data?.projects.find((p) => p.key === projectKey)?.label ?? projectKey
+  const project = useLabel()(projectKey)
   const ordinal = memberOf(change.id)?.ordinal
   const top: PaneTab[] = [
     { value: "tasks", label: "Tasks", count: invalid ? "–" : `${change.done}/${change.total}`, content: tasks },

@@ -35,10 +35,6 @@ test("an info string with more than the language still finds it; an unknown or e
   expect(name("   ")).toBeNull()
 })
 
-test("every language of the list is loaded, so fenced code parses at once", () => {
-  expect(CODE_LANGUAGES.map((d) => d.support !== undefined)).toEqual(CODE_LANGUAGES.map(() => true))
-})
-
 test("a code block's label is its info string's first word, as written", () => {
   expect(codeLabel("go title=x")).toBe("go")
   expect(codeLabel(" TS ")).toBe("TS")

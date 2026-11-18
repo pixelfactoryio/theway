@@ -9,19 +9,12 @@ const ROOT = join(import.meta.dirname, "..")
 const GENERATED = join(ROOT, "src", "dashboard", "generated")
 const LICENSES = join(ROOT, "dist", "licenses")
 
-const FONTS = [
-  {
-    pkg: "geist-mono",
-    file: "geist-mono-latin-wght-normal.woff2",
-    out: "geist-mono.woff2.txt",
-    license: "geist-mono-OFL.txt",
-  },
-]
+const FONT = join(ROOT, "node_modules", "@fontsource-variable", "geist-mono")
 
 mkdirSync(GENERATED, { recursive: true })
 mkdirSync(LICENSES, { recursive: true })
-for (const f of FONTS) {
-  const dir = join(ROOT, "node_modules", "@fontsource-variable", f.pkg)
-  writeFileSync(join(GENERATED, f.out), readFileSync(join(dir, "files", f.file)).toString("base64"))
-  copyFileSync(join(dir, "LICENSE"), join(LICENSES, f.license))
-}
+writeFileSync(
+  join(GENERATED, "geist-mono.woff2.txt"),
+  readFileSync(join(FONT, "files", "geist-mono-latin-wght-normal.woff2")).toString("base64"),
+)
+copyFileSync(join(FONT, "LICENSE"), join(LICENSES, "geist-mono-OFL.txt"))

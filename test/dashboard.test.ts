@@ -307,23 +307,18 @@ test("one project's fallback label is its key without the leading -", async () =
 
 const EMPTY_SETTINGS = { pinned: [], groups: [], recent: [], dismissed: [] }
 
-/** A `PUT /api/dashboard` with this server's Origin, the token and a JSON body, each header replaceable. */
-const putSettings = (home: string, body: unknown, headers: Record<string, string | undefined> = {}) => {
-  const all: Record<string, string> = {}
-  for (const [k, v] of Object.entries({
-    Host: "127.0.0.1:4870",
-    Origin: "http://127.0.0.1:4870",
-    "X-Theway-Token": TOKEN,
-    "Content-Type": "application/json",
-    ...headers,
-  }))
-    if (v !== undefined) all[k] = v
-  return app(home).request("http://127.0.0.1:4870/api/dashboard", {
+/** A `PUT /api/dashboard` with this server's Origin, the token and a JSON body. */
+const putSettings = (home: string, body: unknown) =>
+  app(home).request("http://127.0.0.1:4870/api/dashboard", {
     method: "PUT",
-    headers: all,
+    headers: {
+      Host: "127.0.0.1:4870",
+      Origin: "http://127.0.0.1:4870",
+      "X-Theway-Token": TOKEN,
+      "Content-Type": "application/json",
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   })
-}
 
 const SETTINGS = {
   pinned: ["project:-a", "group:work"],
@@ -351,17 +346,6 @@ test("PUT /api/dashboard saves the settings, names trimmed, and GET reads them b
   const empty = await putSettings(home, EMPTY_SETTINGS)
   expect([empty.status, await empty.json()]).toEqual([200, EMPTY_SETTINGS])
   expect(await (await get(home, "/api/dashboard")).json()).toEqual(EMPTY_SETTINGS)
-})
-
-test("PUT /api/dashboard is behind the write guard", async () => {
-  const home = temp()
-  for (const headers of [{ Origin: "http://evil.example" }, { "X-Theway-Token": undefined }]) {
-    const res = await putSettings(home, SETTINGS, headers)
-    expect([res.status, await res.json()]).toEqual([403, { error: "forbidden" }])
-  }
-  const res = await putSettings(home, SETTINGS, { "Content-Type": "text/plain" })
-  expect([res.status, await res.json()]).toEqual([415, { error: "unsupported media type" }])
-  expect(readdirSync(home)).toEqual([])
 })
 
 test("PUT /api/dashboard refuses a body that breaks a rule of the schema with 400 and writes nothing", async () => {

@@ -52,26 +52,6 @@ const COLUMN_DEFAULTS = { minSize: 72 }
 /** The grid's column under the filter bar: the page's width, with its 24px gutters; the grid scrolls inside it. */
 const COLUMN = "flex min-h-0 w-full flex-1 flex-col px-6"
 
-type Column = "name" | "applies" | "kind" | "model" | "usedBy"
-
-/** `rows` in the order of `sort`, ties broken by name then project. */
-function sortPrompts(
-  rows: readonly PromptRow[],
-  sort: { id: Column; desc: boolean } | undefined,
-  label: (key: string) => string,
-) {
-  if (sort === undefined) return [...rows].sort(byFile)
-  const sign = sort.desc ? -1 : 1
-  const compare = (a: PromptRow, b: PromptRow): number => {
-    if (sort.id === "name") return byFile(a, b)
-    if (sort.id === "applies") return compareText(appliesTo(a.project, label), appliesTo(b.project, label))
-    if (sort.id === "kind") return compareText(KIND_LABEL[kindOf(a)], KIND_LABEL[kindOf(b)])
-    if (sort.id === "model") return compareText(a.model, b.model)
-    return compareText(a.usedBy[0]?.workflow ?? null, b.usedBy[0]?.workflow ?? null)
-  }
-  return [...rows].sort((a, b) => sign * compare(a, b) || byFile(a, b))
-}
-
 /** A use's link: to its workflow's page. */
 function UseLink({ use, children, className }: { use: Use; children: string; className?: string }) {
   return (
@@ -187,8 +167,8 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
   const [, navigate] = useLocation()
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
-  const sort = sorting[0] as { id: Column; desc: boolean } | undefined
-  const data = useMemo(() => sortPrompts(rows, sort, label), [rows, sort, label])
+  // By file: the grid's sort keeps this order among the rows its column ties.
+  const data = useMemo(() => [...rows].sort(byFile), [rows])
 
   const columns = useMemo<ColumnDef<DataGridFeatures, PromptRow>[]>(
     () => [
@@ -203,6 +183,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
             description={row.original.description}
           />
         ),
+        sortFn: (a, b) => byFile(a.original, b.original),
         size: 280,
         minSize: 200,
         enableSorting: true,
@@ -213,6 +194,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
         cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
+        sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
         size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -222,6 +204,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => KIND_LABEL[kindOf(row)],
         header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} />,
         cell: ({ row }) => <Wrapped>{KIND_LABEL[kindOf(row.original)]}</Wrapped>,
+        sortFn: (a, b) => compareText(KIND_LABEL[kindOf(a.original)], KIND_LABEL[kindOf(b.original)]),
         size: 130,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -231,6 +214,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => row.model,
         header: ({ column }) => <DataGridColumnHeader title="Model" column={column} />,
         cell: ({ row }) => (row.original.model === null ? <Dash /> : <Wrapped>{row.original.model}</Wrapped>),
+        sortFn: (a, b) => compareText(a.original.model, b.original.model),
         size: 100,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-12") },
@@ -240,6 +224,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         accessorFn: (row) => row.usedBy[0]?.workflow ?? null,
         header: ({ column }) => <DataGridColumnHeader title="Used by" column={column} />,
         cell: ({ row }) => <UsedByCell row={row.original} />,
+        sortFn: (a, b) => compareText(a.original.usedBy[0]?.workflow ?? null, b.original.usedBy[0]?.workflow ?? null),
         size: 170,
         enableSorting: true,
         meta: { skeleton: cellSkeleton("w-24") },
@@ -264,7 +249,6 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
     getRowId: rowId,
     state: isLoading ? { sorting } : { sorting, pagination: PAGE },
     manualPagination: true,
-    manualSorting: true,
     onSortingChange: setSorting,
   })
 
@@ -299,9 +283,7 @@ export function PromptsPage() {
     () => promptFields(list?.prompts ?? [], searched, filter.rules, label),
     [list, searched, filter.rules, label],
   )
-  const top = (
-    <TopBar items={[{ section: "Library" }, { label: "Prompts" }]} actions={<NewFileButton kind="prompts" />} />
-  )
+  const top = <TopBar title="Prompts" actions={<NewFileButton kind="prompts" />} />
 
   if (prompts.isError || projects.isError) {
     return (

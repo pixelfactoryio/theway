@@ -8,7 +8,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { unsavedTitle } from "@/lib/change-edit"
 import { saveWithErrors } from "@/lib/edit"
 
 /** The confirmation open on the page. */
@@ -17,24 +16,19 @@ export type Confirm =
   | { kind: "reload"; name: string }
   | { kind: "errors"; n: number; answer: (yes: boolean) => void }
   | { kind: "leave"; proceed: () => void }
-  | { kind: "done"; name: string }
 
-/** The page's confirmations: Discard, Reload, Save with errors, Done with unsaved changes, and leaving the page. */
+/** The page's confirmations: Discard, Reload, Save with errors, and leaving the page. */
 export function ChangeDialogs({
   confirm,
   setConfirm,
   onDiscard,
   onReload,
-  onDoneSave,
-  onDoneDiscard,
   onLeaveSave,
 }: {
   confirm: Confirm | null
   setConfirm: (c: Confirm | null) => void
   onDiscard: (file: string) => void
   onReload: (file: string) => void
-  onDoneSave: (file: string) => Promise<void>
-  onDoneDiscard: (file: string) => void
   onLeaveSave: (proceed: () => void) => void
 }) {
   const close = () => {
@@ -76,32 +70,6 @@ export function ChangeDialogs({
                 }}
               >
                 Save anyway
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </>
-        ) : confirm?.kind === "done" ? (
-          <>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{unsavedTitle(confirm.name)}</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Keep editing</AlertDialogCancel>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setConfirm(null)
-                  onDoneDiscard(confirm.name)
-                }}
-              >
-                Discard
-              </Button>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirm(null)
-                  void onDoneSave(confirm.name)
-                }}
-              >
-                Save
               </AlertDialogAction>
             </AlertDialogFooter>
           </>

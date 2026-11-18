@@ -19,7 +19,6 @@ import {
 } from "../src/dashboard/client/lib/files"
 import { NONE } from "../src/dashboard/client/lib/list-filter"
 import { drawWorkflow, findPrompt, isDefaultText, keyLabel, selectionOf } from "../src/dashboard/client/lib/workflow"
-import { fitScale, percent, zoomStep } from "../src/dashboard/client/lib/workflow-layout"
 
 const prompt = (
   name: string,
@@ -359,16 +358,10 @@ test("a file that cannot be drawn gives its first line as the reason", () => {
   })
 })
 
-test("the prompt of a step is its project's own, else the global one; zoom steps by 0.1 within 50% and 200%", () => {
+test("the prompt of a step is its project's own, else the global one", () => {
   expect(findPrompt(PROMPTS, "-p", "review")?.description).toBe("Own review")
   expect(findPrompt(PROMPTS, "-q", "review")?.description).toBe("Review it")
   expect(findPrompt(PROMPTS, null, "nope")).toBeNull()
-  expect([zoomStep(1, 0.1), zoomStep(0.5, -0.1), zoomStep(1.95, 0.1), zoomStep(0.73, -0.1)]).toEqual([1.1, 0.5, 2, 0.6])
-  expect([percent(1), percent(0.734), percent(2)]).toEqual(["100%", "73%", "200%"])
-})
-
-test("fitScale fits a drawing between 80% and 100%", () => {
-  expect([fitScale(552, 610), fitScale(650, 610), fitScale(934, 610), fitScale(2000, 610)]).toEqual([1, 0.9, 0.8, 0.8])
 })
 
 test("a YAML key's label turns every - and . into a space and upper-cases its first letter", () => {

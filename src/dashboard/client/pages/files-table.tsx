@@ -63,7 +63,7 @@ export function StatusCell({ errors }: { errors: readonly string[] }) {
       </Badge>
     )
   }
-  return <ErrorsBadge errors={errors} />
+  return <ErrorsBadge count={errors.length} />
 }
 
 /** A home with no file of the section, with the section's New button (`outline`). */

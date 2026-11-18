@@ -7,7 +7,6 @@ import {
   type Plan,
   type Span,
   tableBlocks,
-  tableCells,
   taskToggle,
 } from "../src/dashboard/client/lib/live-preview"
 
@@ -168,10 +167,16 @@ test("the active lines are the selection's lines while focused, none unfocused",
   expect([...activeLines(doc, [{ from: 2, to: 4 }], false)]).toEqual([])
 })
 
-test("a table line's cells split on pipes outside code and not escaped, the outer pipes dropped", () => {
-  expect(tableCells("| a | `b|c` | d \\| e |")).toEqual(["a", "`b|c`", "d | e"])
-  expect(tableCells("a | b")).toEqual(["a", "b"])
-  expect(tableCells("|:--|:-:|--:|---|")).toEqual([":--", ":-:", "--:", "---"])
+test("a table's cells split where GFM splits them: on each pipe not escaped, in a code span too", () => {
+  const source = "| a | `b|c` | d \\| e |\n|:--|:-:|--:|---|\n| x | | z |\nq | r"
+  const doc = Text.of(source.split("\n"))
+  const [block] = tableBlocks(doc, markdownLanguage.parser.parse(source), new Set())
+  expect(block?.header).toEqual(["a", "`b", "c`", "d | e"])
+  expect(block?.align).toEqual(["left", "center", "right", null])
+  expect(block?.rows).toEqual([
+    ["x", "", "z"],
+    ["q", "r"],
+  ])
 })
 
 test("a table no active line touches is drawn, over its whole lines, with its alignment", () => {

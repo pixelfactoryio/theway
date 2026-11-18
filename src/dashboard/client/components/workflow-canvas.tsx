@@ -62,7 +62,7 @@ import {
   revealDelta,
   zoomStep,
 } from "@/lib/workflow-layout"
-import { MAC } from "@/shell/platform"
+import { MAC, MOD } from "@/shell/platform"
 
 /** What the canvas offers to edit: `null` for a read-only canvas. */
 export type CanvasEdits = {
@@ -91,9 +91,6 @@ const useCanvas = (): Canvas => {
 
 type FlowNode = FlowNodeBase<{ layout: LayoutNode }>
 type FlowEdge = Edge<{ layout: LayoutEdge }>
-
-/** The modifier key's name, for the tooltips. */
-const MOD = MAC ? "⌘" : "Ctrl"
 
 /**
  * A handle where an edge joins a card, never a place to connect (steps are not joined by hand): 1px and invisible, so

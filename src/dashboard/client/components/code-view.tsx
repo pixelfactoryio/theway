@@ -19,15 +19,13 @@ import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref 
 
 import { CODE_TAG_STYLES } from "@/lib/code-languages"
 import { type FileError, lineSeparatorOf } from "@/lib/files"
+import { meta } from "@/shell/api"
 
 /** The language of a code view: a workflow's YAML, a prompt (a YAML header over Markdown), or Markdown. */
 export type CodeLanguage = "yaml" | "prompt" | "markdown"
 
 /** What a page can ask of a code view: put the cursor on a line and focus it. */
 export type CodeViewHandle = { goToLine: (line: number) => void }
-
-/** The style nonce of this page's response, which CodeMirror puts on the `<style>` tags it injects. */
-const nonce = (): string => document.querySelector<HTMLMetaElement>('meta[name="theway-nonce"]')?.content ?? ""
 
 /** The code view's colours: fenced code's syntax colours over the whole file, and Markdown headings in bold. */
 const HIGHLIGHT = HighlightStyle.define([
@@ -121,7 +119,7 @@ function sharedExtensions({
     lintGutter(),
     EditorView.contentAttributes.of({ "aria-label": name }),
     EditorState.lineSeparator.of(separator),
-    EditorView.cspNonce.of(nonce()),
+    EditorView.cspNonce.of(meta("nonce")),
   ]
 }
 

@@ -4,7 +4,6 @@ import { Component, type ReactNode } from "react"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { resetOnKeyChange } from "@/lib/boundary"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 type BoundaryProps = {
@@ -27,7 +26,7 @@ export class ErrorBoundary extends Component<BoundaryProps, { error: Error | nul
 
   /** Clears only an error shown before the key changed: one caught in the update that changed the key stays. */
   componentDidUpdate(prev: BoundaryProps, prevState: { error: Error | null }): void {
-    if (resetOnKeyChange(prev.resetKey, this.props.resetKey, prevState.error !== null)) this.setState({ error: null })
+    if (prevState.error !== null && prev.resetKey !== this.props.resetKey) this.setState({ error: null })
   }
 
   reset = (): void => {
@@ -39,11 +38,11 @@ export class ErrorBoundary extends Component<BoundaryProps, { error: Error | nul
   }
 }
 
-/** A page that failed to render: an "Error" breadcrumb, the error, and a Try again that renders the page again. */
+/** A page that failed to render: an "Error" title, the error, and a Try again that renders the page again. */
 export function PageError({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <>
-      <TopBar items={[{ label: "Error" }]} />
+      <TopBar title="Error" />
       <PageBody>
         <Alert variant="destructive" className="m-4 w-auto">
           <CircleAlertIcon className="size-4" aria-hidden="true" />

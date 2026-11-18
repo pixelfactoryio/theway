@@ -15,11 +15,13 @@ const RECENT_KEPT = 10
 
 const KEY = ["dashboard-settings"]
 
+/** The query of `GET /api/dashboard`. */
+const useSettingsQuery = () =>
+  useQuery({ queryKey: KEY, queryFn: () => getJson("/api/dashboard", DashboardSettingsSchema) })
+
 /** `GET /api/dashboard`: the sidebar's pins, groups, recents and dismissed suggestions, kept in the theway home. */
 export function useSettings(): DashboardSettings {
-  return (
-    useQuery({ queryKey: KEY, queryFn: () => getJson("/api/dashboard", DashboardSettingsSchema) }).data ?? NO_SETTINGS
-  )
+  return useSettingsQuery().data ?? NO_SETTINGS
 }
 
 /**
@@ -56,7 +58,7 @@ export const recordedId = (settings: DashboardSettings, key: string): string => 
 
 /** Records `id` as opened once the settings have loaded; a failed write is left for the next visit. */
 export function useRecordVisit(id: string | null): void {
-  const query = useQuery({ queryKey: KEY, queryFn: () => getJson("/api/dashboard", DashboardSettingsSchema) })
+  const query = useSettingsQuery()
   const first = query.data?.recent[0]
   const edit = useEditSettings()
   useEffect(() => {
@@ -73,7 +75,7 @@ const START_KEY = "theway-start-recorded"
  * shows under Recent.
  */
 export function useRecordStart(start: string | null): void {
-  const query = useQuery({ queryKey: KEY, queryFn: () => getJson("/api/dashboard", DashboardSettingsSchema) })
+  const query = useSettingsQuery()
   const edit = useEditSettings()
   const settings = query.data
   useEffect(() => {

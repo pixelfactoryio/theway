@@ -28,12 +28,12 @@ export function StatusMark({ status, className }: { status: Status; className?: 
 }
 
 /** The `N errors` badge: `destructive-light`, the Invalid icon, `N errors` (`1 error`); nothing when there is none. */
-export function ErrorsBadge({ errors }: { errors: readonly string[] }) {
-  if (errors.length === 0) return null
+export function ErrorsBadge({ count }: { count: number }) {
+  if (count === 0) return null
   return (
     <Badge variant="destructive-light" className="tabular-nums">
       <CircleAlertIcon aria-hidden="true" />
-      {errorCount(errors.length)}
+      {errorCount(count)}
     </Badge>
   )
 }

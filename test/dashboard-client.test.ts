@@ -145,44 +145,34 @@ test("every devDependency but the Node.js types and the compiler is pinned to an
   expect(ranged).toEqual([])
 })
 
+/** The packages of the CLI, the server, the build and the tooling: every other devDependency is the client's. */
+const NOT_CLIENT = [
+  "@clack/prompts",
+  "@eslint/js",
+  "@fontsource-variable/geist-mono",
+  "@hono/node-server",
+  "@tailwindcss/cli",
+  "@types/node",
+  "@types/react",
+  "@types/react-dom",
+  "commander",
+  "diff",
+  "eslint",
+  "eslint-config-prettier",
+  "eslint-plugin-react-hooks",
+  "hono",
+  "markdownlint-cli2",
+  "prettier",
+  "typescript",
+  "typescript-eslint",
+]
+
 test("every runtime package the client adds is imported by a kept file", () => {
   const sources = files(CLIENT)
     .filter((f) => /\.(tsx?|css)$/.test(f))
     .map((f) => readFileSync(f, "utf-8"))
     .join("\n")
-  for (const name of [
-    "react",
-    "react-dom",
-    "wouter",
-    "@tanstack/react-query",
-    "@base-ui/react",
-    "class-variance-authority",
-    "cn",
-    "lucide-react",
-    "cmdk",
-    "tw-animate-css",
-    "shadcn",
-    "tailwindcss",
-    "@tanstack/react-table",
-    "react-resizable-panels",
-    "react-markdown",
-    "remark-gfm",
-    "@tailwindcss/typography",
-    "@codemirror/state",
-    "@codemirror/view",
-    "@codemirror/language",
-    "@codemirror/commands",
-    "@codemirror/search",
-    "@codemirror/lang-yaml",
-    "@codemirror/lang-markdown",
-    "@codemirror/lint",
-    "@lezer/highlight",
-    "@xyflow/react",
-    "@codemirror/merge",
-    "@dnd-kit/core",
-    "@dnd-kit/sortable",
-    "@dnd-kit/utilities",
-  ]) {
+  for (const name of Object.keys(pkg.devDependencies).filter((n) => !NOT_CLIENT.includes(n))) {
     expect([name, new RegExp(`["']${name.replace("/", "\\/")}(?:/[^"']*)?["']`).test(sources)]).toEqual([name, true])
   }
 })
@@ -194,14 +184,14 @@ test("projects sort by label with localeCompare en base, ties by key", () => {
   expect(byLabel(list).map((x) => x.key)).toEqual(["-c", "-a", "-z", "-b"])
 })
 
-test("the current project is the route's, else the stored, else start, else the first by label", () => {
+test("the current project is the route's, else start, else the first by label", () => {
   const list = { projects: [p("-t", "Tower"), p("-w", "theway"), p("-s", "start")], start: "-s" }
-  expect(currentKey(list, "-t", "-w")).toBe("-t")
-  expect(currentKey(list, "-gone", "-w")).toBe("-w")
-  expect(currentKey(list, null, "-gone")).toBe("-s")
-  expect(currentKey({ ...list, start: null }, null, null)).toBe("-s")
-  expect(currentKey({ projects: [p("-t", "Tower"), p("-w", "theway")], start: null }, null, null)).toBe("-w")
-  expect(currentKey({ projects: [], start: null }, "-x", "-y")).toBeNull()
+  expect(currentKey(list, "-t")).toBe("-t")
+  expect(currentKey(list, "-gone")).toBe("-s")
+  expect(currentKey(list, null)).toBe("-s")
+  expect(currentKey({ ...list, start: null }, null)).toBe("-s")
+  expect(currentKey({ projects: [p("-t", "Tower"), p("-w", "theway")], start: null }, null)).toBe("-w")
+  expect(currentKey({ projects: [], start: null }, "-x")).toBeNull()
   expect(projectPath("-w")).toBe("/-w?")
 })
 
@@ -326,8 +316,8 @@ test("the code view holds its own extension set, read-only through EditorState.r
   const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
   expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/)
   expect(text).toContain("EditorState.readOnly.of(true)")
-  expect(text).toContain("EditorView.cspNonce.of(nonce())")
-  expect(text).toContain('meta[name="theway-nonce"]')
+  expect(text).toContain('EditorView.cspNonce.of(meta("nonce"))')
+  expect(readFileSync(join(CLIENT, "shell", "api.ts"), "utf-8")).toContain('`meta[name="theway-${name}"]`')
 })
 
 test("the five syntax colours are defined light and dark", () => {

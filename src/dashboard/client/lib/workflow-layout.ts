@@ -159,7 +159,7 @@ export type View = { x: number; y: number; zoom: number }
  * The scale that fits a drawing `box` long into `area` (its height or its width): never above 1, rounded down to a 0.1
  * step, never below 0.8 (a larger drawing overflows at 0.8).
  */
-export const fitScale = (box: number, area: number): number =>
+const fitScale = (box: number, area: number): number =>
   Math.max(0.8, Math.floor(Math.min(1, area / box) * 10 + 1e-9) / 10)
 
 /** The space between the page's heading, drawn over the canvas's top, and the drawing it fits. */

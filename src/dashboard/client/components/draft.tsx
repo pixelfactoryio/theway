@@ -331,6 +331,32 @@ export function useFileDraft({
 
 export type FileDraft = ReturnType<typeof useFileDraft>
 
+/** The strip shown when the file changed on disk since it was opened, with Reload. */
+export function ConflictNotice({ onReload }: { onReload: () => void }) {
+  return (
+    <Alert variant="warning" className={STRIP}>
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertTitle>This file changed on disk since you opened it.</AlertTitle>
+      <AlertAction>
+        <Button variant="outline" size="xs" onClick={onReload}>
+          Reload
+        </Button>
+      </AlertAction>
+    </Alert>
+  )
+}
+
+/** The strip shown when the last save failed, with the reason. */
+export function SaveFailureNotice({ message }: { message: string }) {
+  return (
+    <Alert variant="destructive" className={STRIP}>
+      <CircleAlertIcon aria-hidden="true" />
+      <AlertTitle>The file could not be saved</AlertTitle>
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  )
+}
+
 /**
  * The stack under the tabs, from the top: the conflict, the save failure, then the check failure or the error alert. On
  * History the error alert is hidden. Unsaved edits show in the footer, with `DraftStatus`.
@@ -346,24 +372,8 @@ export function DraftNotices({
 }) {
   return (
     <>
-      {draft.conflict ? (
-        <Alert variant="warning" className={STRIP}>
-          <TriangleAlertIcon aria-hidden="true" />
-          <AlertTitle>This file changed on disk since you opened it.</AlertTitle>
-          <AlertAction>
-            <Button variant="outline" size="xs" onClick={draft.reload}>
-              Reload
-            </Button>
-          </AlertAction>
-        </Alert>
-      ) : null}
-      {draft.saveFailure !== null ? (
-        <Alert variant="destructive" className={STRIP}>
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>The file could not be saved</AlertTitle>
-          <AlertDescription>{draft.saveFailure}</AlertDescription>
-        </Alert>
-      ) : null}
+      {draft.conflict ? <ConflictNotice onReload={draft.reload} /> : null}
+      {draft.saveFailure !== null ? <SaveFailureNotice message={draft.saveFailure} /> : null}
       {draft.checkFailure !== null ? (
         <Alert variant="destructive" className={STRIP}>
           <CircleAlertIcon aria-hidden="true" />
@@ -407,8 +417,6 @@ export function DraftDialogs({ draft }: { draft: FileDraft }) {
       setConfirm={draft.setConfirm}
       onDiscard={draft.doDiscard}
       onReload={() => void draft.doReload()}
-      onDoneSave={async () => undefined}
-      onDoneDiscard={() => undefined}
       onLeaveSave={(proceed) => {
         draft.setConfirm(null)
         void draft.save(false).then((ok) => {

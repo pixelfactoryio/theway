@@ -28,12 +28,12 @@ export const SCROLL_AREA = "min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]]:
 export function SearchField({
   value,
   onChange,
-  label = "Search changes",
+  label,
   className,
 }: {
   value: string
   onChange: (value: string) => void
-  label?: string
+  label: string
   className?: string
 }) {
   return (

@@ -35,9 +35,7 @@ type Env = { Variables: { secureHeadersNonce?: string } }
 const JSON_TYPE = "application/json; charset=utf-8"
 
 /** The code font, embedded as base64 text and decoded once. */
-const FONTS: Record<string, Uint8Array<ArrayBuffer>> = {
-  "/fonts/geist-mono.woff2": Uint8Array.from(Buffer.from(geistMono, "base64")),
-}
+const GEIST_MONO = Uint8Array.from(Buffer.from(geistMono, "base64"))
 
 /** The largest body a write route takes, in bytes. */
 export const MAX_BODY = 1048576
@@ -100,6 +98,11 @@ export function createApp(
   const store = fileStore(home)
   const json = (status: number, body: unknown): Response =>
     new Response(JSON.stringify(body), { status, headers: { "Content-Type": JSON_TYPE } })
+  /** This server's own hosts, `<loopback name>:<port>`, and the bare names on port 80. */
+  const loopback = (): string[] => {
+    const p = port()
+    return [`127.0.0.1:${p}`, `localhost:${p}`, ...(p === 80 ? ["127.0.0.1", "localhost"] : [])]
+  }
 
   // First, so it sees every final status, the guards' and onError's included. The path is the URL's own, still
   // percent-encoded, so no control character reaches the terminal; the query string is left out.
@@ -131,9 +134,7 @@ export function createApp(
   // from the Host header (RFC 9110, 7.2), so the bare loopback names pass there, and only there.
   app.use("*", async (c, next) => {
     const host = (c.req.header("host") ?? "").toLowerCase()
-    const p = port()
-    const allowed = [`127.0.0.1:${p}`, `localhost:${p}`, ...(p === 80 ? ["127.0.0.1", "localhost"] : [])]
-    if (!allowed.includes(host)) {
+    if (!loopback().includes(host)) {
       c.res = json(403, { error: "forbidden host" })
       return
     }
@@ -147,15 +148,9 @@ export function createApp(
   // for either), a JSON media type, then a bounded body.
   app.use("*", async (c, next) => {
     if (c.req.method === "GET" || c.req.method === "HEAD") return next()
-    const p = port()
-    const origins = [
-      `http://127.0.0.1:${p}`,
-      `http://localhost:${p}`,
-      ...(p === 80 ? ["http://127.0.0.1", "http://localhost"] : []),
-    ]
     const origin = c.req.header("origin") ?? ""
     const given = c.req.header("x-theway-token")
-    if (!origins.includes(origin) || given === undefined || !sameSecret(given, token))
+    if (!loopback().some((h) => origin === `http://${h}`) || given === undefined || !sameSecret(given, token))
       return json(403, { error: "forbidden" })
     const media = (c.req.header("content-type") ?? "").split(";")[0]?.trim().toLowerCase()
     if (media !== "application/json") return json(415, { error: "unsupported media type" })
@@ -174,8 +169,7 @@ export function createApp(
   )
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }))
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }))
-  for (const [path, bytes] of Object.entries(FONTS))
-    app.get(path, (c) => c.body(bytes, 200, { "Content-Type": "font/woff2" }))
+  app.get("/fonts/geist-mono.woff2", (c) => c.body(GEIST_MONO, 200, { "Content-Type": "font/woff2" }))
   // The page declares no icon: a browser's own request for one gets an empty answer, not a 404.
   app.get("/favicon.ico", () => new Response(null, { status: 204 }))
 

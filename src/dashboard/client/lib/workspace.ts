@@ -2,7 +2,7 @@
 import type { ChangeList, DashboardSettings, Project } from "../../contract"
 import { activeRows, rowStatus } from "./changes"
 import { NONE } from "./list-filter"
-import { byLabel } from "./projects"
+import { byLabel, projectPath } from "./projects"
 
 /** An entry of the sidebar or of All projects: a project, or a group of projects made by hand. */
 export type Entry = {
@@ -24,7 +24,7 @@ export function entryOf(id: string, projects: readonly Project[], settings: Dash
     const key = id.slice("project:".length)
     const p = projects.find((x) => x.key === key)
     if (p === undefined) return null
-    return { id, kind: "project", label: p.label, keys: [key], open: p.active, href: `/${key}?` }
+    return { id, kind: "project", label: p.label, keys: [key], open: p.active, href: projectPath(key) }
   }
   if (id.startsWith("group:")) {
     const gid = id.slice("group:".length)
@@ -41,12 +41,12 @@ export function entryOf(id: string, projects: readonly Project[], settings: Dash
 export const pinnedEntries = (projects: readonly Project[], settings: DashboardSettings): Entry[] =>
   settings.pinned.flatMap((id) => entryOf(id, projects, settings) ?? [])
 
-/** The recently opened entries that are not pinned, newest first, at most `max`. */
-export const recentEntries = (projects: readonly Project[], settings: DashboardSettings, max = 5): Entry[] =>
+/** The recently opened entries that are not pinned, newest first, at most five. */
+export const recentEntries = (projects: readonly Project[], settings: DashboardSettings): Entry[] =>
   settings.recent
     .filter((id) => !settings.pinned.includes(id))
     .flatMap((id) => entryOf(id, projects, settings) ?? [])
-    .slice(0, max)
+    .slice(0, 5)
 
 /** Every entry for All projects: each group, then each project in no group, by label. */
 export function allEntries(projects: readonly Project[], settings: DashboardSettings): Entry[] {
@@ -100,7 +100,7 @@ export function groupId(name: string, taken: readonly string[]): string {
   return `${base}-${n}`
 }
 
-/** The settings with a new group `name` of `keys`, each taken out of any other group, pinned when `pin`. */
+/** The settings with a new group `name` of `keys`, each taken out of any other group. */
 export function withGroup(settings: DashboardSettings, name: string, keys: readonly string[]): DashboardSettings {
   const id = groupId(
     name,
@@ -164,10 +164,9 @@ export const toDo = (list: ChangeList | undefined): number =>
 
 /** The rows Now lists as In progress: a change, or a series In progress as a whole counted once. */
 export const inProgressCount = (list: ChangeList | undefined): number =>
-  activeRows(list?.active ?? [], "", []).filter((r) => rowStatus(r) === "in-progress").length
+  activeRows(list?.active ?? [], "").filter((r) => rowStatus(r) === "in-progress").length
 
-/** `n` and `noun`, plural unless `n` is 1: `1 project`, `3 projects`. */
-export const countOf = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`
+export { countOf } from "./list-filter"
 
 /** The fields of All projects' filter bar: the project's group, and whether it is pinned. */
 export const PROJECT_FIELDS = ["group", "pinned"] as const

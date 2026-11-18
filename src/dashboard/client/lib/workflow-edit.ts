@@ -4,6 +4,7 @@
  * DOM.
  */
 import { type Document, isAlias, isMap, isScalar, isSeq, type Pair, parseDocument, visit, YAMLMap, YAMLSeq } from "yaml"
+import { promptUses } from "../../../core/language-schema"
 import { lineSeparatorOf, type PromptRow } from "./files"
 import { isNull, keyOf, node } from "./yaml-nodes"
 
@@ -159,7 +160,7 @@ export function addStep(text: string, at: number, prompt: PromptRow): string {
     const list = seq as YAMLSeq
     if (at < 0 || at > list.items.length) refuse()
     if (list.items.length === 0) list.flow = false
-    const value: Record<string, unknown> = { uses: `prompts/${prompt.name}.md` }
+    const value: Record<string, unknown> = { uses: promptUses(prompt.name) }
     const w = requiredWith(root, prompt)
     if (w !== null) value.with = w
     list.items.splice(at, 0, doc.createNode(value))
@@ -191,7 +192,7 @@ export function removeStep(text: string, index: number): string {
 export function changeStepPrompt(text: string, index: number, prompt: PromptRow): string {
   return editText(text, (doc, root) => {
     const step = stepOf(root, index)
-    step.set("uses", `prompts/${prompt.name}.md`)
+    step.set("uses", promptUses(prompt.name))
     changeWith(doc, root, step, prompt)
   })
 }
@@ -270,7 +271,7 @@ export function setOnFail(text: string, index: number, prompt: PromptRow | null)
       step.delete("tries")
       return
     }
-    const ref = `prompts/${prompt.name}.md`
+    const ref = promptUses(prompt.name)
     const current = node(step, "on-fail")
     if (isMap(current)) {
       current.set("uses", ref)

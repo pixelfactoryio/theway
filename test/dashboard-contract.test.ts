@@ -17,7 +17,7 @@ import {
   WorkflowListSchema,
 } from "../src/dashboard/contract"
 import { createApp } from "../src/dashboard/server"
-import { pageToken, put } from "./helpers"
+import { put } from "./helpers"
 
 const TOKEN = "ef".repeat(32)
 const PORT = 4870
@@ -83,10 +83,7 @@ async function call(h: string, method: string, path: string, body?: unknown): Pr
     headers: {
       Host: `127.0.0.1:${PORT}`,
       Origin: ORIGIN,
-      "X-Theway-Token": await pageToken(
-        createApp(h, () => PORT, "", TOKEN),
-        PORT,
-      ),
+      "X-Theway-Token": TOKEN,
       "Content-Type": "application/json",
     },
   }
