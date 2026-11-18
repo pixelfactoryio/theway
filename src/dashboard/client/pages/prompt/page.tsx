@@ -1,9 +1,8 @@
 import { EyeIcon, FileTextIcon, HistoryIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
-import { Link, useLocation } from "wouter"
+import { useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
-import { EmptyNote } from "@/components/empty-note"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
@@ -13,6 +12,7 @@ import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
 import { useSaveKey } from "@/components/step-prompt"
+import { UsedByList } from "@/components/used-by-list"
 import { StatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
@@ -26,7 +26,6 @@ import {
   kindOf,
   previewText,
   type PromptRow,
-  describeUse,
 } from "@/lib/files"
 import { to } from "@/lib/routes"
 import { LoadError } from "@/shell/load-error"
@@ -73,23 +72,7 @@ function PromptPanel({
                 value: "used-by",
                 label: "Used by",
                 count: usedBy.length > 0 ? usedBy.length : undefined,
-                content:
-                  usedBy.length === 0 ? (
-                    <EmptyNote>No workflow uses this prompt.</EmptyNote>
-                  ) : (
-                    <ul className="flex flex-col py-1">
-                      {usedBy.map((use, i) => (
-                        <li key={i}>
-                          <Link
-                            href={to.file("workflows", use.project, use.workflow)}
-                            className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
-                          >
-                            {describeUse(use, label)}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ),
+                content: <UsedByList uses={usedBy} label={label} />,
               },
               {
                 value: "problems",
