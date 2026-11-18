@@ -60,19 +60,22 @@ export function PageHeader({
     <TopRow className="px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {parent !== undefined ? (
-          <Breadcrumb className="min-w-0">
-            <BreadcrumbList className="text-heading">
-              <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href={parent.href} />}>{parent.label}</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="min-w-0">
-                  <h1 className="truncate font-semibold">{title}</h1>
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+          <>
+            <h1 className="sr-only">{title}</h1>
+            {/* `text-heading` goes on the items: on the list, tailwind-merge reads it as a colour and drops the
+                list's `text-muted-foreground`. `flex-nowrap` keeps one line, where the title truncates. */}
+            <Breadcrumb className="min-w-0">
+              <BreadcrumbList className="flex-nowrap">
+                <BreadcrumbItem className="shrink-0 text-heading">
+                  <BreadcrumbLink render={<Link href={parent.href} />}>{parent.label}</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem className="min-w-0 text-heading">
+                  <BreadcrumbPage className="min-w-0 truncate font-semibold">{title}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </>
         ) : (
           <h1 className="truncate text-heading font-semibold">{title}</h1>
         )}
