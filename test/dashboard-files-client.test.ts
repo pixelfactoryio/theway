@@ -393,18 +393,15 @@ test("workflowCount counts each workflow once, however many of its steps use the
 test("the Workflows and Prompts lists have no tooltip, show whole descriptions and resize their columns", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
-  for (const page of ["pages/files/workflows.tsx", "pages/files/prompts.tsx", "components/files-table.tsx"]) {
-    const text = read(page)
-    expect([page, /Tooltip|OneLine|truncate/.test(text)]).toEqual([page, false])
+  const pages = ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]
+  for (const file of [...pages, "components/file-list.tsx", "components/files-table.tsx"]) {
+    const text = read(file)
+    expect([file, /Tooltip|OneLine|truncate/.test(text)]).toEqual([file, false])
   }
   // The errors badge of their Status column is the badge alone.
   expect(read("components", "status.tsx")).not.toContain("Tooltip")
-  for (const page of ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]) {
-    const text = read(page)
-    expect([page, text.includes("columnsResizable: true"), text.includes("<DataGridScrollArea")]).toEqual([
-      page,
-      true,
-      true,
-    ])
-  }
+  // Both pages render the shared list page, which holds the resizable grid.
+  const list = read("components", "file-list.tsx")
+  expect([list.includes("columnsResizable: true"), list.includes("<DataGridScrollArea")]).toEqual([true, true])
+  for (const page of pages) expect([page, read(page).includes("<FileListPage")]).toEqual([page, true])
 })
