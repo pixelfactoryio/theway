@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import type { LayoutStorage } from "react-resizable-panels"
 
 import type { Codec } from "@/lib/preferences"
 
@@ -23,6 +24,9 @@ export function writeStored(key: string, value: string | null): void {
     // Without storage the choice still applies to this page.
   }
 }
+
+/** The resizable layouts, kept in this browser's storage, which never throws (a private window keeps the default). */
+export const LAYOUTS: LayoutStorage = { getItem: readStored, setItem: (key, value) => writeStored(key, value) }
 
 /**
  * A choice kept in this browser under `key`, read through `codec` when the component mounts and again when `key`
