@@ -1,11 +1,20 @@
-import { useMemo } from "react"
+import type { ColumnSizingState } from "@tanstack/react-table"
+import { useMemo, useState } from "react"
 
+import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
-import { archiveGroups, projectField, STATUS_VALUES, statusField, statusGroups } from "@/components/workspace-bands"
-import { Groups, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
-import { useChangeLists, useLabel } from "@/data/queries"
+import {
+  archiveGroups,
+  projectField,
+  STATUS_VALUES,
+  statusField,
+  statusGroups,
+  useChangeGrid,
+} from "@/components/workspace-bands"
+import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { useChangeLists } from "@/data/queries"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
   archivedValues,
@@ -16,6 +25,7 @@ import {
   countsOf,
   located,
   locatedValues,
+  treeRows,
 } from "@/lib/workspace"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
@@ -30,9 +40,9 @@ export function NowPage() {
   const list = useMemo(() => projects ?? [], [projects])
   const keys = list.map((p) => p.key)
   const { lists, failed } = useChangeLists(keys)
-  const now = useNow()
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
-  const label = useLabel()
+  const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const grid = useChangeGrid(sizing, setSizing)
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
@@ -48,8 +58,11 @@ export function NowPage() {
     statusField(STATUS_VALUES, countsOf("status", filter.rules, searched, archiveSearched, true)),
   ]
   const groups = [
-    ...statusGroups(kept, { showProject: true, readyByProject: true, now }),
-    ...archiveGroups(archived, true, label),
+    ...statusGroups(kept, {
+      readyByProject: true,
+      body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: true })} />,
+    }),
+    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid(rows, { label, project: true, archive: true })} />),
   ]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
   return (

@@ -1,8 +1,10 @@
+import type { ColumnDef, ColumnSizingState, ExpandedState, Updater } from "@tanstack/react-table"
 import { cn } from "cn"
 import { ArrowUpRightIcon, FolderIcon, MoreHorizontalIcon, PlusIcon, StarIcon } from "lucide-react"
 import { type FormEvent, useMemo, useState } from "react"
-import { Link } from "wouter"
+import { Link, useLocation } from "wouter"
 
+import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
@@ -18,9 +20,12 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
+import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Input } from "@/components/ui/input"
-import { OpenRow, ROW_FRAME, ROW_MAIN, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { HeadLink, HeadToggle, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
+import { useBelowSm } from "@/hooks/use-below-sm"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import {
@@ -30,6 +35,8 @@ import {
   inProgress,
   latest,
   PROJECT_FIELDS,
+  type ProjectRow,
+  projectTree,
   projectValues,
   renamed,
   suggestions,
@@ -95,13 +102,17 @@ function NameDialog({
 /** A pending name request: a new group of `keys`, or renaming group `id`. */
 type Naming = { kind: "new"; keys: string[] } | { kind: "rename"; id: string; name: string } | null
 
-/** All projects' count columns, after the name and path: In progress, To do and Last archived, right-aligned. */
-const COUNT = "shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums"
-const IN_PROGRESS = "w-20"
-const TO_DO = "w-14"
-const LAST_ARCHIVED = "w-24"
-/** The actions column: room for a group's three buttons (open, pin, menu), each row's aligned at its right. */
-const ACTIONS = "flex w-21 shrink-0 items-center justify-end"
+/** All projects' count columns: right-aligned, in mono. */
+const RIGHT = "text-right [&>div]:justify-end"
+const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
+
+/** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
+const NAME = { wide: 240, narrow: 160 } as const
+const NO_COUNTS = { inProgress: false, toDo: false, lastArchived: false } as const
+
+/** The expanded state `next` (or its updater) asks, from `current`, as a list of open rows. */
+const nextExpanded = (next: Updater<ExpandedState>, current: Record<string, boolean>): ExpandedState =>
+  typeof next === "function" ? next(current) : next
 
 const PROJECT_FIELD_LABEL: Record<(typeof PROJECT_FIELDS)[number], string> = { group: "Group", pinned: "Pinned" }
 
@@ -117,6 +128,9 @@ export function ProjectsPage() {
   const { lists } = useChangeLists(list.map((p) => p.key))
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
+  const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const narrow = useBelowSm()
+  const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
   const [error, setError] = useState<string | null>(null)
   const save = (f: Parameters<typeof edit>[0]) => {
@@ -230,67 +244,108 @@ export function ProjectsPage() {
     )
   }
 
-  /** The count columns of `keys`: In progress (amber while any), To do, Last archived. */
-  const counts = (keys: readonly string[]) => (
-    <>
-      <span className={cn(COUNT, IN_PROGRESS, inProgress(lists, keys) > 0 && "text-warning")}>
-        {inProgress(lists, keys)}
-      </span>
-      <span className={cn(COUNT, TO_DO)}>{toDoOf(lists, keys)}</span>
-      <span className={cn(COUNT, LAST_ARCHIVED)}>{latest(lists, keys) || "–"}</span>
-    </>
-  )
-
-  /** A project's row: its name then its path, its counts, then its pin (alone, not in a group) and its menu. */
-  const projectRow = (e: Entry, key: string, member = false) => (
-    <li key={key}>
-      <div className={ROW_FRAME}>
-        <Link href={to.project(key)} data-nav-item="" className={ROW_MAIN}>
-          <RowHead id={label(key)} text={list.find((p) => p.key === key)?.path ?? undefined} member={member} />
-          {counts([key])}
-        </Link>
-        <span className={ACTIONS}>
-          {e.kind === "project" ? pin(e) : null}
-          {menu(e, key)}
-        </span>
-      </div>
-    </li>
-  )
-
-  /** A group's row: its name and its number of projects, its totals, then open its page, its pin and its menu. */
-  const groupRow = (e: Entry, keys: string[]) => {
-    const open = !choices.collapsed(e.id, !narrowed)
-    return (
-      <OpenRow
-        key={e.id}
-        open={open}
-        onToggle={() => choices.set([e.id], open)}
-        cells={(lead) => (
-          <>
-            <RowHead lead={lead} id={e.label} text={countOf(keys.length, "project")} />
-            {counts(keys)}
-          </>
-        )}
-        actions={
-          <span className={ACTIONS}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Open ${e.label}`}
-              className="text-muted-foreground"
-              render={<Link href={e.href} />}
-            >
-              <ArrowUpRightIcon aria-hidden="true" />
-            </Button>
-            {pin(e)}
-            {menu(e, null)}
-          </span>
-        }
-      >
-        {keys.map((k) => projectRow(e, k, true))}
-      </OpenRow>
-    )
+  const rows = projectTree(entries)
+  const groupIds = rows.filter((r) => r.key === null).map((r) => r.id)
+  // A group opens as this browser last chose, else by default only while the list is narrowed.
+  const expanded = Object.fromEntries(groupIds.map((id) => [id, !choices.collapsed(id, !narrowed)]))
+  const onExpandedChange = (update: Updater<ExpandedState>) => {
+    const next = nextExpanded(update, expanded)
+    const isOpen = (id: string) => next === true || next[id] === true
+    for (const id of groupIds) if (isOpen(id) !== expanded[id]) choices.set([id], !isOpen(id))
   }
+
+  /** The columns: the head, In progress (amber while any), To do, Last archived, then the row's actions. */
+  const columns: ColumnDef<DataGridFeatures, ProjectRow>[] = [
+    {
+      id: "project",
+      header: ({ column }) => <DataGridColumnHeader title="Project" column={column} />,
+      cell: ({ row }) => {
+        const r = row.original
+        if (r.key === null)
+          return (
+            <HeadToggle
+              open={row.getIsExpanded()}
+              onToggle={() => row.toggleExpanded()}
+              head={(lead) => <RowHead lead={lead} id={r.entry.label} text={countOf(r.keys.length, "project")} />}
+            />
+          )
+        const member = row.depth === 1
+        return (
+          <HeadLink href={to.project(r.key)} member={member}>
+            <RowHead id={label(r.key)} text={list.find((p) => p.key === r.key)?.path ?? undefined} member={member} />
+          </HeadLink>
+        )
+      },
+      size: narrow ? NAME.narrow : NAME.wide,
+      ...(narrow ? { minSize: NAME.narrow } : {}),
+      enableSorting: false,
+      meta: { fillWidth: true, cellClassName: "relative" },
+    },
+    {
+      id: "inProgress",
+      header: ({ column }) => <DataGridColumnHeader title="In progress" column={column} />,
+      cell: ({ row }) => {
+        const n = inProgress(lists, row.original.keys)
+        return <span className={cn(n > 0 && "text-warning")}>{n}</span>
+      },
+      size: 96,
+      enableSorting: false,
+      meta: { headerClassName: RIGHT, cellClassName: COUNT },
+    },
+    {
+      id: "toDo",
+      header: ({ column }) => <DataGridColumnHeader title="To do" column={column} />,
+      cell: ({ row }) => toDoOf(lists, row.original.keys),
+      size: 80,
+      enableSorting: false,
+      meta: { headerClassName: RIGHT, cellClassName: COUNT },
+    },
+    {
+      id: "lastArchived",
+      header: ({ column }) => <DataGridColumnHeader title="Last archived" column={column} />,
+      cell: ({ row }) => latest(lists, row.original.keys) || "–",
+      size: 112,
+      enableSorting: false,
+      meta: { headerClassName: RIGHT, cellClassName: COUNT },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const r = row.original
+        // The actions act alone: a click anywhere in their cell, gutter included, never reaches the row's.
+        return (
+          <span className="absolute inset-0 flex items-center justify-end pe-6" onClick={(e) => e.stopPropagation()}>
+            {r.key === null ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Open ${r.entry.label}`}
+                  className="text-muted-foreground"
+                  render={<Link href={r.entry.href} />}
+                >
+                  <ArrowUpRightIcon aria-hidden="true" />
+                </Button>
+                {pin(r.entry)}
+                {menu(r.entry, null)}
+              </>
+            ) : (
+              <>
+                {r.entry.kind === "project" ? pin(r.entry) : null}
+                {menu(r.entry, r.key)}
+              </>
+            )}
+          </span>
+        )
+      },
+      size: 108,
+      enableSorting: false,
+      // The cell's content covers it whole, so its click stops there; the three buttons of a group fill it inside the
+      // content's 24px right gutter.
+      meta: { cellClassName: "relative p-0" },
+    },
+  ]
 
   return (
     <>
@@ -339,24 +394,33 @@ export function ProjectsPage() {
             </span>
           </div>
         ))}
-        <div
-          aria-hidden="true"
-          className="flex h-8 shrink-0 items-center gap-2 border-b px-6 text-xs text-muted-foreground"
-        >
-          <span className="min-w-0 flex-1">Project</span>
-          <span className={cn("shrink-0 text-right", IN_PROGRESS)}>In progress</span>
-          <span className={cn("shrink-0 text-right", TO_DO)}>To do</span>
-          <span className={cn("shrink-0 text-right", LAST_ARCHIVED)}>Last archived</span>
-          <span className="w-21 shrink-0" />
-        </div>
         <ScrollBody>
           {gate}
           {projects !== null && entries.length === 0 && narrowed ? (
             <NoMatch nouns="projects" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : null}
-          <ul data-nav-list="" className="pb-8">
-            {entries.map(({ e, keys }) => (e.kind === "group" ? groupRow(e, keys) : projectRow(e, keys[0] as string)))}
-          </ul>
+          {rows.length > 0 ? (
+            <div className="pb-8">
+              <BandGrid
+                rows={rows}
+                columns={columns}
+                getRowId={(r) => r.id}
+                getSubRows={(r) => r.subRows}
+                columnSizing={sizing}
+                onColumnSizingChange={setSizing}
+                expanded={expanded}
+                onExpandedChange={onExpandedChange}
+                columnVisibility={narrow ? NO_COUNTS : undefined}
+                onRowClick={(row) => {
+                  const key = row.original.key
+                  if (key === null) row.toggleExpanded()
+                  else navigate(to.project(key))
+                }}
+                label="Projects"
+                stickyHeader
+              />
+            </div>
+          ) : null}
         </ScrollBody>
       </PageBody>
       <NameDialog
