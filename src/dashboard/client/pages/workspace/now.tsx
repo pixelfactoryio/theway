@@ -1,9 +1,10 @@
 import { useMemo } from "react"
 
+import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
 import { archiveGroups, projectField, STATUS_VALUES, statusField, statusGroups } from "@/components/workspace-bands"
-import { Groups, Note, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
+import { Groups, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel } from "@/data/queries"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
@@ -67,7 +68,9 @@ export function NowPage() {
         <ScrollBody>
           {gate}
           {failed.length > 0 ? (
-            <Note tone="error">Could not load the changes of {countOf(failed.length, "project")}.</Note>
+            <EmptyNote tone="error" inset="page">
+              Could not load the changes of {countOf(failed.length, "project")}.
+            </EmptyNote>
           ) : null}
           {groups.length > 0 ? (
             <>
@@ -77,7 +80,7 @@ export function NowPage() {
           ) : projects === null ? null : isNarrowed(filter) ? (
             <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : (
-            <Note>Nothing open.</Note>
+            <EmptyNote inset="page">Nothing open.</EmptyNote>
           )}
         </ScrollBody>
       </PageBody>

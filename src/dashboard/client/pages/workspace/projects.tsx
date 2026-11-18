@@ -3,6 +3,7 @@ import { ArrowUpRightIcon, FolderIcon, MoreHorizontalIcon, PlusIcon, StarIcon } 
 import { type FormEvent, useMemo, useState } from "react"
 import { Link } from "wouter"
 
+import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Note, OpenRow, ROW_FRAME, ROW_MAIN, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { OpenRow, ROW_FRAME, ROW_MAIN, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
@@ -304,7 +305,11 @@ export function ProjectsPage() {
           total={projects !== null ? list.length : null}
           noun="project"
         />
-        {error !== null ? <Note tone="error">Could not save: {error}</Note> : null}
+        {error !== null ? (
+          <EmptyNote tone="error" inset="page">
+            Could not save: {error}
+          </EmptyNote>
+        ) : null}
         {suggested.map((s) => (
           <div
             key={s.key}

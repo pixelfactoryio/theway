@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { Link, useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { EmptyNote } from "@/components/empty-note"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
@@ -69,7 +70,7 @@ function PromptPanel({
                 count: usedBy.length > 0 ? usedBy.length : undefined,
                 content:
                   usedBy.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-muted-foreground">No workflow uses this prompt.</p>
+                    <EmptyNote>No workflow uses this prompt.</EmptyNote>
                   ) : (
                     <ul className="flex flex-col py-1">
                       {usedBy.map((use, i) => (

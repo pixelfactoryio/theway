@@ -1,10 +1,11 @@
 import { useMemo } from "react"
 import { Link } from "wouter"
 
+import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
 import { archiveGroups, projectField, STATUS_VALUES, statusField, statusGroups } from "@/components/workspace-bands"
-import { Groups, Note, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
+import { Groups, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel, useSettings } from "@/data/queries"
 import { isNarrowed, NO_FILTER, passesAll } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
@@ -85,7 +86,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
         ) : null}
         <ScrollBody>
           {gate}
-          {projects !== null && entry === null ? <Note>This project or group no longer exists.</Note> : null}
+          {projects !== null && entry === null ? (
+            <EmptyNote inset="page">This project or group no longer exists.</EmptyNote>
+          ) : null}
           {entry !== null && groups.length > 0 ? (
             <>
               <Groups page={id} groups={groups} />
@@ -108,7 +111,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
             isNarrowed(filter) ? (
               <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
             ) : (
-              <Note>{all ? "Nothing archived yet." : "Nothing open, nothing archived yet."}</Note>
+              <EmptyNote inset="page">
+                {all ? "Nothing archived yet." : "Nothing open, nothing archived yet."}
+              </EmptyNote>
             )
           ) : null}
         </ScrollBody>

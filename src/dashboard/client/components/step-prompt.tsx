@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { Link } from "wouter"
 
 import { DetailRow } from "@/components/doc-panel"
+import { EmptyNote } from "@/components/empty-note"
 import { Dash, InputsList } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { Button } from "@/components/ui/button"
@@ -75,8 +76,7 @@ export function StepPromptUses({ row }: { row: PromptRow }) {
   const file = useFile("prompts", row.project, row.name)
   const label = useLabel()
   const usedBy = file.data?.usedBy ?? []
-  if (usedBy.length === 0)
-    return <p className="px-4 py-3 text-sm text-muted-foreground">No workflow uses this prompt.</p>
+  if (usedBy.length === 0) return <EmptyNote>No workflow uses this prompt.</EmptyNote>
   return (
     <ul className="flex flex-col py-1">
       {usedBy.map((use, i) => (

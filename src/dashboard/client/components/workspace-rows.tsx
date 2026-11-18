@@ -338,12 +338,3 @@ export function ScrollBody({ children }: { children: ReactNode }) {
     </div>
   )
 }
-
-/** A line of the page's own, in its 24px gutters. */
-export function Note({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "error" }) {
-  return (
-    <p className={cn("px-6 py-3 text-sm", tone === "error" ? "text-destructive" : "text-muted-foreground")}>
-      {children}
-    </p>
-  )
-}

@@ -1,6 +1,8 @@
 import { CheckIcon, CopyIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { EmptyNote } from "@/components/empty-note"
+
 /** A path in the code font, cut at the start when long, with a Copy button that shows a check for 1.5s after a copy. */
 export function CopyPath({ value, name }: { value: string; name: string }) {
   const [copied, setCopied] = useState(false)
@@ -37,7 +39,7 @@ export function CopyPath({ value, name }: { value: string; name: string }) {
 
 /** The Problems tab: each error on its own row; one that names a place goes there on click. */
 export function Problems({ lines }: { lines: readonly { text: string; onClick: (() => void) | null }[] }) {
-  if (lines.length === 0) return <p className="px-4 py-3 text-sm text-muted-foreground">No problem found.</p>
+  if (lines.length === 0) return <EmptyNote>No problem found.</EmptyNote>
   return (
     <ul className="flex flex-col py-1">
       {lines.map((line, i) => (
