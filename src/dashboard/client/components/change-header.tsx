@@ -3,6 +3,7 @@ import { CircleAlertIcon } from "lucide-react"
 
 import { TextField } from "@/components/change-fields"
 import { DOC_COLUMN, PROSE_COLUMN } from "@/components/doc-frame"
+import { DocTitle } from "@/components/doc-title"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import type { ChangeDetail } from "@/lib/changes"
 import type { OpenField } from "@/lib/task-fields"
@@ -71,12 +72,11 @@ export function ChangeTitle({ change, className }: { change: ChangeDetail; class
   return (
     <div className={cn("shrink-0 pt-10", DOC_COLUMN, className)}>
       <div className={PROSE_COLUMN}>
-        <h1 className="text-doc-title font-bold tracking-tight text-doc-foreground">
-          {change.description ?? change.id}
-        </h1>
-        {change.description !== null ? (
-          <p className="mt-2 font-mono text-doc text-muted-foreground">{change.id}</p>
-        ) : null}
+        <DocTitle
+          title={change.description ?? change.id}
+          id={change.description !== null ? change.id : undefined}
+          variant="document"
+        />
         {invalid ? <IssuesAlert issues={change.issues} className="mt-3" /> : null}
       </div>
     </div>

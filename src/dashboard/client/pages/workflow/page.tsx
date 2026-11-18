@@ -8,6 +8,7 @@ import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
 import { type AlertLine, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
+import { DocTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
 import { Alert, AlertTitle } from "@/components/reui/alert"
@@ -332,13 +333,12 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
   const onCanvas = !history && !yamlTab && "drawing" in drawn
   const heading = (
-    <>
-      <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
-      <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
-      {drawing?.description != null ? (
-        <p className="max-w-xl text-sm text-muted-foreground">{drawing.description}</p>
-      ) : null}
-    </>
+    <DocTitle
+      caption={`Workflows · ${appliesTo(project, label)}`}
+      title={name}
+      description={drawing?.description}
+      variant="canvas"
+    />
   )
 
   return (

@@ -10,6 +10,7 @@ import { useHistoryTab } from "@/components/history"
 import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
+import { DocTitle } from "@/components/doc-title"
 import { useSaveKey } from "@/components/step-prompt"
 import { StatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
@@ -285,9 +286,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       >
         <div className={`shrink-0 pt-5 pb-3 ${DOC_COLUMN}`}>
           <div className={PROSE_COLUMN}>
-            <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
-            <h1 className="mt-1 text-doc-title font-bold tracking-tight text-doc-foreground">{name}</h1>
-            {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
+            <DocTitle
+              caption={`Prompts · ${appliesTo(project, label)}`}
+              title={name}
+              description={fields.description}
+              variant="document"
+            />
           </div>
         </div>
         <DraftNotices draft={draft} lines={lines} history={history} />
