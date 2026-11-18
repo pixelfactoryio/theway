@@ -1,10 +1,11 @@
 import { cn } from "cn"
 import { CheckIcon, FileTextIcon, ListChecksIcon } from "lucide-react"
 
-import { ChangeTitle, IssuesAlert } from "@/components/change-header"
+import { ChangeTitle, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
+import { LinesAlert } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { TaskText } from "@/components/text"
 import { splitTask } from "@/lib/change-edit"
@@ -13,7 +14,7 @@ import { to } from "@/lib/routes"
 
 /** The tasks of an archived change, read-only, each its lead then its detail. */
 function Tasks({ change }: { change: ChangeDetail }) {
-  if (change.issues.length > 0) return <IssuesAlert issues={change.issues} className="m-3" />
+  if (change.issues.length > 0) return <LinesAlert lines={change.issues} title={UNREADABLE} className="m-3" />
   return (
     <ol className="flex flex-col">
       {change.tasks.map((task, i) => {

@@ -6,7 +6,7 @@ import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { Dash, InputsList, LineList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
@@ -15,7 +15,7 @@ import { useSaveKey } from "@/components/step-prompt"
 import { UsedByList } from "@/components/used-by-list"
 import { StatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
-import { CopyPath, Problems } from "@/components/title-block"
+import { CopyPath } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
@@ -27,6 +27,7 @@ import {
   previewText,
   type PromptRow,
 } from "@/lib/files"
+import { type AlertLine, alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
@@ -42,7 +43,7 @@ function PromptPanel({
   file: FileBody
   fields: HeaderFields
   errors: number
-  lines: AlertLine[]
+  lines: readonly AlertLine[]
   versions: ReactNode | null
 }) {
   const label = useLabel()
@@ -78,7 +79,7 @@ function PromptPanel({
                 value: "problems",
                 label: "Problems",
                 count: errors > 0 ? errors : undefined,
-                content: <Problems lines={lines} />,
+                content: <LineList variant="panel" lines={lines} />,
               },
             ]
       }
@@ -149,22 +150,18 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   }, [view])
 
   const errors = draft.errors
-  const lines = useMemo<AlertLine[]>(
+  const lines = useMemo(
     () =>
-      errors.map((e) => {
-        const line = e.line
-        if (line === null) return { text: e.text, onClick: null }
-        if (view !== "prompt") {
-          return {
-            text: e.text,
-            onClick: () => {
+      view === "prompt"
+        ? alertLines(errors, (line) => () => code.current?.goToLine(line))
+        : alertLines(errors, null, (e) => {
+            const line = e.line
+            if (line === null) return null
+            return () => {
               pending.current = line
               navigate(to.file("prompts", project, name))
-            },
-          }
-        }
-        return { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
-      }),
+            }
+          }),
     [errors, view, project, name, navigate],
   )
 

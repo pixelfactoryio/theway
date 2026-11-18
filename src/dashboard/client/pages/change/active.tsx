@@ -7,14 +7,14 @@ import { useLocation } from "wouter"
 
 import { CHANGE_FILE, changeStatus, changeTextErrors, checkChangeText } from "../../../../core/change-text"
 import { ChangeDialogs } from "@/components/change-dialogs"
-import { DescriptionField, IssuesAlert } from "@/components/change-header"
+import { DescriptionField, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
 import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { type CodeLanguage, type CodeViewHandle, EditableCodeView, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
-import { type AlertLine, ErrorStrip, STRIP } from "@/components/file-page"
+import { ErrorStrip, LinesAlert, STRIP } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { LiveMarkdown } from "@/components/live-markdown"
 import { formattingKeymap } from "@/components/markdown-editor"
@@ -27,6 +27,7 @@ import { getJson } from "@/data/api"
 import { apiPath, queryKeys, useWrites } from "@/data/queries"
 import type { SyncedFile } from "@/drafts/draft-set"
 import { useDrafts } from "@/drafts/use-drafts"
+import { alertLines } from "@/lib/alert-lines"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
@@ -168,16 +169,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     if (t !== undefined) navigate(to.change(projectKey, data.id, t.slug))
   }
 
-  const lines = useMemo<AlertLine[]>(
-    () =>
-      errors.map((e) => {
-        const line = e.line
-        return line === null
-          ? { text: e.text, onClick: null }
-          : { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
-      }),
-    [errors],
-  )
+  const lines = useMemo(() => alertLines(errors, (line) => () => code.current?.goToLine(line)), [errors])
 
   const dismiss = (onClick: () => void) => (
     <Button variant="ghost" size="icon-xs" aria-label="Dismiss" onClick={onClick}>
@@ -235,7 +227,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   } else {
     content = (
       <div className="p-6">
-        <IssuesAlert issues={shown.issues} className="max-w-[80ch]" />
+        <LinesAlert lines={shown.issues} title={UNREADABLE} className="max-w-[80ch]" />
       </div>
     )
   }
@@ -285,7 +277,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       ) : null}
       {yaml === null || !valid ? (
         <div className="flex flex-col gap-3 p-3">
-          <IssuesAlert issues={shown.issues} />
+          <LinesAlert lines={shown.issues} title={UNREADABLE} />
           {yaml !== null ? (
             <Button
               variant="outline"

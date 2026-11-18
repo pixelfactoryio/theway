@@ -6,7 +6,7 @@ import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { LineList, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
@@ -16,7 +16,7 @@ import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { StatusPill } from "@/components/status"
-import { CopyPath, Problems } from "@/components/title-block"
+import { CopyPath } from "@/components/title-block"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { StepPicker } from "@/components/step-picker"
@@ -27,6 +27,7 @@ import { StepPanel, WorkflowPanel } from "@/components/workflow-read-panels"
 import { StepEditPanel } from "@/components/workflow-step-panel"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import { appliesTo, errorCount, type PromptRow } from "@/lib/files"
+import { alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
 import {
   type Drawing,
@@ -164,18 +165,14 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     [store],
   )
 
-  const lines = useMemo<AlertLine[]>(
+  const lines = useMemo(
     () =>
-      errors.map((e) => {
-        const line = e.line
-        if (yamlTab) {
-          return line === null
-            ? { text: e.text, onClick: null }
-            : { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
-        }
-        const target = drawing === null ? null : selectionOf(e, drawing)
-        return { text: e.text, onClick: target === null ? null : () => select(target) }
-      }),
+      yamlTab
+        ? alertLines(errors, (line) => () => code.current?.goToLine(line))
+        : alertLines(errors, null, (e) => {
+            const target = drawing === null ? null : selectionOf(e, drawing)
+            return target === null ? null : () => select(target)
+          }),
     [errors, yamlTab, drawing, select],
   )
 
@@ -410,7 +407,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
                       value: "problems",
                       label: "Problems",
                       count: errors.length > 0 ? errors.length : undefined,
-                      content: <Problems lines={lines} />,
+                      content: <LineList variant="panel" lines={lines} />,
                     },
                   ]
             }

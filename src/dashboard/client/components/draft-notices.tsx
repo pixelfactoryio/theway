@@ -2,9 +2,10 @@ import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react"
 
 import { ChangeDialogs } from "@/components/change-dialogs"
 import type { FileDraft } from "@/components/file-draft"
-import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
+import { ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
+import type { AlertLine } from "@/lib/alert-lines"
 import { MOD, shortcutText } from "@/shell/platform"
 
 /** The strip shown when the file changed on disk since it was opened, with Reload. */
