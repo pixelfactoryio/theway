@@ -1,9 +1,9 @@
-import { cn } from "cn"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { PanelPage } from "@/lib/panel"
 import { TopRow, useDocumentTitle } from "@/shell/top-bar"
 
@@ -49,30 +49,29 @@ export function DocFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <TopRow>
-        <nav aria-label={label} className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
-          {tabs.map((tab) => {
-            const active = tab.value === value
-            return (
-              <Link
+        <Tabs value={value} className="min-w-0 flex-1 gap-0">
+          <TabsList
+            variant="line"
+            aria-label={label}
+            className="h-full min-w-0 flex-1 justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 [scrollbar-width:none]"
+          >
+            {tabs.map((tab) => (
+              <TabsTrigger
                 key={tab.value}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "relative flex shrink-0 items-center gap-2 px-4 text-sm transition-colors outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                  active
-                    ? "font-medium text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+                value={tab.value}
+                nativeButton={false}
+                render={<Link href={tab.href} />}
+                className="h-full flex-none gap-2 rounded-none border-0 px-4 text-sm font-normal transition-colors after:bottom-0! after:h-0.5 data-active:font-medium data-active:text-foreground"
               >
                 <tab.Icon className="size-3.5" aria-hidden="true" />
                 {tab.label}
                 {tab.dirty === true ? (
                   <span role="img" aria-label="unsaved changes" className="size-1.5 rounded-full bg-foreground" />
                 ) : null}
-              </Link>
-            )
-          })}
-        </nav>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <div className="flex shrink-0 items-center">
           <PanelToggle page={page} open={open} onOpenChange={setOpen} />
         </div>
