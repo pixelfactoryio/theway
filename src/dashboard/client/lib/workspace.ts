@@ -261,3 +261,39 @@ export const inProgress = (lists: Map<string, ChangeList>, keys: readonly string
 /** The changes to do across the projects `keys`. */
 export const toDoOf = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
   keys.reduce((n, k) => n + toDo(lists.get(k)), 0)
+
+/** A row of a change grid: a located change or series, or a series' member; a series has its members as `subRows`. */
+export type TreeRow = Located & { subRows: TreeRow[] }
+
+/** The grid rows of `located`: a series with its members as sub-rows (each with the series' project), a change none. */
+export const treeRows = (located: readonly Located[]): TreeRow[] =>
+  located.map((r) => ({
+    ...r,
+    subRows:
+      r.row.kind === "series" ? r.row.children.map((c) => ({ key: r.key, label: r.label, row: c, subRows: [] })) : [],
+  }))
+
+/** A row of All projects: a project (`key`), or a group (`key` `null`) with its listed projects as `subRows`. */
+export type ProjectRow = {
+  /** The entry's ID, or `<group's ID>/<project's key>` for a group's project. */
+  id: string
+  entry: Entry
+  key: string | null
+  /** The projects it counts: its own key, or the group's listed ones. */
+  keys: string[]
+  subRows: ProjectRow[]
+}
+
+/** The rows of All projects: each entry with the projects it lists (`keys`), a group's as its sub-rows. */
+export const projectTree = (entries: readonly { e: Entry; keys: readonly string[] }[]): ProjectRow[] =>
+  entries.map(({ e, keys }) =>
+    e.kind === "group"
+      ? {
+          id: e.id,
+          entry: e,
+          key: null,
+          keys: [...keys],
+          subRows: keys.map((k) => ({ id: `${e.id}/${k}`, entry: e, key: k, keys: [k], subRows: [] })),
+        }
+      : { id: e.id, entry: e, key: e.keys[0] as string, keys: [...keys], subRows: [] },
+  )

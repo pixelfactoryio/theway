@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import type { ActiveChange, ChangeList, DashboardSettings, Project } from "../src/dashboard/contract"
+import { activeRows } from "../src/dashboard/client/lib/changes"
 import { NONE, passesAll, valueCounts } from "../src/dashboard/client/lib/list-filter"
 import {
   allEntries,
@@ -9,12 +12,14 @@ import {
   inProgressCount,
   pinnedEntries,
   PROJECT_FIELDS,
+  projectTree,
   projectValues,
   recentEntries,
   renamed,
   suggestions,
   toDo,
   togglePin,
+  treeRows,
   ungrouped,
   withGroup,
   withoutProject,
@@ -181,4 +186,45 @@ test("All projects filters a project by its group (none as (none)) and by its pi
   expect(keys.filter((k) => passesAll(k, notPinned, values))).toEqual(["-as", "-x", "-y"])
   // Each Group value counts the projects the Pinned rule keeps: Acme's are pinned through it.
   expect(valueCounts(keys, "group", notPinned, values)).toEqual(new Map([[NONE, 3]]))
+})
+
+test("a change grid lists a series with its members as sub-rows, under its project; a change has none", () => {
+  const rows = activeRows(
+    [change("add-a", "in-progress"), change("add-s-01", "ready"), change("add-s-02", "not-started")],
+    "",
+  )
+  const tree = treeRows(rows.map((row) => ({ key: "-a", label: "acme", row })))
+  const series = tree.find((r) => r.row.kind === "series")
+  expect(series?.subRows.map((m) => [m.key, m.label, m.row.kind, m.row.id, m.subRows])).toEqual([
+    ["-a", "acme", "change", "add-s-01", []],
+    ["-a", "acme", "change", "add-s-02", []],
+  ])
+  expect(tree.find((r) => r.row.id === "add-a")?.subRows).toEqual([])
+})
+
+test("All projects lists a group with its kept projects as sub-rows, and a project alone with none", () => {
+  const [group, solo] = allEntries(PROJECTS, GROUPED)
+  if (group === undefined || solo === undefined) throw new Error("entries missing")
+  const rows = projectTree([
+    { e: group, keys: ["-ad"] },
+    { e: solo, keys: solo.keys },
+  ])
+  expect(rows.map((r) => [r.id, r.key, r.keys])).toEqual([
+    ["group:acme", null, ["-ad"]],
+    [solo.id, solo.keys[0], solo.keys],
+  ])
+  expect(rows[0]?.subRows.map((m) => [m.id, m.key, m.keys, m.entry.id, m.subRows])).toEqual([
+    ["group:acme/-ad", "-ad", ["-ad"], "group:acme", []],
+  ])
+  expect(rows[1]?.subRows).toEqual([])
+})
+
+test("Now, the project and group pages and All projects list their rows on the resizable data grid", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
+  const pages = ["pages/workspace/now.tsx", "pages/workspace/scope.tsx", "pages/workspace/projects.tsx"]
+  for (const file of [...pages, "components/workspace-rows.tsx", "components/workspace-bands.tsx"])
+    expect([file, /<ul[^>]*data-nav-list/.test(read(file))]).toEqual([file, false])
+  for (const page of pages) expect([page, read(page).includes("<BandGrid")]).toEqual([page, true])
+  expect(read("components", "band-grid.tsx")).toContain("columnsResizable: true")
 })

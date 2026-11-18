@@ -3,13 +3,10 @@ import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { Link } from "wouter"
 
-import { ChangeProgress } from "@/components/change-progress"
 import { GroupBand, useCollapsed } from "@/components/group-band"
 import { useProjects } from "@/data/queries"
-import { type ActiveChange, ageOf, type SeriesRow, type Status } from "@/lib/changes"
+import { type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
-import { to } from "@/lib/routes"
-import type { Located } from "@/lib/workspace"
 import { LoadError } from "@/shell/load-error"
 
 /** The time now, refreshed every minute, for the rows' ages. */
@@ -22,10 +19,6 @@ export function useNow(): number {
   return now
 }
 
-/** A row's progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
-const TRACK = "hidden sm:flex"
-const LABEL = "w-14 shrink-0 text-right"
-
 /** The progress columns of a row with none: as wide as a row's `ChangeProgress`, empty. */
 export function NoProgress() {
   return (
@@ -36,19 +29,53 @@ export function NoProgress() {
   )
 }
 
-/** A row's frame: one 36px line, 24px gutters, a subtle fill on hover, no divider. */
-export const ROW =
-  "flex min-h-9 w-full items-center gap-2 px-6 py-2 text-left outline-none hover:bg-accent/40 focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+/** A row head's link or toggle in its grid cell: the cell's width; its focus shows on its whole row. */
+const HEAD = "flex w-full min-w-0 text-left outline-none"
 
-/** The frame of a row with actions after its link or button: `ROW`'s line, its right gutter after the actions. */
-export const ROW_FRAME = "flex min-h-9 w-full items-center gap-2 pr-6 hover:bg-accent/40"
+/** A member's head: the guide line of its opened row, under that row's chevron (its cell is `relative`). */
+const GUIDE = "before:absolute before:inset-y-0 before:left-8 before:w-px before:bg-border"
 
-/** The link or button of a row with actions: `ROW`'s cells, its left gutter, the width the actions leave. */
-export const ROW_MAIN =
-  "flex min-w-0 flex-1 items-center gap-2 self-stretch py-2 pl-6 text-left outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+/**
+ * A row head that opens a page: a link carrying `data-nav-item`, which keeps its click from the row's own. A member's
+ * draws the guide line it hangs on.
+ */
+export function HeadLink({ href, member = false, children }: { href: string; member?: boolean; children: ReactNode }) {
+  return (
+    <Link href={href} data-nav-item="" onClick={(e) => e.stopPropagation()} className={cn(HEAD, member && GUIDE)}>
+      {children}
+    </Link>
+  )
+}
 
-/** The members of an opened row, indented beneath it along a guide line under its chevron. */
-const MEMBERS = "relative before:absolute before:inset-y-0 before:left-8 before:w-px before:bg-border"
+/**
+ * A row head that opens its members beneath it (a series, a group): a button carrying `data-nav-item` and
+ * `aria-expanded`, its chevron passed to `head` as its lead, which keeps its click from the row's own.
+ */
+export function HeadToggle({
+  open,
+  onToggle,
+  head,
+}: {
+  open: boolean
+  onToggle: () => void
+  head: (lead: ReactNode) => ReactNode
+}) {
+  const Chevron = open ? ChevronDownIcon : ChevronRightIcon
+  return (
+    <button
+      type="button"
+      data-nav-item=""
+      aria-expanded={open}
+      onClick={(e) => {
+        e.stopPropagation()
+        onToggle()
+      }}
+      className={HEAD}
+    >
+      {head(<Chevron aria-hidden="true" className="size-3.5" />)}
+    </button>
+  )
+}
 
 /**
  * A row's head: its ID (a change's, a series', a project's or a group's name) in mono on a first line, and its text
@@ -80,169 +107,6 @@ export function RowHead({
         ) : null}
       </span>
     </span>
-  )
-}
-
-/** A change row's cells: its head (`RowHead`), its project, its progress and its age. */
-export function RowCells({
-  lead,
-  id,
-  text,
-  project,
-  progress,
-  age,
-  member = false,
-}: {
-  lead?: ReactNode
-  id: string
-  text?: ReactNode
-  project?: string
-  progress: ReactNode
-  age: string
-  member?: boolean
-}) {
-  return (
-    <>
-      <RowHead lead={lead} id={id} text={text} member={member} />
-      {project !== undefined ? (
-        <span className="hidden w-35 shrink-0 truncate pl-4 text-sm text-muted-foreground md:block">{project}</span>
-      ) : null}
-      {progress}
-      <span className="w-20 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{age}</span>
-    </>
-  )
-}
-
-/**
- * A row that opens to list its members beneath it, indented along a guide line: a series on Now, a group on All
- * projects. The row is one button, its chevron passed to `cells` as their lead; `actions`, when given, sit after it.
- */
-export function OpenRow({
-  open,
-  onToggle,
-  cells,
-  actions,
-  children,
-}: {
-  open: boolean
-  onToggle: () => void
-  cells: (lead: ReactNode) => ReactNode
-  actions?: ReactNode
-  children: ReactNode
-}) {
-  const Chevron = open ? ChevronDownIcon : ChevronRightIcon
-  const button = (
-    <button
-      type="button"
-      data-nav-item=""
-      aria-expanded={open}
-      onClick={onToggle}
-      className={actions === undefined ? ROW : ROW_MAIN}
-    >
-      {cells(<Chevron aria-hidden="true" className="size-3.5" />)}
-    </button>
-  )
-  return (
-    <li>
-      {actions === undefined ? (
-        button
-      ) : (
-        <div className={ROW_FRAME}>
-          {button}
-          {actions}
-        </div>
-      )}
-      {open ? <ul className={MEMBERS}>{children}</ul> : null}
-    </li>
-  )
-}
-
-/** A change's row: its description then its ID (its ID alone when none), its project when `project`, progress and age. */
-function ChangeRow({
-  projectKey,
-  change,
-  project,
-  now,
-  member = false,
-}: {
-  projectKey: string
-  change: ActiveChange
-  project?: string
-  now: number
-  /** A member listed under its series row: indented. */
-  member?: boolean
-}) {
-  return (
-    <li data-nav-item="">
-      <Link href={to.change(projectKey, change.id)} className={ROW}>
-        <RowCells
-          id={change.id}
-          text={change.description ?? undefined}
-          project={project}
-          progress={
-            <ChangeProgress
-              done={change.done}
-              total={change.total}
-              status={change.status}
-              trackClassName={TRACK}
-              labelClassName={LABEL}
-            />
-          }
-          age={ageOf(change.updated, now)}
-          member={member}
-        />
-      </Link>
-    </li>
-  )
-}
-
-/**
- * A series' row: the series ID and its number of changes, its summed progress and latest age; it opens to list its
- * members, indented along a guide line, each with its ID over its description.
- */
-function SeriesRowItem({
-  projectKey,
-  row,
-  project,
-  now,
-}: {
-  projectKey: string
-  row: SeriesRow
-  project?: string
-  now: number
-}) {
-  const [open, setOpen] = useState(false)
-  return (
-    <OpenRow
-      open={open}
-      onToggle={() => setOpen(!open)}
-      cells={(lead) => (
-        <RowCells
-          lead={lead}
-          id={row.id}
-          text={`series of ${row.count}`}
-          project={project}
-          progress={
-            row.progress !== null ? (
-              <ChangeProgress
-                done={row.progress.done}
-                total={row.progress.total}
-                status={row.status}
-                trackClassName={TRACK}
-                labelClassName={LABEL}
-              />
-            ) : (
-              <NoProgress />
-            )
-          }
-          age={ageOf(row.updated, now)}
-        />
-      )}
-    >
-      {row.children.map((c) => (
-        <ChangeRow key={c.id} projectKey={projectKey} change={c.change} project={project} now={now} member />
-      ))}
-    </OpenRow>
   )
 }
 
@@ -287,33 +151,6 @@ export function Groups({ page, groups }: { page: string; groups: Group[] }) {
         </GroupBand>
       ))}
     </>
-  )
-}
-
-/** The rows of one status group. */
-export function RowList({ rows, showProject, now }: { rows: Located[]; showProject: boolean; now: number }) {
-  return (
-    <ul data-nav-list="">
-      {rows.map((r) =>
-        r.row.kind === "series" ? (
-          <SeriesRowItem
-            key={`${r.key}/${r.row.id}`}
-            projectKey={r.key}
-            row={r.row}
-            project={showProject ? r.label : undefined}
-            now={now}
-          />
-        ) : (
-          <ChangeRow
-            key={`${r.key}/${r.row.id}`}
-            projectKey={r.key}
-            change={r.row.change}
-            project={showProject ? r.label : undefined}
-            now={now}
-          />
-        ),
-      )}
-    </ul>
   )
 }
 

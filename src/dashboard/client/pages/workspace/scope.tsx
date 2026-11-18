@@ -1,13 +1,22 @@
-import { useMemo } from "react"
+import type { ColumnSizingState } from "@tanstack/react-table"
+import { useMemo, useState } from "react"
 import { Link } from "wouter"
 
+import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
 import { Button } from "@/components/ui/button"
-import { archiveGroups, projectField, STATUS_VALUES, statusField, statusGroups } from "@/components/workspace-bands"
-import { Groups, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
-import { useChangeLists, useLabel, useSettings } from "@/data/queries"
+import {
+  archiveGroups,
+  projectField,
+  STATUS_VALUES,
+  statusField,
+  statusGroups,
+  useChangeGrid,
+} from "@/components/workspace-bands"
+import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { useChangeLists, useSettings } from "@/data/queries"
 import { isNarrowed, NO_FILTER, passesAll } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import {
@@ -19,6 +28,7 @@ import {
   entryOf,
   located,
   locatedValues,
+  treeRows,
 } from "@/lib/workspace"
 import { recordedId, useRecordVisit } from "@/shell/settings"
 import { PageBody, PageHeader } from "@/shell/top-bar"
@@ -42,10 +52,10 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
     entry?.kind === "project" ? settings.groups.find((g) => g.projects.includes(entry.keys[0] as string)) : undefined
   const keys = entry?.keys ?? []
   const { lists } = useChangeLists(keys)
-  const now = useNow()
   const [filter, setFilter] = useListFilter(id, SCOPE_FIELDS)
+  const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const grid = useChangeGrid(sizing, setSizing)
   const scoped = list.filter((p) => keys.includes(p.key))
-  const label = useLabel()
   const isGroup = entry?.kind === "group"
 
   const searched = all ? [] : located(lists, scoped, filter.q)
@@ -61,8 +71,13 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
     ...(isGroup ? [projectField(scoped, countsOf("project", filter.rules, searched, archiveSearched, true))] : []),
   ]
   const groups = [
-    ...statusGroups(open, { showProject: isGroup, readyByProject: false, now }),
-    ...archiveGroups(archiveShown, keys.length > 1, label),
+    ...statusGroups(open, {
+      readyByProject: false,
+      body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: isGroup })} />,
+    }),
+    ...archiveGroups(archiveShown, (rows, label) => (
+      <BandGrid {...grid(rows, { label, project: keys.length > 1, archive: true })} />
+    )),
   ]
   const total = located(lists, scoped, "").reduce((n, r) => n + changesOf(r), 0) + archiveAll.length
   const shown = open.reduce((n, r) => n + changesOf(r), 0) + archived.length
