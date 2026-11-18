@@ -2,9 +2,9 @@ import { ChevronRightIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Kbd } from "@/components/ui/kbd"
 import { collapsedKey, isCollapsed, withCollapsed } from "@/lib/collapse"
 import { COLLAPSED } from "@/lib/preferences"
+import { Shortcut } from "@/shell/shortcut"
 import { useStored } from "@/shell/storage"
 
 /** A page's collapsed groups, kept in this browser per page; `page` names the page (`now`, `project:<key>`, …). */
@@ -73,7 +73,8 @@ export function GroupBand({
 export function CollapseHint() {
   return (
     <p className="px-6 pt-4 pb-8 text-xs text-muted-foreground">
-      <Kbd>Alt</Kbd>-click a header to collapse or expand all
+      <Shortcut keys={["Alt"]} />
+      -click a header to collapse or expand all
     </p>
   )
 }

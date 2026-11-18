@@ -44,7 +44,6 @@ import {
   useSyncExternalStore,
 } from "react"
 
-import { Kbd } from "@/components/ui/kbd"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -62,7 +61,8 @@ import {
   revealDelta,
   zoomStep,
 } from "@/lib/workflow-layout"
-import { MAC, MOD } from "@/shell/platform"
+import { MOD, modKey } from "@/shell/platform"
+import { Shortcut } from "@/shell/shortcut"
 
 /** What the canvas offers to edit: `null` for a read-only canvas. */
 export type CanvasEdits = {
@@ -490,7 +490,7 @@ function Flow({
       onSelect(null)
       return
     }
-    if (!(MAC ? e.metaKey : e.ctrlKey) || e.altKey) return
+    if (!modKey(e) || e.altKey) return
     if (e.key === "0") fit()
     else if (e.key === "=" || e.key === "+") zoomBy(0.1)
     else if (e.key === "-") zoomBy(-0.1)
@@ -631,7 +631,7 @@ function ToolbarButton({
       </TooltipTrigger>
       <TooltipContent>
         {tip}
-        {keys !== undefined ? <Kbd>{keys.join(" ")}</Kbd> : null}
+        {keys !== undefined ? <Shortcut keys={keys} /> : null}
       </TooltipContent>
     </Tooltip>
   )

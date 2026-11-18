@@ -9,14 +9,14 @@ import { Button } from "@/components/ui/button"
 import { useFile, useLabel } from "@/data/queries"
 import { describeUse, promptReading, type PromptRow, workflowCount } from "@/lib/files"
 import { to } from "@/lib/routes"
-import { MAC } from "@/shell/platform"
+import { modKey } from "@/shell/platform"
 import { LoadError } from "@/shell/load-error"
 
 /** Calls `save` on Cmd+S (Ctrl+S off macOS) anywhere on the page, the browser's own Save page prevented. */
 export function useSaveKey(save: () => void): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "s" || !(MAC ? event.metaKey : event.ctrlKey) || event.altKey) return
+      if (event.key.toLowerCase() !== "s" || !modKey(event) || event.altKey) return
       event.preventDefault()
       save()
     }

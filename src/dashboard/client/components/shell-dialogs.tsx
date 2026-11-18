@@ -1,8 +1,8 @@
 import { NewFileDialog } from "@/components/new-file"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { useDialog } from "@/shell/dialogs"
 import { SHORTCUTS } from "@/shell/keys"
+import { Shortcut } from "@/shell/shortcut"
 
 /** The shell's dialogs: the shortcut sheet, New workflow and New prompt. */
 export function ShellDialogs() {
@@ -26,11 +26,7 @@ export function ShellDialogs() {
               >
                 <dt>{s.action}</dt>
                 <dd>
-                  <KbdGroup>
-                    {s.keys.map((k) => (
-                      <Kbd key={k}>{k}</Kbd>
-                    ))}
-                  </KbdGroup>
+                  <Shortcut keys={s.keys} />
                 </dd>
               </div>
             ))}
