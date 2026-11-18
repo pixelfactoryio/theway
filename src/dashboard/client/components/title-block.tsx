@@ -2,6 +2,7 @@ import { CheckIcon, CopyIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { EmptyNote } from "@/components/empty-note"
+import { StatusMark } from "@/components/status"
 
 /** A path in the code font, cut at the start when long, with a Copy button that shows a check for 1.5s after a copy. */
 export function CopyPath({ value, name }: { value: string; name: string }) {
@@ -50,12 +51,12 @@ export function Problems({ lines }: { lines: readonly { text: string; onClick: (
               onClick={line.onClick}
               className="flex w-full gap-2 px-4 py-2 text-left text-sm transition-colors outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
             >
-              <span aria-hidden="true" className="mt-2 size-2 shrink-0 rounded-[2px] bg-destructive" />
+              <StatusMark status="invalid" className="mt-2" />
               <span className="min-w-0 flex-1">{line.text}</span>
             </button>
           ) : (
             <div className="flex gap-2 px-4 py-2 text-sm">
-              <span aria-hidden="true" className="mt-2 size-2 shrink-0 rounded-[2px] bg-destructive" />
+              <StatusMark status="invalid" className="mt-2" />
               <span className="min-w-0 flex-1">{line.text}</span>
             </div>
           )}

@@ -13,7 +13,7 @@ import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt
 import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
-import { FileStatusPill } from "@/components/status"
+import { StatusPill } from "@/components/status"
 import { CopyPath, Problems } from "@/components/title-block"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -24,7 +24,7 @@ import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepPanel, WorkflowPanel } from "@/components/workflow-read-panels"
 import { StepEditPanel } from "@/components/workflow-step-panel"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
-import { appliesTo, type PromptRow } from "@/lib/files"
+import { appliesTo, errorCount, type PromptRow } from "@/lib/files"
 import { to } from "@/lib/routes"
 import {
   type Drawing,
@@ -389,7 +389,10 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             label="Workflow"
             header={
               <>
-                <FileStatusPill errors={errors.length} />
+                <StatusPill
+                  status={errors.length === 0 ? "ready" : "invalid"}
+                  label={errors.length === 0 ? "Valid" : errorCount(errors.length)}
+                />
                 {isDefault ? <Badge variant="outline">default</Badge> : null}
               </>
             }

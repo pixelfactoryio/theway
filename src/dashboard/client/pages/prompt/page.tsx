@@ -11,12 +11,13 @@ import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/c
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { useSaveKey } from "@/components/step-prompt"
-import { FileStatusPill } from "@/components/status"
+import { StatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
+  errorCount,
   type FileBody,
   type HeaderFields,
   KIND_LABEL,
@@ -49,7 +50,9 @@ function PromptPanel({
     <DocPanel
       remember="prompt"
       label="Prompt"
-      header={<FileStatusPill errors={errors} />}
+      header={
+        <StatusPill status={errors === 0 ? "ready" : "invalid"} label={errors === 0 ? "Valid" : errorCount(errors)} />
+      }
       top={
         versions !== null
           ? [{ value: "versions", label: "Versions", content: versions }]
