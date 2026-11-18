@@ -3,7 +3,7 @@ import { Link } from "wouter"
 
 import { DetailRow } from "@/components/doc-panel"
 import { Dash, InputsList } from "@/components/file-page"
-import { MarkdownView } from "@/components/markdown"
+import { MarkdownView } from "@/components/markdown-view"
 import { Button } from "@/components/ui/button"
 import { UsedByList } from "@/components/used-by-list"
 import { useFile, useLabel } from "@/data/queries"
@@ -62,9 +62,7 @@ export function StepPrompt({ row }: { row: PromptRow }) {
               </DetailRow>
             </dl>
           ) : null}
-          <div className="px-4 py-4">
-            <MarkdownView text={reading.body} />
-          </div>
+          <MarkdownView text={reading.body} name={`${row.name}.md`} inset="panel" />
         </div>
       ) : null}
     </div>

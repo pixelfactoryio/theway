@@ -12,7 +12,7 @@ const packages = collectPackages()
 const blockOf = (name: string) => blocks.find((b) => b.trimStart().startsWith(`${name}@`))
 
 test("the collected packages include the stylesheet's imports and plugin", () => {
-  const imports = ["tailwindcss", "tw-animate-css", "shadcn", "@tailwindcss/typography"]
+  const imports = ["tailwindcss", "tw-animate-css", "shadcn"]
   expect(imports.filter((name) => !packages.includes(name))).toEqual([])
 })
 
