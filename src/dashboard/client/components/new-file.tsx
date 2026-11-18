@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { PlusIcon } from "lucide-react"
 import { useState, type FormEvent } from "react"
 import { useLocation } from "wouter"
@@ -17,12 +16,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { failureOf, getJson, sendJson } from "@/data/api"
+import { failureOf, getJson } from "@/data/api"
+import { apiPath, useLabel, useProjects, usePrompts, useWorkflows, useWrites } from "@/data/queries"
 import { emptyText, NAME } from "@/lib/edit"
-import { FileBodySchema, fileApi, rowId, SavedSchema } from "@/lib/files"
+import { FileBodySchema, rowId } from "@/lib/files"
 import { to } from "@/lib/routes"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
-import { useCurrentKey, useProjects } from "@/shell/projects"
+import { useCurrentKey } from "@/shell/projects"
 
 type Kind = "workflows" | "prompts"
 
@@ -35,7 +34,7 @@ const REPLACES = "Replaces the global file of this name for this project."
 
 /** The fields of the dialog; a new form each time it opens. */
 function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
-  const queryClient = useQueryClient()
+  const writes = useWrites()
   const [, navigate] = useLocation()
   const label = useLabel()
   const projects = useProjects()
@@ -89,17 +88,16 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
     else {
       const source = files.find((f) => rowId(f) === from)
       try {
-        text = (await getJson(fileApi(kind, source?.project ?? null, source?.name ?? ""), FileBodySchema)).text
+        text = (await getJson(apiPath.file(kind, source?.project ?? null, source?.name ?? ""), FileBodySchema)).text
       } catch (e) {
         setFailure((e as Error).message)
         setBusy(false)
         return
       }
     }
-    const res = await sendJson("PUT", fileApi(kind, target, name), { text, base: null }, SavedSchema)
+    const res = await writes.createFile(kind, target, name, text)
     setBusy(false)
     if (res.status === 200 && res.body !== null) {
-      for (const key of [["workflows"], ["prompts"]]) void queryClient.invalidateQueries({ queryKey: key })
       close()
       navigate(to.file(kind, target, name))
       return

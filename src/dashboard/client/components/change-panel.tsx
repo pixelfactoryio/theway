@@ -5,9 +5,9 @@ import { Link } from "wouter"
 import { DetailRow, DocPanel, type PaneTab } from "@/components/doc-panel"
 import { StatusMark, StatusPill } from "@/components/status"
 import { OneLine } from "@/components/text"
+import { useLabel } from "@/data/queries"
 import { type ChangeDetail, localDate, memberOf, type SeriesMember } from "@/lib/changes"
 import { to } from "@/lib/routes"
-import { useLabel } from "@/shell/files"
 
 /** A member's page, `null` for a member with neither an active ID nor an archive reference. */
 const memberHref = (key: string, m: { active: string | null; archived: string | null }): string | null =>

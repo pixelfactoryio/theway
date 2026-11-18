@@ -109,10 +109,6 @@ export function describeUse(use: Use, label: (key: string) => string): string {
 export const workflowCount = (uses: readonly Use[]): number =>
   new Set(uses.map((u) => `${u.project ?? ""}/${u.workflow}`)).size
 
-/** The API route of a file. */
-export const fileApi = (kind: "workflows" | "prompts", project: string | null, name: string): string =>
-  project === null ? `/api/${kind}/global/${name}` : `/api/${kind}/projects/${project}/${name}`
-
 /** The order of a column: text compared as is, a missing value last. */
 export function compareText(a: string | null, b: string | null): number {
   if (a === b) return 0

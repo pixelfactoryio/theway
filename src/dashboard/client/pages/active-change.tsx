@@ -40,6 +40,7 @@ import { useSaveKey } from "@/components/step-prompt"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
 import { getJson } from "@/data/api"
+import { apiPath, queryKeys, useWrites } from "@/data/queries"
 import { keptIds, oneLine } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { leavesChange, to } from "@/lib/routes"
@@ -77,9 +78,11 @@ function differs(
  */
 export function ActiveChange({ projectKey, data, tab }: { projectKey: string; data: ChangeDetail; tab?: string }) {
   const queryClient = useQueryClient()
+  const writes = useWrites()
   const [, navigate] = useLocation()
-  const api = `/api/projects/${projectKey}/changes/${data.id}`
-  const [drafts] = useState(() => new ChangeDrafts(api))
+  const [drafts] = useState(
+    () => new ChangeDrafts((file, text, base) => writes.saveChangeFile(projectKey, data.id, file, text, base)),
+  )
   const files = useMemo(() => loadedFiles(data), [data])
   if (drafts.drafts.size === 0 && files.length > 0) drafts.sync(files)
   useEffect(() => drafts.sync(files), [drafts, files])
@@ -272,10 +275,6 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   // The undo notice goes away at the next edit of the draft.
   const undoShown = undoNote !== null && yaml !== null && yaml.store.state.doc === undoNote.doc
 
-  const invalidate = () => {
-    for (const key of [["changes", projectKey], ["projects"]]) void queryClient.invalidateQueries({ queryKey: key })
-  }
-
   /** Writes a file's draft; `ask` asks "Save anyway" first when the `change.yaml` draft has errors. */
   const save = async (file: string, ask: boolean): Promise<boolean> => {
     if (ask && file === CHANGE_FILE) {
@@ -284,10 +283,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       if (n > 0 && !(await new Promise<boolean>((answer) => setConfirm({ kind: "errors", n, answer })))) return false
     }
     const ok = await drafts.save(file)
-    if (ok && file === CHANGE_FILE) {
-      setUndoNote(null)
-      invalidate()
-    }
+    if (ok && file === CHANGE_FILE) setUndoNote(null)
     return ok
   }
 
@@ -298,9 +294,10 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
 
   /** Loads the change again and drops that file's draft only. */
   const reload = async (file: string) => {
+    const path = apiPath.change(projectKey, data.id)
     let fresh: ChangeDetail
     try {
-      fresh = await getJson(api, ChangeDetailSchema)
+      fresh = await getJson(path, ChangeDetailSchema)
     } catch (e) {
       drafts.fail(file, e instanceof Error ? e.message : String(e))
       return
@@ -312,7 +309,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     }
     drafts.reload(file, loaded)
     if (file === CHANGE_FILE) setUndoNote(null)
-    queryClient.setQueryData(["change", api], fresh)
+    queryClient.setQueryData(queryKeys.change(path), fresh)
   }
 
   /** The leave dialog's Save: the open field applied, then every dirty draft written in tab order. */

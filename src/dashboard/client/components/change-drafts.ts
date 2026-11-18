@@ -2,8 +2,8 @@ import { EditorState, type Text } from "@codemirror/state"
 
 import { type CodeLanguage, DraftStore, editableExtensions } from "@/components/code-view"
 import { formattingKeymap } from "@/components/markdown-editor"
-import { failureOf, sendJson } from "@/data/api"
-import { lineSeparatorOf, SavedSchema } from "@/lib/files"
+import { failureOf, type Sent } from "@/data/api"
+import { lineSeparatorOf } from "@/lib/files"
 
 /** One file of a change as the page loaded it, or last saved it. */
 export type Loaded = { text: string; version: string }
@@ -38,8 +38,8 @@ export class ChangeDrafts {
   private readonly listeners = new Set<() => void>()
 
   constructor(
-    /** `/api/projects/<key>/changes/<id>`. */
-    private readonly api: string,
+    /** Writes the file `name` of the change against its version `base`. */
+    private readonly write: (name: string, text: string, base: string) => Promise<Sent<{ version: string }>>,
   ) {}
 
   subscribe = (l: () => void): (() => void) => {
@@ -130,15 +130,7 @@ export class ChangeDrafts {
     const state = d.store.state
     const text = state.sliceDoc()
     this.update(name, { saving: true, saveFailure: null })
-    const res = await sendJson(
-      "PUT",
-      `${this.api}/files/${encodeURIComponent(name)}`,
-      {
-        text,
-        base: d.loaded.version,
-      },
-      SavedSchema,
-    )
+    const res = await this.write(name, text, d.loaded.version)
     if (res.status === 200 && res.body !== null) {
       this.update(name, {
         saving: false,

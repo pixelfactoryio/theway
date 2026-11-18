@@ -10,14 +10,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
 import { to } from "@/lib/routes"
 import { searchGroups } from "@/lib/search"
-import { useChangesOf } from "@/shell/changes"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { useSidebar } from "@/components/ui/sidebar"
 import { openDialog } from "@/shell/keys"
 import { usePanelName, usePanelOpen } from "@/shell/panel"
-import { useProjects } from "@/shell/projects"
 import { MAC } from "@/shell/platform"
 import { chooseTheme } from "@/shell/theme"
 
@@ -34,8 +32,7 @@ function Results({ close }: { close: () => void }) {
   const [, navigate] = useLocation()
   const projects = useProjects().data?.projects
   const keys = projects?.map((p) => p.key) ?? []
-  const results = useChangesOf(keys)
-  const changes = results.flatMap((r, i) => (r.data !== undefined ? [{ key: keys[i] as string, list: r.data }] : []))
+  const changes = [...useChangeLists(keys).lists].map(([key, list]) => ({ key, list }))
   const workflows = useWorkflows().data?.workflows
   const prompts = usePrompts().data?.prompts
   const label = useLabel()

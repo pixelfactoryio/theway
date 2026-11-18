@@ -12,11 +12,10 @@ import { useSaveKey } from "@/components/step-prompt"
 import { FileStatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
+import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import { appliesTo, type FileBody, KIND_LABEL, kindOf, previewText, type PromptRow, describeUse } from "@/lib/files"
 import { to } from "@/lib/routes"
-import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** The errors of a `404` on a file's route. */

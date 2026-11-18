@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { useChangeLists, useLabel, useProjects, useSettings, useWrites } from "@/data/queries"
 import {
   type ActiveChange,
   type ActiveRow,
@@ -63,11 +64,8 @@ import {
   withoutProject,
   withProjectIn,
 } from "@/lib/workspace"
-import { useChangesOf } from "@/shell/changes"
-import { useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
-import { recordedId, useEditSettings, useRecordVisit, useSettings } from "@/shell/settings"
+import { recordedId, useRecordVisit } from "@/shell/settings"
 import { PageBody } from "@/shell/top-bar"
 
 /** The time now, refreshed every minute, for the rows' ages. */
@@ -78,19 +76,6 @@ function useNow(): number {
     return () => clearInterval(timer)
   }, [])
   return now
-}
-
-/** Each project's change list, by key, once loaded; the keys still loading or failed left out. */
-function useListsOf(keys: readonly string[]): { lists: Map<string, ChangeList>; pending: boolean; failed: string[] } {
-  const results = useChangesOf(keys)
-  const lists = new Map<string, ChangeList>()
-  const failed: string[] = []
-  results.forEach((r, i) => {
-    const key = keys[i] as string
-    if (r.data !== undefined) lists.set(key, r.data)
-    else if (r.isError) failed.push(key)
-  })
-  return { lists, pending: results.some((r) => r.isPending), failed }
 }
 
 /** The progress bar, 96px, and `done/total` in a 56px column: red while invalid, green once every task is done. */
@@ -580,7 +565,7 @@ export function NowPage() {
   const { projects, gate } = useProjectsGate()
   const list = useMemo(() => projects ?? [], [projects])
   const keys = list.map((p) => p.key)
-  const { lists, failed } = useListsOf(keys)
+  const { lists, failed } = useChangeLists(keys)
   const now = useNow()
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
   const label = useLabel()
@@ -718,8 +703,8 @@ export function ProjectsPage() {
   const { projects, gate } = useProjectsGate()
   const list = useMemo(() => projects ?? [], [projects])
   const settings = useSettings()
-  const edit = useEditSettings()
-  const { lists } = useListsOf(list.map((p) => p.key))
+  const edit = useWrites().editSettings
+  const { lists } = useChangeLists(list.map((p) => p.key))
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
   const [naming, setNaming] = useState<Naming>(null)
@@ -998,7 +983,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const group =
     entry?.kind === "project" ? settings.groups.find((g) => g.projects.includes(entry.keys[0] as string)) : undefined
   const keys = entry?.keys ?? []
-  const { lists } = useListsOf(keys)
+  const { lists } = useChangeLists(keys)
   const now = useNow()
   const [filter, setFilter] = useListFilter(id, SCOPE_FIELDS)
   const scoped = list.filter((p) => keys.includes(p.key))

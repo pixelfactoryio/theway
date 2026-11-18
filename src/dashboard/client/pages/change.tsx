@@ -1,15 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "wouter"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { getJson } from "@/data/api"
-import { ChangeDetailSchema } from "@/lib/changes"
+import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
 import { ActiveChange } from "@/pages/active-change"
 import { ArchivedChange } from "@/pages/archived-change"
 import { LoadError } from "@/shell/load-error"
-import { useLabel } from "@/shell/files"
 import { PageBody } from "@/shell/top-bar"
 import { PageHeader } from "@/components/doc-frame"
 
@@ -50,11 +47,7 @@ export function ChangePage({
   dir?: string
   tab?: string
 }) {
-  const path =
-    dir !== undefined
-      ? `/api/projects/${projectKey}/changes/archive/${dir}`
-      : `/api/projects/${projectKey}/changes/${id}`
-  const change = useQuery({ queryKey: ["change", path], queryFn: () => getJson(path, ChangeDetailSchema) })
+  const change = useChange(projectKey, dir !== undefined ? { dir } : { id: id ?? "" })
 
   const name = dir ?? id ?? ""
 

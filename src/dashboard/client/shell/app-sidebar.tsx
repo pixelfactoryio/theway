@@ -32,16 +32,13 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { version } from "@/data/api"
+import { useChangeLists, useLabel, useProjects, usePrompts, useSettings, useWorkflows } from "@/data/queries"
 import type { ChangeList } from "@/lib/changes"
 import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
-import { useChangesOf } from "@/shell/changes"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { MAC } from "@/shell/platform"
 import { useSearchOpen } from "@/shell/search"
-import { useSettings } from "@/shell/settings"
 import { readStored, writeStored } from "@/shell/storage"
 import { SettingsMenu } from "@/shell/theme"
 
@@ -344,14 +341,8 @@ function Library() {
 export function AppSidebar() {
   const shown = version()
   const keys = useProjects().data?.projects.map((p) => p.key) ?? []
-  const results = useChangesOf(keys)
-  const lists = new Map<string, ChangeList>()
-  results.forEach((r, i) => {
-    if (r.data !== undefined) lists.set(keys[i] as string, r.data)
-  })
-  const inProgress = results.every((r) => r.data !== undefined)
-    ? [...lists.values()].reduce((n, l) => n + inProgressCount(l), 0)
-    : null
+  const { lists, complete } = useChangeLists(keys)
+  const inProgress = complete ? [...lists.values()].reduce((n, l) => n + inProgressCount(l), 0) : null
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1 p-2 pt-0">

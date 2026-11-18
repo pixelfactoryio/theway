@@ -1,11 +1,11 @@
 import type { ReactNode } from "react"
 import { Redirect, useRoute } from "wouter"
 
+import { useProjects } from "@/data/queries"
 import { CHANGE_ROUTES, decoded, to } from "@/lib/routes"
 import { ChangePage } from "@/pages/change"
 import { NoProjectPage } from "@/pages/section"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /**

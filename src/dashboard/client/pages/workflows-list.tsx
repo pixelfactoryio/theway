@@ -10,6 +10,7 @@ import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { StatusMark } from "@/components/status"
+import { useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
 import {
   appliesTo,
   byFile,
@@ -31,9 +32,7 @@ import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import { NameCell, NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/pages/files-table"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */

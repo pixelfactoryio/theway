@@ -32,6 +32,7 @@ import { toneTile } from "@/components/workflow-card"
 import { applyEdit, type HistoryMode, type Write } from "@/components/workflow-fields"
 import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepEditPanel } from "@/components/workflow-step-panel"
+import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import { appliesTo, type PromptRow } from "@/lib/files"
 import { to } from "@/lib/routes"
 import {
@@ -47,9 +48,7 @@ import {
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { UNKNOWN_FILE } from "@/pages/prompt"
-import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */

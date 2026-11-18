@@ -5,10 +5,10 @@ import { DetailRow } from "@/components/doc-panel"
 import { Dash, InputsList } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { Button } from "@/components/ui/button"
+import { useFile, useLabel } from "@/data/queries"
 import { describeUse, promptReading, type PromptRow, workflowCount } from "@/lib/files"
 import { to } from "@/lib/routes"
 import { MAC } from "@/shell/platform"
-import { useFile, useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 
 /** Calls `save` on Cmd+S (Ctrl+S off macOS) anywhere on the page, the browser's own Save page prevented. */

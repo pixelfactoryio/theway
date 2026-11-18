@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { StatusMark } from "@/components/status"
+import { useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
   byFile,
@@ -38,9 +39,7 @@ import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/pages/files-table"
-import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
