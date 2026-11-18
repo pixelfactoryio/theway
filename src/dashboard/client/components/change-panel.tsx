@@ -2,6 +2,7 @@ import { cn } from "cn"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
+import { ChangeProgress } from "@/components/change-progress"
 import { DetailRow, DocPanel, type PaneTab } from "@/components/doc-panel"
 import { StatusMark, StatusPill } from "@/components/status"
 import { OneLine } from "@/components/text"
@@ -58,22 +59,6 @@ function SeriesRow({
       </Link>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{right}</span>
     </li>
-  )
-}
-
-/** The progress bar and `done/total`, amber until every task is done. */
-function Progress({ done, total }: { done: number; total: number }) {
-  const ratio = total === 0 ? 0 : done / total
-  return (
-    <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums">
-      <span className="relative h-1 w-28 overflow-hidden rounded-full bg-accent">
-        <span
-          className={cn("absolute inset-y-0 left-0 rounded-full", ratio === 1 ? "bg-success" : "bg-warning")}
-          style={{ width: `${ratio * 100}%` }}
-        />
-      </span>
-      {done}/{total}
-    </span>
   )
 }
 
@@ -153,7 +138,7 @@ export function ChangePanel({
       header={
         <>
           <StatusPill status={change.status} />
-          {!invalid ? <Progress done={change.done} total={change.total} /> : null}
+          {!invalid ? <ChangeProgress done={change.done} total={change.total} status={change.status} /> : null}
         </>
       }
       top={tasks === null ? bottom : top}

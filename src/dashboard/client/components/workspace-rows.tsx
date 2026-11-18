@@ -3,9 +3,10 @@ import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import { Link } from "wouter"
 
+import { ChangeProgress } from "@/components/change-progress"
 import { GroupBand, useCollapsed } from "@/components/group-band"
 import { useProjects } from "@/data/queries"
-import { type ActiveChange, type ActiveStatus, ageOf, type SeriesRow, type Status } from "@/lib/changes"
+import { type ActiveChange, ageOf, type SeriesRow, type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
 import { to } from "@/lib/routes"
 import type { Located } from "@/lib/workspace"
@@ -21,28 +22,11 @@ export function useNow(): number {
   return now
 }
 
-/** The progress bar, 96px, and `done/total` in a 56px column: red while invalid, green once every task is done. */
-function Progress({ done, total, status }: { done: number; total: number; status: ActiveStatus }) {
-  const ratio = total === 0 ? 0 : done / total
-  return (
-    <>
-      <span className="relative hidden h-1 w-24 shrink-0 overflow-hidden rounded-full bg-border sm:block">
-        <span
-          className={cn(
-            "absolute inset-y-0 left-0 rounded-full",
-            status === "invalid" ? "bg-destructive" : total > 0 && done === total ? "bg-success" : "bg-warning",
-          )}
-          style={{ width: `${ratio * 100}%` }}
-        />
-      </span>
-      <span className="w-14 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums">
-        {done}/{total}
-      </span>
-    </>
-  )
-}
+/** A row's progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
+const TRACK = "hidden sm:flex"
+const LABEL = "w-14 shrink-0 text-right"
 
-/** The progress columns of a row with none: as wide as `Progress`, empty. */
+/** The progress columns of a row with none: as wide as a row's `ChangeProgress`, empty. */
 export function NoProgress() {
   return (
     <>
@@ -195,7 +179,15 @@ function ChangeRow({
           id={change.id}
           text={change.description ?? undefined}
           project={project}
-          progress={<Progress done={change.done} total={change.total} status={change.status} />}
+          progress={
+            <ChangeProgress
+              done={change.done}
+              total={change.total}
+              status={change.status}
+              trackClassName={TRACK}
+              labelClassName={LABEL}
+            />
+          }
           age={ageOf(change.updated, now)}
           member={member}
         />
@@ -232,7 +224,13 @@ function SeriesRowItem({
           project={project}
           progress={
             row.progress !== null ? (
-              <Progress done={row.progress.done} total={row.progress.total} status={row.status} />
+              <ChangeProgress
+                done={row.progress.done}
+                total={row.progress.total}
+                status={row.status}
+                trackClassName={TRACK}
+                labelClassName={LABEL}
+              />
             ) : (
               <NoProgress />
             )
