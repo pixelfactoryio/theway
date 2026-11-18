@@ -5,8 +5,9 @@ import { useLocation } from "wouter"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
+import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
-import { Dash, InputsList, LineList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { Dash, InputsList, LineList, UNKNOWN_FILE } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
@@ -171,12 +172,15 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const unknown = unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))
   if (unknown) {
     return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>
-          <UnknownFile noun="prompt" name={name} back="Back to Prompts" href={to.prompts()} />
-        </PageBody>
-      </>
+      <PageUnknown
+        title={name}
+        message={
+          <>
+            No prompt <code className="font-mono">{name}</code>
+          </>
+        }
+        back={{ label: "Back to Prompts", href: to.prompts() }}
+      />
     )
   }
   if (projects.isError || fileFailed || prompts.isError) {
@@ -215,12 +219,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     draft.store === null ||
     draft.text === null
   ) {
-    return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
+    return <PageLoading title={name} />
   }
   const shownRow: PromptRow = row ?? {
     name,

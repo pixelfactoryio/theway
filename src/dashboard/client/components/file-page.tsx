@@ -1,12 +1,10 @@
 import { CircleAlertIcon } from "lucide-react"
 import { useState } from "react"
-import { Link } from "wouter"
 
 import { EmptyNote } from "@/components/empty-note"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { StatusMark } from "@/components/status"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { errorCount, type PromptInputRow, quoted } from "@/lib/files"
 import type { AlertLine } from "@/lib/alert-lines"
 import { keyLabel } from "@/lib/workflow"
@@ -169,24 +167,6 @@ export function InputsList({ inputs }: { inputs: readonly (PromptInputRow & { ty
 
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
-
-/** An unknown workflow or prompt: "No workflow <name>", and a way back to the table. */
-export function UnknownFile({ noun, name, back, href }: { noun: string; name: string; back: string; href: string }) {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyTitle>
-          No {noun} <code className="font-mono">{name}</code>
-        </EmptyTitle>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" render={<Link href={href} />}>
-          {back}
-        </Button>
-      </EmptyContent>
-    </Empty>
-  )
-}
 
 /** "Saved" after a save, as a status message, until the next edit. */
 export function SavedStatus({ saved }: { saved: boolean }) {

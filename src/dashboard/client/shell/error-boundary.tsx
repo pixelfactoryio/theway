@@ -1,9 +1,8 @@
-import { CircleAlertIcon } from "lucide-react"
 import { Component, type ReactNode } from "react"
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { LoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 type BoundaryProps = {
@@ -44,16 +43,13 @@ export function PageError({ error, reset }: { error: Error; reset: () => void })
     <>
       <PageHeader title="Error" />
       <PageBody>
-        <Alert variant="destructive" className="m-4 w-auto">
-          <CircleAlertIcon className="size-4" aria-hidden="true" />
-          <AlertTitle>This page failed to render</AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
-          <AlertAction>
-            <Button variant="outline" size="xs" onClick={reset}>
-              Try again
-            </Button>
-          </AlertAction>
-        </Alert>
+        <LoadError
+          title="This page failed to render"
+          action="Try again"
+          error={error}
+          retry={reset}
+          className="m-4 w-auto"
+        />
       </PageBody>
     </>
   )

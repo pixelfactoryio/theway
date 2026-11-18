@@ -5,8 +5,9 @@ import { useLocation } from "wouter"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
+import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
-import { LineList, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
@@ -181,12 +182,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const fileFailed = file.isError && draft.store === null
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>
-          <UnknownFile noun="workflow" name={name} back="Back to Workflows" href={to.workflows()} />
-        </PageBody>
-      </>
+      <PageUnknown
+        title={name}
+        message={
+          <>
+            No workflow <code className="font-mono">{name}</code>
+          </>
+        }
+        back={{ label: "Back to Workflows", href: to.workflows() }}
+      />
     )
   }
   if (projects.isError || fileFailed || prompts.isError) {
@@ -227,12 +231,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     drawn === null ||
     draft.store === null
   ) {
-    return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
+    return <PageLoading title={name} />
   }
 
   const step = kept !== null && kept.kind !== "inputs" ? (drawing?.steps[kept.index] ?? null) : null
