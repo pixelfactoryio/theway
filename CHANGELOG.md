@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.23.0](https://github.com/pixelfactoryio/theway/compare/v0.22.0...v0.23.0) (2026-11-18)
+
+
+### Features
+
+* **dashboard:** add grouped lists, filters, a canvas and a document reading scale ([#148](https://github.com/pixelfactoryio/theway/issues/148)) ([de1a12b](https://github.com/pixelfactoryio/theway/commit/de1a12b14fd1b6fbb342b431fd3a889b1aacd04f))
+* **dashboard:** log each request answered with an error status ([#138](https://github.com/pixelfactoryio/theway/issues/138)) ([12afb59](https://github.com/pixelfactoryio/theway/commit/12afb59eeb1e082f2e86dc251988ba40b859df67))
+* **dashboard:** redesign the dashboard as a dark-first desktop app ([#146](https://github.com/pixelfactoryio/theway/issues/146)) ([877c3e4](https://github.com/pixelfactoryio/theway/commit/877c3e4f014794c7db43553ce13187e662cc3679))
+* **dashboard:** validate every api answer against zod schemas of the contract ([#139](https://github.com/pixelfactoryio/theway/issues/139)) ([7b93b63](https://github.com/pixelfactoryio/theway/commit/7b93b63e8e2867eb3cbbf44bc4d9762e70af280b))
+* **install:** support windows in install, project keys and the dashboard ([#142](https://github.com/pixelfactoryio/theway/issues/142)) ([50e6fb6](https://github.com/pixelfactoryio/theway/commit/50e6fb63115750a7e240881c36515fa8b7b7f3cb))
+
+
+### Bug Fixes
+
+* **core:** flush atomic writes and their folder to disk ([#136](https://github.com/pixelfactoryio/theway/issues/136)) ([80eaa5a](https://github.com/pixelfactoryio/theway/commit/80eaa5aa31b9b9c403338e6abcdd5d84597095b8))
+
 ## [0.22.0](https://github.com/pixelfactoryio/theway/compare/v0.21.0...v0.22.0) (2026-11-15)
 
 
