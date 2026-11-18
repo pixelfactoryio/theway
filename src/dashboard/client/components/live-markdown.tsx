@@ -410,6 +410,21 @@ function widgetDecoration(w: Widget, readOnly: boolean): Decoration {
 }
 
 /**
+ * The mark of a link to `href`. In a read-only view it is an anchor that opens `href` in a new tab, so Tab and Enter, a
+ * middle click and the context menu reach it as they reach any link; in an editable view a span, which Cmd or Ctrl and
+ * a click opens.
+ */
+export function linkMark(href: string, readOnly: boolean): Decoration {
+  return readOnly
+    ? Decoration.mark({
+        tagName: "a",
+        class: "cm-lp-link",
+        attributes: { href, target: "_blank", rel: "noopener noreferrer" },
+      })
+    : Decoration.mark({ class: "cm-lp-link", attributes: { "data-href": href } })
+}
+
+/**
  * The live preview's decorations for the visible ranges of `view`, the syntax shown on the selection's lines; none is
  * shown in a read-only view.
  */
@@ -421,9 +436,7 @@ function decorations(view: EditorView): DecorationSet {
     ...plan.lines.map((l) => LINE[l.kind].range(l.from)),
     ...plan.items.map((i) => ITEM(i.depth, i.first).range(i.from)),
     ...plan.marks.map((m) =>
-      m.kind === "link"
-        ? Decoration.mark({ class: "cm-lp-link", attributes: { "data-href": m.href } }).range(m.from, m.to)
-        : MARK[m.kind].range(m.from, m.to),
+      m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : MARK[m.kind].range(m.from, m.to),
     ),
     ...plan.hidden.map((h) => HIDE.range(h.from, h.to)),
     ...plan.widgets.map((w) => widgetDecoration(w, state.readOnly).range(w.from, w.to)),
@@ -434,8 +447,8 @@ function decorations(view: EditorView): DecorationSet {
 /**
  * The live preview: rebuilt on a change of the text, the selection, the focus, the viewport or the parsed tree. A
  * mousedown on a task box toggles it (one character, undoable); Cmd or Ctrl and a click on a link opens its target in a
- * new tab when it is http:, https: or mailto:. In a read-only view a task box does not toggle and a plain click opens a
- * link.
+ * new tab when it is http:, https: or mailto:. In a read-only view a task box does not toggle, and a link is an anchor
+ * that a click opens, except a click that selected text or a double or triple click.
  */
 const livePreview = ViewPlugin.fromClass(
   class {
@@ -472,8 +485,11 @@ const livePreview = ViewPlugin.fromClass(
         return openLink(target)
       },
       click(event, view) {
-        if (!view.state.readOnly || event.button !== 0) return false
-        return openLink(event.target)
+        // Enter on a link clicks it with a `detail` of 0, whatever the selection.
+        const select = event.detail > 1 || (event.detail === 1 && !view.state.selection.main.empty)
+        if (!view.state.readOnly || !select) return false
+        const target = event.target
+        return target instanceof Element && target.closest("a.cm-lp-link") !== null
       },
     },
   },
@@ -508,7 +524,14 @@ export function liveExtensions({
   readOnly?: boolean
 }): Extension[] {
   const preview: Extension[] = [
-    markdown({ base: markdownLanguage, codeLanguages: CODE_LANGUAGES }),
+    // A read view's links take focus, so its keys reach the editor: Markdown's Enter and Backspace and its URL paste
+    // would edit the read-only document.
+    markdown({
+      base: markdownLanguage,
+      codeLanguages: CODE_LANGUAGES,
+      addKeymap: !readOnly,
+      pasteURLAsLink: !readOnly,
+    }),
     CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
     livePreview,
     tables,

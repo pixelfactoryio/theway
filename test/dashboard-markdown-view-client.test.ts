@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { historyField } from "@codemirror/commands"
 import { EditorState } from "@codemirror/state"
-import { EditorView } from "@codemirror/view"
-import { liveExtensions, softBreaks, tables } from "../src/dashboard/client/components/live-markdown"
+import { EditorView, keymap } from "@codemirror/view"
+import { linkMark, liveExtensions, softBreaks, tables } from "../src/dashboard/client/components/live-markdown"
 
 const realDocument = (globalThis as { document?: unknown }).document
 
@@ -25,11 +25,13 @@ function stateOf(doc: string, readOnly: boolean): EditorState {
 
 const TABLE = "| a | b |\n|---|---|\n| 1 | 2 |"
 
-test("the read-only set is read-only, not editable and keeps no history", () => {
+test("the read-only set is read-only, not editable and keeps no history and no keys", () => {
   const state = stateOf("# Title\n", true)
   expect(state.readOnly).toBe(true)
   expect(state.facet(EditorView.editable)).toBe(false)
   expect(state.field(historyField, false)).toBeUndefined()
+  expect(state.facet(keymap)).toEqual([])
+  expect(stateOf("# Title\n", false).facet(keymap).length).toBeGreaterThan(0)
 })
 
 test("a read-only state draws a table on the selection's line; an editable one shows its source", () => {
@@ -51,6 +53,15 @@ test("a read-only state joins a paragraph's soft line breaks, not its hard break
     { from: 17, to: 20, text: "\n> " },
   ])
   expect(stateOf(doc, false).field(softBreaks, false)).toBeUndefined()
+})
+
+test("a read-only link is an anchor to its target in a new tab; an editable one is a span", () => {
+  expect(linkMark("https://x", true).spec).toEqual({
+    tagName: "a",
+    class: "cm-lp-link",
+    attributes: { href: "https://x", target: "_blank", rel: "noopener noreferrer" },
+  })
+  expect(linkMark("https://x", false).spec).toEqual({ class: "cm-lp-link", attributes: { "data-href": "https://x" } })
 })
 
 test("the editable set is unchanged: editable, with history", () => {
