@@ -7,6 +7,7 @@ import type {
   Row,
 } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
+import { cn } from "cn"
 import { useState } from "react"
 
 import { COLUMN_DEFAULTS, PAGE } from "@/components/file-list"
@@ -14,8 +15,8 @@ import { DataGrid, dataGridFeatures, type DataGridFeatures } from "@/components/
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 
 /**
- * Columns resized by dragging a header's edge, live. The header does not stick: the band above it does, and the grids
- * flow in the page's scroll.
+ * Columns resized by dragging a header's edge, live. The header does not stick by default: the band above it does, and
+ * the grids flow in the page's scroll.
  */
 const LAYOUT = {
   columnsResizable: true,
@@ -28,9 +29,9 @@ const LAYOUT = {
 /**
  * The rows' frame: the lists' 24px left gutter on the first column (each column set gives its last its right one), the
  * lists' hover fill, and the focused head's fill and inset ring on its whole row. Wider than the page, the grid scrolls
- * sideways.
+ * sideways; with a sticky header the page's scroll does, as a scrolling frame would hold the header instead.
  */
-const FRAME = "overflow-x-auto [&_tr>:first-child]:ps-6"
+const FRAME = "[&_tr>:first-child]:ps-6"
 const CLASS_NAMES = {
   bodyRow:
     "hover:bg-accent/40 has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
@@ -52,6 +53,8 @@ export type BandGridProps<T extends object> = {
   onRowClick?: (row: Row<DataGridFeatures, T>) => void
   /** The list's accessible name. */
   label: string
+  /** The header row stays in view while the page scrolls: for a grid with no sticky band above it. */
+  stickyHeader?: boolean
 }
 
 /**
@@ -71,6 +74,7 @@ export function BandGrid<T extends object>({
   columnVisibility,
   onRowClick,
   label,
+  stickyHeader = false,
 }: BandGridProps<T>) {
   const [ownExpanded, setOwnExpanded] = useState<ExpandedState>({})
   const table = useTable({
@@ -97,11 +101,11 @@ export function BandGrid<T extends object>({
     <DataGrid<DataGridFeatures, T>
       table={table}
       recordCount={rows.length}
-      tableLayout={LAYOUT}
+      tableLayout={stickyHeader ? { ...LAYOUT, headerSticky: true } : LAYOUT}
       tableClassNames={CLASS_NAMES}
       onRowClick={onRowClick && ((row) => onRowClick(table.getRow(getRowId(row), true)))}
     >
-      <div data-nav-list="" role="group" aria-label={label} className={FRAME}>
+      <div data-nav-list="" role="group" aria-label={label} className={cn(FRAME, !stickyHeader && "overflow-x-auto")}>
         <DataGridTable />
       </div>
     </DataGrid>

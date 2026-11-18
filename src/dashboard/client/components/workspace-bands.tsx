@@ -1,6 +1,6 @@
 import type { ColumnDef, ColumnSizingState, OnChangeFn } from "@tanstack/react-table"
 import { CircleDotIcon, FolderIcon } from "lucide-react"
-import { type ReactNode, useMemo } from "react"
+import { type ReactNode, useMemo, useSyncExternalStore } from "react"
 import { Link, useLocation } from "wouter"
 
 import type { BandGridProps } from "@/components/band-grid"
@@ -27,9 +27,30 @@ const changeRowId = (r: ChangeGridRow): string => (isArchived(r) ? `${r.key}/${r
 
 const subRowsOf = (r: ChangeGridRow): ChangeGridRow[] | undefined => (isArchived(r) ? undefined : r.subRows)
 
-/** A row's progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
-const TRACK = "hidden sm:flex w-auto flex-1 shrink"
+/** A row's 96px progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
+const TRACK = "hidden sm:flex"
 const LABEL = "w-14 shrink-0 text-right"
+
+/** Below Tailwind's `sm` (640px): a phone, where the progress shows its count only. */
+const BELOW_SM = "(width < 40rem)"
+
+/** Whether the screen is below `sm`, following it as it changes. */
+function useBelowSm(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia(BELOW_SM)
+      query.addEventListener("change", onChange)
+      return () => query.removeEventListener("change", onChange)
+    },
+    () => window.matchMedia(BELOW_SM).matches,
+  )
+}
+
+/**
+ * The change and progress columns' widths: the progress holds `ChangeProgress` whole (96px bar, 8px gap, 56px count)
+ * from `sm` up, its count alone below; the change column's minimum lets a band fit a 390px screen there.
+ */
+const WIDTHS = { wide: { change: 240, progress: 160 }, narrow: { change: 160, progress: 72 } } as const
 
 /** A right-aligned column's header and cells. */
 const RIGHT = "text-right [&>div]:justify-end"
@@ -42,14 +63,17 @@ const RIGHT = "text-right [&>div]:justify-end"
 function changeColumns({
   project,
   archive,
+  narrow,
   now,
   label,
 }: {
   project: boolean
   archive: boolean
+  narrow: boolean
   now: number
   label: (key: string) => string
 }): ColumnDef<DataGridFeatures, ChangeGridRow>[] {
+  const width = narrow ? WIDTHS.narrow : WIDTHS.wide
   return [
     {
       id: "change",
@@ -78,8 +102,8 @@ function changeColumns({
           </HeadLink>
         )
       },
-      size: 240,
-      minSize: 240,
+      size: width.change,
+      minSize: width.change,
       enableSorting: false,
       meta: { fillWidth: true, cellClassName: "relative" },
     },
@@ -124,8 +148,10 @@ function changeColumns({
           <NoProgress />
         )
       },
-      size: 140,
+      size: width.progress,
       enableSorting: false,
+      // No padding: the column is exactly as wide as `ChangeProgress`.
+      meta: { headerClassName: "px-0", cellClassName: "px-0" },
     },
     {
       id: "age",
@@ -161,11 +187,12 @@ export function useChangeGrid(
   const now = useNow()
   const label = useLabel()
   const mobile = useIsMobile()
+  const narrow = useBelowSm()
   const [, navigate] = useLocation()
   const sets = useMemo(() => {
-    const set = (project: boolean, archive: boolean) => changeColumns({ project, archive, now, label })
+    const set = (project: boolean, archive: boolean) => changeColumns({ project, archive, narrow, now, label })
     return { open: [set(false, false), set(true, false)], archive: [set(false, true), set(true, true)] }
-  }, [now, label])
+  }, [narrow, now, label])
   return (rows, { label: name, project, archive = false }) => ({
     rows,
     columns: (archive ? sets.archive : sets.open)[project ? 1 : 0] as ColumnDef<DataGridFeatures, ChangeGridRow>[],

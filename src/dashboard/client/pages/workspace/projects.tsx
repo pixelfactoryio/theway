@@ -308,7 +308,7 @@ export function ProjectsPage() {
         const r = row.original
         // The actions act alone: a click anywhere in their cell, gutter included, never reaches the row's.
         return (
-          <span className="absolute inset-0 flex items-center justify-end pe-3" onClick={(e) => e.stopPropagation()}>
+          <span className="absolute inset-0 flex items-center justify-end pe-6" onClick={(e) => e.stopPropagation()}>
             {r.key === null ? (
               <>
                 <Button
@@ -332,10 +332,10 @@ export function ProjectsPage() {
           </span>
         )
       },
-      size: 96,
+      size: 108,
       enableSorting: false,
       // The cell's content covers it whole, so its click stops there; the three buttons of a group fill it inside the
-      // content's 12px right gutter.
+      // content's 24px right gutter.
       meta: { cellClassName: "relative p-0" },
     },
   ]
@@ -409,6 +409,7 @@ export function ProjectsPage() {
                   else navigate(to.project(key))
                 }}
                 label="Projects"
+                stickyHeader
               />
             </div>
           ) : null}
