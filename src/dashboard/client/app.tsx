@@ -1,36 +1,35 @@
 import { type CSSProperties, type ReactNode, useMemo, useState } from "react"
 import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
+import { ShellDialogs } from "@/components/shell-dialogs"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useProjects } from "@/data/queries"
+import { sidebarCodec } from "@/lib/preferences"
 import { decoded, type Params, ROUTES, type RouteName, to } from "@/lib/routes"
-import { ChangesRoute } from "@/pages/changes"
-import { NowPage, ProjectsPage, ScopePage } from "@/pages/workspace"
-import { PromptPage } from "@/pages/prompt"
-import { PromptsPage } from "@/pages/prompts-list"
-import { WorkflowPage } from "@/pages/workflow"
-import { WorkflowsPage } from "@/pages/workflows-list"
+import { ChangesRoute } from "@/pages/change/route"
+import { NowPage } from "@/pages/workspace/now"
+import { ProjectsPage } from "@/pages/workspace/projects"
+import { ScopePage } from "@/pages/workspace/scope"
+import { PromptPage } from "@/pages/prompt/page"
+import { PromptsPage } from "@/pages/files/prompts"
+import { WorkflowPage } from "@/pages/workflow/page"
+import { WorkflowsPage } from "@/pages/files/workflows"
 import { AppSidebar } from "@/shell/app-sidebar"
 import { ErrorBoundary, PageError, RootError } from "@/shell/error-boundary"
 import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 import { SearchDialog, SearchOpen } from "@/shell/search"
-import { ShellDialogs, useGlobalKeys } from "@/shell/keys"
+import { DialogOpen } from "@/shell/dialogs"
+import { useGlobalKeys, type ShellDialog } from "@/shell/keys"
 import { PanelArea, PanelProvider, usePanelState } from "@/shell/panel"
 import { useRecordStart } from "@/shell/settings"
-import { readStored, writeStored } from "@/shell/storage"
+import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the sidebar's state: `open` or `closed`; when absent, open from 1024px wide. */
 const SIDEBAR_KEY = "theway-sidebar"
 
-const readSidebar = (): boolean => {
-  const stored = readStored(SIDEBAR_KEY)
-  if (stored !== null) return stored !== "closed"
-  return window.matchMedia("(min-width: 1024px)").matches
-}
-
-const writeSidebar = (open: boolean): void => writeStored(SIDEBAR_KEY, open ? "open" : "closed")
+const SIDEBAR = sidebarCodec(() => window.matchMedia("(min-width: 1024px)").matches)
 
 /** "Skip to content": the first focusable element, focusing `main#content` without touching the hash route. */
 function SkipLink() {
@@ -92,39 +91,43 @@ function Routes() {
  * sidebar's Search entry and the Cmd/Ctrl+K shortcut.
  */
 function Shell() {
-  const [open, setOpen] = useState(readSidebar)
+  const [open, setOpen] = useStored(SIDEBAR_KEY, SIDEBAR)
   const [searching, setSearching] = useState(false)
   const search = useMemo(() => ({ open: searching, setOpen: setSearching }), [searching])
+  const [dialog, setDialog] = useState<ShellDialog>(null)
+  const dialogs = useMemo(() => ({ dialog, open: setDialog }), [dialog])
   const [location] = useLocation()
   const panel = usePanelState()
   useScrollMemory()
-  useGlobalKeys()
+  useGlobalKeys(dialogs)
   useRecordStart(useProjects().data?.start ?? null)
 
   return (
     <SidebarProvider
       open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        writeSidebar(next)
-      }}
+      onOpenChange={setOpen}
       style={{ "--sidebar-width": "17rem" } as CSSProperties}
       className="h-svh overflow-hidden"
     >
       <PanelProvider value={panel}>
         <SearchOpen.Provider value={search}>
-          <SkipLink />
-          <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
-              <ErrorBoundary resetKey={location} fallback={(error, reset) => <PageError error={error} reset={reset} />}>
-                <Routes />
-              </ErrorBoundary>
-            </SidebarInset>
-          </div>
-          <PanelArea />
-          <SearchDialog />
-          <ShellDialogs />
+          <DialogOpen.Provider value={dialogs}>
+            <SkipLink />
+            <AppSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
+                <ErrorBoundary
+                  resetKey={location}
+                  fallback={(error, reset) => <PageError error={error} reset={reset} />}
+                >
+                  <Routes />
+                </ErrorBoundary>
+              </SidebarInset>
+            </div>
+            <PanelArea />
+            <SearchDialog />
+            <ShellDialogs />
+          </DialogOpen.Provider>
         </SearchOpen.Provider>
       </PanelProvider>
     </SidebarProvider>

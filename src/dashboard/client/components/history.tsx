@@ -29,17 +29,12 @@ import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
+import { DIFF_LAYOUT } from "@/lib/preferences"
 import { LoadError } from "@/shell/load-error"
-import { readStored, writeStored } from "@/shell/storage"
-
-type Layout = "unified" | "split"
+import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
 const LAYOUT_KEY = "theway-diff-layout"
-
-const readLayout = (): Layout => (readStored(LAYOUT_KEY) === "split" ? "split" : "unified")
-
-const writeLayout = (layout: Layout): void => writeStored(LAYOUT_KEY, layout)
 
 /** The versions panel's selection: Current, or a version's id. */
 const CURRENT = "current"
@@ -67,7 +62,7 @@ export function useHistoryTab({
   const versions = useHistory(path, active)
   const [chosen, setChosen] = useState<string | null>(null)
   const [show, setShow] = useState(true)
-  const [layout, setLayout] = useState<Layout>(readLayout)
+  const [layout, setLayout] = useStored(LAYOUT_KEY, DIFF_LAYOUT)
   const [confirm, setConfirm] = useState(false)
 
   const list = versions.data?.versions ?? []
@@ -193,7 +188,6 @@ export function useHistoryTab({
               const picked = next[0]
               if (picked !== "unified" && picked !== "split") return
               setLayout(picked)
-              writeLayout(picked)
             }}
           >
             <ToggleGroupItem value="unified">Unified</ToggleGroupItem>

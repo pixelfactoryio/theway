@@ -4,11 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
-import { ActiveChange } from "@/pages/active-change"
-import { ArchivedChange } from "@/pages/archived-change"
+import { ActiveChange } from "@/pages/change/active"
+import { ArchivedChange } from "@/pages/change/archived"
 import { LoadError } from "@/shell/load-error"
-import { PageBody } from "@/shell/top-bar"
-import { PageHeader } from "@/components/doc-frame"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The errors of a `404` on a change's route. */
 const UNKNOWN = ["unknown change", "unknown archive folder"]

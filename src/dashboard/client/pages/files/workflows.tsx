@@ -31,9 +31,9 @@ import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
-import { NameCell, NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/pages/files-table"
+import { NameCell, NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/components/files-table"
 import { LoadError } from "@/shell/load-error"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
 const LAYOUT = { headerSticky: true, columnsResizable: true, columnsResizeMode: "onChange" } as const
@@ -223,7 +223,7 @@ export function WorkflowsPage() {
     () => workflowFields(list?.workflows ?? [], searched, filter.rules, valuesOf, prompts.data?.prompts ?? [], label),
     [list, searched, filter.rules, valuesOf, prompts.data, label],
   )
-  const top = <TopBar title="Workflows" actions={<NewFileButton kind="workflows" />} />
+  const top = <PageHeader title="Workflows" actions={<NewFileButton kind="workflows" />} />
 
   if (workflows.isError || projects.isError) {
     return (

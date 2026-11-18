@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 
-import { type OpenField, TextField } from "@/components/change-fields"
+import { TextField } from "@/components/change-fields"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
 import { TaskText } from "@/components/text"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { splitTask, taskName } from "@/lib/change-edit"
+import type { OpenField } from "@/lib/task-fields"
 
 /** A task row: its client id, its text and its state. */
 export type TaskRow = { id: string; text: string; done: boolean }

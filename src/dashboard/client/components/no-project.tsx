@@ -1,11 +1,11 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** A home with no project: "No project yet". */
 export function NoProjectPage() {
   return (
     <>
-      <TopBar title="theway" />
+      <PageHeader title="theway" />
       <PageBody>
         <div data-scroll-root className="flex min-h-0 flex-1 flex-col overflow-auto">
           <Empty>

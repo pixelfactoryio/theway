@@ -1,10 +1,11 @@
 import { ChevronRightIcon } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import type { ReactNode } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Kbd } from "@/components/ui/kbd"
-import { type Collapsed, collapsedKey, isCollapsed, parseCollapsed, withCollapsed } from "@/lib/collapse"
-import { readStored, writeStored } from "@/shell/storage"
+import { collapsedKey, isCollapsed, withCollapsed } from "@/lib/collapse"
+import { COLLAPSED } from "@/lib/preferences"
+import { useStored } from "@/shell/storage"
 
 /** A page's collapsed groups, kept in this browser per page; `page` names the page (`now`, `project:<key>`, …). */
 export function useCollapsed(page: string): {
@@ -13,21 +14,11 @@ export function useCollapsed(page: string): {
   /** Collapses (or opens) `groups`, and keeps the choice. */
   set: (groups: readonly string[], collapsed: boolean) => void
 } {
-  const key = collapsedKey(page)
-  const [state, setState] = useState<{ key: string; choices: Collapsed }>(() => ({
-    key,
-    choices: parseCollapsed(readStored(key)),
-  }))
-  // Another page in the same component (a project's page to another's): read that page's choices.
-  const choices = state.key === key ? state.choices : parseCollapsed(readStored(key))
-  if (state.key !== key) setState({ key, choices })
+  // Another page in the same component (a project's page to another's) reads that page's choices.
+  const [choices, setChoices] = useStored(collapsedKey(page), COLLAPSED)
   return {
     collapsed: (group, byDefault = false) => isCollapsed(choices, group, byDefault),
-    set: (groups, collapsed) => {
-      const next = withCollapsed(choices, groups, collapsed)
-      setState({ key, choices: next })
-      writeStored(key, JSON.stringify(next))
-    },
+    set: (groups, collapsed) => setChoices(withCollapsed(choices, groups, collapsed)),
   }
 }
 

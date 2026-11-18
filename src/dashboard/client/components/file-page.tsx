@@ -142,6 +142,9 @@ export function InputsList({ inputs }: { inputs: readonly (PromptInputRow & { ty
   )
 }
 
+/** The errors of a `404` on a file's route. */
+export const UNKNOWN_FILE = ["unknown file", "unknown project"]
+
 /** An unknown workflow or prompt: "No workflow <name>", and a way back to the table. */
 export function UnknownFile({ noun, name, back, href }: { noun: string; name: string; back: string; href: string }) {
   return (

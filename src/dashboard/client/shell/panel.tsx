@@ -12,7 +12,8 @@ import {
 import { createPortal } from "react-dom"
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { readStored, writeStored } from "@/shell/storage"
+import { PANEL_DOCKED } from "@/lib/preferences"
+import { readStored, useStored, writeStored } from "@/shell/storage"
 
 /** The `localStorage` keys of the docked panel: hidden (`hidden`, removed when shown) and its width in pixels. */
 const HIDDEN_KEY = "theway-panel"
@@ -56,7 +57,7 @@ const readWidth = (): number => {
 export function usePanelState(): PanelState {
   const wide = useWide()
   const [slot, setSlot] = useState<HTMLElement | null>(null)
-  const [docked, setDocked] = useState(() => readStored(HIDDEN_KEY) !== "hidden")
+  const [docked, setDocked] = useStored(HIDDEN_KEY, PANEL_DOCKED)
   const [overlay, setOverlay] = useState(false)
   const [name, setName] = useState<string | null>(null)
   const setOpen = useCallback(
@@ -66,9 +67,8 @@ export function usePanelState(): PanelState {
         return
       }
       setDocked(next)
-      writeStored(HIDDEN_KEY, next ? null : "hidden")
     },
-    [wide],
+    [wide, setDocked],
   )
   return useMemo(
     () => ({ slot, setSlot, open: wide ? docked : overlay, setOpen, name, setName }),

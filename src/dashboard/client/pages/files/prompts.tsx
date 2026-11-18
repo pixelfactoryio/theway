@@ -38,9 +38,9 @@ import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
-import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/pages/files-table"
+import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/components/files-table"
 import { LoadError } from "@/shell/load-error"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
 const LAYOUT = { headerSticky: true, columnsResizable: true, columnsResizeMode: "onChange" } as const
@@ -282,7 +282,7 @@ export function PromptsPage() {
     () => promptFields(list?.prompts ?? [], searched, filter.rules, label),
     [list, searched, filter.rules, label],
   )
-  const top = <TopBar title="Prompts" actions={<NewFileButton kind="prompts" />} />
+  const top = <PageHeader title="Prompts" actions={<NewFileButton kind="prompts" />} />
 
   if (prompts.isError || projects.isError) {
     return (

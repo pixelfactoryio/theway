@@ -33,8 +33,8 @@ test("the editable set adds Mod-Shift-z as redo, and the draft is read with slic
     "drafts/draft-set.ts",
     "drafts/use-drafts.ts",
     "components/file-draft.ts",
-    "pages/prompt.tsx",
-    "pages/workflow.tsx",
+    "pages/prompt/page.tsx",
+    "pages/workflow/page.tsx",
   ]
     .map((f) => readFileSync(join(CLIENT, f), "utf-8"))
     .join("\n")

@@ -1,28 +1,11 @@
-import { useEffect, useRef, useSyncExternalStore } from "react"
+import { useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 
-import { NewFileDialog } from "@/components/new-file"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { to } from "@/lib/routes"
 import { MOD } from "@/shell/platform"
 
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
-type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
-
-let shown: ShellDialog = null
-const listeners = new Set<() => void>()
-
-/** Opens one of the shell's dialogs; `null` closes it. */
-export function openDialog(dialog: ShellDialog): void {
-  shown = dialog
-  for (const l of listeners) l()
-}
-
-const subscribe = (l: () => void): (() => void) => {
-  listeners.add(l)
-  return () => listeners.delete(l)
-}
+export type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
 
 /** Every shortcut of the dashboard, as the sheet lists them. */
 export const SHORTCUTS: { keys: string[]; action: string }[] = [
@@ -64,19 +47,20 @@ function moveInList(delta: 1 | -1): boolean {
 
 /**
  * The shell's single-key shortcuts, outside text fields and editors: `?` opens the sheet, G then N, A, W or P goes to
- * Now, All projects, Workflows or Prompts, ↑/↓ (or J/K) move in the list holding the focus.
+ * Now, All projects, Workflows or Prompts, ↑/↓ (or J/K) move in the list holding the focus. `dialogs` is the shell's
+ * dialog state: no key acts while a dialog is shown.
  */
-export function useGlobalKeys(): void {
+export function useGlobalKeys(dialogs: { dialog: ShellDialog; open: (d: ShellDialog) => void }): void {
   const [, navigate] = useLocation()
   const pendingG = useRef<number>(0)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
-      if (shown !== null) return
+      if (dialogs.dialog !== null) return
       const key = event.key
       if (key === "?") {
         event.preventDefault()
-        openDialog("shortcuts")
+        dialogs.open("shortcuts")
         return
       }
       if (Date.now() - pendingG.current < 1000) {
@@ -101,44 +85,5 @@ export function useGlobalKeys(): void {
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [navigate])
-}
-
-/** The shell's dialogs: the shortcut sheet, New workflow and New prompt. */
-export function ShellDialogs() {
-  const dialog = useSyncExternalStore(subscribe, () => shown)
-  const close = (open: boolean) => {
-    if (!open) openDialog(null)
-  }
-  return (
-    <>
-      <Dialog open={dialog === "shortcuts"} onOpenChange={close}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Keyboard shortcuts</DialogTitle>
-            <DialogDescription>Single keys work outside text fields and editors.</DialogDescription>
-          </DialogHeader>
-          <dl className="flex flex-col">
-            {SHORTCUTS.map((s) => (
-              <div
-                key={s.action}
-                className="flex items-center justify-between gap-4 border-b py-2 text-sm last:border-b-0"
-              >
-                <dt>{s.action}</dt>
-                <dd>
-                  <KbdGroup>
-                    {s.keys.map((k) => (
-                      <Kbd key={k}>{k}</Kbd>
-                    ))}
-                  </KbdGroup>
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </DialogContent>
-      </Dialog>
-      <NewFileDialog kind="workflows" open={dialog === "new-workflow"} onOpenChange={close} />
-      <NewFileDialog kind="prompts" open={dialog === "new-prompt"} onOpenChange={close} />
-    </>
-  )
+  }, [dialogs, navigate])
 }

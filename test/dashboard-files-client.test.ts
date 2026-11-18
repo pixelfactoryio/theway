@@ -393,14 +393,14 @@ test("workflowCount counts each workflow once, however many of its steps use the
 test("the Workflows and Prompts lists have no tooltip, show whole descriptions and resize their columns", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
-  for (const page of ["workflows-list.tsx", "prompts-list.tsx", "files-table.tsx"]) {
-    const text = read("pages", page)
+  for (const page of ["pages/files/workflows.tsx", "pages/files/prompts.tsx", "components/files-table.tsx"]) {
+    const text = read(page)
     expect([page, /Tooltip|OneLine|truncate/.test(text)]).toEqual([page, false])
   }
   // The errors badge of their Status column is the badge alone.
   expect(read("components", "status.tsx")).not.toContain("Tooltip")
-  for (const page of ["workflows-list.tsx", "prompts-list.tsx"]) {
-    const text = read("pages", page)
+  for (const page of ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]) {
+    const text = read(page)
     expect([page, text.includes("columnsResizable: true"), text.includes("<DataGridScrollArea")]).toEqual([
       page,
       true,

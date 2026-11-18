@@ -8,10 +8,10 @@ import {
   SearchIcon,
   WorkflowIcon,
 } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import type { ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
-import { Logo } from "@/components/logo"
+import { Logo } from "@/shell/logo"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import {
   Sidebar,
@@ -34,12 +34,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { version } from "@/data/api"
 import { useChangeLists, useLabel, useProjects, usePrompts, useSettings, useWorkflows } from "@/data/queries"
 import type { ChangeList } from "@/lib/changes"
+import { GROUP_OPEN } from "@/lib/preferences"
 import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
 import { LoadError } from "@/shell/load-error"
 import { MAC } from "@/shell/platform"
 import { useSearchOpen } from "@/shell/search"
-import { readStored, writeStored } from "@/shell/storage"
+import { useStored } from "@/shell/storage"
 import { SettingsMenu } from "@/shell/theme"
 
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
@@ -169,10 +170,7 @@ function Place({
   const open = (keys: readonly string[]): number | null =>
     keys.every((k) => lists.has(k)) ? keys.reduce((n, k) => n + toDo(lists.get(k)), 0) : null
   const inside = activeKey !== null && entry.keys.includes(activeKey)
-  const [chosen, setChosen] = useState<boolean | null>(() => {
-    const stored = readStored(groupKey(entry.id))
-    return stored === null ? null : stored === "open"
-  })
+  const [chosen, setChosen] = useStored(groupKey(entry.id), GROUP_OPEN)
   const expanded = chosen ?? inside
   if (entry.kind !== "group") {
     return (
@@ -189,7 +187,6 @@ function Place({
         aria-expanded={expanded}
         onClick={() => {
           setChosen(!expanded)
-          writeStored(groupKey(entry.id), expanded ? "closed" : "open")
         }}
       >
         <ChevronRightIcon className={cn("transition-transform", expanded && "rotate-90")} aria-hidden="true" />

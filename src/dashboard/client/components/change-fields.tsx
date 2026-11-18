@@ -5,17 +5,6 @@ import { Field, FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-/** The text field open on a change page: at most one at a time. */
-export type OpenField =
-  | { kind: "task"; id: string; value: string; error: string | null }
-  | { kind: "below"; id: string; value: string; error: string | null }
-  | { kind: "add"; value: string }
-  | { kind: "description"; value: string; error: string | null }
-
-/** The refusals the page shows under a field. */
-export const TASK_EMPTY = "A task needs a text."
-export const DESCRIPTION_EMPTY = "A description is one non-empty line."
-
 /**
  * The in-place field of a task's text (a `textarea`, Shift and Enter adding a line) or of the description (an `input`),
  * focused when it opens, with Apply and Cancel under it: Enter applies, Escape cancels; it stays open when it loses

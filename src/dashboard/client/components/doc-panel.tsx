@@ -6,7 +6,8 @@ import { type LayoutStorage, useDefaultLayout, usePanelRef } from "react-resizab
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { readStored, writeStored } from "@/shell/storage"
+import { PANE_TAB } from "@/lib/preferences"
+import { readStored, useStored, writeStored } from "@/shell/storage"
 
 /** One tab of a panel pane: its label, an optional count after it, and its content. */
 export type PaneTab = { value: string; label: string; count?: ReactNode; content: ReactNode }
@@ -40,7 +41,7 @@ function Pane({
   className?: string
 }) {
   const key = `theway-pane:${remember}`
-  const [chosen, setChosen] = useState(() => readStored(key))
+  const [chosen, setChosen] = useStored(key, PANE_TAB)
   const value = tabs.some((t) => t.value === chosen) ? (chosen as string) : (tabs[0]?.value ?? "")
   return (
     <Tabs
@@ -48,7 +49,6 @@ function Pane({
       onValueChange={(next) => {
         const v = String(next)
         setChosen(v)
-        writeStored(key, v)
         onChoose?.()
       }}
       className={cn("flex min-h-0 flex-col gap-0", className)}

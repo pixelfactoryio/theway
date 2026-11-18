@@ -5,6 +5,12 @@ import { keptIds, linked, oneLine, splitTask, taskName, wrapped } from "../src/d
 
 const CLIENT = join(import.meta.dirname, "..", "src", "dashboard", "client")
 
+/** The active change page and its task-fields hook, read together. */
+const pageAndHook = (): string =>
+  [join(CLIENT, "pages", "change", "active.tsx"), join(CLIENT, "components", "use-task-fields.ts")]
+    .map((f) => readFileSync(f, "utf-8"))
+    .join("\n")
+
 test("row ids are kept by position for the first min(old, new) tasks, the rest new", () => {
   let n = 0
   const make = () => `n${++n}`
@@ -38,15 +44,15 @@ test("the formatting keys take precedence, prevent the default and stop the even
   expect(editor).toContain("Prec.highest(")
   expect(editor).toContain("preventDefault: true, stopPropagation: true")
   for (const key of ["Mod-b", "Mod-i", "Mod-e", "Mod-k"]) expect(editor).toContain(`"${key}"`)
-  const page = readFileSync(join(CLIENT, "pages", "active-change.tsx"), "utf-8")
+  const page = pageAndHook()
   expect(page).toContain('isolateHistory.of("full")')
   expect(page).not.toMatch(/sonner|toast/)
   expect(page).not.toContain("doc.toString()")
 })
 
 test("the client imports the check and the edits from src/core/change-text", () => {
-  const page = readFileSync(join(CLIENT, "pages", "active-change.tsx"), "utf-8")
-  expect(page).toMatch(/from "\.\.\/\.\.\/\.\.\/core\/change-text"/)
+  const page = pageAndHook()
+  expect(page).toMatch(/from "(\.\.\/){3,4}core\/change-text"/)
   for (const name of ["checkChangeText", "changeTextErrors", "changeStatus", "editedChangeText"])
     expect(page).toContain(name)
 })

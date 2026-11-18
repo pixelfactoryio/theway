@@ -3,10 +3,10 @@ import { Redirect, useRoute } from "wouter"
 
 import { useProjects } from "@/data/queries"
 import { CHANGE_ROUTES, decoded, to } from "@/lib/routes"
-import { ChangePage } from "@/pages/change"
-import { NoProjectPage } from "@/pages/section"
+import { ChangePage } from "@/pages/change/change"
+import { NoProjectPage } from "@/components/no-project"
 import { LoadError } from "@/shell/load-error"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
  * What `#/` and a project's pages show until the projects are known: an empty content area while they load, the load
@@ -17,7 +17,7 @@ function ProjectsGate({ label }: { label: string }) {
   if (projects.isPending) {
     return (
       <>
-        <TopBar title={label} />
+        <PageHeader title={label} />
         <PageBody>{null}</PageBody>
       </>
     )
@@ -25,7 +25,7 @@ function ProjectsGate({ label }: { label: string }) {
   if (projects.isError) {
     return (
       <>
-        <TopBar title={label} />
+        <PageHeader title={label} />
         <PageBody>
           <LoadError
             what="the projects"

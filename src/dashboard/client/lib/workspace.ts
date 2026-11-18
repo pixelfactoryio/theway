@@ -1,7 +1,8 @@
 /** The sidebar's pinned and recent entries and the grouping suggestions. Pure: no React, no DOM. */
-import type { ChangeList, DashboardSettings, Project } from "../../contract"
-import { activeRows, rowStatus } from "./changes"
-import { NONE } from "./list-filter"
+import type { ArchivedChange, ChangeList, DashboardSettings, Project } from "../../contract"
+import { type ActiveRow, activeRows, changeCount, rowStatus } from "./changes"
+import { fileMatches } from "./files"
+import { type FieldRule, NONE, valueCounts } from "./list-filter"
 import { byLabel } from "./projects"
 import { to } from "./routes"
 
@@ -185,3 +186,78 @@ export function projectValues(settings: DashboardSettings, key: string, field: s
   }
   return []
 }
+
+/** One row of a project's open changes, a change or a series, with the project's key and label. */
+export type Located = { key: string; label: string; row: ActiveRow }
+
+/** The open rows of `projects` (a series of two or more as one row) whose ID or description holds `q`, newest first. */
+export function located(lists: Map<string, ChangeList>, projects: readonly Project[], q: string): Located[] {
+  const updated = (r: ActiveRow) => (r.kind === "series" ? r.updated : r.change.updated)
+  return projects
+    .flatMap((p) => activeRows(lists.get(p.key)?.active ?? [], q).map((row) => ({ key: p.key, label: p.label, row })))
+    .sort((a, b) => updated(b.row).localeCompare(updated(a.row)))
+}
+
+/** A located row's values in the lists' filter fields: its status and its project. */
+export const locatedValues = (r: Located, field: string): string[] =>
+  field === "status" ? [rowStatus(r.row)] : field === "project" ? [r.key] : []
+
+/** The changes a row holds: a series row its listed members. */
+export const changesOf = (r: Located): number => changeCount([r.row])
+
+/** The month heading of an archive date `YYYY-MM-DD…`: "November 2026". */
+export const monthOf = (date: string): string => {
+  const d = new Date(`${date.slice(0, 7)}-01T00:00:00`)
+  return Number.isNaN(d.getTime())
+    ? date.slice(0, 7)
+    : d.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+}
+
+/** An archived change with its project's key. */
+export type Archived = { key: string; a: ArchivedChange }
+
+/** An archived change's values in the lists' filter fields. */
+export const archivedValues = (r: Archived, field: string): string[] =>
+  field === "status" ? ["archived"] : field === "project" ? [r.key] : []
+
+/** The archived changes of `keys`' lists, newest first. */
+export const archivesOf = (lists: Map<string, ChangeList>, keys: readonly string[]): Archived[] =>
+  keys
+    .flatMap((k) => (lists.get(k)?.archived ?? []).map((a) => ({ key: k, a })))
+    .sort((x, y) => y.a.date.localeCompare(x.a.date) || y.a.updated.localeCompare(x.a.updated))
+
+/** The archived changes of `rows` whose ID holds `q`, ignoring case. */
+export const archivesMatching = (rows: readonly Archived[], q: string): Archived[] =>
+  rows.filter(({ a }) => fileMatches({ name: a.id }, q))
+
+/** The latest archive date among `archived` (newest first), `""` when none. */
+const lastArchived = (archived: readonly ArchivedChange[] | undefined): string => archived?.[0]?.date ?? ""
+
+/**
+ * The counts of `field`'s values among the `located` rows the other fields' rules keep, plus the `archived` rows' when
+ * `archive`.
+ */
+export function countsOf(
+  field: string,
+  rules: readonly FieldRule[],
+  located: readonly Located[],
+  archived: readonly Archived[],
+  archive: boolean,
+): Map<string, number> {
+  const counts = valueCounts(located, field, rules, locatedValues)
+  if (archive)
+    for (const [v, n] of valueCounts(archived, field, rules, archivedValues)) counts.set(v, (counts.get(v) ?? 0) + n)
+  return counts
+}
+
+/** The latest archive date among the projects `keys`, `""` when none. */
+export const latest = (lists: Map<string, ChangeList>, keys: readonly string[]): string =>
+  keys.map((k) => lastArchived(lists.get(k)?.archived)).reduce((a, b) => (a > b ? a : b), "")
+
+/** The changes In progress across the projects `keys`. */
+export const inProgress = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
+  keys.reduce((n, k) => n + (lists.get(k)?.active.filter((c) => c.status === "in-progress").length ?? 0), 0)
+
+/** The changes to do across the projects `keys`. */
+export const toDoOf = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
+  keys.reduce((n, k) => n + toDo(lists.get(k)), 0)
