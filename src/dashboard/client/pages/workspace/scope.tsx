@@ -4,6 +4,7 @@ import { Link } from "wouter"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
+import { Button } from "@/components/ui/button"
 import { archiveGroups, projectField, STATUS_VALUES, statusField, statusGroups } from "@/components/workspace-bands"
 import { Groups, ScrollBody, useNow, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel, useSettings } from "@/data/queries"
@@ -93,16 +94,22 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
             <>
               <Groups page={id} groups={groups} />
               {limit !== null && archived.length > limit ? (
-                <Link
-                  href={
-                    entry.kind === "project"
-                      ? to.project(entry.keys[0] as string, { archive: true })
-                      : to.group(entry.id.slice("group:".length), { archive: true })
+                <Button
+                  variant="link"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      href={
+                        entry.kind === "project"
+                          ? to.project(entry.keys[0] as string, { archive: true })
+                          : to.group(entry.id.slice("group:".length), { archive: true })
+                      }
+                    />
                   }
-                  className="mx-6 mt-3 inline-block text-sm text-link hover:underline"
+                  className="mx-6 mt-3 h-auto px-0 text-link"
                 >
                   All archived →
-                </Link>
+                </Button>
               ) : null}
               <CollapseHint />
             </>

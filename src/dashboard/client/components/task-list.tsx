@@ -14,6 +14,7 @@ import { TextField } from "@/components/change-fields"
 import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
 import { TaskText } from "@/components/text"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { splitTask, taskName } from "@/lib/change-edit"
@@ -200,13 +201,9 @@ function Row({
           }
         />
         {editing === null && detail.length > 220 && !next ? (
-          <button
-            type="button"
-            onClick={() => setMore(!more)}
-            className="mt-1 rounded-sm text-xs text-link outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <Button variant="link" size="xs" onClick={() => setMore(!more)} className="mt-1 h-auto px-0 text-link">
             {more ? "Show less" : "Show more"}
-          </button>
+          </Button>
         ) : null}
       </div>
       <ReorderMenu

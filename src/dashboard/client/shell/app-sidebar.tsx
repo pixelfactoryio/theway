@@ -12,6 +12,7 @@ import type { ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
 import { Logo } from "@/shell/logo"
+import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -354,12 +355,13 @@ export function AppSidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <a
-                href={DOCS}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label="Documentation"
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                className="text-muted-foreground"
+                nativeButton={false}
+                render={<a href={DOCS} target="_blank" rel="noopener noreferrer" />}
               />
             }
           >

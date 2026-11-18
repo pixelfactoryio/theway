@@ -74,13 +74,14 @@ export function DraftStatus({ dirty, saved, onDiscard }: { dirty: boolean; saved
     <span className="flex items-center gap-2">
       <span className="text-foreground">Unsaved · {shortcutText([MOD, "S"])} to save</span>
       {onDiscard !== undefined ? (
-        <button
-          type="button"
+        <Button
+          variant="link"
+          size="xs"
           onClick={onDiscard}
-          className="rounded-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-auto px-0 text-muted-foreground hover:text-foreground"
         >
           Discard
-        </button>
+        </Button>
       ) : null}
     </span>
   )
