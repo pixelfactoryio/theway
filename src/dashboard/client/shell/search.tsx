@@ -10,6 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { to } from "@/lib/routes"
 import { searchGroups } from "@/lib/search"
 import { useChangesOf } from "@/shell/changes"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
@@ -44,8 +45,8 @@ function Results({ close }: { close: () => void }) {
   const [panelOpen, setPanelOpen] = usePanelOpen()
   const panel = usePanelName()
   const actions: { value: string; label: string; detail: string; run: () => void }[] = [
-    { value: "action:now", label: "Go to Now", detail: "G N", run: () => navigate("/?") },
-    { value: "action:projects", label: "Go to All projects", detail: "G A", run: () => navigate("/projects?") },
+    { value: "action:now", label: "Go to Now", detail: "G N", run: () => navigate(to.now()) },
+    { value: "action:projects", label: "Go to All projects", detail: "G A", run: () => navigate(to.projects()) },
     { value: "action:sidebar", label: "Toggle sidebar", detail: MAC ? "⌘B" : "Ctrl+B", run: sidebar.toggleSidebar },
     ...(panel !== null
       ? [{ value: "action:panel", label: "Toggle panel", detail: panel, run: () => setPanelOpen(!panelOpen) }]

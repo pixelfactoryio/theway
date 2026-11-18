@@ -22,12 +22,3 @@ export function currentKey(list: ProjectList, routeKey: string | null): string |
   if (listed(list.start)) return list.start
   return byLabel(list.projects)[0]?.key ?? null
 }
-
-/** The address of a change's page: `/<key>/changes/<id>?`, its `?` clearing the search part. */
-export const changePath = (key: string, id: string): string => `/${key}/changes/${id}?`
-
-/** The address of a project with no tab open: `/<key>?`, its `?` clearing the search part. */
-export const projectPath = (key: string): string => `/${key}?`
-
-/** The address of an archived change's page: `/<key>/changes/archive/<dir>?`, its `?` clearing the search part. */
-export const archivePath = (key: string, dir: string): string => `/${key}/changes/archive/${encodeURIComponent(dir)}?`

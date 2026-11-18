@@ -7,7 +7,6 @@ import { type CodeLanguage, DraftStore, draftState } from "@/components/code-vie
 import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
-import { leavesPage } from "@/lib/edit"
 import {
   type CheckBody,
   CheckBodySchema,
@@ -18,6 +17,7 @@ import {
   type PromptRow,
   SavedSchema,
 } from "@/lib/files"
+import { leavesFile } from "@/lib/routes"
 import { failureOf, sendJson } from "@/shell/api"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { MAC } from "@/shell/platform"
@@ -296,7 +296,7 @@ export function useFileDraft({
   useEffect(
     () =>
       setLeaveGuard({
-        leaves: (target) => leavesPage({ kind, project, name }, target),
+        leaves: (target) => leavesFile({ fileKind: kind, project, name }, target),
         isDirty: () => refs.current.dirty,
         ask: (proceed) => setConfirm({ kind: "leave", proceed }),
       }),

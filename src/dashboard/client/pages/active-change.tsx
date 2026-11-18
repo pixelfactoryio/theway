@@ -39,8 +39,9 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/r
 import { useSaveKey } from "@/components/step-prompt"
 import { TaskList, type TaskListActions, type TaskRow } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
-import { keptIds, leavesChange, oneLine } from "@/lib/change-edit"
+import { keptIds, oneLine } from "@/lib/change-edit"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
+import { leavesChange, to } from "@/lib/routes"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { getJson } from "@/shell/projects"
 
@@ -78,7 +79,6 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const queryClient = useQueryClient()
   const [, navigate] = useLocation()
   const api = `/api/projects/${projectKey}/changes/${data.id}`
-  const base = `/${projectKey}/changes/${data.id}`
   const [drafts] = useState(() => new ChangeDrafts(api))
   const files = useMemo(() => loadedFiles(data), [data])
   if (drafts.drafts.size === 0 && files.length > 0) drafts.sync(files)
@@ -324,7 +324,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       if (!drafts.isDirty(file)) continue
       if (!(await save(file, false))) {
         const t = tabOf(file)
-        if (t !== undefined) navigate(`${base}/${encodeURIComponent(t.slug)}?`)
+        if (t !== undefined) navigate(to.change(projectKey, data.id, t.slug))
         return
       }
     }
@@ -470,7 +470,12 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         <div className="flex flex-col gap-3 p-3">
           <IssuesAlert issues={shown.issues} />
           {yaml !== null ? (
-            <Button variant="outline" size="sm" className="self-start" onClick={() => navigate(`${base}/tasks?`)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={() => navigate(to.change(projectKey, data.id, "tasks"))}
+            >
               <FileCodeIcon aria-hidden="true" />
               Open change.yaml
             </Button>
@@ -503,7 +508,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         tabs={tabs.map((tab) => ({
           value: tab.slug,
           label: tab.file ?? CHANGE_FILE,
-          href: `${base}/${encodeURIComponent(tab.slug)}?`,
+          href: to.change(projectKey, data.id, tab.slug),
           Icon: tab.file === null ? FileCodeIcon : FileTextIcon,
           dirty: drafts.isDirty(tab.file ?? CHANGE_FILE),
         }))}

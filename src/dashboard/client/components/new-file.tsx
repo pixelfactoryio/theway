@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { emptyText, NAME } from "@/lib/edit"
-import { FileBodySchema, fileApi, filePath, rowId, SavedSchema } from "@/lib/files"
+import { FileBodySchema, fileApi, rowId, SavedSchema } from "@/lib/files"
+import { to } from "@/lib/routes"
 import { failureOf, sendJson } from "@/shell/api"
 import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { getJson, useCurrentKey, useProjects } from "@/shell/projects"
@@ -100,7 +101,7 @@ function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
     if (res.status === 200 && res.body !== null) {
       for (const key of [["workflows"], ["prompts"]]) void queryClient.invalidateQueries({ queryKey: key })
       close()
-      navigate(`${filePath(kind, target, name)}?`)
+      navigate(to.file(kind, target, name))
       return
     }
     if (res.status === 409) setConflict(true)

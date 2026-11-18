@@ -6,12 +6,12 @@ import { DetailRow, DocPanel, type PaneTab } from "@/components/doc-panel"
 import { StatusMark, StatusPill } from "@/components/status"
 import { OneLine } from "@/components/text"
 import { type ChangeDetail, localDate, memberOf, type SeriesMember } from "@/lib/changes"
-import { archivePath, changePath } from "@/lib/projects"
+import { to } from "@/lib/routes"
 import { useLabel } from "@/shell/files"
 
 /** A member's page, `null` for a member with neither an active ID nor an archive reference. */
 const memberHref = (key: string, m: { active: string | null; archived: string | null }): string | null =>
-  m.active !== null ? changePath(key, m.active) : m.archived !== null ? archivePath(key, m.archived) : null
+  m.active !== null ? to.change(key, m.active) : m.archived !== null ? to.archived(key, m.archived) : null
 
 /** One ordinal of the series list; the current change's row shows the current change itself. */
 function SeriesRow({

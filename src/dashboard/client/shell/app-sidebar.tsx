@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ChangeList } from "@/lib/changes"
-import { projectPath } from "@/lib/projects"
+import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
 import { version } from "@/shell/api"
 import { useChangesOf } from "@/shell/changes"
@@ -84,13 +84,10 @@ function Row({
   )
 }
 
-/** Whether the address shows `path` (its search part ignored), or one of its sub-views. */
-function useShows(): (path: string) => boolean {
+/** Whether the address shows `href` (its search part ignored), or one of its sub-views. */
+function useShows(): (href: string) => boolean {
   const [location] = useLocation()
-  return (path) => {
-    const bare = path.replace(/\?.*$/, "")
-    return location === bare || location.startsWith(`${bare}/`)
-  }
+  return (href) => isAt(location, href)
 }
 
 /** Now and Search: Now counts the changes in progress across every project. */
@@ -100,7 +97,11 @@ function Entries({ inProgress }: { inProgress: number | null }) {
   return (
     <SidebarMenu className="gap-0.5">
       <SidebarMenuItem>
-        <SidebarMenuButton render={<Link href="/?" />} isActive={location === "/"} className="h-8">
+        <SidebarMenuButton
+          render={<Link href={to.now()} />}
+          isActive={routeOf(location).name === "now"}
+          className="h-8"
+        >
           <Clock3Icon aria-hidden="true" className="text-muted-foreground" />
           <span>Now</span>
           <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">{inProgress ?? ""}</span>
@@ -200,7 +201,7 @@ function Place({
         <SidebarMenuSub className="mr-0 pr-0">
           {entry.keys.map((k) => (
             <SidebarMenuSubItem key={k} data-nav-item="">
-              <SidebarMenuSubButton render={<Link href={projectPath(k)} />} isActive={k === activeKey} title={label(k)}>
+              <SidebarMenuSubButton render={<Link href={to.project(k)} />} isActive={k === activeKey} title={label(k)}>
                 <span className="min-w-0 flex-1 truncate">{label(k)}</span>
                 <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {open([k]) ?? ""}
@@ -225,7 +226,8 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
   const recent = recentEntries(list, settings)
   const label = useLabel()
   // The repo the page shows: its own page, or one of its changes.
-  const activeKey = list.find((p) => location === `/${p.key}` || location.startsWith(`/${p.key}/`))?.key ?? null
+  const routeKey = routeKeyOf(location)
+  const activeKey = list.some((p) => p.key === routeKey) ? routeKey : null
   const active = (e: Entry) => shows(e.href)
   return (
     <>
@@ -259,7 +261,11 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
       <SidebarGroup className="py-1">
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem data-nav-item="">
-            <SidebarMenuButton render={<Link href="/projects?" />} isActive={location === "/projects"} className="h-8">
+            <SidebarMenuButton
+              render={<Link href={to.projects()} />}
+              isActive={routeOf(location).name === "projects"}
+              className="h-8"
+            >
               <LayoutGridIcon aria-hidden="true" className="text-muted-foreground" />
               <span>All projects</span>
               <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
@@ -287,8 +293,20 @@ function Library() {
   const prompts = usePrompts().data?.prompts
   const [location] = useLocation()
   const rows = [
-    { label: "Workflows", href: "/workflows?", Icon: WorkflowIcon, list: workflows, active: location === "/workflows" },
-    { label: "Prompts", href: "/prompts?", Icon: FileTextIcon, list: prompts, active: location === "/prompts" },
+    {
+      label: "Workflows",
+      href: to.workflows(),
+      Icon: WorkflowIcon,
+      list: workflows,
+      active: routeOf(location).name === "workflows",
+    },
+    {
+      label: "Prompts",
+      href: to.prompts(),
+      Icon: FileTextIcon,
+      list: prompts,
+      active: routeOf(location).name === "prompts",
+    },
   ]
   return (
     <SidebarGroup className="py-1">

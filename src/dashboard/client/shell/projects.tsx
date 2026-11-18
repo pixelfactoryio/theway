@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
-import { useRoute } from "wouter"
+import { useLocation } from "wouter"
 import type { z } from "zod"
 
 import { ErrorBodySchema } from "@/lib/files"
 import { currentKey, ProjectListSchema } from "@/lib/projects"
+import { routeKeyOf } from "@/lib/routes"
 import { unexpectedAnswer } from "@/shell/api"
 
 /**
@@ -28,18 +29,10 @@ export function useProjects() {
   return useQuery({ queryKey: ["projects"], queryFn: () => getJson("/api/projects", ProjectListSchema) })
 }
 
-/** The key of the `#/<key>/changes…` and `#/<key>` routes, `null` on any other route. */
-function useRouteKey(): string | null {
-  const [changes, c] = useRoute<{ key: string }>("/:key/changes/*?")
-  const [overview, o] = useRoute<{ key: string }>("/:key")
-  if (changes) return c.key
-  return overview ? o.key : null
-}
-
 /** The current project's key once `GET /api/projects` has loaded, `null` while loading, after a failure or with no project. */
 export function useCurrentKey(): string | null {
   const projects = useProjects()
-  const routeKey = useRouteKey()
+  const [location] = useLocation()
   if (projects.data === undefined) return null
-  return currentKey(projects.data, routeKey)
+  return currentKey(projects.data, routeKeyOf(location))
 }

@@ -1,8 +1,9 @@
-import { type CSSProperties, useMemo, useState } from "react"
+import { type CSSProperties, type ReactNode, useMemo, useState } from "react"
 import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { decoded, type Params, ROUTES, type RouteName, to } from "@/lib/routes"
 import { ChangesRoute } from "@/pages/changes"
 import { NowPage, ProjectsPage, ScopePage } from "@/pages/workspace"
 import { PromptPage } from "@/pages/prompt"
@@ -53,43 +54,35 @@ function ScopeRoute({ id }: { id: string }) {
   return <ScopePage key={id} id={id} all={all} />
 }
 
+/** What each route renders, from its decoded parameters. */
+const RENDER: Record<RouteName, (params: Params) => ReactNode> = {
+  now: () => <NowPage />,
+  projects: () => <ProjectsPage />,
+  group: ({ id = "" }) => <ScopeRoute id={`group:${id}`} />,
+  changes: ({ key = "" }) => <ChangesRoute routeKey={key} />,
+  workflows: () => <WorkflowsPage />,
+  workflowGlobal: ({ name = "", tab }) => <WorkflowPage key={`/${name}`} project={null} name={name} tab={tab} />,
+  workflowProject: ({ key = "", name = "", tab }) => (
+    <WorkflowPage key={`${key}/${name}`} project={key} name={name} tab={tab} />
+  ),
+  prompts: () => <PromptsPage />,
+  promptGlobal: ({ name = "", tab }) => <PromptPage key={`/${name}`} project={null} name={name} tab={tab} />,
+  promptProject: ({ key = "", name = "", tab }) => (
+    <PromptPage key={`${key}/${name}`} project={key} name={name} tab={tab} />
+  ),
+  project: ({ key = "" }) => <ScopeRoute id={`project:${key}`} />,
+  fallback: () => <Redirect to={to.now()} replace />,
+}
+
+/** The routes of `ROUTES`, in its order. */
 function Routes() {
   return (
     <Switch>
-      <Route path="/">
-        <NowPage />
-      </Route>
-      <Route path="/projects">
-        <ProjectsPage />
-      </Route>
-      <Route<{ id: string }> path="/group/:id">{(params) => <ScopeRoute id={`group:${params.id}`} />}</Route>
-      <Route<{ key: string }> path="/:key/changes/*?">{(params) => <ChangesRoute routeKey={params.key} />}</Route>
-      <Route path="/workflows">
-        <WorkflowsPage />
-      </Route>
-      <Route<{ name: string; tab?: string }> path="/workflows/global/:name/:tab?">
-        {(params) => <WorkflowPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
-      </Route>
-      <Route<{ key: string; name: string; tab?: string }> path="/workflows/projects/:key/:name/:tab?">
-        {(params) => (
-          <WorkflowPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />
-        )}
-      </Route>
-      <Route path="/prompts">
-        <PromptsPage />
-      </Route>
-      <Route<{ name: string; tab?: string }> path="/prompts/global/:name/:tab?">
-        {(params) => <PromptPage key={`/${params.name}`} project={null} name={params.name} tab={params.tab} />}
-      </Route>
-      <Route<{ key: string; name: string; tab?: string }> path="/prompts/projects/:key/:name/:tab?">
-        {(params) => (
-          <PromptPage key={`${params.key}/${params.name}`} project={params.key} name={params.name} tab={params.tab} />
-        )}
-      </Route>
-      <Route<{ key: string }> path="/:key">{(params) => <ScopeRoute id={`project:${params.key}`} />}</Route>
-      <Route>
-        <Redirect to="/?" replace />
-      </Route>
+      {ROUTES.map((r) => (
+        <Route key={r.name} path={r.pattern ?? undefined}>
+          {(params) => RENDER[r.name](decoded(params))}
+        </Route>
+      ))}
     </Switch>
   )
 }

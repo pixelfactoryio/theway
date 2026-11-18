@@ -45,7 +45,8 @@ import {
 import { monthGroup } from "@/lib/collapse"
 import { fileMatches } from "@/lib/files"
 import { isNarrowed, NO_FILTER, NONE, passesAll, picks, valueCounts } from "@/lib/list-filter"
-import { archivePath, changePath, type Project, projectPath } from "@/lib/projects"
+import { type Project } from "@/lib/projects"
+import { to } from "@/lib/routes"
 import {
   allEntries,
   countOf,
@@ -261,7 +262,7 @@ function ChangeRow({
 }) {
   return (
     <li data-nav-item="">
-      <Link href={changePath(projectKey, change.id)} className={ROW}>
+      <Link href={to.change(projectKey, change.id)} className={ROW}>
         <RowCells
           id={change.id}
           text={change.description ?? undefined}
@@ -439,7 +440,7 @@ function statusGroups(
         {perProject.map((p) => (
           <Link
             key={p.key}
-            href={projectPath(p.key)}
+            href={to.project(p.key)}
             className="rounded-md border px-3 py-1 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
           >
             {p.label}
@@ -502,7 +503,7 @@ function archiveGroups(rows: readonly Archived[], withProject: boolean, label: (
       <ul data-nav-list="">
         {m.rows.map(({ key, a }) => (
           <li key={`${key}/${a.dir}`} data-nav-item="">
-            <Link href={archivePath(key, a.dir)} className={ROW}>
+            <Link href={to.archived(key, a.dir)} className={ROW}>
               <RowCells
                 id={a.id}
                 project={withProject ? label(key) : undefined}
@@ -849,7 +850,7 @@ export function ProjectsPage() {
   const projectRow = (e: Entry, key: string, member = false) => (
     <li key={key}>
       <div className={ROW_FRAME}>
-        <Link href={projectPath(key)} data-nav-item="" className={ROW_MAIN}>
+        <Link href={to.project(key)} data-nav-item="" className={ROW_MAIN}>
           <RowHead id={label(key)} text={list.find((p) => p.key === key)?.path ?? undefined} member={member} />
           {counts([key])}
         </Link>
@@ -1033,9 +1034,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
     <>
       <PageHeader
         title={entry?.label ?? ""}
-        parent={
-          group !== undefined ? { label: group.name, href: `/group/${encodeURIComponent(group.id)}?` } : undefined
-        }
+        parent={group !== undefined ? { label: group.name, href: to.group(group.id) } : undefined}
       />
       <PageBody>
         {entry !== null ? (
@@ -1057,7 +1056,11 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
               <Groups page={id} groups={groups} />
               {limit !== null && archived.length > limit ? (
                 <Link
-                  href={`${entry.href.replace(/\?$/, "")}?archive`}
+                  href={
+                    entry.kind === "project"
+                      ? to.project(entry.keys[0] as string, { archive: true })
+                      : to.group(entry.id.slice("group:".length), { archive: true })
+                  }
                   className="mx-6 mt-3 inline-block text-sm text-link hover:underline"
                 >
                   All archived →

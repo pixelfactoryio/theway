@@ -12,16 +12,8 @@ import { useSaveKey } from "@/components/step-prompt"
 import { FileStatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { CopyPath, Problems } from "@/components/title-block"
-import {
-  appliesTo,
-  type FileBody,
-  filePath,
-  KIND_LABEL,
-  kindOf,
-  previewText,
-  type PromptRow,
-  describeUse,
-} from "@/lib/files"
+import { appliesTo, type FileBody, KIND_LABEL, kindOf, previewText, type PromptRow, describeUse } from "@/lib/files"
+import { to } from "@/lib/routes"
 import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
 import { useProjects } from "@/shell/projects"
@@ -77,7 +69,7 @@ function PromptPanel({
                       {usedBy.map((use, i) => (
                         <li key={i}>
                           <Link
-                            href={`${filePath("workflows", use.project, use.workflow)}?`}
+                            href={to.file("workflows", use.project, use.workflow)}
                             className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
                           >
                             {describeUse(use, label)}
@@ -140,7 +132,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   // A placed line clicked on the Preview tab, for the Prompt tab's code view.
   const pending = useRef<number | null>(null)
   const view = tab === "preview" || tab === "history" ? tab : "prompt"
-  const base = filePath("prompts", project, name)
   const historyTab = useHistoryTab({
     draft,
     kind: "prompts",
@@ -173,13 +164,13 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             text: e.text,
             onClick: () => {
               pending.current = line
-              navigate(`${base}?`)
+              navigate(to.file("prompts", project, name))
             },
           }
         }
         return { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
       }),
-    [errors, view, base, navigate],
+    [errors, view, project, name, navigate],
   )
 
   const unknownKey =
@@ -191,7 +182,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       <>
         <TopBar title={name} />
         <PageBody>
-          <UnknownFile noun="prompt" name={name} back="Back to Prompts" href="/prompts?" />
+          <UnknownFile noun="prompt" name={name} back="Back to Prompts" href={to.prompts()} />
         </PageBody>
       </>
     )
@@ -264,12 +255,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           {
             value: "prompt",
             label: "Prompt",
-            href: `${base}?`,
+            href: to.file("prompts", project, name),
             Icon: FileTextIcon,
             dirty: draft.dirty && view === "prompt",
           },
-          { value: "preview", label: "Preview", href: `${base}/preview?`, Icon: EyeIcon },
-          { value: "history", label: "History", href: `${base}/history?`, Icon: HistoryIcon },
+          { value: "preview", label: "Preview", href: to.file("prompts", project, name, "preview"), Icon: EyeIcon },
+          { value: "history", label: "History", href: to.file("prompts", project, name, "history"), Icon: HistoryIcon },
         ]}
         panelName={history ? "Versions" : "Details"}
         panel={

@@ -15,7 +15,6 @@ import {
   byFile,
   compareText,
   fileMatches,
-  filePath,
   fileValue,
   GLOBAL,
   type PromptRow,
@@ -27,6 +26,7 @@ import {
   workflowValues,
 } from "@/lib/files"
 import { type FieldRule, fieldValues, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
+import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
@@ -116,7 +116,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         header: ({ column }) => <DataGridColumnHeader title="Workflow" column={column} />,
         cell: ({ row }) => (
           <NameCell
-            href={`${filePath("workflows", row.original.project, row.original.name)}?`}
+            href={to.file("workflows", row.original.project, row.original.name)}
             name={row.original.name}
             description={row.original.description}
             isDefault={row.original.default}
@@ -194,7 +194,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
-      onRowClick={(row) => navigate(`${filePath("workflows", row.project, row.name)}?`)}
+      onRowClick={(row) => navigate(to.file("workflows", row.project, row.name))}
     >
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>

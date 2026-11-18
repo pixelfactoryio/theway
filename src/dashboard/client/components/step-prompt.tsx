@@ -5,7 +5,8 @@ import { DetailRow } from "@/components/doc-panel"
 import { Dash, InputsList } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { Button } from "@/components/ui/button"
-import { describeUse, filePath, promptReading, type PromptRow, workflowCount } from "@/lib/files"
+import { describeUse, promptReading, type PromptRow, workflowCount } from "@/lib/files"
+import { to } from "@/lib/routes"
 import { MAC } from "@/shell/platform"
 import { useFile, useLabel } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
@@ -42,7 +43,7 @@ export function StepPrompt({ row }: { row: PromptRow }) {
           size="sm"
           nativeButton={false}
           className="ml-auto"
-          render={<Link href={`${filePath("prompts", row.project, row.name)}?`} />}
+          render={<Link href={to.file("prompts", row.project, row.name)} />}
         >
           Open prompt
         </Button>
@@ -81,7 +82,7 @@ export function StepPromptUses({ row }: { row: PromptRow }) {
       {usedBy.map((use, i) => (
         <li key={i}>
           <Link
-            href={`${filePath("workflows", use.project, use.workflow)}?`}
+            href={to.file("workflows", use.project, use.workflow)}
             className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
           >
             {describeUse(use, label)}

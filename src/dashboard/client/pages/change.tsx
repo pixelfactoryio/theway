@@ -4,7 +4,7 @@ import { Link } from "wouter"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { ChangeDetailSchema } from "@/lib/changes"
-import { projectPath } from "@/lib/projects"
+import { to } from "@/lib/routes"
 import { ActiveChange } from "@/pages/active-change"
 import { ArchivedChange } from "@/pages/archived-change"
 import { LoadError } from "@/shell/load-error"
@@ -27,7 +27,7 @@ function Unknown({ projectKey, name }: { projectKey: string; name: string }) {
         </EmptyTitle>
       </EmptyHeader>
       <EmptyContent>
-        <Button variant="outline" render={<Link href={projectPath(projectKey)} />}>
+        <Button variant="outline" render={<Link href={to.project(projectKey)} />}>
           Back to {label}
         </Button>
       </EmptyContent>
