@@ -5,6 +5,7 @@ import {
   activeLines,
   decorationPlan,
   type Plan,
+  softBreaks,
   type Span,
   tableBlocks,
   taskToggle,
@@ -206,4 +207,20 @@ test("list item lines are indented by depth, the marker hanging on its line, the
   expect(items(doc, p)).toEqual(["1:1:first", "2:2:first", "3:2", "4:1:first", "6:1:first"])
   expect(hidden(doc, p)).toEqual(["  ", "    ", "> "])
   expect(hidden(doc, plan(source, [2]).plan)).toEqual(["    ", "> "])
+})
+
+/** The text each soft break of `source` covers. */
+function joins(source: string): string[] {
+  const doc = Text.of(source.split("\n"))
+  return softBreaks(doc, markdownLanguage.parser.parse(source)).map((b) => doc.sliceString(b.from, b.to))
+}
+
+test("a soft break covers the next line's indentation and quote marks, nested and lazy lines included", () => {
+  expect(joins("> > a\n> > b\n> c")).toEqual(["\n> > ", "\n> "])
+  expect(joins("- [ ] a task\n  that wraps")).toEqual(["\n  "])
+})
+
+test("a backslash or two trailing spaces keep their line break; a heading, a table and HTML are not joined", () => {
+  expect(joins("a\\\nb  \nc")).toEqual([])
+  expect(joins("# h\ntext\n\n| a |\n|---|\n| 1 |\n\n<div>\nx\n</div>")).toEqual([])
 })

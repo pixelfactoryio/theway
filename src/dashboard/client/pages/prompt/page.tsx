@@ -8,7 +8,7 @@ import { useFileDraft } from "@/components/file-draft"
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
 import { Dash, InputsList, LineList, UNKNOWN_FILE } from "@/components/file-page"
-import { MarkdownView } from "@/components/markdown"
+import { MarkdownView } from "@/components/markdown-view"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
@@ -279,9 +279,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           historyTab.main
         ) : view === "preview" ? (
           <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-            <div className={`${DOC_COLUMN} py-6`}>
-              <MarkdownView text={previewText(draft.text, fields.header)} />
-            </div>
+            <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
           </div>
         ) : (
           <div className="min-h-0 flex-1">

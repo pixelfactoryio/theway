@@ -10,13 +10,13 @@ import { ChangeDialogs } from "@/components/change-dialogs"
 import { DescriptionField, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { ChangeTitle } from "@/components/change-header"
-import { DOC_COLUMN, DocFrame } from "@/components/doc-frame"
+import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { type CodeLanguage, type CodeViewHandle, EditableCodeView, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
 import { ErrorStrip, LinesAlert, STRIP } from "@/components/file-page"
-import { MarkdownView } from "@/components/markdown"
 import { LiveMarkdown } from "@/components/live-markdown"
+import { MarkdownView } from "@/components/markdown-view"
 import { formattingKeymap } from "@/components/markdown-editor"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { useSaveKey } from "@/components/step-prompt"
@@ -212,9 +212,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         {draft !== null ? (
           <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
         ) : (
-          <div className={`${DOC_COLUMN} py-6`}>
-            <MarkdownView key={name} text={fileText(name)} onToggle={null} />
-          </div>
+          <MarkdownView key={name} text={fileText(name)} name={name} />
         )}
       </div>
     )

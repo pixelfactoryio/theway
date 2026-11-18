@@ -24,6 +24,7 @@ import {
   decorationPlan,
   type LineKind,
   type MarkKind,
+  softBreaks as softBreakSpans,
   type TableBlock,
   tableBlocks,
   taskToggle,
@@ -32,7 +33,7 @@ import {
 
 const MUTED = { color: "var(--muted-foreground)" }
 const MONO = { fontFamily: "var(--font-mono)", fontSize: "85%" }
-/** Inline code: 85% Geist Mono on a soft tint, in the text's colour, as the read view's. */
+/** Inline code: 85% Geist Mono on a soft tint, in the text's colour. */
 const INLINE_CODE = {
   fontFamily: "var(--font-mono)",
   fontSize: "85%",
@@ -65,7 +66,7 @@ const ITEM_STYLES = Object.fromEntries(
 )
 
 /**
- * Notion's scale and rhythm, as the read view's: body 16/24 in the document's colour; a blank line between two blocks
+ * Notion's scale and rhythm: body 16/24 in the document's colour; a blank line between two blocks
  * 8px tall; space above a heading (with the blank line before it, 32px above h1, 24px above h2, 16px above h3); 36px
  * from one list item to the next.
  */
@@ -142,9 +143,10 @@ const THEME = EditorView.theme({
     accentColor: "var(--link)",
     cursor: "pointer",
   },
+  ".cm-lp-task:disabled": { cursor: "default" },
   ...ITEM_STYLES,
-  // A table: 1px rules, the header row on the muted surface at 600, tabular numbers, as the read view's.
-  // Words break as in the read view, not anywhere as wrapped lines do: a column too narrow for a word scrolls instead.
+  // A table: 1px rules, the header row on the muted surface at 600, tabular numbers.
+  // Words break between words, not anywhere as wrapped lines do: a column too narrow for a word scrolls instead.
   ".cm-lp-tablewrap": {
     ...WIDE,
     marginInline: "auto",
@@ -244,19 +246,25 @@ class RuleWidget extends WidgetType {
 /**
  * A task item's marker and box, drawn as a checkbox. `offset` is the distance from the widget's start to the character
  * between the brackets, which the editor's mousedown handler toggles; the box's own click changes nothing, so its state
- * always comes from the text.
+ * always comes from the text. A `disabled` box, in a read-only view, cannot be ticked.
  */
 class TaskWidget extends WidgetType {
   constructor(
     readonly checked: boolean,
     readonly offset: number,
     readonly label: string,
+    readonly disabled: boolean,
   ) {
     super()
   }
 
   eq(other: TaskWidget): boolean {
-    return other.checked === this.checked && other.offset === this.offset && other.label === this.label
+    return (
+      other.checked === this.checked &&
+      other.offset === this.offset &&
+      other.label === this.label &&
+      other.disabled === this.disabled
+    )
   }
 
   toDOM(): HTMLElement {
@@ -264,6 +272,7 @@ class TaskWidget extends WidgetType {
     input.type = "checkbox"
     input.className = "cm-lp-task"
     input.checked = this.checked
+    input.disabled = this.disabled
     input.dataset.offset = String(this.offset)
     input.setAttribute("aria-label", this.label)
     input.addEventListener("click", (event) => event.preventDefault())
@@ -327,9 +336,12 @@ class TableWidget extends WidgetType {
   }
 }
 
-/** The tables no selection line touches, drawn as tables (block replacements, which only a state field may give). */
+/**
+ * The tables no selection line touches, drawn as tables (block replacements, which only a state field may give); in a
+ * read-only state no line is active, so every table is drawn.
+ */
 function tableDecorations(state: EditorState): DecorationSet {
-  const active = activeLines(state.doc, state.selection.ranges, true)
+  const active = activeLines(state.doc, state.selection.ranges, !state.readOnly)
   return Decoration.set(
     tableBlocks(state.doc, syntaxTree(state), active).map((b) =>
       Decoration.replace({ widget: new TableWidget(b), block: true }).range(b.from, b.to),
@@ -337,12 +349,41 @@ function tableDecorations(state: EditorState): DecorationSet {
   )
 }
 
-const tables = StateField.define<DecorationSet>({
+export const tables = StateField.define<DecorationSet>({
   create: tableDecorations,
   update: (set, tr) =>
     tr.docChanged || tr.selection !== undefined || syntaxTree(tr.startState) !== syntaxTree(tr.state)
       ? tableDecorations(tr.state)
       : set,
+  provide: (field) => EditorView.decorations.from(field),
+})
+
+/** A soft line break, joined: one space in place of the break and the next line's indentation and quote marks. */
+class SpaceWidget extends WidgetType {
+  eq(): boolean {
+    return true
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement("span")
+    span.textContent = " "
+    return span
+  }
+}
+
+const SPACE = Decoration.replace({ widget: new SpaceWidget() })
+
+const softBreakDecorations = (state: EditorState): DecorationSet =>
+  Decoration.set(softBreakSpans(state.doc, syntaxTree(state)).map((b) => SPACE.range(b.from, b.to)))
+
+/**
+ * A read view's soft line breaks, each replaced by a space so a paragraph flows as one, as CommonMark renders it. The
+ * replacements cover line breaks, which only decorations given directly from state may do.
+ */
+export const softBreaks = StateField.define<DecorationSet>({
+  create: softBreakDecorations,
+  update: (set, tr) =>
+    tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? softBreakDecorations(tr.state) : set,
   provide: (field) => EditorView.decorations.from(field),
 })
 
@@ -361,28 +402,44 @@ const tableClick = EditorView.domEventHandlers({
 const BULLET = Decoration.replace({ widget: new BulletWidget() })
 const RULE = Decoration.replace({ widget: new RuleWidget() })
 
-/** The decoration of a widget of the plan. */
-function widgetDecoration(w: Widget): Decoration {
+/** The decoration of a widget of the plan; a task box is disabled in a `readOnly` view. */
+function widgetDecoration(w: Widget, readOnly: boolean): Decoration {
   if (w.kind === "bullet") return BULLET
   if (w.kind === "hr") return RULE
-  return Decoration.replace({ widget: new TaskWidget(w.checked, w.toggle - w.from, w.label) })
+  return Decoration.replace({ widget: new TaskWidget(w.checked, w.toggle - w.from, w.label, readOnly) })
 }
 
-/** The live preview's decorations for the visible ranges of `view`, the syntax shown on the selection's lines. */
+/**
+ * The mark of a link to `href`. In a read-only view it is an anchor that opens `href` in a new tab, so Tab and Enter, a
+ * middle click and the context menu reach it as they reach any link; in an editable view a span, which Cmd or Ctrl and
+ * a click opens.
+ */
+export function linkMark(href: string, readOnly: boolean): Decoration {
+  return readOnly
+    ? Decoration.mark({
+        tagName: "a",
+        class: "cm-lp-link",
+        attributes: { href, target: "_blank", rel: "noopener noreferrer" },
+      })
+    : Decoration.mark({ class: "cm-lp-link", attributes: { "data-href": href } })
+}
+
+/**
+ * The live preview's decorations for the visible ranges of `view`, the syntax shown on the selection's lines; none is
+ * shown in a read-only view.
+ */
 function decorations(view: EditorView): DecorationSet {
   const state = view.state
-  const active = activeLines(state.doc, state.selection.ranges, view.hasFocus)
+  const active = activeLines(state.doc, state.selection.ranges, view.hasFocus && !state.readOnly)
   const plan = decorationPlan(state.doc, syntaxTree(state), active, view.visibleRanges)
   const ranges: Range<Decoration>[] = [
     ...plan.lines.map((l) => LINE[l.kind].range(l.from)),
     ...plan.items.map((i) => ITEM(i.depth, i.first).range(i.from)),
     ...plan.marks.map((m) =>
-      m.kind === "link"
-        ? Decoration.mark({ class: "cm-lp-link", attributes: { "data-href": m.href } }).range(m.from, m.to)
-        : MARK[m.kind].range(m.from, m.to),
+      m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : MARK[m.kind].range(m.from, m.to),
     ),
     ...plan.hidden.map((h) => HIDE.range(h.from, h.to)),
-    ...plan.widgets.map((w) => widgetDecoration(w).range(w.from, w.to)),
+    ...plan.widgets.map((w) => widgetDecoration(w, state.readOnly).range(w.from, w.to)),
   ]
   return Decoration.set(ranges, true)
 }
@@ -390,7 +447,8 @@ function decorations(view: EditorView): DecorationSet {
 /**
  * The live preview: rebuilt on a change of the text, the selection, the focus, the viewport or the parsed tree. A
  * mousedown on a task box toggles it (one character, undoable); Cmd or Ctrl and a click on a link opens its target in a
- * new tab when it is http:, https: or mailto:.
+ * new tab when it is http:, https: or mailto:. In a read-only view a task box does not toggle, and a link is an anchor
+ * that a click opens, except a click that selected text or a double or triple click.
  */
 const livePreview = ViewPlugin.fromClass(
   class {
@@ -417,20 +475,34 @@ const livePreview = ViewPlugin.fromClass(
       mousedown(event, view) {
         const target = event.target
         if (target instanceof HTMLInputElement && target.classList.contains("cm-lp-task")) {
+          if (view.state.readOnly) return true
           const at = view.posAtDOM(target) + Number(target.dataset.offset)
           const change = taskToggle(view.state.doc, at)
           if (change !== null) view.dispatch({ changes: change, userEvent: "input" })
           return true
         }
-        if (!(event.metaKey || event.ctrlKey) || !(target instanceof Element)) return false
-        const href = target.closest<HTMLElement>(".cm-lp-link")?.dataset.href
-        if (href === undefined || !isLinkTarget(href)) return false
-        window.open(href, "_blank", "noopener,noreferrer")
-        return true
+        if (view.state.readOnly || !(event.metaKey || event.ctrlKey)) return false
+        return openLink(target)
+      },
+      click(event, view) {
+        // Enter on a link clicks it with a `detail` of 0, whatever the selection.
+        const select = event.detail > 1 || (event.detail === 1 && !view.state.selection.main.empty)
+        if (!view.state.readOnly || !select) return false
+        const target = event.target
+        return target instanceof Element && target.closest("a.cm-lp-link") !== null
       },
     },
   },
 )
+
+/** Opens the link `target` is in, in a new tab, when its target is http:, https: or mailto:; whether it did. */
+function openLink(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  const href = target.closest<HTMLElement>(".cm-lp-link")?.dataset.href
+  if (href === undefined || !isLinkTarget(href)) return false
+  window.open(href, "_blank", "noopener,noreferrer")
+  return true
+}
 
 /** Marks a state that holds the live preview's extension set. */
 const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length > 0 })
@@ -439,19 +511,51 @@ const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length
  * The extension set of a live Markdown view: GFM Markdown with fenced code parsed in the languages of the list and
  * coloured by their scoped highlight styles, the live preview, history with the stock keys and `Mod-Shift-z` as redo,
  * the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator and the style nonce.
- * It binds no `Mod-s`: saving is the page's.
+ * It binds no `Mod-s`: saving is the page's. `readOnly` gives the set of a read view: not editable, no history, no keys,
+ * no table click, no line ever active, so the text always shows formatted, and soft line breaks joined.
  */
-export function liveExtensions({ name, separator }: { name: string; separator: string }): Extension[] {
+export function liveExtensions({
+  name,
+  separator,
+  readOnly = false,
+}: {
+  name: string
+  separator: string
+  readOnly?: boolean
+}): Extension[] {
+  const preview: Extension[] = [
+    // A read view's links take focus, so its keys reach the editor: Markdown's Enter and Backspace and its URL paste
+    // would edit the read-only document.
+    markdown({
+      base: markdownLanguage,
+      codeLanguages: CODE_LANGUAGES,
+      addKeymap: !readOnly,
+      pasteURLAsLink: !readOnly,
+    }),
+    CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
+    livePreview,
+    tables,
+  ]
+  if (readOnly)
+    return [
+      LIVE.of(true),
+      ...preview,
+      softBreaks,
+      THEME,
+      EditorView.lineWrapping,
+      EditorState.readOnly.of(true),
+      EditorView.editable.of(false),
+      EditorView.contentAttributes.of({ "aria-label": name, "aria-readonly": "true" }),
+      EditorState.lineSeparator.of(separator),
+      EditorView.cspNonce.of(meta("nonce")),
+    ]
   return [
     LIVE.of(true),
     history(),
     formattingKeymap,
     keymap.of([...defaultKeymap, ...historyKeymap]),
     keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
-    markdown({ base: markdownLanguage, codeLanguages: CODE_LANGUAGES }),
-    CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
-    livePreview,
-    tables,
+    ...preview,
     tableClick,
     THEME,
     EditorView.lineWrapping,

@@ -178,6 +178,3 @@ export function inlineCode(text: string): { code: boolean; text: string }[] {
 export function isLinkTarget(href: string | undefined | null): boolean {
   return typeof href === "string" && /^(?:https?:|mailto:)/i.test(href.trim())
 }
-
-/** The tag a Markdown heading of source level `depth` renders as: one level down, at most `h6`. */
-export const headingTag = (depth: number): string => `h${Math.min(depth + 1, 6)}`

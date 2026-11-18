@@ -5,7 +5,7 @@ import { ChangePanel } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { LinesAlert } from "@/components/file-page"
-import { MarkdownView } from "@/components/markdown"
+import { MarkdownView } from "@/components/markdown-view"
 import { TaskList } from "@/components/task-list"
 import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
 import { to } from "@/lib/routes"
@@ -47,15 +47,15 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
     >
       <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
         <ChangeTitle change={data} />
-        <div className={`${DOC_COLUMN} pt-6 pb-10`}>
-          {file !== undefined ? (
-            <MarkdownView key={file.name} text={file.text} />
-          ) : (
+        {file !== undefined ? (
+          <MarkdownView key={file.name} text={file.text} name={file.name} />
+        ) : (
+          <div className={`${DOC_COLUMN} pt-6 pb-10`}>
             <div className={PROSE_COLUMN}>
               <Tasks change={data} />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
       <DocFooter
         file={file !== undefined ? file.name : <span className="font-sans">Tasks</span>}
