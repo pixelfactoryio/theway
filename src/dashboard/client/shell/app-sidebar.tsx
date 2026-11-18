@@ -11,7 +11,7 @@ import {
 import { type ReactNode, useState } from "react"
 import { Link, useLocation } from "wouter"
 
-import { Logo } from "@/components/logo"
+import { Logo } from "@/shell/logo"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import {
   Sidebar,

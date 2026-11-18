@@ -4,7 +4,7 @@ import { Component, type ReactNode } from "react"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 type BoundaryProps = {
   children: ReactNode
@@ -42,7 +42,7 @@ export class ErrorBoundary extends Component<BoundaryProps, { error: Error | nul
 export function PageError({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <>
-      <TopBar title="Error" />
+      <PageHeader title="Error" />
       <PageBody>
         <Alert variant="destructive" className="m-4 w-auto">
           <CircleAlertIcon className="size-4" aria-hidden="true" />

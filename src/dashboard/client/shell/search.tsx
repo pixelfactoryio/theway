@@ -14,7 +14,7 @@ import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from 
 import { to } from "@/lib/routes"
 import { searchGroups } from "@/lib/search"
 import { useSidebar } from "@/components/ui/sidebar"
-import { openDialog } from "@/shell/keys"
+import { useDialog } from "@/shell/dialogs"
 import { usePanelName, usePanelOpen } from "@/shell/panel"
 import { MAC } from "@/shell/platform"
 import { chooseTheme } from "@/shell/theme"
@@ -41,6 +41,7 @@ function Results({ close }: { close: () => void }) {
   const sidebar = useSidebar()
   const [panelOpen, setPanelOpen] = usePanelOpen()
   const panel = usePanelName()
+  const { open: openDialog } = useDialog()
   const actions: { value: string; label: string; detail: string; run: () => void }[] = [
     { value: "action:now", label: "Go to Now", detail: "G N", run: () => navigate(to.now()) },
     { value: "action:projects", label: "Go to All projects", detail: "G A", run: () => navigate(to.projects()) },

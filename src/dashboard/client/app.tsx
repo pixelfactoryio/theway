@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode, useMemo, useState } from "react"
 import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
+import { ShellDialogs } from "@/components/shell-dialogs"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useProjects } from "@/data/queries"
@@ -16,7 +17,8 @@ import { ErrorBoundary, PageError, RootError } from "@/shell/error-boundary"
 import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 import { SearchDialog, SearchOpen } from "@/shell/search"
-import { ShellDialogs, useGlobalKeys } from "@/shell/keys"
+import { DialogOpen } from "@/shell/dialogs"
+import { useGlobalKeys, type ShellDialog } from "@/shell/keys"
 import { PanelArea, PanelProvider, usePanelState } from "@/shell/panel"
 import { useRecordStart } from "@/shell/settings"
 import { readStored, writeStored } from "@/shell/storage"
@@ -95,10 +97,12 @@ function Shell() {
   const [open, setOpen] = useState(readSidebar)
   const [searching, setSearching] = useState(false)
   const search = useMemo(() => ({ open: searching, setOpen: setSearching }), [searching])
+  const [dialog, setDialog] = useState<ShellDialog>(null)
+  const dialogs = useMemo(() => ({ dialog, open: setDialog }), [dialog])
   const [location] = useLocation()
   const panel = usePanelState()
   useScrollMemory()
-  useGlobalKeys()
+  useGlobalKeys(dialogs)
   useRecordStart(useProjects().data?.start ?? null)
 
   return (
@@ -113,18 +117,23 @@ function Shell() {
     >
       <PanelProvider value={panel}>
         <SearchOpen.Provider value={search}>
-          <SkipLink />
-          <AppSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
-              <ErrorBoundary resetKey={location} fallback={(error, reset) => <PageError error={error} reset={reset} />}>
-                <Routes />
-              </ErrorBoundary>
-            </SidebarInset>
-          </div>
-          <PanelArea />
-          <SearchDialog />
-          <ShellDialogs />
+          <DialogOpen.Provider value={dialogs}>
+            <SkipLink />
+            <AppSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
+                <ErrorBoundary
+                  resetKey={location}
+                  fallback={(error, reset) => <PageError error={error} reset={reset} />}
+                >
+                  <Routes />
+                </ErrorBoundary>
+              </SidebarInset>
+            </div>
+            <PanelArea />
+            <SearchDialog />
+            <ShellDialogs />
+          </DialogOpen.Provider>
         </SearchOpen.Provider>
       </PanelProvider>
     </SidebarProvider>

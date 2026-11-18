@@ -6,7 +6,7 @@ import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, UnknownFile } from "@/components/file-page"
+import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { useSaveKey } from "@/components/step-prompt"
@@ -26,10 +26,7 @@ import {
 } from "@/lib/files"
 import { to } from "@/lib/routes"
 import { LoadError } from "@/shell/load-error"
-import { PageBody, TopBar } from "@/shell/top-bar"
-
-/** The errors of a `404` on a file's route. */
-export const UNKNOWN_FILE = ["unknown file", "unknown project"]
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The prompt page's side panel: its status; Inputs and Used by (or the versions); then its Details. */
 function PromptPanel({
@@ -189,7 +186,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   if (unknown) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>
           <UnknownFile noun="prompt" name={name} back="Back to Prompts" href={to.prompts()} />
         </PageBody>
@@ -199,7 +196,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>
           {projects.isError ? (
             <LoadError
@@ -234,7 +231,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   ) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>{null}</PageBody>
       </>
     )

@@ -15,7 +15,16 @@ import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, LinesAlert, PanelRow, STRIP, UnknownFile } from "@/components/file-page"
+import {
+  type AlertLine,
+  Dash,
+  InputsList,
+  LinesAlert,
+  PanelRow,
+  STRIP,
+  UNKNOWN_FILE,
+  UnknownFile,
+} from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
@@ -48,9 +57,8 @@ import {
   type StepCard,
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
-import { UNKNOWN_FILE } from "@/pages/prompt"
 import { LoadError } from "@/shell/load-error"
-import { PageBody, TopBar } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
 function ShownValue({
@@ -332,7 +340,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>
           <UnknownFile noun="workflow" name={name} back="Back to Workflows" href={to.workflows()} />
         </PageBody>
@@ -342,7 +350,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>
           {projects.isError ? (
             <LoadError
@@ -379,7 +387,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   ) {
     return (
       <>
-        <TopBar title={name} />
+        <PageHeader title={name} />
         <PageBody>{null}</PageBody>
       </>
     )

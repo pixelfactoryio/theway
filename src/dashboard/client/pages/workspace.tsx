@@ -12,7 +12,6 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react"
 import { Link } from "wouter"
 
-import { PageHeader } from "@/components/doc-frame"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint, GroupBand, useCollapsed } from "@/components/group-band"
 import { StatusMark } from "@/components/status"
@@ -66,7 +65,7 @@ import {
 } from "@/lib/workspace"
 import { LoadError } from "@/shell/load-error"
 import { recordedId, useRecordVisit } from "@/shell/settings"
-import { PageBody } from "@/shell/top-bar"
+import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The time now, refreshed every minute, for the rows' ages. */
 function useNow(): number {
