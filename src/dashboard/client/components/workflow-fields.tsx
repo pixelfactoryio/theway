@@ -1,9 +1,9 @@
 import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
-import { useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 
 import { KeyLabelText } from "@/components/file-page"
-import { FieldError, FieldLabel } from "@/components/ui/field"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
@@ -178,6 +178,43 @@ export function KeyLabel({ htmlFor, yamlKey }: { htmlFor?: string; yamlKey: stri
     <FieldLabel htmlFor={htmlFor}>
       <KeyLabelText yamlKey={yamlKey} />
     </FieldLabel>
+  )
+}
+
+/**
+ * A row of a workflow panel: a shadcn `Field` holding its YAML key's label (for `htmlFor`'s control when given), its
+ * value or control (`children`), then the lines of `errors` under it. A horizontal row puts its control before the
+ * label, as a switch reads.
+ */
+export function PanelField({
+  yamlKey,
+  htmlFor,
+  orientation = "vertical",
+  errors,
+  children,
+}: {
+  yamlKey: string
+  htmlFor?: string
+  orientation?: "vertical" | "horizontal"
+  errors?: readonly string[]
+  children: ReactNode
+}) {
+  const label = <KeyLabel htmlFor={htmlFor} yamlKey={yamlKey} />
+  return (
+    <Field orientation={orientation}>
+      {orientation === "horizontal" ? (
+        <>
+          {children}
+          {label}
+        </>
+      ) : (
+        <>
+          {label}
+          {children}
+        </>
+      )}
+      <Errors lines={errors} />
+    </Field>
   )
 }
 

@@ -1,5 +1,5 @@
 import { CircleAlertIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import { Link } from "wouter"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
@@ -93,21 +93,6 @@ export function KeyLabelText({ yamlKey }: { yamlKey: string }) {
         </>
       ) : null}
     </span>
-  )
-}
-
-/** A labelled row of a panel: `label` as plain text, or `yamlKey` as `KeyLabelText`. */
-export function PanelRow({
-  children,
-  ...props
-}: ({ label: string; yamlKey?: never } | { yamlKey: string; label?: never }) & { children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs text-muted-foreground">
-        {props.yamlKey !== undefined ? <KeyLabelText yamlKey={props.yamlKey} /> : props.label}
-      </dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
   )
 }
 
