@@ -2,6 +2,14 @@ import { cn } from "cn"
 import { type ReactNode, useEffect } from "react"
 import { Link } from "wouter"
 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 
 /**
@@ -34,7 +42,10 @@ export function TopRow({ children, className }: { children: ReactNode; className
   )
 }
 
-/** A list page's top row: the page it sits in (`parent`, a link) then its title, then its actions at the right. */
+/**
+ * A list page's top row: its title, after a breadcrumb link to the page it sits in when `parent` is given, then its
+ * actions at the right.
+ */
 export function PageHeader({
   title,
   actions,
@@ -49,19 +60,22 @@ export function PageHeader({
     <TopRow className="px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {parent !== undefined ? (
-          <>
-            <Link
-              href={parent.href}
-              className="shrink-0 rounded-sm text-heading text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {parent.label}
-            </Link>
-            <span aria-hidden="true" className="-mx-1 text-muted-foreground">
-              /
-            </span>
-          </>
-        ) : null}
-        <h1 className="truncate text-heading font-semibold">{title}</h1>
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="text-heading">
+              <BreadcrumbItem>
+                <BreadcrumbLink render={<Link href={parent.href} />}>{parent.label}</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem className="min-w-0">
+                <BreadcrumbPage className="min-w-0">
+                  <h1 className="truncate font-semibold">{title}</h1>
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        ) : (
+          <h1 className="truncate text-heading font-semibold">{title}</h1>
+        )}
       </div>
       {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </TopRow>
