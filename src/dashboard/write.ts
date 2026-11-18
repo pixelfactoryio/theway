@@ -11,10 +11,19 @@ import { diffLines } from "diff"
 import { isFile, readBytes, writeAtomic } from "../core/io"
 import { warning } from "../core/output"
 import type { Kind } from "../core/step-files"
-import type { ChangeStore } from "../core/store"
 import { sha256 } from "../core/store/files"
 import { escaped } from "../core/text"
-import type { DashboardGroup, DashboardSettings, Version, VersionList, VersionText } from "./contract"
+import { type DashboardContext, knownProject, UNKNOWN_PROJECT } from "./context"
+import type {
+  ConflictBody,
+  DashboardGroup,
+  DashboardSettings,
+  ErrorBody,
+  Saved,
+  Version,
+  VersionList,
+  VersionText,
+} from "./contract"
 import { absPath, refused } from "./files"
 
 /** How many versions a file keeps: the newest. */
@@ -23,20 +32,21 @@ const KEPT = 20
 /** A version's file name: `YYYYMMDDTHHMMSSmmmZ-<first 12 hex characters of the text's SHA-256>`. */
 const VERSION_ID = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(\d{3})Z-[0-9a-f]{12}$/
 
-/** What a write route answers. */
-export type Answer = { status: number; body: unknown }
+/** What a route answers: its body `T`, a conflict on a write, or an error. */
+export type Answer<T> =
+  { status: 200; body: T } | { status: 409; body: ConflictBody } | { status: 400 | 404 | 500; body: ErrorBody }
 
 /** The answer to a write that failed with `e`. */
-const cannotWrite = (e: unknown): Answer => ({
+const cannotWrite = (e: unknown): Answer<never> => ({
   status: 500,
   body: { error: `cannot write: ${e instanceof Error ? e.message : String(e)}` },
 })
 
 /** The folder of a file's versions: `<home>/history/global/<kind>/<name>` or `<home>/history/projects/<key>/<kind>/<name>`. */
-const historyDir = (home: string, kind: Kind, project: string | null, name: string): string =>
+const historyDir = (ctx: DashboardContext, kind: Kind, project: string | null, name: string): string =>
   project === null
-    ? join(home, "history", "global", kind, name)
-    : join(home, "history", "projects", project, kind, name)
+    ? join(ctx.home, "history", "global", kind, name)
+    : join(ctx.home, "history", "projects", project, kind, name)
 
 /** The version ids of a folder, newest first: its files whose name matches the pattern. */
 function versionIds(dir: string): string[] {
@@ -88,16 +98,28 @@ function pruneVersions(dir: string): void {
  * and answers 500.
  */
 export function writeFile(
-  home: string,
+  ctx: DashboardContext,
   kind: Kind,
   project: string | null,
   name: string,
   text: string,
   base: string | null,
-): Answer {
-  const refusal = refused(home, project, name)
+): Answer<Saved> {
+  const refusal = refused(ctx, project, name)
   if (refusal !== null) return refusal
-  const path = absPath(home, kind, project, name)
+  return writeChecked(ctx, kind, project, name, text, base)
+}
+
+/** `writeFile` once its project and name are checked. */
+function writeChecked(
+  ctx: DashboardContext,
+  kind: Kind,
+  project: string | null,
+  name: string,
+  text: string,
+  base: string | null,
+): Answer<Saved> {
+  const path = absPath(ctx, kind, project, name)
   const exists = isFile(path)
   const current = exists ? readBytes(path) : null
   if (exists && current === null) return { status: 500, body: { error: "cannot be read" } }
@@ -105,8 +127,8 @@ export function writeFile(
   if (base === null && version !== null) return { status: 409, body: { error: "file exists", version } }
   if (version !== base) return { status: 409, body: { error: "changed on disk", version } }
   const bytes = Buffer.from(text, "utf-8")
-  if (current !== null && current.equals(bytes)) return { status: 200, body: { version } }
-  const dir = historyDir(home, kind, project, name)
+  if (version !== null && current?.equals(bytes)) return { status: 200, body: { version } }
+  const dir = historyDir(ctx, kind, project, name)
   let kept: string | null = null
   try {
     if (current !== null) kept = keepVersion(dir, current)
@@ -121,10 +143,15 @@ export function writeFile(
 }
 
 /** `GET /api/<kind>/<file>/history`: the versions, newest first, each with its line counts against the one before it. */
-export function listVersions(home: string, kind: Kind, project: string | null, name: string): Answer {
-  const refusal = refused(home, project, name)
+export function listVersions(
+  ctx: DashboardContext,
+  kind: Kind,
+  project: string | null,
+  name: string,
+): Answer<VersionList> {
+  const refusal = refused(ctx, project, name)
   if (refusal !== null) return refusal
-  const dir = historyDir(home, kind, project, name)
+  const dir = historyDir(ctx, kind, project, name)
   const ids = versionIds(dir)
   const texts = ids.map((id) => readBytes(join(dir, id))?.toString("utf-8") ?? "")
   const versions: Version[] = ids.map((id, i) => {
@@ -141,10 +168,16 @@ export function listVersions(home: string, kind: Kind, project: string | null, n
 }
 
 /** The text of the version `id`, or the answer refusing it. */
-function versionText(home: string, kind: Kind, project: string | null, name: string, id: string): VersionText | Answer {
-  const refusal = refused(home, project, name)
+function versionText(
+  ctx: DashboardContext,
+  kind: Kind,
+  project: string | null,
+  name: string,
+  id: string,
+): VersionText | Answer<never> {
+  const refusal = refused(ctx, project, name)
   if (refusal !== null) return refusal
-  const dir = historyDir(home, kind, project, name)
+  const dir = historyDir(ctx, kind, project, name)
   if (!VERSION_ID.test(id) || !versionIds(dir).includes(id)) return { status: 404, body: { error: "unknown version" } }
   const bytes = readBytes(join(dir, id))
   if (bytes === null) return { status: 500, body: { error: "cannot be read" } }
@@ -152,22 +185,28 @@ function versionText(home: string, kind: Kind, project: string | null, name: str
 }
 
 /** `GET /api/<kind>/<file>/history/:id`. */
-export function readVersion(home: string, kind: Kind, project: string | null, name: string, id: string): Answer {
-  const read = versionText(home, kind, project, name, id)
+export function readVersion(
+  ctx: DashboardContext,
+  kind: Kind,
+  project: string | null,
+  name: string,
+  id: string,
+): Answer<VersionText> {
+  const read = versionText(ctx, kind, project, name, id)
   return "text" in read ? { status: 200, body: { text: read.text } } : read
 }
 
-/** `POST /api/<kind>/<file>/history/:id/restore`: the version's text written as `PUT` writes it. */
+/** `POST /api/<kind>/<file>/history/:id/restore`: the version's text written as `PUT` writes it, checked once. */
 export function restoreVersion(
-  home: string,
+  ctx: DashboardContext,
   kind: Kind,
   project: string | null,
   name: string,
   id: string,
   base: string | null,
-): Answer {
-  const read = versionText(home, kind, project, name, id)
-  return "text" in read ? writeFile(home, kind, project, name, read.text, base) : read
+): Answer<Saved> {
+  const read = versionText(ctx, kind, project, name, id)
+  return "text" in read ? writeChecked(ctx, kind, project, name, read.text, base) : read
 }
 
 /**
@@ -176,14 +215,15 @@ export function restoreVersion(
  * `base` check comes first; the same text writes nothing; otherwise the store writes the file in place, keeping its mode.
  */
 export function writeChangeFile(
-  store: ChangeStore,
+  ctx: DashboardContext,
   key: string,
   id: string,
   name: string,
   text: string,
   base: string,
-): Answer {
-  if (!store.projectKeys().includes(key)) return { status: 404, body: { error: "unknown project" } }
+): Answer<Saved> {
+  const { store } = ctx
+  if (!knownProject(ctx, key)) return UNKNOWN_PROJECT
   if (!store.activeIds(key).includes(id)) return { status: 404, body: { error: "unknown change" } }
   const change = { kind: "active", id } as const
   if (!store.fileNames(key, change).includes(name)) return { status: 404, body: { error: "unknown file" } }
@@ -252,14 +292,14 @@ export function settingsOf(body: unknown): DashboardSettings | null {
 }
 
 /** `<home>/dashboard.json`, the sidebar's settings. */
-const settingsPath = (home: string): string => join(home, "dashboard.json")
+const settingsPath = (ctx: DashboardContext): string => join(ctx.home, "dashboard.json")
 
 /**
  * `GET /api/dashboard`: the settings of `<home>/dashboard.json`; the empty settings when it is missing, and with a
  * `theway: warning:` line on stderr when it cannot be read, is not JSON or breaks a rule.
  */
-export function readSettings(home: string): DashboardSettings {
-  const path = settingsPath(home)
+export function readSettings(ctx: DashboardContext): DashboardSettings {
+  const path = settingsPath(ctx)
   if (!isFile(path)) return emptySettings()
   const bytes = readBytes(path)
   let settings: DashboardSettings | null = null
@@ -276,10 +316,10 @@ export function readSettings(home: string): DashboardSettings {
 }
 
 /** `PUT /api/dashboard`: writes `settings` whole to `<home>/dashboard.json` and answers them; no version is kept. */
-export function writeSettings(home: string, settings: DashboardSettings): Answer {
+export function writeSettings(ctx: DashboardContext, settings: DashboardSettings): Answer<DashboardSettings> {
   try {
-    mkdirSync(home, { recursive: true })
-    writeAtomic(settingsPath(home), `${JSON.stringify(settings, null, 2)}\n`)
+    mkdirSync(ctx.home, { recursive: true })
+    writeAtomic(settingsPath(ctx), `${JSON.stringify(settings, null, 2)}\n`)
   } catch (e) {
     return cannotWrite(e)
   }

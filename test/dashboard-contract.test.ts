@@ -8,6 +8,7 @@ import {
   ChangeDetailSchema,
   ChangeListSchema,
   CheckBodySchema,
+  ConflictBodySchema,
   FileBodySchema,
   ProjectListSchema,
   PromptListSchema,
@@ -76,8 +77,13 @@ function home(): string {
 
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex")
 
-/** A request as the page sends it: this server's Origin and the page's token. */
-async function call(h: string, method: string, path: string, body?: unknown): Promise<unknown> {
+/** A request as the page sends it: this server's Origin and the page's token; its status and parsed body. */
+async function send(
+  h: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; body: unknown }> {
   const init: RequestInit = {
     method,
     headers: {
@@ -89,8 +95,14 @@ async function call(h: string, method: string, path: string, body?: unknown): Pr
   }
   if (body !== undefined) init.body = JSON.stringify(body)
   const res = await createApp(h, () => PORT, "", TOKEN).request(`${ORIGIN}${path}`, init)
+  return { status: res.status, body: await res.json() }
+}
+
+/** `send`'s body, failing unless the answer is 200. */
+async function call(h: string, method: string, path: string, body?: unknown): Promise<unknown> {
+  const res = await send(h, method, path, body)
   expect([path, res.status]).toEqual([path, 200])
-  return res.json()
+  return res.body
 }
 
 /** The answer parsed with `schema`, failing with zod's issues when it does not parse. */
@@ -175,4 +187,16 @@ test("a save, the history list and a version parse with SavedSchema, VersionList
     await call(h, "GET", `/api/prompts/global/review/history/${list.versions[0]?.id}`),
   )
   expect(version.text).toBe(REVIEW)
+})
+
+test("a PUT with a stale base answers 409 and parses with ConflictBodySchema", async () => {
+  const res = await send(home(), "PUT", "/api/prompts/global/review", { text: "x\n", base: sha("stale") })
+  expect(res.status).toBe(409)
+  expect(parsed(ConflictBodySchema, res.body)).toEqual({ error: "changed on disk", version: sha(REVIEW) })
+})
+
+test("creating a file that exists answers 409 file exists and parses with ConflictBodySchema", async () => {
+  const res = await send(home(), "PUT", "/api/prompts/global/review", { text: "x\n", base: null })
+  expect(res.status).toBe(409)
+  expect(parsed(ConflictBodySchema, res.body)).toEqual({ error: "file exists", version: sha(REVIEW) })
 })

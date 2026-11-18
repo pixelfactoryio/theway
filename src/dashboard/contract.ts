@@ -184,6 +184,11 @@ export type Saved = z.infer<typeof SavedSchema>
 
 /** The body of an error answer. */
 export const ErrorBodySchema = z.object({ error: z.string() })
+export type ErrorBody = z.infer<typeof ErrorBodySchema>
+
+/** The body of a 409 write: why it was refused, and the file's version on disk (`null`: the file is absent). */
+export const ConflictBodySchema = z.object({ error: z.string(), version: z.string().nullable() })
+export type ConflictBody = z.infer<typeof ConflictBodySchema>
 
 /** Whether a list holds no value twice. */
 const distinct = (values: string[]): boolean => new Set(values).size === values.length

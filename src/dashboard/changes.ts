@@ -3,19 +3,20 @@ import { homedir } from "node:os"
 import { sep } from "node:path"
 import { CHANGE_FILE, checkRead } from "../core/change"
 import { changeStatus, MEMBER } from "../core/change-text"
-import type { ArchiveEntry, ChangeRef, ChangeStore } from "../core/store"
+import type { ArchiveEntry, ChangeRef } from "../core/store"
+import type { DashboardContext } from "./context"
 import type { ActiveChange, ArchivedChange, ChangeDetail, ChangeList, ChangeTask, SeriesMember } from "./contract"
 
 /** A dated archive entry: the only kind the dashboard lists. */
 type Dated = ArchiveEntry & { id: string; date: string }
 
 /** The dated archive entries of a project, oldest first. */
-export const datedArchives = (store: ChangeStore, key: string): Dated[] =>
-  store.archived(key).filter((e): e is Dated => e.id !== null && e.date !== null)
+export const datedArchives = (ctx: DashboardContext, key: string): Dated[] =>
+  ctx.store.archived(key).filter((e): e is Dated => e.id !== null && e.date !== null)
 
 /** The state of a change read through the store: its status, description, tasks, counts and issues. */
 function readState(
-  store: ChangeStore,
+  ctx: DashboardContext,
   key: string,
   change: ChangeRef,
 ): {
@@ -26,7 +27,7 @@ function readState(
   total: number
   issues: string[]
 } {
-  const c = checkRead(store.readFile(key, change, CHANGE_FILE))
+  const c = checkRead(ctx.store.readFile(key, change, CHANGE_FILE))
   const status = changeStatus(c)
   if ("issues" in c) return { status, description: null, tasks: [], done: 0, total: 0, issues: c.issues }
   const done = c.change.tasks.filter((t) => t.done).length
@@ -41,9 +42,9 @@ function readState(
 }
 
 /** One active change of the project `key`, as the list route gives it. */
-function activeRow(store: ChangeStore, key: string, id: string): ActiveChange {
+function activeRow(ctx: DashboardContext, key: string, id: string): ActiveChange {
   const change = { kind: "active", id } as const
-  const s = readState(store, key, change)
+  const s = readState(ctx, key, change)
   return {
     id,
     description: s.description,
@@ -51,27 +52,27 @@ function activeRow(store: ChangeStore, key: string, id: string): ActiveChange {
     done: s.done,
     total: s.total,
     issues: s.issues,
-    updated: store.updated(key, change),
+    updated: ctx.store.updated(key, change),
   }
 }
 
 /** One archived change of the project `key`, as the list route gives it. */
-const archivedRow = (store: ChangeStore, key: string, e: Dated): ArchivedChange => ({
+const archivedRow = (ctx: DashboardContext, key: string, e: Dated): ArchivedChange => ({
   dir: e.ref,
   id: e.id,
   date: e.date,
-  updated: store.updated(key, { kind: "archived", ref: e.ref }),
+  updated: ctx.store.updated(key, { kind: "archived", ref: e.ref }),
 })
 
 /**
  * The body of `GET /api/projects/:key/changes`: active by ID, archived newest first: by date, then by the time their
  * `change.yaml` was last written (the folder's name holds the day only), then by folder, last first.
  */
-export function listChanges(store: ChangeStore, key: string): ChangeList {
-  const active = store.activeIds(key).map((id) => activeRow(store, key, id))
-  const archived = datedArchives(store, key)
+export function listChanges(ctx: DashboardContext, key: string): ChangeList {
+  const active = ctx.store.activeIds(key).map((id) => activeRow(ctx, key, id))
+  const archived = datedArchives(ctx, key)
     .reverse()
-    .map((e) => archivedRow(store, key, e))
+    .map((e) => archivedRow(ctx, key, e))
     .sort((a, b) => b.date.localeCompare(a.date) || b.updated.localeCompare(a.updated))
   return { active, archived }
 }
@@ -86,15 +87,15 @@ export function tildePath(path: string, home: string = homedir()): string {
 
 /** The Markdown files of a change, in `fileNames` order, each with its text and version; one that cannot be read is left out. */
 function markdownFiles(
-  store: ChangeStore,
+  ctx: DashboardContext,
   key: string,
   change: ChangeRef,
 ): { name: string; text: string; version: string }[] {
-  return store
+  return ctx.store
     .fileNames(key, change)
     .filter((name) => name !== CHANGE_FILE)
     .flatMap((name) => {
-      const read = store.readFile(key, change, name)
+      const read = ctx.store.readFile(key, change, name)
       return read === null ? [] : [{ name, text: read.bytes.toString("utf-8"), version: read.version }]
     })
 }
@@ -104,7 +105,7 @@ function markdownFiles(
  * `01` to the highest found among the active and dated archived changes; an active change fills an ordinal before
  * archived ones, and the last archived one in the store's order before earlier ones.
  */
-function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["series"] {
+function seriesOf(ctx: DashboardContext, key: string, id: string): ChangeDetail["series"] {
   const m = MEMBER.exec(id)
   if (m === null) return null
   const seriesId = m[1] as string
@@ -113,12 +114,12 @@ function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["se
     return mm !== null && mm[1] === seriesId ? Number(mm[2]) : null
   }
   const active = new Map<number, string>()
-  for (const a of store.activeIds(key)) {
+  for (const a of ctx.store.activeIds(key)) {
     const n = ordinalOf(a)
     if (n !== null) active.set(n, a)
   }
   const archived = new Map<number, Dated>()
-  for (const e of datedArchives(store, key)) {
+  for (const e of datedArchives(ctx, key)) {
     const n = ordinalOf(e.id)
     if (n !== null) archived.set(n, e)
   }
@@ -129,7 +130,7 @@ function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["se
     const a = active.get(n)
     const e = archived.get(n)
     if (a !== undefined) {
-      const row = activeRow(store, key, a)
+      const row = activeRow(ctx, key, a)
       members.push({ ordinal, id: a, active: a, archived: null, status: row.status, done: row.done, total: row.total })
     } else if (e !== undefined) {
       members.push({ ordinal, id: e.id, active: null, archived: e.ref, status: "archived", done: null, total: null })
@@ -149,13 +150,18 @@ function seriesOf(store: ChangeStore, key: string, id: string): ChangeDetail["se
 }
 
 /** The page of the active change `id`, or of the dated archive entry `archive` when given. */
-export function changeDetail(store: ChangeStore, key: string, id: string, archive: Dated | null = null): ChangeDetail {
+export function changeDetail(
+  ctx: DashboardContext,
+  key: string,
+  id: string,
+  archive: Dated | null = null,
+): ChangeDetail {
   const change: ChangeRef = archive === null ? { kind: "active", id } : { kind: "archived", ref: archive.ref }
-  const s = readState(store, key, change)
-  const files = markdownFiles(store, key, change)
+  const s = readState(ctx, key, change)
+  const files = markdownFiles(ctx, key, change)
   let changeFile: ChangeDetail["changeFile"] = null
   if (archive === null) {
-    const read = store.readFile(key, change, CHANGE_FILE)
+    const read = ctx.store.readFile(key, change, CHANGE_FILE)
     changeFile = read === null ? null : { text: read.bytes.toString("utf-8"), version: read.version }
   }
   return {
@@ -168,10 +174,10 @@ export function changeDetail(store: ChangeStore, key: string, id: string, archiv
     total: s.total,
     issues: s.issues,
     tasks: s.tasks,
-    updated: store.updated(key, change),
-    folder: tildePath(store.dirOf(key, change)),
+    updated: ctx.store.updated(key, change),
+    folder: tildePath(ctx.store.dirOf(key, change)),
     files: archive === null ? files : files.map(({ name, text }) => ({ name, text })),
     ...(archive === null ? { changeFile } : {}),
-    series: seriesOf(store, key, id),
+    series: seriesOf(ctx, key, id),
   }
 }
