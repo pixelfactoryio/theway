@@ -5,16 +5,19 @@ import { useLocation } from "wouter"
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
+import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, STRIP, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
+import { DocTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
 import { Alert, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
-import { FileStatusPill } from "@/components/status"
-import { CopyPath, Problems } from "@/components/title-block"
+import { StatusPill } from "@/components/status"
+import { CopyPath } from "@/components/title-block"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { StepPicker } from "@/components/step-picker"
@@ -24,7 +27,8 @@ import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepPanel, WorkflowPanel } from "@/components/workflow-read-panels"
 import { StepEditPanel } from "@/components/workflow-step-panel"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
-import { appliesTo, type PromptRow } from "@/lib/files"
+import { appliesTo, errorCount, type PromptRow } from "@/lib/files"
+import { alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
 import {
   type Drawing,
@@ -162,18 +166,14 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     [store],
   )
 
-  const lines = useMemo<AlertLine[]>(
+  const lines = useMemo(
     () =>
-      errors.map((e) => {
-        const line = e.line
-        if (yamlTab) {
-          return line === null
-            ? { text: e.text, onClick: null }
-            : { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
-        }
-        const target = drawing === null ? null : selectionOf(e, drawing)
-        return { text: e.text, onClick: target === null ? null : () => select(target) }
-      }),
+      yamlTab
+        ? alertLines(errors, (line) => () => code.current?.goToLine(line))
+        : alertLines(errors, null, (e) => {
+            const target = drawing === null ? null : selectionOf(e, drawing)
+            return target === null ? null : () => select(target)
+          }),
     [errors, yamlTab, drawing, select],
   )
 
@@ -182,12 +182,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const fileFailed = file.isError && draft.store === null
   if (unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))) {
     return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>
-          <UnknownFile noun="workflow" name={name} back="Back to Workflows" href={to.workflows()} />
-        </PageBody>
-      </>
+      <PageUnknown
+        title={name}
+        message={
+          <>
+            No workflow <code className="font-mono">{name}</code>
+          </>
+        }
+        back={{ label: "Back to Workflows", href: to.workflows() }}
+      />
     )
   }
   if (projects.isError || fileFailed || prompts.isError) {
@@ -228,12 +231,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     drawn === null ||
     draft.store === null
   ) {
-    return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
+    return <PageLoading title={name} />
   }
 
   const step = kept !== null && kept.kind !== "inputs" ? (drawing?.steps[kept.index] ?? null) : null
@@ -332,13 +330,12 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
   const onCanvas = !history && !yamlTab && "drawing" in drawn
   const heading = (
-    <>
-      <p className="text-xs text-muted-foreground">Workflows · {appliesTo(project, label)}</p>
-      <h1 className="mt-1 text-title font-semibold tracking-tight">{name}</h1>
-      {drawing?.description != null ? (
-        <p className="max-w-xl text-sm text-muted-foreground">{drawing.description}</p>
-      ) : null}
-    </>
+    <DocTitle
+      caption={`Workflows · ${appliesTo(project, label)}`}
+      title={name}
+      description={drawing?.description}
+      variant="canvas"
+    />
   )
 
   return (
@@ -389,7 +386,10 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             label="Workflow"
             header={
               <>
-                <FileStatusPill errors={errors.length} />
+                <StatusPill
+                  status={errors.length === 0 ? "ready" : "invalid"}
+                  label={errors.length === 0 ? "Valid" : errorCount(errors.length)}
+                />
                 {isDefault ? <Badge variant="outline">default</Badge> : null}
               </>
             }
@@ -406,7 +406,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
                       value: "problems",
                       label: "Problems",
                       count: errors.length > 0 ? errors.length : undefined,
-                      content: <Problems lines={lines} />,
+                      content: <LineList variant="panel" lines={lines} />,
                     },
                   ]
             }
@@ -452,12 +452,10 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             header={heading}
           />
         )}
-        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-          <span className="font-mono">{name}.yaml</span>
-          <span className="ml-auto">
-            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
-          </span>
-        </div>
+        <DocFooter
+          file={`${name}.yaml`}
+          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
+        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

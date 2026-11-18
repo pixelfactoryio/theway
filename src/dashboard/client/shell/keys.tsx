@@ -7,6 +7,14 @@ import { MOD } from "@/shell/platform"
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
 export type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
 
+/** The pages G and a key goes to, as the shortcuts, the sheet and the search list them. */
+export const GO_TO: readonly { key: string; label: string; href: () => string }[] = [
+  { key: "n", label: "Now", href: () => to.now() },
+  { key: "a", label: "All projects", href: () => to.projects() },
+  { key: "w", label: "Workflows", href: () => to.workflows() },
+  { key: "p", label: "Prompts", href: () => to.prompts() },
+]
+
 /** Every shortcut of the dashboard, as the sheet lists them. */
 export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: [MOD, "K"], action: "Open the palette: go to anything, run an action" },
@@ -15,10 +23,7 @@ export const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: [MOD, "B"], action: "Show or hide the sidebar (outside an editor)" },
   { keys: ["↑", "↓"], action: "Move in a list (J and K too)" },
   { keys: ["Enter"], action: "Open the item" },
-  { keys: ["G", "N"], action: "Go to Now" },
-  { keys: ["G", "A"], action: "Go to All projects" },
-  { keys: ["G", "W"], action: "Go to Workflows" },
-  { keys: ["G", "P"], action: "Go to Prompts" },
+  ...GO_TO.map((g) => ({ keys: ["G", g.key.toUpperCase()], action: `Go to ${g.label}` })),
   { keys: ["?"], action: "Show these shortcuts" },
 ]
 
@@ -65,8 +70,7 @@ export function useGlobalKeys(dialogs: { dialog: ShellDialog; open: (d: ShellDia
       }
       if (Date.now() - pendingG.current < 1000) {
         pendingG.current = 0
-        const go: Partial<Record<string, () => string>> = { n: to.now, a: to.projects, w: to.workflows, p: to.prompts }
-        const target = go[key]?.() ?? null
+        const target = GO_TO.find((g) => g.key === key)?.href() ?? null
         if (target !== null) {
           event.preventDefault()
           navigate(target)

@@ -1,5 +1,5 @@
 import { cn } from "cn"
-import { ArrowDownIcon, ArrowUpIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { PlusIcon } from "lucide-react"
 import { type ReactNode, useId } from "react"
 
 import { Badge } from "@/components/reui/badge"
@@ -7,13 +7,6 @@ import { IconTile } from "@/components/reui/icon-tile"
 import { ErrorsBadge } from "@/components/status"
 import { OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /** A block's kind, which tints its icon tile; `null` (a step with no valid target) leaves the tile untinted. */
@@ -119,44 +112,6 @@ export function CardLine({ text, code = false }: { text: string; code?: boolean 
       tooltipClassName="max-w-sm"
       className={cn("min-w-0 flex-1 text-xs text-muted-foreground", code && "font-mono")}
     />
-  )
-}
-
-/** A step card's menu, in its header: Move up, Move down, Remove step. */
-export function StepMenu({
-  first,
-  last,
-  onMove,
-  onRemove,
-}: {
-  first: boolean
-  last: boolean
-  onMove: (delta: -1 | 1) => void
-  onRemove: () => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon-xs" aria-label="Step actions" className="absolute top-3 right-2" />}
-      >
-        <MoreHorizontalIcon aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto">
-        <DropdownMenuItem disabled={first} onClick={() => onMove(-1)}>
-          <ArrowUpIcon aria-hidden="true" />
-          Move up
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={last} onClick={() => onMove(1)}>
-          <ArrowDownIcon aria-hidden="true" />
-          Move down
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={onRemove}>
-          <Trash2Icon aria-hidden="true" />
-          Remove step
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 

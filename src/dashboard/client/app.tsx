@@ -1,9 +1,12 @@
 import { type CSSProperties, type ReactNode, useMemo, useState } from "react"
+import { useDefaultLayout } from "react-resizable-panels"
 import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
 import { ShellDialogs } from "@/components/shell-dialogs"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { HANDLE } from "@/components/ui-classes"
 import { useProjects } from "@/data/queries"
 import { sidebarCodec } from "@/lib/preferences"
 import { decoded, type Params, ROUTES, type RouteName, to } from "@/lib/routes"
@@ -22,14 +25,18 @@ import { useScrollMemory } from "@/shell/scroll"
 import { SearchDialog, SearchOpen } from "@/shell/search"
 import { DialogOpen } from "@/shell/dialogs"
 import { useGlobalKeys, type ShellDialog } from "@/shell/keys"
-import { PanelArea, PanelProvider, usePanelState } from "@/shell/panel"
+import { PANEL_WIDTH, PanelArea, PanelProvider, usePanelState, useWide } from "@/shell/panel"
 import { useRecordStart } from "@/shell/settings"
-import { useStored } from "@/shell/storage"
+import { LAYOUTS, useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the sidebar's state: `open` or `closed`; when absent, open from 1024px wide. */
 const SIDEBAR_KEY = "theway-sidebar"
 
 const SIDEBAR = sidebarCodec(() => window.matchMedia("(min-width: 1024px)").matches)
+
+/** The shell's panel ids: the page alone, or the page and its docked panel. */
+const PAGE_IDS = ["page"]
+const DOCKED_IDS = ["page", "panel"]
 
 /** "Skip to content": the first focusable element, focusing `main#content` without touching the hash route. */
 function SkipLink() {
@@ -98,6 +105,15 @@ function Shell() {
   const dialogs = useMemo(() => ({ dialog, open: setDialog }), [dialog])
   const [location] = useLocation()
   const panel = usePanelState()
+  // From 1280px a page's open panel docks at the page's right, resizable; the two-panel and the one-panel layouts are
+  // kept apart in this browser.
+  const { name: panelName, open: panelOpen, setSlot } = panel
+  const docked = useWide() && panelName !== null && panelOpen
+  const layout = useDefaultLayout({
+    id: "theway-shell-panel",
+    storage: LAYOUTS,
+    panelIds: docked ? DOCKED_IDS : PAGE_IDS,
+  })
   useScrollMemory()
   useGlobalKeys(dialogs)
   useRecordStart(useProjects().data?.start ?? null)
@@ -114,16 +130,40 @@ function Shell() {
           <DialogOpen.Provider value={dialogs}>
             <SkipLink />
             <AppSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
-                <ErrorBoundary
-                  resetKey={location}
-                  fallback={(error, reset) => <PageError error={error} reset={reset} />}
-                >
-                  <Routes />
-                </ErrorBoundary>
-              </SidebarInset>
-            </div>
+            <ResizablePanelGroup
+              orientation="horizontal"
+              defaultLayout={layout.defaultLayout}
+              onLayoutChanged={layout.onLayoutChanged}
+              className="min-w-0 flex-1"
+            >
+              <ResizablePanel id="page" className="flex min-w-0 flex-col">
+                <SidebarInset id="content" tabIndex={-1} className="min-h-0 overflow-hidden bg-background outline-none">
+                  <ErrorBoundary
+                    resetKey={location}
+                    fallback={(error, reset) => <PageError error={error} reset={reset} />}
+                  >
+                    <Routes />
+                  </ErrorBoundary>
+                </SidebarInset>
+              </ResizablePanel>
+              {docked ? (
+                <>
+                  <ResizableHandle withHandle aria-label={`Resize ${panelName}`} className={HANDLE} />
+                  <ResizablePanel
+                    id="panel"
+                    defaultSize={PANEL_WIDTH.default}
+                    minSize={PANEL_WIDTH.min}
+                    maxSize={PANEL_WIDTH.max}
+                    groupResizeBehavior="preserve-pixel-size"
+                    className="flex min-h-0 flex-col"
+                  >
+                    <aside aria-label={panelName ?? undefined} className="flex h-svh flex-col bg-sidebar">
+                      <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
+                    </aside>
+                  </ResizablePanel>
+                </>
+              ) : null}
+            </ResizablePanelGroup>
             <PanelArea />
             <SearchDialog />
             <ShellDialogs />

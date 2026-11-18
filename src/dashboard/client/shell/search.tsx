@@ -11,12 +11,12 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
-import { to } from "@/lib/routes"
 import { searchGroups } from "@/lib/search"
 import { useSidebar } from "@/components/ui/sidebar"
 import { useDialog } from "@/shell/dialogs"
 import { usePanelName, usePanelOpen } from "@/shell/panel"
-import { MAC } from "@/shell/platform"
+import { GO_TO } from "@/shell/keys"
+import { MOD, modKey, shortcutText } from "@/shell/platform"
 import { chooseTheme } from "@/shell/theme"
 
 /** The search's open state, provided by the shell so the sidebar entry and the shortcut share it. */
@@ -43,9 +43,13 @@ function Results({ close }: { close: () => void }) {
   const panel = usePanelName()
   const { open: openDialog } = useDialog()
   const actions: { value: string; label: string; detail: string; run: () => void }[] = [
-    { value: "action:now", label: "Go to Now", detail: "G N", run: () => navigate(to.now()) },
-    { value: "action:projects", label: "Go to All projects", detail: "G A", run: () => navigate(to.projects()) },
-    { value: "action:sidebar", label: "Toggle sidebar", detail: MAC ? "⌘B" : "Ctrl+B", run: sidebar.toggleSidebar },
+    ...GO_TO.map((g) => ({
+      value: `action:go-${g.key}`,
+      label: `Go to ${g.label}`,
+      detail: `G ${g.key.toUpperCase()}`,
+      run: () => navigate(g.href()),
+    })),
+    { value: "action:sidebar", label: "Toggle sidebar", detail: shortcutText([MOD, "B"]), run: sidebar.toggleSidebar },
     ...(panel !== null
       ? [{ value: "action:panel", label: "Toggle panel", detail: panel, run: () => setPanelOpen(!panelOpen) }]
       : []),
@@ -124,7 +128,7 @@ export function SearchDialog() {
       const key = event.key.toLowerCase()
       // ⌘K, or ⌘P, which also works inside the editors where ⌘K inserts a link.
       const palette = key === "p" || (key === "k" && !event.defaultPrevented)
-      if (!palette || !(MAC ? event.metaKey : event.ctrlKey) || event.shiftKey || event.altKey) return
+      if (!palette || !modKey(event) || event.shiftKey || event.altKey) return
       event.preventDefault()
       setOpen((was) => !was)
     }

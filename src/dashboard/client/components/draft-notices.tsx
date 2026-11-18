@@ -2,10 +2,11 @@ import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react"
 
 import { ChangeDialogs } from "@/components/change-dialogs"
 import type { FileDraft } from "@/components/file-draft"
-import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
+import { ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
-import { MAC } from "@/shell/platform"
+import type { AlertLine } from "@/lib/alert-lines"
+import { MOD, shortcutText } from "@/shell/platform"
 
 /** The strip shown when the file changed on disk since it was opened, with Reload. */
 export function ConflictNotice({ onReload }: { onReload: () => void }) {
@@ -71,15 +72,16 @@ export function DraftStatus({ dirty, saved, onDiscard }: { dirty: boolean; saved
   if (!dirty) return <SavedStatus saved={saved} />
   return (
     <span className="flex items-center gap-2">
-      <span className="text-foreground">Unsaved · {MAC ? "⌘S" : "Ctrl+S"} to save</span>
+      <span className="text-foreground">Unsaved · {shortcutText([MOD, "S"])} to save</span>
       {onDiscard !== undefined ? (
-        <button
-          type="button"
+        <Button
+          variant="link"
+          size="xs"
           onClick={onDiscard}
-          className="rounded-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-auto px-0 text-muted-foreground hover:text-foreground"
         >
           Discard
-        </button>
+        </Button>
       ) : null}
     </span>
   )

@@ -1,29 +1,34 @@
 import { EyeIcon, FileTextIcon, HistoryIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
-import { Link, useLocation } from "wouter"
+import { useLocation } from "wouter"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
+import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
-import { type AlertLine, Dash, InputsList, UNKNOWN_FILE, UnknownFile } from "@/components/file-page"
+import { Dash, InputsList, LineList, UNKNOWN_FILE } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
+import { DocFooter } from "@/components/doc-footer"
+import { DocTitle } from "@/components/doc-title"
 import { useSaveKey } from "@/components/step-prompt"
-import { FileStatusPill } from "@/components/status"
+import { UsedByList } from "@/components/used-by-list"
+import { StatusPill } from "@/components/status"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
-import { CopyPath, Problems } from "@/components/title-block"
+import { CopyPath } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
+  errorCount,
   type FileBody,
   type HeaderFields,
   KIND_LABEL,
   kindOf,
   previewText,
   type PromptRow,
-  describeUse,
 } from "@/lib/files"
+import { type AlertLine, alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
@@ -39,7 +44,7 @@ function PromptPanel({
   file: FileBody
   fields: HeaderFields
   errors: number
-  lines: AlertLine[]
+  lines: readonly AlertLine[]
   versions: ReactNode | null
 }) {
   const label = useLabel()
@@ -48,7 +53,9 @@ function PromptPanel({
     <DocPanel
       remember="prompt"
       label="Prompt"
-      header={<FileStatusPill errors={errors} />}
+      header={
+        <StatusPill status={errors === 0 ? "ready" : "invalid"} label={errors === 0 ? "Valid" : errorCount(errors)} />
+      }
       top={
         versions !== null
           ? [{ value: "versions", label: "Versions", content: versions }]
@@ -67,29 +74,13 @@ function PromptPanel({
                 value: "used-by",
                 label: "Used by",
                 count: usedBy.length > 0 ? usedBy.length : undefined,
-                content:
-                  usedBy.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-muted-foreground">No workflow uses this prompt.</p>
-                  ) : (
-                    <ul className="flex flex-col py-1">
-                      {usedBy.map((use, i) => (
-                        <li key={i}>
-                          <Link
-                            href={to.file("workflows", use.project, use.workflow)}
-                            className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
-                          >
-                            {describeUse(use, label)}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ),
+                content: <UsedByList uses={usedBy} label={label} />,
               },
               {
                 value: "problems",
                 label: "Problems",
                 count: errors > 0 ? errors : undefined,
-                content: <Problems lines={lines} />,
+                content: <LineList variant="panel" lines={lines} />,
               },
             ]
       }
@@ -160,22 +151,18 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   }, [view])
 
   const errors = draft.errors
-  const lines = useMemo<AlertLine[]>(
+  const lines = useMemo(
     () =>
-      errors.map((e) => {
-        const line = e.line
-        if (line === null) return { text: e.text, onClick: null }
-        if (view !== "prompt") {
-          return {
-            text: e.text,
-            onClick: () => {
+      view === "prompt"
+        ? alertLines(errors, (line) => () => code.current?.goToLine(line))
+        : alertLines(errors, null, (e) => {
+            const line = e.line
+            if (line === null) return null
+            return () => {
               pending.current = line
               navigate(to.file("prompts", project, name))
-            },
-          }
-        }
-        return { text: `line ${line} · ${e.text}`, onClick: () => code.current?.goToLine(line) }
-      }),
+            }
+          }),
     [errors, view, project, name, navigate],
   )
 
@@ -185,12 +172,15 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const unknown = unknownKey || (fileFailed && UNKNOWN_FILE.includes(file.error.message))
   if (unknown) {
     return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>
-          <UnknownFile noun="prompt" name={name} back="Back to Prompts" href={to.prompts()} />
-        </PageBody>
-      </>
+      <PageUnknown
+        title={name}
+        message={
+          <>
+            No prompt <code className="font-mono">{name}</code>
+          </>
+        }
+        back={{ label: "Back to Prompts", href: to.prompts() }}
+      />
     )
   }
   if (projects.isError || fileFailed || prompts.isError) {
@@ -229,12 +219,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     draft.store === null ||
     draft.text === null
   ) {
-    return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
+    return <PageLoading title={name} />
   }
   const shownRow: PromptRow = row ?? {
     name,
@@ -281,9 +266,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       >
         <div className={`shrink-0 pt-5 pb-3 ${DOC_COLUMN}`}>
           <div className={PROSE_COLUMN}>
-            <p className="text-xs text-muted-foreground">Prompts · {appliesTo(project, label)}</p>
-            <h1 className="mt-1 text-doc-title font-bold tracking-tight text-doc-foreground">{name}</h1>
-            {fields.description !== null ? <p className="text-sm text-muted-foreground">{fields.description}</p> : null}
+            <DocTitle
+              caption={`Prompts · ${appliesTo(project, label)}`}
+              title={name}
+              description={fields.description}
+              variant="document"
+            />
           </div>
         </div>
         <DraftNotices draft={draft} lines={lines} history={history} />
@@ -300,12 +288,10 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             <EditableCodeView ref={code} draft={draft.store} errors={errors} />
           </div>
         )}
-        <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
-          <span className="font-mono">{name}.md</span>
-          <span className="ml-auto">
-            <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
-          </span>
-        </div>
+        <DocFooter
+          file={`${name}.md`}
+          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
+        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

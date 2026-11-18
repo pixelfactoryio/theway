@@ -1,6 +1,5 @@
 import {
   createContext,
-  type PointerEvent,
   type ReactNode,
   useCallback,
   useContext,
@@ -13,16 +12,15 @@ import { createPortal } from "react-dom"
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { PANEL_DOCKED } from "@/lib/preferences"
-import { readStored, useStored, writeStored } from "@/shell/storage"
+import { useStored } from "@/shell/storage"
 
-/** The `localStorage` keys of the docked panel: hidden (`hidden`, removed when shown) and its width in pixels. */
+/** The `localStorage` key of the docked panel: hidden (`hidden`, removed when shown). */
 const HIDDEN_KEY = "theway-panel"
-const WIDTH_KEY = "theway-panel-width"
 
 const WIDE = "(min-width: 1280px)"
-const MIN = 320
-const MAX = 640
-const DEFAULT = 420
+
+/** The docked panel's width in pixels: its least, its most and its first. */
+export const PANEL_WIDTH = { min: 320, max: 640, default: 420 } as const
 
 const subscribeWide = (onChange: () => void): (() => void) => {
   const query = window.matchMedia(WIDE)
@@ -47,11 +45,6 @@ type PanelState = {
 }
 
 const PanelContext = createContext<PanelState | null>(null)
-
-const readWidth = (): number => {
-  const n = Number(readStored(WIDTH_KEY))
-  return Number.isFinite(n) && n >= MIN && n <= MAX ? n : DEFAULT
-}
 
 /** The panel's state for the shell: docked open as this browser keeps it from 1280px, closed below. */
 export function usePanelState(): PanelState {
@@ -96,73 +89,23 @@ export function usePanelName(): string | null {
 }
 
 /**
- * The shell's right column: the shown page's panel, docked full height at the right from 1280px (resizable by its left
- * edge, its width kept in this browser), or over the page as a sheet below. Nothing when the page has no panel or it
- * is hidden.
+ * The shown page's panel below 1280px: over the page as a sheet. Nothing when the page has none, or from 1280px, where
+ * the shell docks it at the right of the page.
  */
 export function PanelArea() {
   const { setSlot, open, setOpen, name } = usePanelContext()
   const wide = useWide()
-  const [width, setWidth] = useState(readWidth)
-
-  const startResize = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const start = width
-    const move = (e: globalThis.PointerEvent) => setWidth(Math.min(MAX, Math.max(MIN, start + startX - e.clientX)))
-    const up = () => {
-      removeEventListener("pointermove", move)
-      removeEventListener("pointerup", up)
-    }
-    addEventListener("pointermove", move)
-    addEventListener("pointerup", up)
-  }
-
-  useEffect(() => {
-    writeStored(WIDTH_KEY, String(width))
-  }, [width])
-
-  if (name === null) return null
-  if (!wide) {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-[min(420px,90vw)] gap-0 p-0 sm:max-w-none">
-          <SheetHeader className="sr-only">
-            <SheetTitle>{name}</SheetTitle>
-            <SheetDescription>{name}</SheetDescription>
-          </SheetHeader>
-          <aside ref={setSlot} aria-label={name} className="flex h-full min-h-0 flex-col" />
-        </SheetContent>
-      </Sheet>
-    )
-  }
-  if (!open) return null
+  if (name === null || wide) return null
   return (
-    <aside aria-label={name} style={{ width }} className="relative flex h-svh shrink-0 flex-col border-l bg-sidebar">
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label={`Resize ${name}`}
-        aria-valuemin={MIN}
-        aria-valuemax={MAX}
-        aria-valuenow={width}
-        tabIndex={0}
-        onPointerDown={startResize}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") setWidth((w) => Math.min(MAX, w + 16))
-          if (e.key === "ArrowRight") setWidth((w) => Math.max(MIN, w - 16))
-        }}
-        className="group/edge absolute inset-y-0 -left-1 z-10 flex w-2 cursor-col-resize items-center justify-center outline-none focus-visible:bg-ring/40"
-      >
-        {/* The edge's grip, seen at rest like the panes' split; the line tints while hovered. */}
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-input transition-colors group-hover/edge:bg-foreground/40"
-        />
-        <span aria-hidden="true" className="relative h-6 w-1 rounded-lg bg-muted-foreground" />
-      </div>
-      <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
-    </aside>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetContent side="right" className="w-[min(420px,90vw)] gap-0 p-0 sm:max-w-none">
+        <SheetHeader className="sr-only">
+          <SheetTitle>{name}</SheetTitle>
+          <SheetDescription>{name}</SheetDescription>
+        </SheetHeader>
+        <aside ref={setSlot} aria-label={name} className="flex h-full min-h-0 flex-col" />
+      </SheetContent>
+    </Sheet>
   )
 }
 

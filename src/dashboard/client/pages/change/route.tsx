@@ -5,6 +5,7 @@ import { useProjects } from "@/data/queries"
 import { CHANGE_ROUTES, decoded, to } from "@/lib/routes"
 import { ChangePage } from "@/pages/change/change"
 import { NoProjectPage } from "@/components/no-project"
+import { PageLoading } from "@/components/page-states"
 import { LoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
@@ -14,14 +15,7 @@ import { PageBody, PageHeader } from "@/shell/top-bar"
  */
 function ProjectsGate({ label }: { label: string }) {
   const projects = useProjects()
-  if (projects.isPending) {
-    return (
-      <>
-        <PageHeader title={label} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
-  }
+  if (projects.isPending) return <PageLoading title={label} />
   if (projects.isError) {
     return (
       <>

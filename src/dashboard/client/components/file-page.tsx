@@ -1,15 +1,13 @@
 import { CircleAlertIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
-import { Link } from "wouter"
+import { useState } from "react"
 
+import { EmptyNote } from "@/components/empty-note"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
+import { StatusMark } from "@/components/status"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { errorCount, type PromptInputRow, quoted } from "@/lib/files"
+import type { AlertLine } from "@/lib/alert-lines"
 import { keyLabel } from "@/lib/workflow"
-
-/** One line of an error alert: its text, and what clicking it does (`null`: plain text). */
-export type AlertLine = { text: string; onClick: (() => void) | null }
 
 /** A full-width strip under the tabs: no rounding, the bottom border only. */
 export const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
@@ -17,8 +15,37 @@ export const STRIP = "shrink-0 rounded-none border-x-0 border-t-0"
 /** How many lines an alert shows before "Show all". */
 const FIRST = 3
 
-/** The lines of an alert: `font-mono text-xs`, a line with an action a button. */
-function Lines({ lines }: { lines: readonly AlertLine[] }) {
+/**
+ * A list of error lines. `alert`: an alert's lines, `font-mono text-xs`, a line with an action a button. `panel`: the
+ * Problems tab, each line a full-width row with its mark, a button when it has an action; a note when there is none.
+ */
+export function LineList({ lines, variant }: { lines: readonly AlertLine[]; variant: "alert" | "panel" }) {
+  if (variant === "panel") {
+    if (lines.length === 0) return <EmptyNote>No problem found.</EmptyNote>
+    return (
+      <ul className="flex flex-col py-1">
+        {lines.map((line, i) => (
+          <li key={i}>
+            {line.onClick !== null ? (
+              <button
+                type="button"
+                onClick={line.onClick}
+                className="flex w-full gap-2 px-4 py-2 text-left text-sm transition-colors outline-none hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
+                <StatusMark status="invalid" className="mt-2" />
+                <span className="min-w-0 flex-1">{line.text}</span>
+              </button>
+            ) : (
+              <div className="flex gap-2 px-4 py-2 text-sm">
+                <StatusMark status="invalid" className="mt-2" />
+                <span className="min-w-0 flex-1">{line.text}</span>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    )
+  }
   return (
     <ul className="flex flex-col gap-1">
       {lines.map((line, i) => (
@@ -53,7 +80,7 @@ export function ErrorStrip({ lines }: { lines: readonly AlertLine[] }) {
       <CircleAlertIcon aria-hidden="true" />
       <AlertTitle>{errorCount(lines.length)}</AlertTitle>
       <AlertDescription>
-        <Lines lines={shown} />
+        <LineList lines={shown} variant="alert" />
         {lines.length > FIRST ? (
           <Button variant="link" className="h-auto p-0" onClick={() => setAll(!all)}>
             {all ? "Show fewer" : "Show all"}
@@ -64,15 +91,26 @@ export function ErrorStrip({ lines }: { lines: readonly AlertLine[] }) {
   )
 }
 
-/** A panel's alert of a card's or a workflow's lines: destructive, titled `N errors`, each line in the code font. */
-export function LinesAlert({ lines }: { lines: readonly string[] }) {
+/**
+ * An alert of plain lines (a card's, a workflow's, the issues of a change that cannot be read): destructive, titled
+ * `title` (`N errors` by default), each line in the code font.
+ */
+export function LinesAlert({
+  lines,
+  title,
+  className,
+}: {
+  lines: readonly string[]
+  title?: string
+  className?: string
+}) {
   if (lines.length === 0) return null
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" className={className}>
       <CircleAlertIcon aria-hidden="true" />
-      <AlertTitle>{errorCount(lines.length)}</AlertTitle>
+      <AlertTitle>{title ?? errorCount(lines.length)}</AlertTitle>
       <AlertDescription>
-        <Lines lines={lines.map((text) => ({ text, onClick: null }))} />
+        <LineList lines={lines.map((text) => ({ text, onClick: null }))} variant="alert" />
       </AlertDescription>
     </Alert>
   )
@@ -93,21 +131,6 @@ export function KeyLabelText({ yamlKey }: { yamlKey: string }) {
         </>
       ) : null}
     </span>
-  )
-}
-
-/** A labelled row of a panel: `label` as plain text, or `yamlKey` as `KeyLabelText`. */
-export function PanelRow({
-  children,
-  ...props
-}: ({ label: string; yamlKey?: never } | { yamlKey: string; label?: never }) & { children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs text-muted-foreground">
-        {props.yamlKey !== undefined ? <KeyLabelText yamlKey={props.yamlKey} /> : props.label}
-      </dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
   )
 }
 
@@ -144,24 +167,6 @@ export function InputsList({ inputs }: { inputs: readonly (PromptInputRow & { ty
 
 /** The errors of a `404` on a file's route. */
 export const UNKNOWN_FILE = ["unknown file", "unknown project"]
-
-/** An unknown workflow or prompt: "No workflow <name>", and a way back to the table. */
-export function UnknownFile({ noun, name, back, href }: { noun: string; name: string; back: string; href: string }) {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyTitle>
-          No {noun} <code className="font-mono">{name}</code>
-        </EmptyTitle>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" render={<Link href={href} />}>
-          {back}
-        </Button>
-      </EmptyContent>
-    </Empty>
-  )
-}
 
 /** "Saved" after a save, as a status message, until the next edit. */
 export function SavedStatus({ saved }: { saved: boolean }) {

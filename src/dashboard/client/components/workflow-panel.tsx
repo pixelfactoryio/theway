@@ -3,22 +3,21 @@ import { useId, useState } from "react"
 
 import { WORKFLOW_INPUT_TYPES } from "../../../core/language-schema"
 import { KeyLabelText, LinesAlert } from "@/components/file-page"
-import { IconTile } from "@/components/reui/icon-tile"
+import { InspectorHeader } from "@/components/inspector-header"
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldError, FieldLegend, FieldSet } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { toneTile } from "@/components/workflow-card"
 import {
   byField,
   ChoiceSelect,
   DraftText,
   Errors,
   type HistoryMode,
-  KeyLabel,
   KeyText,
   ON_YAML,
   type Option,
+  PanelField,
   RUNS_ON_OPTIONS,
   type Write,
 } from "@/components/workflow-fields"
@@ -93,8 +92,7 @@ function InputBox({
         {nameErr !== null ? <FieldError>{nameErr}</FieldError> : null}
         <Errors lines={lines.get(`inputs.${input.name}`)} />
       </Field>
-      <Field>
-        <KeyLabel htmlFor={id("type")} yamlKey="type" />
+      <PanelField yamlKey="type" htmlFor={id("type")} errors={at("type")}>
         <ChoiceSelect
           id={id("type")}
           value={input.type}
@@ -102,31 +100,26 @@ function InputBox({
           disabled={!editable}
           onChange={(v) => v !== null && field("type", v)}
         />
-        <Errors lines={at("type")} />
-      </Field>
-      <Field>
-        <KeyLabel htmlFor={id("description")} yamlKey="description" />
+      </PanelField>
+      <PanelField yamlKey="description" htmlFor={id("description")} errors={at("description")}>
         <DraftText
           id={id("description")}
           value={editable ? input.description : null}
           onWrite={(v, mode) => field("description", v, mode)}
         />
         {input.editable && input.description === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-        <Errors lines={at("description")} />
-      </Field>
-      <Field orientation="horizontal">
+      </PanelField>
+      <PanelField yamlKey="required" htmlFor={id("required")} orientation="horizontal">
         <Switch
           id={id("required")}
           checked={input.required === true}
           disabled={!editable || input.required === null}
           onCheckedChange={(v) => field("required", v)}
         />
-        <KeyLabel htmlFor={id("required")} yamlKey="required" />
-      </Field>
+      </PanelField>
       {input.editable && input.required === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
       <Errors lines={at("required")} />
-      <Field>
-        <KeyLabel htmlFor={id("default")} yamlKey="default" />
+      <PanelField yamlKey="default" htmlFor={id("default")} errors={at("default")}>
         <DraftText
           id={id("default")}
           value={editable ? input.default : null}
@@ -134,8 +127,7 @@ function InputBox({
           onWrite={(v, mode) => field("default", v, mode)}
         />
         {input.editable && input.default === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-        <Errors lines={at("default")} />
-      </Field>
+      </PanelField>
       {!input.editable && !disabled ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
     </div>
   )
@@ -164,16 +156,10 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
   const id = (k: string) => `${uid}-${k}`
   return (
     <div className="flex flex-col gap-6 p-4">
-      <div className="flex items-center gap-3">
-        <IconTile size="sm" {...toneTile("inputs")}>
-          <TextCursorInputIcon aria-hidden="true" />
-        </IconTile>
-        <h2 className="text-sm font-medium">Workflow</h2>
-      </div>
+      <InspectorHeader tone="inputs" icon={<TextCursorInputIcon aria-hidden="true" />} title="Workflow" />
       <LinesAlert lines={alert} />
       <div className="flex flex-col gap-4">
-        <Field>
-          <KeyLabel htmlFor={id("description")} yamlKey="description" />
+        <PanelField yamlKey="description" htmlFor={id("description")} errors={fields.get("description")}>
           <DraftText
             id={id("description")}
             multiline
@@ -183,10 +169,8 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
             onWrite={(v, mode) => write((t) => setWorkflowKey(t, "description", v), mode)}
           />
           {form.description === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-          <Errors lines={fields.get("description")} />
-        </Field>
-        <Field>
-          <KeyLabel htmlFor={id("runs-on")} yamlKey="runs-on" />
+        </PanelField>
+        <PanelField yamlKey="runs-on" htmlFor={id("runs-on")} errors={fields.get("runs-on")}>
           <ChoiceSelect
             id={id("runs-on")}
             value={form.runsOn}
@@ -194,17 +178,15 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
             placeholder="Not set"
             onChange={(v) => v !== null && write((t) => setWorkflowKey(t, "runs-on", v))}
           />
-          <Errors lines={fields.get("runs-on")} />
-        </Field>
-        <Field orientation="horizontal">
+        </PanelField>
+        <PanelField yamlKey="default" htmlFor={id("default")} orientation="horizontal">
           <Switch
             id={id("default")}
             checked={form.default === true}
             disabled={form.default === null}
             onCheckedChange={(v) => write((t) => setDefault(t, v))}
           />
-          <KeyLabel htmlFor={id("default")} yamlKey="default" />
-        </Field>
+        </PanelField>
         {form.default === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
         <Errors lines={fields.get("default")} />
       </div>

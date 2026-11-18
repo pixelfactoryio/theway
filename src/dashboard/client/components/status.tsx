@@ -38,12 +38,15 @@ export function ErrorsBadge({ count }: { count: number }) {
   )
 }
 
-/** A status as the panel header shows it: its mark and label in its colour, flat. */
-export function StatusPill({ status }: { status: Status }) {
+/**
+ * A status as the panel header shows it: its mark and label in its colour, flat. `label` replaces the status's own, as
+ * a file's Valid or `N errors`.
+ */
+export function StatusPill({ status, label }: { status: Status; label?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 text-sm font-medium",
+        "inline-flex items-center gap-2 text-sm font-medium tabular-nums",
         status === "in-progress" && "text-warning",
         status === "ready" && "text-success",
         status === "invalid" && "text-destructive",
@@ -51,22 +54,7 @@ export function StatusPill({ status }: { status: Status }) {
       )}
     >
       <StatusMark status={status} />
-      {STATUS_LABEL[status]}
-    </span>
-  )
-}
-
-/** A file's status as the panel header shows it: Valid, or `N errors`, flat. */
-export function FileStatusPill({ errors }: { errors: number }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 text-sm font-medium tabular-nums",
-        errors === 0 ? "text-success" : "text-destructive",
-      )}
-    >
-      <StatusMark status={errors === 0 ? "ready" : "invalid"} />
-      {errors === 0 ? "Valid" : errorCount(errors)}
+      {label ?? STATUS_LABEL[status]}
     </span>
   )
 }

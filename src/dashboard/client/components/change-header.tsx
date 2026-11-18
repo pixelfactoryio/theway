@@ -1,28 +1,14 @@
 import { cn } from "cn"
-import { CircleAlertIcon } from "lucide-react"
 
 import { TextField } from "@/components/change-fields"
 import { DOC_COLUMN, PROSE_COLUMN } from "@/components/doc-frame"
-import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
+import { DocTitle } from "@/components/doc-title"
+import { LinesAlert } from "@/components/file-page"
 import type { ChangeDetail } from "@/lib/changes"
 import type { OpenField } from "@/lib/task-fields"
 
-/** The issues of a change that cannot be read, in a destructive alert. */
-export function IssuesAlert({ issues, className }: { issues: string[]; className?: string }) {
-  return (
-    <Alert variant="destructive" className={className}>
-      <CircleAlertIcon aria-hidden="true" />
-      <AlertTitle>This change cannot be read</AlertTitle>
-      <AlertDescription>
-        {issues.map((issue, i) => (
-          <span key={i} className="font-mono text-xs">
-            {issue}
-          </span>
-        ))}
-      </AlertDescription>
-    </Alert>
-  )
-}
+/** The title of the alert of a change that cannot be read. */
+export const UNREADABLE = "This change cannot be read"
 
 /** The description's in-place editing: the open field, or how to open it. */
 export type DescriptionEdit = {
@@ -71,13 +57,12 @@ export function ChangeTitle({ change, className }: { change: ChangeDetail; class
   return (
     <div className={cn("shrink-0 pt-10", DOC_COLUMN, className)}>
       <div className={PROSE_COLUMN}>
-        <h1 className="text-doc-title font-bold tracking-tight text-doc-foreground">
-          {change.description ?? change.id}
-        </h1>
-        {change.description !== null ? (
-          <p className="mt-2 font-mono text-doc text-muted-foreground">{change.id}</p>
-        ) : null}
-        {invalid ? <IssuesAlert issues={change.issues} className="mt-3" /> : null}
+        <DocTitle
+          title={change.description ?? change.id}
+          id={change.description !== null ? change.id : undefined}
+          variant="document"
+        />
+        {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} className="mt-3" /> : null}
       </div>
     </div>
   )

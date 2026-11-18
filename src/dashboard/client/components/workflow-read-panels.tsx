@@ -3,9 +3,9 @@ import type { ReactNode } from "react"
 import { Link } from "wouter"
 
 import { promptUses } from "../../../core/language-schema"
-import { Dash, InputsList, LinesAlert, PanelRow } from "@/components/file-page"
-import { IconTile } from "@/components/reui/icon-tile"
-import { toneTile } from "@/components/workflow-card"
+import { Dash, InputsList, LinesAlert } from "@/components/file-page"
+import { InspectorHeader } from "@/components/inspector-header"
+import { PanelField } from "@/components/workflow-fields"
 import type { PromptRow } from "@/lib/files"
 import { to } from "@/lib/routes"
 import { type Drawing, findPrompt, type Shown, type StepCard } from "@/lib/workflow"
@@ -47,29 +47,33 @@ function WithValue({ value }: { value: NonNullable<StepCard["fields"]["with"]> }
   )
 }
 
+/** A read-only row: its YAML key's label over its value, as the edit panels' rows. */
+function ValueField({ yamlKey, children }: { yamlKey: string; children: ReactNode }) {
+  return (
+    <PanelField yamlKey={yamlKey}>
+      <div className="min-w-0 text-sm">{children}</div>
+    </PanelField>
+  )
+}
+
 /** The Workflow panel: with no card or the Inputs card selected. */
 export function WorkflowPanel({ drawing }: { drawing: Drawing | null }) {
   return (
     <div className="flex flex-col gap-6 p-4">
-      <div className="flex items-center gap-3">
-        <IconTile size="sm" {...toneTile("inputs")}>
-          <TextCursorInputIcon aria-hidden="true" />
-        </IconTile>
-        <h2 className="text-sm font-medium">Workflow</h2>
-      </div>
+      <InspectorHeader tone="inputs" icon={<TextCursorInputIcon aria-hidden="true" />} title="Workflow" />
       {drawing !== null ? <LinesAlert lines={drawing.errors} /> : null}
-      <dl className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {drawing !== null ? (
           <>
-            <PanelRow yamlKey="description">{drawing.description ?? <Dash />}</PanelRow>
-            <PanelRow yamlKey="runs-on">{drawing.runsOn ?? <Dash />}</PanelRow>
-            <PanelRow yamlKey="default">{drawing.default ? "Yes" : "No"}</PanelRow>
-            <PanelRow yamlKey="inputs">
+            <ValueField yamlKey="description">{drawing.description ?? <Dash />}</ValueField>
+            <ValueField yamlKey="runs-on">{drawing.runsOn ?? <Dash />}</ValueField>
+            <ValueField yamlKey="default">{drawing.default ? "Yes" : "No"}</ValueField>
+            <ValueField yamlKey="inputs">
               <InputsList inputs={drawing.inputFields} />
-            </PanelRow>
+            </ValueField>
           </>
         ) : null}
-      </dl>
+      </div>
     </div>
   )
 }
@@ -120,27 +124,23 @@ export function StepPanel({
   }
   return (
     <div className="flex flex-col gap-6 p-4">
-      <div className="flex items-start gap-3">
-        <IconTile size="sm" {...toneTile(card !== null ? "on-fail" : step.target)}>
-          {card !== null ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
-        </IconTile>
-        <div className="flex min-w-0 flex-col">
-          <span className="text-xs text-muted-foreground">
-            Step {n} of {total}
-            {card !== null ? " · on fail" : ""}
-          </span>
-          <h2 className={code ? "truncate font-mono text-sm font-medium" : "truncate text-sm font-medium"}>{name}</h2>
-        </div>
-      </div>
+      <InspectorHeader
+        tone={card !== null ? "on-fail" : step.target}
+        icon={card !== null ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
+        caption={`Step ${n} of ${total}${card !== null ? " · on fail" : ""}`}
+        title={name}
+        mono={code}
+        align="start"
+      />
       <LinesAlert lines={lines} />
       {rows.length > 0 ? (
-        <dl className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {rows.map((r) => (
-            <PanelRow key={r.label} yamlKey={r.label}>
+            <ValueField key={r.label} yamlKey={r.label}>
               {r.value}
-            </PanelRow>
+            </ValueField>
           ))}
-        </dl>
+        </div>
       ) : null}
     </div>
   )

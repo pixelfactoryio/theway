@@ -12,7 +12,7 @@ import type { ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
 import { Logo } from "@/shell/logo"
-import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { Button } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -38,9 +38,10 @@ import { GROUP_OPEN } from "@/lib/preferences"
 import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
 import { LoadError } from "@/shell/load-error"
-import { MAC } from "@/shell/platform"
+import { MOD } from "@/shell/platform"
 import { useSearchOpen } from "@/shell/search"
 import { useStored } from "@/shell/storage"
+import { Shortcut } from "@/shell/shortcut"
 import { SettingsMenu } from "@/shell/theme"
 
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
@@ -109,14 +110,7 @@ function Entries({ inProgress }: { inProgress: number | null }) {
         <SidebarMenuButton onClick={() => setOpen(true)} className="h-8">
           <SearchIcon aria-hidden="true" className="text-muted-foreground" />
           <span>Search</span>
-          {MAC ? (
-            <Kbd className="ml-auto">⌘K</Kbd>
-          ) : (
-            <KbdGroup className="ml-auto">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-            </KbdGroup>
-          )}
+          <Shortcut keys={[MOD, "K"]} className="ml-auto" />
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -361,12 +355,13 @@ export function AppSidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <a
-                href={DOCS}
-                target="_blank"
-                rel="noopener noreferrer"
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 aria-label="Documentation"
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                className="text-muted-foreground"
+                nativeButton={false}
+                render={<a href={DOCS} target="_blank" rel="noopener noreferrer" />}
               />
             }
           >

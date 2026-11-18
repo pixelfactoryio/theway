@@ -4,26 +4,19 @@ import {
   ArrowUpIcon,
   ChevronRightIcon,
   GripVerticalIcon,
-  MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 
 import { TextField } from "@/components/change-fields"
+import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
 import { TaskText } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { splitTask, taskName } from "@/lib/change-edit"
 import type { OpenField } from "@/lib/task-fields"
 
@@ -45,80 +38,59 @@ export type TaskListActions = {
 
 const LAST_TASK = "A change keeps at least one task."
 
-/** A row's menu: Edit, Move up, Move down, Add a task below, then Delete. */
-function RowMenu({
+/**
+ * A task's text: its number line (`Next` after it on the first task not done), then its lead and its detail (cut at
+ * three lines while `clamped`). With `onEdit`, a click on the text edits it; `field`, when given, takes the text's place.
+ */
+function TaskBody({
   n,
-  first,
-  last,
-  only,
+  next,
+  lead,
+  detail,
+  done,
+  clamped,
   onEdit,
-  onMove,
-  onAddBelow,
-  onDelete,
+  field,
 }: {
   n: number
-  first: boolean
-  last: boolean
-  only: boolean
-  onEdit: () => void
-  onMove: (delta: -1 | 1) => void
-  onAddBelow: () => void
-  onDelete: () => void
+  next: boolean
+  lead: string
+  detail: string
+  done: boolean
+  clamped: boolean
+  onEdit?: () => void
+  field?: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
-  // An action that moves the focus elsewhere keeps the menu from giving it back to its button.
-  const keep = useRef(false)
-  const act = (f: () => void) => () => {
-    keep.current = true
-    f()
-  }
-  const remove = (
-    <DropdownMenuItem variant="destructive" disabled={only} onClick={act(onDelete)}>
-      <Trash2Icon aria-hidden="true" />
-      Delete
-    </DropdownMenuItem>
+  const text = (
+    <>
+      <div className={cn("text-md font-medium", done ? "text-muted-foreground" : "text-foreground")}>
+        <TaskText text={lead} />
+      </div>
+      {detail !== "" ? (
+        <div
+          className={cn("mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}
+        >
+          <TaskText text={detail} />
+        </div>
+      ) : null}
+    </>
   )
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(next) => {
-        if (next) keep.current = false
-        setOpen(next)
-      }}
-    >
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Task ${n} actions`}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-          />
-        }
-      >
-        <MoreHorizontalIcon aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48" finalFocus={() => !keep.current}>
-        <DropdownMenuItem onClick={act(onEdit)}>
-          <PencilIcon aria-hidden="true" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={first} onClick={act(() => onMove(-1))}>
-          <ArrowUpIcon aria-hidden="true" />
-          Move up
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={last} onClick={act(() => onMove(1))}>
-          <ArrowDownIcon aria-hidden="true" />
-          Move down
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={act(onAddBelow)}>
-          <PlusIcon aria-hidden="true" />
-          Add a task below
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {only ? <span title={LAST_TASK}>{remove}</span> : remove}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
+        <span>{n}</span>
+        {next ? <span className="font-medium text-warning">Next</span> : null}
+      </div>
+      {field !== undefined ? (
+        field
+      ) : onEdit !== undefined ? (
+        <div onClick={onEdit} className="-mx-1 cursor-text rounded-sm px-1 transition-colors hover:bg-accent/40">
+          {text}
+        </div>
+      ) : (
+        text
+      )}
+    </>
   )
 }
 
@@ -143,6 +115,13 @@ function Row({
 }) {
   const n = index + 1
   const [more, setMore] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  // A menu action that moves the focus elsewhere keeps the menu from giving it back to its button.
+  const keepFocus = useRef(false)
+  const act = (f: () => void) => () => {
+    keepFocus.current = true
+    f()
+  }
   const { lead, detail } = splitTask(row.text)
   const clamped = !next && !more
   const editing = field?.kind === "task" && field.id === row.id ? field : null
@@ -194,67 +173,129 @@ function Row({
         />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
-          <span>{n}</span>
-          {next ? <span className="font-medium text-warning">Next</span> : null}
-        </div>
-        {editing !== null ? (
-          <TextField
-            multiline
-            label={`Task ${n}`}
-            value={editing.value}
-            error={editing.error}
-            onChange={(value) => actions.change({ ...editing, value, error: null })}
-            onApply={() => {
-              if (actions.apply()) focusRow(row.id)
-            }}
-            onCancel={() => {
-              actions.cancel()
-              focusRow(row.id)
-            }}
-          />
-        ) : (
-          <div onClick={edit} className={cn("-mx-1 cursor-text rounded-sm px-1 transition-colors hover:bg-accent/40")}>
-            <div className={cn("text-md font-medium", row.done ? "text-muted-foreground" : "text-foreground")}>
-              <TaskText text={lead} />
-            </div>
-            {detail !== "" ? (
-              <div
-                className={cn(
-                  "mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground",
-                  clamped && "line-clamp-3",
-                )}
-              >
-                <TaskText text={detail} />
-              </div>
-            ) : null}
-          </div>
-        )}
+        <TaskBody
+          n={n}
+          next={next}
+          lead={lead}
+          detail={detail}
+          done={row.done}
+          clamped={clamped}
+          onEdit={edit}
+          field={
+            editing !== null ? (
+              <TextField
+                multiline
+                label={`Task ${n}`}
+                value={editing.value}
+                error={editing.error}
+                onChange={(value) => actions.change({ ...editing, value, error: null })}
+                onApply={() => {
+                  if (actions.apply()) focusRow(row.id)
+                }}
+                onCancel={() => {
+                  actions.cancel()
+                  focusRow(row.id)
+                }}
+              />
+            ) : undefined
+          }
+        />
         {editing === null && detail.length > 220 && !next ? (
-          <button
-            type="button"
-            onClick={() => setMore(!more)}
-            className="mt-1 rounded-sm text-xs text-link outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <Button variant="link" size="xs" onClick={() => setMore(!more)} className="mt-1 h-auto px-0 text-link">
             {more ? "Show less" : "Show more"}
-          </button>
+          </Button>
         ) : null}
       </div>
-      <RowMenu
-        n={n}
-        first={index === 0}
-        last={index === count - 1}
-        only={count === 1}
-        onEdit={edit}
-        onMove={move}
-        onAddBelow={() => actions.open({ kind: "below", id: row.id, value: "", error: null })}
-        onDelete={() => {
-          actions.remove(index)
-          const next = index + 1 < count ? index : index - 1
-          if (next >= 0) focusRow(`#${next}`)
+      <ReorderMenu
+        label={`Task ${n} actions`}
+        size="icon-sm"
+        triggerClassName="shrink-0 text-muted-foreground hover:text-foreground"
+        contentClassName="w-48"
+        open={menuOpen}
+        onOpenChange={(open) => {
+          if (open) keepFocus.current = false
+          setMenuOpen(open)
         }}
+        finalFocus={() => !keepFocus.current}
+        items={[
+          { label: "Edit", icon: <PencilIcon aria-hidden="true" />, onSelect: act(edit) },
+          {
+            label: "Move up",
+            icon: <ArrowUpIcon aria-hidden="true" />,
+            disabled: index === 0,
+            onSelect: act(() => move(-1)),
+          },
+          {
+            label: "Move down",
+            icon: <ArrowDownIcon aria-hidden="true" />,
+            disabled: index === count - 1,
+            onSelect: act(() => move(1)),
+          },
+          {
+            label: "Add a task below",
+            icon: <PlusIcon aria-hidden="true" />,
+            onSelect: act(() => actions.open({ kind: "below", id: row.id, value: "", error: null })),
+          },
+          "separator",
+          {
+            label: "Delete",
+            icon: <Trash2Icon aria-hidden="true" />,
+            destructive: true,
+            disabled: count === 1,
+            title: count === 1 ? LAST_TASK : undefined,
+            onSelect: act(() => {
+              actions.remove(index)
+              const next = index + 1 < count ? index : index - 1
+              if (next >= 0) focusRow(`#${next}`)
+            }),
+          },
+        ]}
       />
     </SortableItem>
+  )
+}
+
+/** What an active change's list takes. */
+type EditableProps = {
+  readOnly?: false
+  rows: readonly TaskRow[]
+  field: OpenField | null
+  actions: TaskListActions
+  focus: string | null
+  onFocused: () => void
+  focusRow: (target: string) => void
+}
+
+/** What an archived change's list takes: its tasks alone. */
+type ReadOnlyProps = { readOnly: true; rows: readonly { text: string; done: boolean }[] }
+
+/**
+ * A change's task list. Editable (an active change's): see `EditableList`. `readOnly` (an archived change's): every
+ * task in order, each its disabled checkbox, its number, its lead and its whole detail; nothing to click.
+ */
+export function TaskList(props: EditableProps | ReadOnlyProps) {
+  return props.readOnly === true ? <ReadOnlyList rows={props.rows} /> : <EditableList {...props} />
+}
+
+/** The read-only list: an ordered list of the tasks, no fold, no handle, no menu, no add row. */
+function ReadOnlyList({ rows }: { rows: ReadOnlyProps["rows"] }) {
+  return (
+    <ol aria-label="Tasks" className="flex flex-col">
+      {rows.map((row, i) => {
+        const n = i + 1
+        const { lead, detail } = splitTask(row.text)
+        return (
+          <li key={String(i)} className="flex items-start gap-3 border-t px-3 py-4">
+            <span className="mt-5 flex h-(--text-md--line-height) shrink-0 items-center">
+              <Checkbox checked={row.done} disabled aria-label={`Task ${n} done`} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <TaskBody n={n} next={false} lead={lead} detail={detail} done={row.done} clamped={false} />
+            </div>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -263,21 +304,7 @@ function Row({
  * their handle, from their menu or with Alt and the arrows, then the add row. `focus` names the row to focus next: an
  * id, or `#<index>` for the row at that position.
  */
-export function TaskList({
-  rows,
-  field,
-  actions,
-  focus,
-  onFocused,
-  focusRow,
-}: {
-  rows: readonly TaskRow[]
-  field: OpenField | null
-  actions: TaskListActions
-  focus: string | null
-  onFocused: () => void
-  focusRow: (target: string) => void
-}) {
+function EditableList({ rows, field, actions, focus, onFocused, focusRow }: EditableProps) {
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focus === null || list.current === null) return

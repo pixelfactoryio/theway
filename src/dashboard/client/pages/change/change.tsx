@@ -1,7 +1,4 @@
-import { Link } from "wouter"
-
-import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
 import { ActiveChange } from "@/pages/change/active"
@@ -11,25 +8,6 @@ import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The errors of a `404` on a change's route. */
 const UNKNOWN = ["unknown change", "unknown archive folder"]
-
-/** The unknown change, or unknown archive folder, state. */
-function Unknown({ projectKey, name }: { projectKey: string; name: string }) {
-  const label = useLabel()(projectKey)
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyTitle>
-          No change <code className="font-mono">{name}</code> in {label}
-        </EmptyTitle>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" render={<Link href={to.project(projectKey)} />}>
-          Back to {label}
-        </Button>
-      </EmptyContent>
-    </Empty>
-  )
-}
 
 /**
  * `#/<key>/changes/<id>[/<tab>]` and `#/<key>/changes/archive/<dir>[/<tab>]`: a change's header, its tabs (its Markdown
@@ -48,32 +26,34 @@ export function ChangePage({
 }) {
   const change = useChange(projectKey, dir !== undefined ? { dir } : { id: id ?? "" })
 
+  const label = useLabel()(projectKey)
   const name = dir ?? id ?? ""
 
-  if (change.isPending) {
-    return (
-      <>
-        <PageHeader title={name} />
-        <PageBody>{null}</PageBody>
-      </>
-    )
-  }
+  if (change.isPending) return <PageLoading title={name} />
   if (change.isError) {
-    const unknown = UNKNOWN.includes(change.error.message)
+    if (UNKNOWN.includes(change.error.message)) {
+      return (
+        <PageUnknown
+          title={name}
+          message={
+            <>
+              No change <code className="font-mono">{name}</code> in {label}
+            </>
+          }
+          back={{ label: `Back to ${label}`, href: to.project(projectKey) }}
+        />
+      )
+    }
     return (
       <>
         <PageHeader title={name} />
         <PageBody>
-          {unknown ? (
-            <Unknown projectKey={projectKey} name={name} />
-          ) : (
-            <LoadError
-              what="this change"
-              error={change.error}
-              retry={() => void change.refetch()}
-              className="m-4 w-auto"
-            />
-          )}
+          <LoadError
+            what="this change"
+            error={change.error}
+            retry={() => void change.refetch()}
+            className="m-4 w-auto"
+          />
         </PageBody>
       </>
     )

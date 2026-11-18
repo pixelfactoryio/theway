@@ -1,22 +1,20 @@
 import { cn } from "cn"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { type LayoutStorage, useDefaultLayout, usePanelRef } from "react-resizable-panels"
+import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
 
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { HANDLE } from "@/components/ui-classes"
 import { PANE_TAB } from "@/lib/preferences"
-import { readStored, useStored, writeStored } from "@/shell/storage"
+import { LAYOUTS, useStored } from "@/shell/storage"
 
 /** One tab of a panel pane: its label, an optional count after it, and its content. */
 export type PaneTab = { value: string; label: string; count?: ReactNode; content: ReactNode }
 
 /** A pane's tab row: 40px, the height a collapsed bottom pane keeps. */
 const TAB_ROW = 40
-
-/** The split's layouts, kept in this browser's storage, which never throws (a private window keeps the default). */
-const LAYOUTS: LayoutStorage = { getItem: readStored, setItem: (key, value) => writeStored(key, value) }
 
 /**
  * A pane of the panel, after Conductor's: a row of text tabs over a hairline, the chosen one in the foreground colour
@@ -131,12 +129,7 @@ function Split({
       <ResizablePanel id="top" defaultSize={topShare} minSize="20%" className="flex min-h-0 flex-col">
         <Pane tabs={top} remember={`${remember}:top`} label={`${label}: views`} className="flex-1" />
       </ResizablePanel>
-      <ResizableHandle
-        withHandle
-        aria-label={`Resize ${bottomName}`}
-        // Seen at rest: the line in the input border, its grip in the muted text colour (3:1 or more on both themes).
-        className="bg-input [&>div]:bg-muted-foreground transition-colors data-[separator=active]:bg-foreground/60 data-[separator=hover]:bg-foreground/40"
-      />
+      <ResizableHandle withHandle aria-label={`Resize ${bottomName}`} className={HANDLE} />
       <ResizablePanel
         id="bottom"
         panelRef={details}

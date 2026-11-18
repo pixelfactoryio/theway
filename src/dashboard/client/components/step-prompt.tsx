@@ -5,17 +5,18 @@ import { DetailRow } from "@/components/doc-panel"
 import { Dash, InputsList } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
 import { Button } from "@/components/ui/button"
+import { UsedByList } from "@/components/used-by-list"
 import { useFile, useLabel } from "@/data/queries"
-import { describeUse, promptReading, type PromptRow, workflowCount } from "@/lib/files"
+import { promptReading, type PromptRow, workflowCount } from "@/lib/files"
 import { to } from "@/lib/routes"
-import { MAC } from "@/shell/platform"
+import { modKey } from "@/shell/platform"
 import { LoadError } from "@/shell/load-error"
 
 /** Calls `save` on Cmd+S (Ctrl+S off macOS) anywhere on the page, the browser's own Save page prevented. */
 export function useSaveKey(save: () => void): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "s" || !(MAC ? event.metaKey : event.ctrlKey) || event.altKey) return
+      if (event.key.toLowerCase() !== "s" || !modKey(event) || event.altKey) return
       event.preventDefault()
       save()
     }
@@ -74,21 +75,5 @@ export function StepPrompt({ row }: { row: PromptRow }) {
 export function StepPromptUses({ row }: { row: PromptRow }) {
   const file = useFile("prompts", row.project, row.name)
   const label = useLabel()
-  const usedBy = file.data?.usedBy ?? []
-  if (usedBy.length === 0)
-    return <p className="px-4 py-3 text-sm text-muted-foreground">No workflow uses this prompt.</p>
-  return (
-    <ul className="flex flex-col py-1">
-      {usedBy.map((use, i) => (
-        <li key={i}>
-          <Link
-            href={to.file("workflows", use.project, use.workflow)}
-            className="block px-4 py-2 text-sm transition-colors hover:bg-accent"
-          >
-            {describeUse(use, label)}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  )
+  return <UsedByList uses={file.data?.usedBy ?? []} label={label} />
 }

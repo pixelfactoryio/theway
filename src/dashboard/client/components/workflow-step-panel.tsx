@@ -1,11 +1,10 @@
-import { cn } from "cn"
 import { FileTextIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "wouter"
 
 import { MODELS } from "../../../core/language-schema"
 import { KeyLabelText, LinesAlert } from "@/components/file-page"
-import { IconTile } from "@/components/reui/icon-tile"
+import { InspectorHeader } from "@/components/inspector-header"
 import {
   NumberField,
   NumberFieldDecrement,
@@ -24,17 +23,17 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
-import { type Tone, toneTile } from "@/components/workflow-card"
+import type { Tone } from "@/components/workflow-card"
 import {
   byField,
   ChoiceSelect,
   DraftText,
   Errors,
   type HistoryMode,
-  KeyLabel,
   KeyText,
   ON_YAML,
   type Option,
+  PanelField,
   RUNS_ON_OPTIONS,
   type Write,
 } from "@/components/workflow-fields"
@@ -199,13 +198,10 @@ export function StepEditPanel({
       <StepHeader n={n} total={total} name={name} code={prompt === null} tone={tone} onChange={onChange} />
       <LinesAlert lines={alert} />
       <div className="flex flex-col gap-4">
-        <Field>
-          <KeyLabel yamlKey="uses" />
+        <PanelField yamlKey="uses" errors={fields.get("uses")}>
           <UsesValue uses={form.uses} prompt={prompt} />
-          <Errors lines={fields.get("uses")} />
-        </Field>
-        <Field>
-          <KeyLabel htmlFor={id("runs-on")} yamlKey="runs-on" />
+        </PanelField>
+        <PanelField yamlKey="runs-on" htmlFor={id("runs-on")} errors={fields.get("runs-on")}>
           <ChoiceSelect
             id={id("runs-on")}
             value={form.runsOn}
@@ -213,11 +209,9 @@ export function StepEditPanel({
             options={RUNS_ON_OPTIONS}
             onChange={(v) => write((t) => setStepKey(t, index, "runs-on", v))}
           />
-          <Errors lines={fields.get("runs-on")} />
-        </Field>
+        </PanelField>
         {showModel ? (
-          <Field>
-            <KeyLabel htmlFor={id("model")} yamlKey="model" />
+          <PanelField yamlKey="model" htmlFor={id("model")} errors={fields.get("model")}>
             <ChoiceSelect
               id={id("model")}
               value={form.model}
@@ -225,8 +219,7 @@ export function StepEditPanel({
               options={MODEL_OPTIONS}
               onChange={(v) => write((t) => setStepKey(t, index, "model", v))}
             />
-            <Errors lines={fields.get("model")} />
-          </Field>
+          </PanelField>
         ) : null}
       </div>
       {withPrompt !== null ? (
@@ -246,8 +239,7 @@ export function StepEditPanel({
       ) : null}
       <MatrixGroup id={id("matrix")} index={index} matrix={form.matrix} lines={fields.get("matrix")} write={write} />
       <div ref={onFailRef} className="flex scroll-mt-4 flex-col gap-4">
-        <Field>
-          <KeyLabel htmlFor={id("on-fail")} yamlKey="on-fail" />
+        <PanelField yamlKey="on-fail" htmlFor={id("on-fail")} errors={fields.get("on-fail")}>
           <ChoiceSelect
             id={id("on-fail")}
             value={onFail === null ? null : onFail.value}
@@ -259,8 +251,7 @@ export function StepEditPanel({
               write((t) => setOnFail(t, index, p))
             }}
           />
-          <Errors lines={fields.get("on-fail")} />
-        </Field>
+        </PanelField>
         {onFail !== null && onFailPrompt !== null
           ? onFailPrompt.inputs.length > 0 && (
               <WithFields
@@ -274,8 +265,7 @@ export function StepEditPanel({
             )
           : null}
         {showOnFailModel ? (
-          <Field>
-            <KeyLabel htmlFor={id("on-fail-model")} yamlKey="on-fail.model" />
+          <PanelField yamlKey="on-fail.model" htmlFor={id("on-fail-model")} errors={fields.get("on-fail.model")}>
             <ChoiceSelect
               id={id("on-fail-model")}
               value={onFail?.model ?? null}
@@ -283,12 +273,10 @@ export function StepEditPanel({
               options={MODEL_OPTIONS}
               onChange={(v) => write((t) => setOnFailModel(t, index, v))}
             />
-            <Errors lines={fields.get("on-fail.model")} />
-          </Field>
+          </PanelField>
         ) : null}
         {showTries ? (
-          <Field>
-            <KeyLabel htmlFor={id("tries")} yamlKey="tries" />
+          <PanelField yamlKey="tries" htmlFor={id("tries")} errors={fields.get("tries")}>
             <NumberField
               id={id("tries")}
               min={1}
@@ -306,8 +294,7 @@ export function StepEditPanel({
               </NumberFieldGroup>
             </NumberField>
             {form.tries === "bad" ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-            <Errors lines={fields.get("tries")} />
-          </Field>
+          </PanelField>
         ) : null}
       </div>
       <RemoveStep onRemove={onRemove} />
@@ -332,22 +319,20 @@ function StepHeader({
   onChange: (() => void) | null
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <IconTile size="sm" {...toneTile(tone)}>
-        {tone === "on-fail" ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
-      </IconTile>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-xs text-muted-foreground">
-          Step {n} of {total}
-        </span>
-        <h2 className={cn("truncate text-sm font-medium", code && "font-mono")}>{name}</h2>
-      </div>
-      {onChange !== null ? (
-        <Button variant="outline" onClick={onChange}>
-          Change
-        </Button>
-      ) : null}
-    </div>
+    <InspectorHeader
+      tone={tone}
+      icon={tone === "on-fail" ? <RotateCcwIcon aria-hidden="true" /> : <FileTextIcon aria-hidden="true" />}
+      caption={`Step ${n} of ${total}`}
+      title={name}
+      mono={code}
+      action={
+        onChange !== null ? (
+          <Button variant="outline" onClick={onChange}>
+            Change
+          </Button>
+        ) : undefined
+      }
+    />
   )
 }
 
@@ -386,10 +371,9 @@ function MatrixGroup({
   const keyErr = keyTyped === null ? null : keyError(keyTyped, [])
   return (
     <div className="flex flex-col gap-4">
-      <Field orientation="horizontal">
+      <PanelField yamlKey="matrix" htmlFor={`${id}-on`} orientation="horizontal">
         <Switch id={`${id}-on`} checked={on} onCheckedChange={(v) => write((t) => setMatrix(t, index, v))} />
-        <KeyLabel htmlFor={`${id}-on`} yamlKey="matrix" />
-      </Field>
+      </PanelField>
       {on ? (
         <>
           <Field>
