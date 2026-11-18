@@ -1,40 +1,9 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import {
-  keptIds,
-  leavesChange,
-  linked,
-  oneLine,
-  splitTask,
-  taskName,
-  wrapped,
-} from "../src/dashboard/client/lib/change-edit"
+import { keptIds, linked, oneLine, splitTask, taskName, wrapped } from "../src/dashboard/client/lib/change-edit"
 
 const CLIENT = join(import.meta.dirname, "..", "src", "dashboard", "client")
-
-test("only another project, another change or another kind of page leaves a change page", () => {
-  const page = { key: "-p", id: "add-a" }
-  for (const target of [
-    "/-p/changes/add-a",
-    "/-p/changes/add-a?",
-    "/-p/changes/add-a/spec?",
-    "/-p/changes/add-a/tasks?x=1",
-    "#/-p/changes/add-a/",
-  ]) {
-    expect([target, leavesChange(page, target)]).toEqual([target, false])
-  }
-  for (const target of [
-    "/-q/changes/add-a?",
-    "/-p/changes/add-b?",
-    "/-p/changes?",
-    "/-p/changes/archive/2026-01-01-add-a?",
-    "/workflows?",
-    "/",
-  ]) {
-    expect([target, leavesChange(page, target)]).toEqual([target, true])
-  }
-})
 
 test("row ids are kept by position for the first min(old, new) tasks, the rest new", () => {
   let n = 0

@@ -4,9 +4,9 @@ import { useState } from "react"
 import { IconTile } from "@/components/reui/icon-tile"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { useLabel } from "@/data/queries"
 import type { PromptRow } from "@/lib/files"
 import { pickerGroups } from "@/lib/step-prompts"
-import { useLabel } from "@/shell/files"
 
 /** One prompt of the picker: its icon, its name and its description on one line, the full description in `title`. */
 function PromptItem({

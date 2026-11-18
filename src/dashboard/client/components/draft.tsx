@@ -7,21 +7,12 @@ import { type CodeLanguage, DraftStore, draftState } from "@/components/code-vie
 import { type AlertLine, ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Button } from "@/components/ui/button"
-import { leavesPage } from "@/lib/edit"
-import {
-  type CheckBody,
-  CheckBodySchema,
-  type FileBody,
-  FileBodySchema,
-  type FileError,
-  fileApi,
-  type PromptRow,
-  SavedSchema,
-} from "@/lib/files"
-import { failureOf, sendJson } from "@/shell/api"
+import { failureOf, getJson } from "@/data/api"
+import { apiPath, queryKeys, useWrites } from "@/data/queries"
+import { type CheckBody, type FileBody, FileBodySchema, type FileError, type PromptRow } from "@/lib/files"
+import { leavesFile } from "@/lib/routes"
 import { setLeaveGuard, useBeforeUnload } from "@/shell/guard"
 import { MAC } from "@/shell/platform"
-import { getJson } from "@/shell/projects"
 
 /** The header fields a check answers for a prompt, as a row of `GET /api/prompts` gives them. */
 export type HeaderFields = Pick<PromptRow, "header" | "description" | "model" | "inputs">
@@ -69,7 +60,8 @@ export function useFileDraft({
   docName: string
 }) {
   const queryClient = useQueryClient()
-  const api = fileApi(kind, project, name)
+  const writes = useWrites()
+  const path = apiPath.file(kind, project, name)
   const [store, setStore] = useState<DraftStore | null>(null)
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [result, setResult] = useState<CheckResult | null>(null)
@@ -141,12 +133,13 @@ export function useFileDraft({
     (checked: string): Promise<Outcome> => {
       const running = inFlight.current.get(checked)
       if (running !== undefined) return running
-      const p = sendJson("POST", "/api/check", { kind, project, name, text: checked }, CheckBodySchema).then(
-        (r): Outcome =>
+      const p = writes
+        .checkFile(kind, project, name, checked)
+        .then((r): Outcome =>
           r.status === 200 && r.body !== null
             ? { ok: true, errors: r.body.errors, header: kind === "prompts" ? headerOf(r.body) : null }
             : { ok: false, error: failureOf(r) },
-      )
+        )
       inFlight.current.set(checked, p)
       void p.then((outcome) => {
         inFlight.current.delete(checked)
@@ -154,7 +147,7 @@ export function useFileDraft({
       })
       return p
     },
-    [kind, project, name, apply],
+    [writes, kind, project, name, apply],
   )
 
   // 400ms after the last edit, the draft is checked.
@@ -166,11 +159,6 @@ export function useFileDraft({
     timer.current = t
     return () => clearTimeout(t)
   }, [text, runCheck])
-
-  const invalidate = useCallback(() => {
-    for (const key of [["workflows"], ["prompts"], ["history", api], ["file", api]])
-      void queryClient.invalidateQueries({ queryKey: key })
-  }, [queryClient, api])
 
   /**
    * Writes the draft. With `ask`, it first waits for the check of the current draft and asks before saving one with
@@ -199,7 +187,7 @@ export function useFileDraft({
         }
       }
       setSaveFailure(null)
-      const res = await sendJson("PUT", api, { text: draft, base: l.version }, SavedSchema)
+      const res = await writes.saveFile(kind, project, name, draft, l.version)
       if (res.status === 200 && res.body !== null) {
         const r = refs.current.result
         const lines: CheckResult =
@@ -211,14 +199,13 @@ export function useFileDraft({
         setLoaded({ text: draft, version: res.body.version, result: lines })
         setConflict(false)
         setSavedDoc(savedState.doc)
-        invalidate()
         return true
       }
       if (res.status === 409) setConflict(true)
       else setSaveFailure(failureOf(res))
       return false
     },
-    [api, runCheck, invalidate],
+    [writes, kind, project, name, runCheck],
   )
 
   /** `write`, one at a time: a save asked while one runs does nothing and gives false. */
@@ -257,11 +244,11 @@ export function useFileDraft({
   const doReload = useCallback(async (): Promise<boolean> => {
     let fresh: FileBody
     try {
-      fresh = await getJson(api, FileBodySchema)
+      fresh = await getJson(path, FileBodySchema)
     } catch {
       return false
     }
-    queryClient.setQueryData(["file", api], fresh)
+    queryClient.setQueryData(queryKeys.file(path), fresh)
     const l: Loaded = {
       text: fresh.text,
       version: fresh.version,
@@ -271,7 +258,7 @@ export function useFileDraft({
     reset(l)
     setConflict(false)
     return true
-  }, [api, queryClient, reset])
+  }, [path, queryClient, reset])
 
   /** Writes the version `id` as the file, then reloads it; true once written. */
   const restore = useCallback(
@@ -279,24 +266,23 @@ export function useFileDraft({
       const l = refs.current.loaded
       if (l === null) return false
       setSaveFailure(null)
-      const res = await sendJson("POST", `${api}/history/${id}/restore`, { base: l.version }, SavedSchema)
+      const res = await writes.restoreFile(kind, project, name, id, l.version)
       if (res.status === 200 && res.body !== null) {
         await doReload()
-        invalidate()
         return true
       }
       if (res.status === 409) setConflict(true)
       else setSaveFailure(failureOf(res))
       return false
     },
-    [api, doReload, invalidate],
+    [writes, kind, project, name, doReload],
   )
 
   // Leaving the page with unsaved changes asks first; closing or reloading the tab gets the browser's prompt.
   useEffect(
     () =>
       setLeaveGuard({
-        leaves: (target) => leavesPage({ kind, project, name }, target),
+        leaves: (target) => leavesFile({ fileKind: kind, project, name }, target),
         isDirty: () => refs.current.dirty,
         ask: (proceed) => setConfirm({ kind: "leave", proceed }),
       }),

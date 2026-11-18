@@ -13,12 +13,12 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { StatusMark } from "@/components/status"
+import { useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
   byFile,
   compareText,
   fileMatches,
-  filePath,
   fileValue,
   GLOBAL,
   KIND_LABEL,
@@ -34,13 +34,12 @@ import {
   describeUse,
 } from "@/lib/files"
 import { type FieldRule, fieldValues, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
+import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import { NameCell, NoFile, STATUS_HEADER, StatusCell, WRAP, Wrapped } from "@/pages/files-table"
-import { useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
@@ -56,7 +55,7 @@ const COLUMN = "flex min-h-0 w-full flex-1 flex-col px-6"
 function UseLink({ use, children, className }: { use: Use; children: string; className?: string }) {
   return (
     <Link
-      href={`${filePath("workflows", use.project, use.workflow)}?`}
+      href={to.file("workflows", use.project, use.workflow)}
       onClick={(e) => e.stopPropagation()}
       className={className ?? "underline-offset-4 hover:underline"}
     >
@@ -178,7 +177,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
         header: ({ column }) => <DataGridColumnHeader title="Prompt" column={column} />,
         cell: ({ row }) => (
           <NameCell
-            href={`${filePath("prompts", row.original.project, row.original.name)}?`}
+            href={to.file("prompts", row.original.project, row.original.name)}
             name={row.original.name}
             description={row.original.description}
           />
@@ -259,7 +258,7 @@ function PromptsGrid({ rows, isLoading }: { rows: PromptRow[]; isLoading: boolea
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
-      onRowClick={(row) => navigate(`${filePath("prompts", row.project, row.name)}?`)}
+      onRowClick={(row) => navigate(to.file("prompts", row.project, row.name))}
     >
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>

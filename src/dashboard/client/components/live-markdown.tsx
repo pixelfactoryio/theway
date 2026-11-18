@@ -16,6 +16,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react"
 
 import type { DraftStore } from "@/components/code-view"
 import { formattingKeymap } from "@/components/markdown-editor"
+import { meta } from "@/data/api"
 import { inlineCode, isLinkTarget } from "@/lib/changes"
 import { CODE_BLOCK_STYLES, CODE_LANGUAGES } from "@/lib/code-languages"
 import {
@@ -28,7 +29,6 @@ import {
   taskToggle,
   type Widget,
 } from "@/lib/live-preview"
-import { meta } from "@/shell/api"
 
 const MUTED = { color: "var(--muted-foreground)" }
 const MONO = { fontFamily: "var(--font-mono)", fontSize: "85%" }

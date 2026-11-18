@@ -2,43 +2,9 @@ import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { parse } from "yaml"
-import {
-  emptyText,
-  filePageOf,
-  leavesPage,
-  lineCounts,
-  localTime,
-  saveWithErrors,
-  yamlValue,
-} from "../src/dashboard/client/lib/edit"
+import { emptyText, lineCounts, localTime, saveWithErrors, yamlValue } from "../src/dashboard/client/lib/edit"
 
 const CLIENT = join(import.meta.dirname, "..", "src", "dashboard", "client")
-
-test("a target leaves a file page when its kind, its global or projects/<key> part, or its name differs", () => {
-  const page = { kind: "workflows" as const, project: "a", name: "x" }
-  for (const same of [
-    "/workflows/projects/a/x",
-    "/workflows/projects/a/x/yaml",
-    "/workflows/projects/a/x/history?q=1",
-    "/workflows/projects/a/x?",
-  ]) {
-    expect([same, leavesPage(page, same)]).toEqual([same, false])
-  }
-  for (const other of [
-    "/workflows/projects/b/x",
-    "/workflows/global/x",
-    "/prompts/projects/a/x",
-    "/workflows/projects/a/y",
-    "/workflows?",
-    "/",
-    "/a/changes",
-  ]) {
-    expect([other, leavesPage(page, other)]).toEqual([other, true])
-  }
-  expect(leavesPage({ kind: "prompts", project: null, name: "x" }, "/prompts/global/x/preview")).toBe(false)
-  expect(filePageOf("/prompts/global/x/history")).toEqual({ kind: "prompts", project: null, name: "x" })
-  expect(filePageOf("/prompts")).toBeNull()
-})
 
 test("times show as YYYY-MM-DD HH:MM:SS in the local time zone", () => {
   expect(localTime(new Date(2026, 10, 12, 9, 41, 7).toISOString())).toBe("2026-11-12 09:41:07")

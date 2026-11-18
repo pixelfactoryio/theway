@@ -31,17 +31,14 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { version } from "@/data/api"
+import { useChangeLists, useLabel, useProjects, usePrompts, useSettings, useWorkflows } from "@/data/queries"
 import type { ChangeList } from "@/lib/changes"
-import { projectPath } from "@/lib/projects"
+import { isAt, routeKeyOf, routeOf, to } from "@/lib/routes"
 import { countOf, type Entry, inProgressCount, pinnedEntries, recentEntries, toDo } from "@/lib/workspace"
-import { version } from "@/shell/api"
-import { useChangesOf } from "@/shell/changes"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { MAC } from "@/shell/platform"
 import { useSearchOpen } from "@/shell/search"
-import { useSettings } from "@/shell/settings"
 import { readStored, writeStored } from "@/shell/storage"
 import { SettingsMenu } from "@/shell/theme"
 
@@ -84,13 +81,10 @@ function Row({
   )
 }
 
-/** Whether the address shows `path` (its search part ignored), or one of its sub-views. */
-function useShows(): (path: string) => boolean {
+/** Whether the address shows `href` (its search part ignored), or one of its sub-views. */
+function useShows(): (href: string) => boolean {
   const [location] = useLocation()
-  return (path) => {
-    const bare = path.replace(/\?.*$/, "")
-    return location === bare || location.startsWith(`${bare}/`)
-  }
+  return (href) => isAt(location, href)
 }
 
 /** Now and Search: Now counts the changes in progress across every project. */
@@ -100,7 +94,11 @@ function Entries({ inProgress }: { inProgress: number | null }) {
   return (
     <SidebarMenu className="gap-0.5">
       <SidebarMenuItem>
-        <SidebarMenuButton render={<Link href="/?" />} isActive={location === "/"} className="h-8">
+        <SidebarMenuButton
+          render={<Link href={to.now()} />}
+          isActive={routeOf(location).name === "now"}
+          className="h-8"
+        >
           <Clock3Icon aria-hidden="true" className="text-muted-foreground" />
           <span>Now</span>
           <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">{inProgress ?? ""}</span>
@@ -200,7 +198,7 @@ function Place({
         <SidebarMenuSub className="mr-0 pr-0">
           {entry.keys.map((k) => (
             <SidebarMenuSubItem key={k} data-nav-item="">
-              <SidebarMenuSubButton render={<Link href={projectPath(k)} />} isActive={k === activeKey} title={label(k)}>
+              <SidebarMenuSubButton render={<Link href={to.project(k)} />} isActive={k === activeKey} title={label(k)}>
                 <span className="min-w-0 flex-1 truncate">{label(k)}</span>
                 <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                   {open([k]) ?? ""}
@@ -225,7 +223,8 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
   const recent = recentEntries(list, settings)
   const label = useLabel()
   // The repo the page shows: its own page, or one of its changes.
-  const activeKey = list.find((p) => location === `/${p.key}` || location.startsWith(`/${p.key}/`))?.key ?? null
+  const routeKey = routeKeyOf(location)
+  const activeKey = list.some((p) => p.key === routeKey) ? routeKey : null
   const active = (e: Entry) => shows(e.href)
   return (
     <>
@@ -259,7 +258,11 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
       <SidebarGroup className="py-1">
         <SidebarMenu className="gap-0.5">
           <SidebarMenuItem data-nav-item="">
-            <SidebarMenuButton render={<Link href="/projects?" />} isActive={location === "/projects"} className="h-8">
+            <SidebarMenuButton
+              render={<Link href={to.projects()} />}
+              isActive={routeOf(location).name === "projects"}
+              className="h-8"
+            >
               <LayoutGridIcon aria-hidden="true" className="text-muted-foreground" />
               <span>All projects</span>
               <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
@@ -287,8 +290,20 @@ function Library() {
   const prompts = usePrompts().data?.prompts
   const [location] = useLocation()
   const rows = [
-    { label: "Workflows", href: "/workflows?", Icon: WorkflowIcon, list: workflows, active: location === "/workflows" },
-    { label: "Prompts", href: "/prompts?", Icon: FileTextIcon, list: prompts, active: location === "/prompts" },
+    {
+      label: "Workflows",
+      href: to.workflows(),
+      Icon: WorkflowIcon,
+      list: workflows,
+      active: routeOf(location).name === "workflows",
+    },
+    {
+      label: "Prompts",
+      href: to.prompts(),
+      Icon: FileTextIcon,
+      list: prompts,
+      active: routeOf(location).name === "prompts",
+    },
   ]
   return (
     <SidebarGroup className="py-1">
@@ -326,14 +341,8 @@ function Library() {
 export function AppSidebar() {
   const shown = version()
   const keys = useProjects().data?.projects.map((p) => p.key) ?? []
-  const results = useChangesOf(keys)
-  const lists = new Map<string, ChangeList>()
-  results.forEach((r, i) => {
-    if (r.data !== undefined) lists.set(keys[i] as string, r.data)
-  })
-  const inProgress = results.every((r) => r.data !== undefined)
-    ? [...lists.values()].reduce((n, l) => n + inProgressCount(l), 0)
-    : null
+  const { lists, complete } = useChangeLists(keys)
+  const inProgress = complete ? [...lists.values()].reduce((n, l) => n + inProgressCount(l), 0) : null
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1 p-2 pt-0">

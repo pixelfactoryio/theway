@@ -8,6 +8,7 @@ import { MarkdownView } from "@/components/markdown"
 import { TaskText } from "@/components/text"
 import { splitTask } from "@/lib/change-edit"
 import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
+import { to } from "@/lib/routes"
 
 /** The tasks of an archived change, read-only, each its lead then its detail. */
 function Tasks({ change }: { change: ChangeDetail }) {
@@ -49,7 +50,6 @@ function Tasks({ change }: { change: ChangeDetail }) {
 
 /** The page of an archived change, read-only: its files as tabs, the file in the centre, its panel at the right. */
 export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; data: ChangeDetail; tab?: string }) {
-  const base = `/${projectKey}/changes/archive/${data.ref}`
   // The panel lists the tasks, so the centre shows only the Markdown files; with none, the tasks move to the centre.
   const markdown = data.files.length > 0
   const tabs = changeTabs(data.files).filter((t) => !markdown || t.file !== null)
@@ -64,7 +64,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
       tabs={tabs.map((t) => ({
         value: t.slug,
         label: t.file ?? t.label,
-        href: `${base}/${encodeURIComponent(t.slug)}?`,
+        href: to.archived(projectKey, data.ref ?? "", t.slug),
         Icon: t.file === null ? ListChecksIcon : FileTextIcon,
       }))}
       panelName="Change"

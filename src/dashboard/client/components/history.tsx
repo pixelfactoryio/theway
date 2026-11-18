@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query"
 import { useState, type ReactNode } from "react"
 
 import { type CodeLanguage, CodeView, DiffView } from "@/components/code-view"
@@ -28,10 +27,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
-import { fileApi, VersionListSchema, VersionTextSchema } from "@/lib/files"
 import { LoadError } from "@/shell/load-error"
-import { getJson } from "@/shell/projects"
 import { readStored, writeStored } from "@/shell/storage"
 
 type Layout = "unified" | "split"
@@ -65,12 +63,8 @@ export function useHistoryTab({
   language: CodeLanguage
   active: boolean
 }): { panel: ReactNode; main: ReactNode } {
-  const api = fileApi(kind, project, name)
-  const versions = useQuery({
-    queryKey: ["history", api],
-    queryFn: () => getJson(`${api}/history`, VersionListSchema),
-    enabled: active,
-  })
+  const path = apiPath.file(kind, project, name)
+  const versions = useHistory(path, active)
   const [chosen, setChosen] = useState<string | null>(null)
   const [show, setShow] = useState(true)
   const [layout, setLayout] = useState<Layout>(readLayout)
@@ -81,12 +75,7 @@ export function useHistoryTab({
   const selected =
     chosen !== null && (chosen === CURRENT || list.some((v) => v.id === chosen)) ? chosen : (list[0]?.id ?? CURRENT)
   const version = list.find((v) => v.id === selected) ?? null
-  const text = useQuery({
-    queryKey: ["version", api, selected],
-    queryFn: () => getJson(`${api}/history/${selected}`, VersionTextSchema),
-    enabled: active && version !== null,
-    staleTime: Infinity,
-  })
+  const text = useVersion(path, version === null ? null : version.id, active)
   const saved = draft.loaded?.text ?? ""
   const isCurrent = version === null
   const time = version === null ? null : localTime(version.at)

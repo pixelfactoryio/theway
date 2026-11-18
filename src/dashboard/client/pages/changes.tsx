@@ -1,11 +1,11 @@
 import type { ReactNode } from "react"
 import { Redirect, useRoute } from "wouter"
 
-import { projectPath } from "@/lib/projects"
+import { useProjects } from "@/data/queries"
+import { CHANGE_ROUTES, decoded, to } from "@/lib/routes"
 import { ChangePage } from "@/pages/change"
 import { NoProjectPage } from "@/pages/section"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /**
@@ -50,7 +50,7 @@ function useListedGate(routeKey: string, label: string): ReactNode {
 
   if (projects.data === undefined) return <ProjectsGate label={label} />
   if (projects.data.projects.length === 0) return <NoProjectPage />
-  if (!listed) return <Redirect to="/?" replace />
+  if (!listed) return <Redirect to={to.now()} replace />
   return null
 }
 
@@ -60,10 +60,16 @@ function useListedGate(routeKey: string, label: string): ReactNode {
  */
 export function ChangesRoute({ routeKey }: { routeKey: string }) {
   const gate = useListedGate(routeKey, "Changes")
-  const [archived, a] = useRoute<{ dir: string; tab?: string }>("/:key/changes/archive/:dir/:tab?")
-  const [active, c] = useRoute<{ id: string; tab?: string }>("/:key/changes/:id/:tab?")
+  const [archived, a] = useRoute(CHANGE_ROUTES.archived)
+  const [active, c] = useRoute(CHANGE_ROUTES.change)
   if (gate !== null) return gate
-  if (archived) return <ChangePage key={`${routeKey}/archive/${a.dir}`} projectKey={routeKey} dir={a.dir} tab={a.tab} />
-  if (active) return <ChangePage key={`${routeKey}/${c.id}`} projectKey={routeKey} id={c.id} tab={c.tab} />
-  return <Redirect to={projectPath(routeKey)} replace />
+  if (archived) {
+    const { dir = "", tab } = decoded(a)
+    return <ChangePage key={`${routeKey}/archive/${dir}`} projectKey={routeKey} dir={dir} tab={tab} />
+  }
+  if (active) {
+    const { id = "", tab } = decoded(c)
+    return <ChangePage key={`${routeKey}/${id}`} projectKey={routeKey} id={id} tab={tab} />
+  }
+  return <Redirect to={to.project(routeKey)} replace />
 }

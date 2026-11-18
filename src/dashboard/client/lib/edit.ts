@@ -1,31 +1,7 @@
-/** Editing a workflow or prompt file: the page an address is on, the times shown, and a new file's text. Pure: no React, no DOM. */
+/** Editing a workflow or prompt file: the times shown, and a new file's text. Pure: no React, no DOM. */
 import { stringify } from "yaml"
 import { VERSION } from "../../../core/language-schema"
 import { errorCount } from "./files"
-
-/** The file a file page shows: its kind, its project (`null`: global) and its name. */
-type FilePageId = { kind: "workflows" | "prompts"; project: string | null; name: string }
-
-/** A file page's address path: `/<kind>/global/<name>[/<tab>]` or `/<kind>/projects/<key>/<name>[/<tab>]`. */
-const FILE_PAGE = /^\/(workflows|prompts)\/(?:global\/([^/?]+)|projects\/([^/?]+)\/([^/?]+))(?:\/[^/?]*)?\/?$/
-
-/** The file page of an address path (the part before any `?`), `null` for any other page. */
-export function filePageOf(path: string): FilePageId | null {
-  const m = FILE_PAGE.exec(path.split("?")[0] as string)
-  if (m === null) return null
-  if (m[2] !== undefined) return { kind: m[1] as FilePageId["kind"], project: null, name: m[2] }
-  return { kind: m[1] as FilePageId["kind"], project: m[3] as string, name: m[4] as string }
-}
-
-/**
- * Whether going to `target` (an address path, with or without its search part) leaves the page of `page`: its kind,
- * its `global` or `projects/<key>` part, or its name differs. Another tab of the same file, or another search part,
- * does not leave.
- */
-export function leavesPage(page: FilePageId, target: string): boolean {
-  const to = filePageOf(target)
-  return to === null || to.kind !== page.kind || to.project !== page.project || to.name !== page.name
-}
 
 const pad = (n: number, width = 2): string => String(n).padStart(width, "0")
 

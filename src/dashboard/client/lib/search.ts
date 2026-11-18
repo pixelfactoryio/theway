@@ -1,8 +1,9 @@
 /** The entries of the ⌘K search, grouped as the dialog lists them. Pure: no React, no DOM. */
 
 import type { ChangeList } from "./changes"
-import { appliesTo, filePath, type PromptRow, type WorkflowRow } from "./files"
-import { archivePath, byLabel, changePath, projectPath, type Project } from "./projects"
+import { appliesTo, type PromptRow, type WorkflowRow } from "./files"
+import { byLabel, type Project } from "./projects"
+import { to } from "./routes"
 
 /** One entry: its cmdk `value` (unique), the text shown, the text beside it, and the page it opens. */
 export type SearchEntry = { value: string; label: string; detail: string; href: string }
@@ -32,7 +33,7 @@ function fileEntry(
     value: `${kind === "workflows" ? "workflow" : "prompt"}:${row.project ?? "global"}/${row.name}`,
     label: row.name,
     detail: appliesTo(row.project, label),
-    href: `${filePath(kind, row.project, row.name)}?`,
+    href: to.file(kind, row.project, row.name),
   }
 }
 
@@ -46,7 +47,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         value: `change:${key}/${c.id}`,
         label: c.id,
         detail: [c.description ?? "", label(key)].filter((s) => s !== "").join(" · "),
-        href: changePath(key, c.id),
+        href: to.change(key, c.id),
       })),
     ),
     ...input.changes.flatMap(({ key, list }) =>
@@ -54,7 +55,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         value: `archived:${key}/${a.dir}`,
         label: a.id,
         detail: `${label(key)} · archived ${a.date}`,
-        href: archivePath(key, a.dir),
+        href: to.archived(key, a.dir),
       })),
     ),
   ]
@@ -68,7 +69,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         value: `project:${p.key}`,
         label: p.label,
         detail: `${p.active} active`,
-        href: projectPath(p.key),
+        href: to.project(p.key),
       })),
     },
   ]

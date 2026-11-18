@@ -4,6 +4,7 @@ import { useLocation } from "wouter"
 import { NewFileDialog } from "@/components/new-file"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { to } from "@/lib/routes"
 import { MOD } from "@/shell/platform"
 
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
@@ -80,10 +81,11 @@ export function useGlobalKeys(): void {
       }
       if (Date.now() - pendingG.current < 1000) {
         pendingG.current = 0
-        const to = { n: "/?", a: "/projects?", w: "/workflows?", p: "/prompts?" }[key] ?? null
-        if (to !== null) {
+        const go: Partial<Record<string, () => string>> = { n: to.now, a: to.projects, w: to.workflows, p: to.prompts }
+        const target = go[key]?.() ?? null
+        if (target !== null) {
           event.preventDefault()
-          navigate(to)
+          navigate(target)
         }
         return
       }

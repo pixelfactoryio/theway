@@ -32,7 +32,9 @@ import { toneTile } from "@/components/workflow-card"
 import { applyEdit, type HistoryMode, type Write } from "@/components/workflow-fields"
 import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepEditPanel } from "@/components/workflow-step-panel"
-import { appliesTo, filePath, type PromptRow } from "@/lib/files"
+import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
+import { appliesTo, type PromptRow } from "@/lib/files"
+import { to } from "@/lib/routes"
 import {
   type Drawing,
   drawWorkflow,
@@ -46,9 +48,7 @@ import {
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { UNKNOWN_FILE } from "@/pages/prompt"
-import { useFile, useLabel, usePrompts } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** A shown value: a prompt reference as a link to its page, or YAML source text in the code font. */
@@ -66,10 +66,7 @@ function ShownValue({
   const row = findPrompt(prompts, project, shown.prompt)
   if (row === null) return <span className="text-sm">{text}</span>
   return (
-    <Link
-      href={`${filePath("prompts", row.project, row.name)}?`}
-      className="text-sm underline-offset-4 hover:underline"
-    >
+    <Link href={to.file("prompts", row.project, row.name)} className="text-sm underline-offset-4 hover:underline">
       {text}
     </Link>
   )
@@ -244,7 +241,6 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const code = useRef<CodeViewHandle>(null)
   const yamlTab = tab === "yaml"
   const history = tab === "history"
-  const base = filePath("workflows", project, name)
   const historyTab = useHistoryTab({ draft, kind: "workflows", project, name, language: "yaml", active: history })
   useSaveKey(() => {
     if (draft.dirty) void draft.save(false)
@@ -337,7 +333,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <>
         <TopBar title={name} />
         <PageBody>
-          <UnknownFile noun="workflow" name={name} back="Back to Workflows" href="/workflows?" />
+          <UnknownFile noun="workflow" name={name} back="Back to Workflows" href={to.workflows()} />
         </PageBody>
       </>
     )
@@ -504,12 +500,23 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           {
             value: "editor",
             label: "Editor",
-            href: `${base}?`,
+            href: to.file("workflows", project, name),
             Icon: WorkflowIcon,
             dirty: draft.dirty && !yamlTab && !history,
           },
-          { value: "yaml", label: "YAML", href: `${base}/yaml?`, Icon: CodeIcon, dirty: draft.dirty && yamlTab },
-          { value: "history", label: "History", href: `${base}/history?`, Icon: HistoryIcon },
+          {
+            value: "yaml",
+            label: "YAML",
+            href: to.file("workflows", project, name, "yaml"),
+            Icon: CodeIcon,
+            dirty: draft.dirty && yamlTab,
+          },
+          {
+            value: "history",
+            label: "History",
+            href: to.file("workflows", project, name, "history"),
+            Icon: HistoryIcon,
+          },
         ]}
         panelName={
           history
@@ -581,7 +588,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             <EditableCodeView ref={code} draft={draft.store} errors={errors} />
           </div>
         ) : "reason" in drawn ? (
-          <CannotDraw reason={drawn.reason} openYaml={() => navigate(`${base}/yaml?`)} />
+          <CannotDraw reason={drawn.reason} openYaml={() => navigate(to.file("workflows", project, name, "yaml"))} />
         ) : (
           <WorkflowCanvas
             key={`${project ?? "global"}/${name}`}

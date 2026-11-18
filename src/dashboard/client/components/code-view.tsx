@@ -17,9 +17,9 @@ import {
 import { tags } from "@lezer/highlight"
 import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref } from "react"
 
+import { meta } from "@/data/api"
 import { CODE_TAG_STYLES } from "@/lib/code-languages"
 import { type FileError, lineSeparatorOf } from "@/lib/files"
-import { meta } from "@/shell/api"
 
 /** The language of a code view: a workflow's YAML, a prompt (a YAML header over Markdown), or Markdown. */
 export type CodeLanguage = "yaml" | "prompt" | "markdown"

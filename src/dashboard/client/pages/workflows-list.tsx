@@ -10,12 +10,12 @@ import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { StatusMark } from "@/components/status"
+import { useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
 import {
   appliesTo,
   byFile,
   compareText,
   fileMatches,
-  filePath,
   fileValue,
   GLOBAL,
   type PromptRow,
@@ -27,13 +27,12 @@ import {
   workflowValues,
 } from "@/lib/files"
 import { type FieldRule, fieldValues, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
+import { to } from "@/lib/routes"
 import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
 import { Dash } from "@/components/file-page"
 import { NewFileButton } from "@/components/new-file"
 import { NameCell, NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/pages/files-table"
-import { useLabel, usePrompts, useWorkflows } from "@/shell/files"
 import { LoadError } from "@/shell/load-error"
-import { useProjects } from "@/shell/projects"
 import { PageBody, TopBar } from "@/shell/top-bar"
 
 /** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
@@ -116,7 +115,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
         header: ({ column }) => <DataGridColumnHeader title="Workflow" column={column} />,
         cell: ({ row }) => (
           <NameCell
-            href={`${filePath("workflows", row.original.project, row.original.name)}?`}
+            href={to.file("workflows", row.original.project, row.original.name)}
             name={row.original.name}
             description={row.original.description}
             isDefault={row.original.default}
@@ -194,7 +193,7 @@ function WorkflowsGrid({ rows, isLoading }: { rows: WorkflowRow[]; isLoading: bo
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
-      onRowClick={(row) => navigate(`${filePath("workflows", row.project, row.name)}?`)}
+      onRowClick={(row) => navigate(to.file("workflows", row.project, row.name))}
     >
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>

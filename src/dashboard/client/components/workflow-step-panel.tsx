@@ -38,7 +38,8 @@ import {
   RUNS_ON_OPTIONS,
   type Write,
 } from "@/components/workflow-fields"
-import { filePath, type PromptRow } from "@/lib/files"
+import { type PromptRow } from "@/lib/files"
+import { to } from "@/lib/routes"
 import { stepPromptNames } from "@/lib/step-prompts"
 import { findPrompt } from "@/lib/workflow"
 import {
@@ -108,10 +109,7 @@ function WithFields({
 function UsesValue({ uses, prompt }: { uses: string | null; prompt: PromptRow | null }) {
   if (prompt === null) return <span className="min-h-5 font-mono text-sm break-all">{uses ?? ""}</span>
   return (
-    <Link
-      href={`${filePath("prompts", prompt.project, prompt.name)}?`}
-      className="text-sm underline-offset-4 hover:underline"
-    >
+    <Link href={to.file("prompts", prompt.project, prompt.name)} className="text-sm underline-offset-4 hover:underline">
       prompts/{prompt.name}.md
     </Link>
   )

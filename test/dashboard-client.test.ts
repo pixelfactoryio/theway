@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join, relative, sep } from "node:path"
-import { byLabel, currentKey, projectPath, type Project } from "../src/dashboard/client/lib/projects"
+import { byLabel, currentKey, type Project } from "../src/dashboard/client/lib/projects"
 import {
   locationAction,
   type Moving,
@@ -192,7 +192,6 @@ test("the current project is the route's, else start, else the first by label", 
   expect(currentKey({ ...list, start: null }, null)).toBe("-s")
   expect(currentKey({ projects: [p("-t", "Tower"), p("-w", "theway")], start: null }, null)).toBe("-w")
   expect(currentKey({ projects: [], start: null }, "-x")).toBeNull()
-  expect(projectPath("-w")).toBe("/-w?")
 })
 
 test("the theme is light or dark when stored, else System with no data-theme", () => {
@@ -317,7 +316,7 @@ test("the code view holds its own extension set, read-only through EditorState.r
   expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/)
   expect(text).toContain("EditorState.readOnly.of(true)")
   expect(text).toContain('EditorView.cspNonce.of(meta("nonce"))')
-  expect(readFileSync(join(CLIENT, "shell", "api.ts"), "utf-8")).toContain('`meta[name="theway-${name}"]`')
+  expect(readFileSync(join(CLIENT, "data", "api.ts"), "utf-8")).toContain('`meta[name="theway-${name}"]`')
 })
 
 test("the five syntax colours are defined light and dark", () => {

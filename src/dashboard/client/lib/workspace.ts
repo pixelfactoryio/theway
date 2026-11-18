@@ -2,7 +2,8 @@
 import type { ChangeList, DashboardSettings, Project } from "../../contract"
 import { activeRows, rowStatus } from "./changes"
 import { NONE } from "./list-filter"
-import { byLabel, projectPath } from "./projects"
+import { byLabel } from "./projects"
+import { to } from "./routes"
 
 /** An entry of the sidebar or of All projects: a project, or a group of projects made by hand. */
 export type Entry = {
@@ -24,7 +25,7 @@ export function entryOf(id: string, projects: readonly Project[], settings: Dash
     const key = id.slice("project:".length)
     const p = projects.find((x) => x.key === key)
     if (p === undefined) return null
-    return { id, kind: "project", label: p.label, keys: [key], open: p.active, href: projectPath(key) }
+    return { id, kind: "project", label: p.label, keys: [key], open: p.active, href: to.project(key) }
   }
   if (id.startsWith("group:")) {
     const gid = id.slice("group:".length)
@@ -32,7 +33,7 @@ export function entryOf(id: string, projects: readonly Project[], settings: Dash
     if (g === undefined) return null
     const keys = g.projects.filter((k) => projects.some((p) => p.key === k))
     const open = keys.reduce((n, k) => n + (projects.find((p) => p.key === k)?.active ?? 0), 0)
-    return { id, kind: "group", label: g.name, keys, open, href: `/group/${encodeURIComponent(gid)}?` }
+    return { id, kind: "group", label: g.name, keys, open, href: to.group(gid) }
   }
   return null
 }

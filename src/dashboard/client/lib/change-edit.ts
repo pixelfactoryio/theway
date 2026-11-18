@@ -1,19 +1,4 @@
-/** Editing a change on its page: the page an address is on, row ids, Markdown checkboxes and formatting. Pure: no React, no DOM. */
-
-/** The active change a page shows: its project key and its ID. */
-type ChangePageId = { key: string; id: string }
-
-/**
- * Whether going to `target` (an address path, with or without its search part) leaves the page of the change `page`:
- * another project, another change or another kind of page. Another tab of the same change, or another search part,
- * does not leave.
- */
-export function leavesChange(page: ChangePageId, target: string): boolean {
-  const path = (target.replace(/^#/, "").split("?")[0] as string).replace(/\/$/, "")
-  const parts = path.split("/")
-  if (parts.length < 4 || parts.length > 5 || parts[0] !== "") return true
-  return parts[1] !== page.key || parts[2] !== "changes" || parts[3] !== page.id
-}
+/** Editing a change on its page: row ids, Markdown checkboxes and formatting. Pure: no React, no DOM. */
 
 /** The ids of `count` rows after a change of the draft that is not a list action: the first min(old, new) kept by position. */
 export function keptIds(old: readonly string[], count: number, make: () => string): string[] {
