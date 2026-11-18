@@ -25,6 +25,7 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { Input } from "@/components/ui/input"
 import { HeadLink, HeadToggle, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
+import { useBelowSm } from "@/hooks/use-below-sm"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import {
@@ -105,6 +106,10 @@ type Naming = { kind: "new"; keys: string[] } | { kind: "rename"; id: string; na
 const RIGHT = "text-right [&>div]:justify-end"
 const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
 
+/** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
+const NAME = { wide: 240, narrow: 160 } as const
+const NO_COUNTS = { inProgress: false, toDo: false, lastArchived: false } as const
+
 /** The expanded state `next` (or its updater) asks, from `current`, as a list of open rows. */
 const nextExpanded = (next: Updater<ExpandedState>, current: Record<string, boolean>): ExpandedState =>
   typeof next === "function" ? next(current) : next
@@ -124,6 +129,7 @@ export function ProjectsPage() {
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
   const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const narrow = useBelowSm()
   const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
   const [error, setError] = useState<string | null>(null)
@@ -270,7 +276,8 @@ export function ProjectsPage() {
           </HeadLink>
         )
       },
-      size: 240,
+      size: narrow ? NAME.narrow : NAME.wide,
+      ...(narrow ? { minSize: NAME.narrow } : {}),
       enableSorting: false,
       meta: { fillWidth: true, cellClassName: "relative" },
     },
@@ -403,6 +410,7 @@ export function ProjectsPage() {
                 onColumnSizingChange={setSizing}
                 expanded={expanded}
                 onExpandedChange={onExpandedChange}
+                columnVisibility={narrow ? NO_COUNTS : undefined}
                 onRowClick={(row) => {
                   const key = row.original.key
                   if (key === null) row.toggleExpanded()

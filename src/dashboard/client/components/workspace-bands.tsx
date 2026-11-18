@@ -1,6 +1,6 @@
 import type { ColumnDef, ColumnSizingState, OnChangeFn } from "@tanstack/react-table"
 import { CircleDotIcon, FolderIcon } from "lucide-react"
-import { type ReactNode, useMemo, useSyncExternalStore } from "react"
+import { type ReactNode, useMemo } from "react"
 import { Link, useLocation } from "wouter"
 
 import type { BandGridProps } from "@/components/band-grid"
@@ -11,6 +11,7 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { StatusMark } from "@/components/status"
 import { GROUP_TITLE, type Group, HeadLink, HeadToggle, NoProgress, RowHead, useNow } from "@/components/workspace-rows"
 import { useLabel } from "@/data/queries"
+import { useBelowSm } from "@/hooks/use-below-sm"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ageOf, rowStatus, type Status } from "@/lib/changes"
 import { monthGroup } from "@/lib/collapse"
@@ -30,21 +31,6 @@ const subRowsOf = (r: ChangeGridRow): ChangeGridRow[] | undefined => (isArchived
 /** A row's 96px progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
 const TRACK = "hidden sm:flex"
 const LABEL = "w-14 shrink-0 text-right"
-
-/** Below Tailwind's `sm` (640px): a phone, where the progress shows its count only. */
-const BELOW_SM = "(width < 40rem)"
-
-/** Whether the screen is below `sm`, following it as it changes. */
-function useBelowSm(): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const query = window.matchMedia(BELOW_SM)
-      query.addEventListener("change", onChange)
-      return () => query.removeEventListener("change", onChange)
-    },
-    () => window.matchMedia(BELOW_SM).matches,
-  )
-}
 
 /**
  * The change and progress columns' widths: the progress holds `ChangeProgress` whole (96px bar, 8px gap, 56px count)
