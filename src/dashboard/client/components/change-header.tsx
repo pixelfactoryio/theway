@@ -1,10 +1,11 @@
 import { cn } from "cn"
 import { CircleAlertIcon } from "lucide-react"
 
-import { type OpenField, TextField } from "@/components/change-fields"
+import { TextField } from "@/components/change-fields"
 import { DOC_COLUMN, PROSE_COLUMN } from "@/components/doc-frame"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import type { ChangeDetail } from "@/lib/changes"
+import type { OpenField } from "@/lib/task-fields"
 
 /** The issues of a change that cannot be read, in a destructive alert. */
 export function IssuesAlert({ issues, className }: { issues: string[]; className?: string }) {
