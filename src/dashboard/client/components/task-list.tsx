@@ -8,7 +8,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react"
-import { useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 
 import { TextField } from "@/components/change-fields"
 import { ReorderMenu } from "@/components/reorder-menu"
@@ -36,6 +36,62 @@ export type TaskListActions = {
 }
 
 const LAST_TASK = "A change keeps at least one task."
+
+/**
+ * A task's text: its number line (`Next` after it on the first task not done), then its lead and its detail (cut at
+ * three lines while `clamped`). With `onEdit`, a click on the text edits it; `field`, when given, takes the text's place.
+ */
+function TaskBody({
+  n,
+  next,
+  lead,
+  detail,
+  done,
+  clamped,
+  onEdit,
+  field,
+}: {
+  n: number
+  next: boolean
+  lead: string
+  detail: string
+  done: boolean
+  clamped: boolean
+  onEdit?: () => void
+  field?: ReactNode
+}) {
+  const text = (
+    <>
+      <div className={cn("text-md font-medium", done ? "text-muted-foreground" : "text-foreground")}>
+        <TaskText text={lead} />
+      </div>
+      {detail !== "" ? (
+        <div
+          className={cn("mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}
+        >
+          <TaskText text={detail} />
+        </div>
+      ) : null}
+    </>
+  )
+  return (
+    <>
+      <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
+        <span>{n}</span>
+        {next ? <span className="font-medium text-warning">Next</span> : null}
+      </div>
+      {field !== undefined ? (
+        field
+      ) : onEdit !== undefined ? (
+        <div onClick={onEdit} className="-mx-1 cursor-text rounded-sm px-1 transition-colors hover:bg-accent/40">
+          {text}
+        </div>
+      ) : (
+        text
+      )}
+    </>
+  )
+}
 
 /** One task: a focusable row with its handle, checkbox, number, text (or its field) and menu. */
 function Row({
@@ -116,42 +172,33 @@ function Row({
         />
       </span>
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
-          <span>{n}</span>
-          {next ? <span className="font-medium text-warning">Next</span> : null}
-        </div>
-        {editing !== null ? (
-          <TextField
-            multiline
-            label={`Task ${n}`}
-            value={editing.value}
-            error={editing.error}
-            onChange={(value) => actions.change({ ...editing, value, error: null })}
-            onApply={() => {
-              if (actions.apply()) focusRow(row.id)
-            }}
-            onCancel={() => {
-              actions.cancel()
-              focusRow(row.id)
-            }}
-          />
-        ) : (
-          <div onClick={edit} className={cn("-mx-1 cursor-text rounded-sm px-1 transition-colors hover:bg-accent/40")}>
-            <div className={cn("text-md font-medium", row.done ? "text-muted-foreground" : "text-foreground")}>
-              <TaskText text={lead} />
-            </div>
-            {detail !== "" ? (
-              <div
-                className={cn(
-                  "mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground",
-                  clamped && "line-clamp-3",
-                )}
-              >
-                <TaskText text={detail} />
-              </div>
-            ) : null}
-          </div>
-        )}
+        <TaskBody
+          n={n}
+          next={next}
+          lead={lead}
+          detail={detail}
+          done={row.done}
+          clamped={clamped}
+          onEdit={edit}
+          field={
+            editing !== null ? (
+              <TextField
+                multiline
+                label={`Task ${n}`}
+                value={editing.value}
+                error={editing.error}
+                onChange={(value) => actions.change({ ...editing, value, error: null })}
+                onApply={() => {
+                  if (actions.apply()) focusRow(row.id)
+                }}
+                onCancel={() => {
+                  actions.cancel()
+                  focusRow(row.id)
+                }}
+              />
+            ) : undefined
+          }
+        />
         {editing === null && detail.length > 220 && !next ? (
           <button
             type="button"
@@ -211,26 +258,56 @@ function Row({
   )
 }
 
-/**
- * The task list of an active change, a view of the `change.yaml` draft: one row per task, rows reordered by dragging
- * their handle, from their menu or with Alt and the arrows, then the add row. `focus` names the row to focus next: an
- * id, or `#<index>` for the row at that position.
- */
-export function TaskList({
-  rows,
-  field,
-  actions,
-  focus,
-  onFocused,
-  focusRow,
-}: {
+/** What an active change's list takes. */
+type EditableProps = {
+  readOnly?: false
   rows: readonly TaskRow[]
   field: OpenField | null
   actions: TaskListActions
   focus: string | null
   onFocused: () => void
   focusRow: (target: string) => void
-}) {
+}
+
+/** What an archived change's list takes: its tasks alone. */
+type ReadOnlyProps = { readOnly: true; rows: readonly { text: string; done: boolean }[] }
+
+/**
+ * A change's task list. Editable (an active change's): see `EditableList`. `readOnly` (an archived change's): every
+ * task in order, each its disabled checkbox, its number, its lead and its whole detail; nothing to click.
+ */
+export function TaskList(props: EditableProps | ReadOnlyProps) {
+  return props.readOnly === true ? <ReadOnlyList rows={props.rows} /> : <EditableList {...props} />
+}
+
+/** The read-only list: an ordered list of the tasks, no fold, no handle, no menu, no add row. */
+function ReadOnlyList({ rows }: { rows: ReadOnlyProps["rows"] }) {
+  return (
+    <ol aria-label="Tasks" className="flex flex-col">
+      {rows.map((row, i) => {
+        const n = i + 1
+        const { lead, detail } = splitTask(row.text)
+        return (
+          <li key={String(i)} className="flex items-start gap-3 border-t px-3 py-4">
+            <span className="mt-5 flex h-(--text-md--line-height) shrink-0 items-center">
+              <Checkbox checked={row.done} disabled aria-label={`Task ${n} done`} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <TaskBody n={n} next={false} lead={lead} detail={detail} done={row.done} clamped={false} />
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/**
+ * The task list of an active change, a view of the `change.yaml` draft: one row per task, rows reordered by dragging
+ * their handle, from their menu or with Alt and the arrows, then the add row. `focus` names the row to focus next: an
+ * id, or `#<index>` for the row at that position.
+ */
+function EditableList({ rows, field, actions, focus, onFocused, focusRow }: EditableProps) {
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focus === null || list.current === null) return

@@ -1,5 +1,4 @@
-import { cn } from "cn"
-import { CheckIcon, FileTextIcon, ListChecksIcon } from "lucide-react"
+import { FileTextIcon, ListChecksIcon } from "lucide-react"
 
 import { ChangeTitle, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
@@ -7,47 +6,14 @@ import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { LinesAlert } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown"
-import { TaskText } from "@/components/text"
-import { splitTask } from "@/lib/change-edit"
+import { TaskList } from "@/components/task-list"
 import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
 import { to } from "@/lib/routes"
 
-/** The tasks of an archived change, read-only, each its lead then its detail. */
+/** The tasks of an archived change, read-only; the reasons it cannot be read instead when it has any. */
 function Tasks({ change }: { change: ChangeDetail }) {
   if (change.issues.length > 0) return <LinesAlert lines={change.issues} title={UNREADABLE} className="m-3" />
-  return (
-    <ol className="flex flex-col">
-      {change.tasks.map((task, i) => {
-        const { lead, detail } = splitTask(task.text)
-        return (
-          <li key={i} className="flex items-start gap-3 border-t px-3 py-4">
-            <span aria-hidden="true" className="mt-5 flex h-(--text-md--line-height) shrink-0 items-center">
-              <span
-                className={cn(
-                  "flex size-4 items-center justify-center rounded-sm border border-muted-foreground",
-                  task.done && "border-foreground bg-foreground text-background",
-                )}
-              >
-                {task.done ? <CheckIcon className="size-3.5" /> : null}
-              </span>
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 font-mono text-xs leading-4 text-muted-foreground">{i + 1}</div>
-              <span className="sr-only">{task.done ? "Done: " : "To do: "}</span>
-              <div className={cn("text-md font-medium", task.done && "text-muted-foreground")}>
-                <TaskText text={lead} />
-              </div>
-              {detail !== "" ? (
-                <div className="mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground">
-                  <TaskText text={detail} />
-                </div>
-              ) : null}
-            </div>
-          </li>
-        )
-      })}
-    </ol>
-  )
+  return <TaskList readOnly rows={change.tasks} />
 }
 
 /** The page of an archived change, read-only: its files as tabs, the file in the centre, its panel at the right. */
