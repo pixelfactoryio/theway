@@ -29,7 +29,7 @@ export function NoProgress() {
   )
 }
 
-/** A row head's link or toggle in its grid cell: the cell's width; its focus shows on its whole row. */
+/** A row head's link or toggle in its grid cell: the cell's width; its focus shows on its whole row (`BandGrid`). */
 const HEAD = "flex w-full min-w-0 text-left outline-none"
 
 /** A member's head: the guide line of its opened row, under that row's chevron (its cell is `relative`). */
@@ -37,13 +37,16 @@ const GUIDE = "before:absolute before:inset-y-0 before:left-8 before:w-px before
 
 /**
  * A row head that opens a page: a link carrying `data-nav-item`, which keeps its click from the row's own. A member's
- * draws the guide line it hangs on.
+ * draws the guide line it hangs on. The click stops on a wrapper that adds no box, not in the link's `onClick`: wouter
+ * skips that `onClick` on a modifier click (a new tab), which would then reach the row and navigate this tab too.
  */
 export function HeadLink({ href, member = false, children }: { href: string; member?: boolean; children: ReactNode }) {
   return (
-    <Link href={href} data-nav-item="" onClick={(e) => e.stopPropagation()} className={cn(HEAD, member && GUIDE)}>
-      {children}
-    </Link>
+    <span className="contents" onClick={(e) => e.stopPropagation()}>
+      <Link href={href} data-nav-item="" className={cn(HEAD, member && GUIDE)}>
+        {children}
+      </Link>
+    </span>
   )
 }
 

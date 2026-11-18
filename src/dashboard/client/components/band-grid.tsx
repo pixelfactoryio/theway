@@ -27,11 +27,13 @@ const LAYOUT = {
 
 /**
  * The rows' frame: the lists' 24px left gutter on the first column (each column set gives its last its right one), the
- * lists' hover fill, and the focused head's fill on its whole row. Wider than the page, the grid scrolls sideways.
+ * lists' hover fill, and the focused head's fill and inset ring on its whole row. Wider than the page, the grid scrolls
+ * sideways.
  */
 const FRAME = "overflow-x-auto [&_tr>:first-child]:ps-6"
 const CLASS_NAMES = {
-  bodyRow: "hover:bg-accent/40 has-[[data-nav-item]:focus-visible]:bg-accent",
+  bodyRow:
+    "hover:bg-accent/40 has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
 } as const
 
 export type BandGridProps<T extends object> = {

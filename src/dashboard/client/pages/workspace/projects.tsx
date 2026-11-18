@@ -306,9 +306,9 @@ export function ProjectsPage() {
       header: "",
       cell: ({ row }) => {
         const r = row.original
-        // The actions act alone: a click on them never reaches the row's.
+        // The actions act alone: a click anywhere in their cell, gutter included, never reaches the row's.
         return (
-          <span className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+          <span className="absolute inset-0 flex items-center justify-end pe-3" onClick={(e) => e.stopPropagation()}>
             {r.key === null ? (
               <>
                 <Button
@@ -334,8 +334,9 @@ export function ProjectsPage() {
       },
       size: 96,
       enableSorting: false,
-      // The three buttons of a group fill the cell inside its 12px right gutter.
-      meta: { cellClassName: "py-0 ps-0 pe-3" },
+      // The cell's content covers it whole, so its click stops there; the three buttons of a group fill it inside the
+      // content's 12px right gutter.
+      meta: { cellClassName: "relative p-0" },
     },
   ]
 
