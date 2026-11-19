@@ -12,7 +12,7 @@ import { Dash, InputsList, LineList, UNKNOWN_FILE } from "@/components/file-page
 import { MarkdownView } from "@/components/markdown-view"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
-import { ColumnTitle, DocTitle } from "@/components/doc-title"
+import { DocTab, DocTitle } from "@/components/doc-title"
 import { useSaveKey } from "@/components/step-prompt"
 import { UsedByList } from "@/components/used-by-list"
 import { StatusPill } from "@/components/status"
@@ -276,14 +276,9 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         ) : history ? (
           <HistoryTab title={title} notices={notices} main={historyTab.main} file={`${name}.md`} status={status} />
         ) : (
-          <>
-            {notices}
-            <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-              <ColumnTitle>{title}</ColumnTitle>
-              <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
-            </div>
-            <DocFooter file={`${name}.md`} status={status} />
-          </>
+          <DocTab title={title} notices={notices} footer={<DocFooter file={`${name}.md`} status={status} />}>
+            <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
+          </DocTab>
         )}
       </DocFrame>
       <DraftDialogs draft={draft} />
