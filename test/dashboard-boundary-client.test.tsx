@@ -55,7 +55,7 @@ test("every failed load in a page's centre is the one page alert; only the sideb
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const files = (dir: string): string[] =>
     readdirSync(join(client, dir), { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory() ? files(join(dir, e.name)) : e.name.endsWith(".tsx") ? [join(dir, e.name)] : [],
+      e.isDirectory() ? files(`${dir}/${e.name}`) : e.name.endsWith(".tsx") ? [`${dir}/${e.name}`] : [],
     )
   const own = ["components", "pages", "shell"]
     .flatMap(files)
