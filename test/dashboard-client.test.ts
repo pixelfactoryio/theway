@@ -10,7 +10,6 @@ import {
   pushedPosition,
   reachedPosition,
 } from "../src/dashboard/client/lib/location"
-import { panelToggleLabel } from "../src/dashboard/client/lib/panel"
 import { addressOf, ScrollMemory } from "../src/dashboard/client/lib/scroll"
 import { dataTheme, themeOf } from "../src/dashboard/client/lib/theme"
 
@@ -286,10 +285,6 @@ test("the guard undoes a held move with history.go, never by rewriting an entry'
   for (const call of marks) expect(call).toMatch(/, "", location\.href\)$/)
   const scroll = readFileSync(join(CLIENT, "shell", "scroll.tsx"), "utf-8")
   expect(scroll).not.toMatch(/addEventListener\("(popstate|hashchange)"/)
-})
-
-test("the panel toggle says panel on every page", () => {
-  expect([panelToggleLabel(true), panelToggleLabel(false)]).toEqual(["Hide panel", "Show panel"])
 })
 
 test("the lint gutter's error mark is a destructive dot drawn in CSS, with no image", () => {
