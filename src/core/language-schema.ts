@@ -60,6 +60,16 @@ export function stepRunsOn(value: unknown, workflow: RunsOn | null): RunsOn | nu
 }
 
 /**
+ * Where a workflow's steps run, from each step's place: `agents` or `session` when every step runs there, else `mixed`;
+ * `null` without steps, or while a step names no place.
+ */
+export function runsOnOf(places: readonly (RunsOn | null)[]): RunsOn | "mixed" | null {
+  const set = new Set(places)
+  if (set.size === 0 || set.has(null)) return null
+  return set.size === 1 ? ([...set][0] as RunsOn) : "mixed"
+}
+
+/**
  * A step's matrix from its map's entries: exactly one entry, its key (as `String` gives it) a param name, its value a
  * non-empty list of strings; else `null`.
  */
