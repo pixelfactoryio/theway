@@ -380,7 +380,7 @@ export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>):
  * paragraph's soft break. A paragraph one of the `active` lines touches keeps every line break: it shows as written,
  * to be edited.
  */
-export function softBreaks(doc: Text, tree: Tree, active: ReadonlySet<number> = new Set()): Span[] {
+export function softBreaks(doc: Text, tree: Tree, active: ReadonlySet<number>): Span[] {
   const breaks: Span[] = []
   tree.iterate({
     enter: (ref) => {
