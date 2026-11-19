@@ -13,6 +13,7 @@ import {
   ON_FAIL_GAP,
   ON_FAIL_RISE,
   ON_FAIL_WIDTH,
+  openView,
   overflows,
   percent,
   revealDelta,
@@ -137,21 +138,38 @@ test("no steps: Inputs alone read-only, Inputs and the '+' editable; the bounds 
   })
 })
 
-test("fit: between 80% and 100% for height and width, the top under the heading, centred when it fits", () => {
+test("a canvas opens at 100%, its top under the heading, centred when it fits, else on its top and left", () => {
+  const bounds = { x: 0, y: 0, width: 300, height: 500 }
+  // Room for it all: centred across, its top 24px under a 100px heading.
+  expect(openView(bounds, { width: 800, height: 900 }, 100)).toEqual({ x: 250, y: 100 + UNDER_HEADING, zoom: 1 })
+  // Without a heading, its top 16px under the pane's top.
+  expect(openView(bounds, { width: 800, height: 900 }).y).toBe(KEEP.top)
+  // Too tall: still 100%, from its top.
+  expect(openView(bounds, { width: 800, height: 300 })).toEqual({ x: 250, y: KEEP.top, zoom: 1 })
+  // Too wide: still 100%, its left edge 16px from the pane's left.
+  expect(openView({ x: 0, y: 0, width: 900, height: 100 }, { width: 600, height: 900 })).toEqual({
+    x: KEEP.side,
+    y: KEEP.top,
+    zoom: 1,
+  })
+})
+
+test("fit: between 50% and 100% for height and width, the top under the heading, centred when it fits", () => {
   const bounds = { x: 0, y: 0, width: 300, height: 500 }
   // Room for it all at 100%: centred across, its top 24px under a 100px heading.
   expect(fitView(bounds, { width: 800, height: 900 }, 100)).toEqual({ x: 250, y: 100 + UNDER_HEADING, zoom: 1 })
   // Without a heading, its top 16px under the pane's top.
   expect(fitView(bounds, { width: 800, height: 900 }).y).toBe(KEEP.top)
-  // Too tall: the largest 0.1 step that fits the height, never below 0.8.
+  // Too tall: the largest 0.1 step that fits the height, never below 0.5.
   expect(fitView(bounds, { width: 800, height: 16 + 450 + KEEP.bottom }).zoom).toBe(0.9)
-  expect(fitView(bounds, { width: 800, height: 300 }).zoom).toBe(0.8)
-  // Too wide: the width's step wins; too wide at 0.8, its left edge 16px from the pane's left.
+  expect(fitView(bounds, { width: 800, height: 16 + 300 + KEEP.bottom }).zoom).toBe(0.6)
+  expect(fitView(bounds, { width: 800, height: 100 }).zoom).toBe(0.5)
+  // Too wide: the width's step wins; too wide at 0.5, its left edge 16px from the pane's left.
   expect(fitView({ x: 0, y: 0, width: 700, height: 100 }, { width: 600, height: 900 }).zoom).toBe(0.8)
-  expect(fitView({ x: 0, y: 0, width: 900, height: 100 }, { width: 600, height: 900 })).toEqual({
+  expect(fitView({ x: 0, y: 0, width: 1400, height: 100 }, { width: 600, height: 900 })).toEqual({
     x: KEEP.side,
     y: KEEP.top,
-    zoom: 0.8,
+    zoom: 0.5,
   })
 })
 

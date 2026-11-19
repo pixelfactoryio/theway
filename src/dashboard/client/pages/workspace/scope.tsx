@@ -6,6 +6,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
+import { LIST_CAP, useSpare } from "@/components/list-grid"
 import { Button } from "@/components/ui/button"
 import {
   archiveGroups,
@@ -54,9 +55,11 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const { lists, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter(id, SCOPE_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
-  const grid = useChangeGrid(sizing, setSizing)
-  const scoped = list.filter((p) => keys.includes(p.key))
   const isGroup = entry?.kind === "group"
+  const { spare, sizer } = useSpare(LIST_CAP.changes)
+  // A group's page names each row's project, in its open bands and its archive bands alike: they share one header.
+  const grid = useChangeGrid(sizing, setSizing, { project: isGroup, spare })
+  const scoped = list.filter((p) => keys.includes(p.key))
 
   const searched = all ? [] : located(lists, scoped, filter.q)
   const open = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
@@ -73,13 +76,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const groups = [
     ...statusGroups(open, {
       readyByProject: false,
-      body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: isGroup })} />,
+      body: (rows, label) => <BandGrid {...grid.band(treeRows(rows), label)} />,
     }),
-    ...archiveGroups(
-      archiveShown,
-      (rows, label) => <BandGrid {...grid(rows, { label, project: keys.length > 1, archive: true })} />,
-      archived,
-    ),
+    ...archiveGroups(archiveShown, (rows, label) => <BandGrid {...grid.band(rows, label)} />, archived),
   ]
   const total = located(lists, scoped, "").reduce((n, r) => n + changesOf(r), 0) + archiveAll.length
   const shown = open.reduce((n, r) => n + changesOf(r), 0) + archived.length
@@ -104,12 +103,14 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
           />
         ) : null}
         <ScrollBody>
+          {sizer}
           {gate}
           {projects !== null && entry === null ? (
             <EmptyNote inset="page">This project or group no longer exists.</EmptyNote>
           ) : null}
           {entry !== null && groups.length > 0 ? (
             <>
+              <BandGrid {...grid.head} />
               <Groups page={id} groups={groups} />
               {limit !== null && archived.length > limit ? (
                 <Button

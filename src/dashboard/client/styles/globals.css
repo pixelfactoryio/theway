@@ -48,6 +48,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -112,15 +113,15 @@
   /* A list page's title in its top row: 14/20, set apart by its weight. */
   --text-heading: 0.875rem;
   --text-heading--line-height: 1.25rem;
-  /* A workflow's name, above its canvas: 21/29. */
+  /* The one larger size of the interface: a workflow's name above its canvas and a document's title, 21/29. */
   --text-title: 1.3125rem;
   --text-title--line-height: 1.8125rem;
 }
 
 /*
- * A document read or edited, at Notion's scale: body 16/24, h1 30/39, h2 24/31, h3 20/26; the change's title 36/44
- * (Notion's page title is 40/48), above h1 by size and weight. Static: the live editor's theme reads the heading sizes
- * from script, where Tailwind does not see them, so every variable is always emitted.
+ * A document read or edited, at Notion's scale: body 16/24, h1 30/39, h2 24/31, h3 20/26. Its title block, above it,
+ * is the interface's (`--text-title`). Static: the live editor's theme reads the heading sizes from script, where
+ * Tailwind does not see them, so every variable is always emitted.
  */
 @theme static {
   --text-doc: 1rem;
@@ -131,8 +132,6 @@
   --text-doc-h2--line-height: 1.9375rem;
   --text-doc-h3: 1.25rem;
   --text-doc-h3--line-height: 1.625rem;
-  --text-doc-title: 2.25rem;
-  --text-doc-title--line-height: 2.75rem;
 }
 
 /* Reduced motion: overlays keep their fade but no longer scale, slide or rotate, and nothing turns or moves. */
@@ -154,61 +153,62 @@
 
 :root {
   --radius: 0.5rem;
-  --ground: #f1f1f2;
+  --ground: #f3f1ef;
   --brand: #b4650f;
   --background: #ffffff;
-  --foreground: #18181b;
+  --foreground: #1a1816;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #1a1816;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
-  --primary: #18181b;
+  --popover-foreground: #1a1816;
+  --primary: #1a1816;
   --primary-foreground: #ffffff;
-  --secondary: #ececee;
-  --secondary-foreground: #18181b;
-  --muted: #f0f0f2;
-  --muted-foreground: #63636b;
-  --accent: #e9e9ec;
-  --accent-foreground: #18181b;
+  --secondary: #eeecea;
+  --secondary-foreground: #1a1816;
+  --muted: #f2f0ee;
+  --muted-foreground: #67635f;
+  --subtle-foreground: #6f6b67;
+  --accent: #ebe9e7;
+  --accent-foreground: #1a1816;
   --destructive: #c2392c;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
+  --border: #e6e4e2;
+  --input: #d7d4d1;
   --ring: #2563c9;
   --link: #2563c9;
   --chart-1: #2563c9;
   --chart-2: #1a7044;
   --chart-3: #8f5407;
   --chart-4: #c2392c;
-  --chart-5: #63636b;
-  --canvas: #f6f6f7;
-  --canvas-dot: #d4d4d8;
+  --chart-5: #67635f;
+  --canvas: #f8f6f4;
+  --canvas-dot: #d7d4d1;
   --tone-inputs: var(--color-sky-700);
   --tone-session: var(--color-teal-700);
   --tone-agents: var(--color-indigo-600);
   --tone-on-fail: var(--color-rose-700);
-  --sidebar: #f6f6f7;
-  --sidebar-foreground: #18181b;
+  --sidebar: #f8f6f4;
+  --sidebar-foreground: #1a1816;
   --sidebar-primary: #2563c9;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e9e9ec;
-  --sidebar-accent-foreground: #18181b;
-  --sidebar-border: #e4e4e7;
+  --sidebar-accent: #ebe9e7;
+  --sidebar-accent-foreground: #1a1816;
+  --sidebar-border: #e6e4e2;
   --sidebar-ring: #2563c9;
   --destructive-foreground: #b02f23;
   --success: #1a7044;
   --success-foreground: #1a7044;
   --info: #2563c9;
   --info-foreground: #1f55ad;
-  --warning: #8f5407;
+  --warning: #ca7a00;
   --warning-foreground: #8f5407;
-  --invert: #18181b;
+  --invert: #1a1816;
   --invert-foreground: #ffffff;
   /* Syntax colours of the code view. */
   --code-keyword: #b0322a;
   --code-string: #0a3d75;
   --code-constant: #1f55ad;
   --code-property: #1a6640;
-  --code-comment: #63636b;
+  --code-comment: #67635f;
   --code-function: #6639ba;
   --code-type: #953800;
   /* A code block's surface: a faint warm tint of the page. */
@@ -218,45 +218,46 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #131314;
+    --ground: #151311;
     --brand: #f5a74b;
-    --background: #141415;
-    --foreground: #ececee;
-    --card: #1c1c1f;
-    --card-foreground: #ececee;
-    --popover: #1f1f22;
-    --popover-foreground: #ececee;
-    --primary: #ececee;
-    --primary-foreground: #131314;
-    --secondary: #252528;
-    --secondary-foreground: #ececee;
-    --muted: #222225;
-    --muted-foreground: #8d8d93;
-    --accent: #252528;
-    --accent-foreground: #ececee;
+    --background: #161412;
+    --foreground: #eeecea;
+    --card: #1e1c1b;
+    --card-foreground: #eeecea;
+    --popover: #211f1d;
+    --popover-foreground: #eeecea;
+    --primary: #eeecea;
+    --primary-foreground: #151311;
+    --secondary: #272523;
+    --secondary-foreground: #eeecea;
+    --muted: #242220;
+    --muted-foreground: #a6a4a1;
+    --subtle-foreground: #918d8a;
+    --accent: #272523;
+    --accent-foreground: #eeecea;
     --destructive: #ef6a5b;
-    --border: #2e2e31;
-    --input: #343438;
+    --border: #302e2c;
+    --input: #363432;
     --ring: #6aa7ff;
     --link: #6aa7ff;
     --chart-1: #6aa7ff;
     --chart-2: #45b97c;
     --chart-3: #e3a43f;
     --chart-4: #ef6a5b;
-    --chart-5: #8d8d93;
-    --canvas: #141415;
-    --canvas-dot: #2c2c30;
+    --chart-5: #a6a4a1;
+    --canvas: #161412;
+    --canvas-dot: #2e2c2a;
     --tone-inputs: var(--color-sky-400);
     --tone-session: var(--color-teal-400);
     --tone-agents: var(--color-indigo-300);
     --tone-on-fail: var(--color-rose-400);
-    --sidebar: #18181a;
-    --sidebar-foreground: #ececee;
+    --sidebar: #1a1816;
+    --sidebar-foreground: #eeecea;
     --sidebar-primary: #6aa7ff;
-    --sidebar-primary-foreground: #131314;
-    --sidebar-accent: #252528;
-    --sidebar-accent-foreground: #ececee;
-    --sidebar-border: #2e2e31;
+    --sidebar-primary-foreground: #151311;
+    --sidebar-accent: #272523;
+    --sidebar-accent-foreground: #eeecea;
+    --sidebar-border: #302e2c;
     --sidebar-ring: #6aa7ff;
     --destructive-foreground: #ef6a5b;
     --success: #45b97c;
@@ -265,13 +266,13 @@
     --info-foreground: #6aa7ff;
     --warning: #e3a43f;
     --warning-foreground: #e3a43f;
-    --invert: #ececee;
-    --invert-foreground: #131314;
+    --invert: #eeecea;
+    --invert-foreground: #151311;
     --code-keyword: #ff7b72;
     --code-string: #a5d6ff;
     --code-constant: #79c0ff;
     --code-property: #7ee787;
-    --code-comment: #8d8d93;
+    --code-comment: #a6a4a1;
     --code-function: #d2a8ff;
     --code-type: #ffa657;
     --code-surface: rgb(255 255 255 / 0.03);
@@ -280,45 +281,46 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #131314;
+  --ground: #151311;
   --brand: #f5a74b;
-  --background: #141415;
-  --foreground: #ececee;
-  --card: #1c1c1f;
-  --card-foreground: #ececee;
-  --popover: #1f1f22;
-  --popover-foreground: #ececee;
-  --primary: #ececee;
-  --primary-foreground: #131314;
-  --secondary: #252528;
-  --secondary-foreground: #ececee;
-  --muted: #222225;
-  --muted-foreground: #8d8d93;
-  --accent: #252528;
-  --accent-foreground: #ececee;
+  --background: #161412;
+  --foreground: #eeecea;
+  --card: #1e1c1b;
+  --card-foreground: #eeecea;
+  --popover: #211f1d;
+  --popover-foreground: #eeecea;
+  --primary: #eeecea;
+  --primary-foreground: #151311;
+  --secondary: #272523;
+  --secondary-foreground: #eeecea;
+  --muted: #242220;
+  --muted-foreground: #a6a4a1;
+  --subtle-foreground: #918d8a;
+  --accent: #272523;
+  --accent-foreground: #eeecea;
   --destructive: #ef6a5b;
-  --border: #2e2e31;
-  --input: #343438;
+  --border: #302e2c;
+  --input: #363432;
   --ring: #6aa7ff;
   --link: #6aa7ff;
   --chart-1: #6aa7ff;
   --chart-2: #45b97c;
   --chart-3: #e3a43f;
   --chart-4: #ef6a5b;
-  --chart-5: #8d8d93;
-  --canvas: #141415;
-  --canvas-dot: #2c2c30;
+  --chart-5: #a6a4a1;
+  --canvas: #161412;
+  --canvas-dot: #2e2c2a;
   --tone-inputs: var(--color-sky-400);
   --tone-session: var(--color-teal-400);
   --tone-agents: var(--color-indigo-300);
   --tone-on-fail: var(--color-rose-400);
-  --sidebar: #18181a;
-  --sidebar-foreground: #ececee;
+  --sidebar: #1a1816;
+  --sidebar-foreground: #eeecea;
   --sidebar-primary: #6aa7ff;
-  --sidebar-primary-foreground: #131314;
-  --sidebar-accent: #252528;
-  --sidebar-accent-foreground: #ececee;
-  --sidebar-border: #2e2e31;
+  --sidebar-primary-foreground: #151311;
+  --sidebar-accent: #272523;
+  --sidebar-accent-foreground: #eeecea;
+  --sidebar-border: #302e2c;
   --sidebar-ring: #6aa7ff;
   --destructive-foreground: #ef6a5b;
   --success: #45b97c;
@@ -327,13 +329,13 @@
   --info-foreground: #6aa7ff;
   --warning: #e3a43f;
   --warning-foreground: #e3a43f;
-  --invert: #ececee;
-  --invert-foreground: #131314;
+  --invert: #eeecea;
+  --invert-foreground: #151311;
   --code-keyword: #ff7b72;
   --code-string: #a5d6ff;
   --code-constant: #79c0ff;
   --code-property: #7ee787;
-  --code-comment: #8d8d93;
+  --code-comment: #a6a4a1;
   --code-function: #d2a8ff;
   --code-type: #ffa657;
   --code-surface: rgb(255 255 255 / 0.03);
@@ -384,6 +386,15 @@
   background-color: var(--foreground);
 }
 
+/*
+ * Placeholders are the third ink. Unlayered, so the rule wins over the shipped `placeholder:text-muted-foreground` and
+ * `data-placeholder:text-muted-foreground`.
+ */
+::placeholder,
+[data-slot="select-trigger"][data-placeholder] {
+  color: var(--subtle-foreground);
+}
+
 /* A grouped list's header band: one surface step above the page, in each theme. */
 @theme inline {
   --color-band: var(--band);
@@ -391,17 +402,17 @@
 }
 
 :root {
-  --band: #f4f4f5;
+  --band: #f6f4f2;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --band: #1c1c1f;
+    --band: #1e1c1b;
   }
 }
 
 :root[data-theme="dark"] {
-  --band: #1c1c1f;
+  --band: #1e1c1b;
 }
 
 /* React Flow's attribution on the workflow canvas: the theme's muted text, on no background, on the page's 24px gutter. */

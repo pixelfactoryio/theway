@@ -6,7 +6,7 @@ import { Link, useLocation } from "wouter"
 import type { BandGridProps } from "@/components/band-grid"
 import { ChangeProgress } from "@/components/change-progress"
 import type { BarField } from "@/components/filter-bar"
-import { ColumnLabel, HEADER_LAST_END } from "@/components/list-grid"
+import { ColumnLabel, HEADER_LAST_END, spareColumn } from "@/components/list-grid"
 import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import { StatusMark } from "@/components/status"
 import { GROUP_TITLE, type Group, HeadLink, HeadToggle, NoProgress, RowHead, useNow } from "@/components/workspace-rows"
@@ -17,6 +17,7 @@ import { ageOf, rowStatus, type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
 import { to } from "@/lib/routes"
 import { type Archived, archiveMonths, changesOf, type Located, type TreeRow } from "@/lib/workspace"
+import { useWide } from "@/shell/panel"
 
 /** A row of a change grid: an open change, a series or a series' member, or an archived change. */
 export type ChangeGridRow = TreeRow | Archived
@@ -32,26 +33,32 @@ const TRACK = "hidden sm:flex"
 const LABEL = "w-14 shrink-0 text-right"
 
 /**
- * The change and progress columns' widths: the progress holds `ChangeProgress` whole (96px bar, 8px gap, 56px count)
- * from `sm` up, its count alone below; the change column's minimum lets a band fit a 390px screen there.
+ * The change and progress columns' widths: the progress holds its 12px left padding and `ChangeProgress` whole (96px
+ * bar, 8px gap, 56px count) from `sm` up, its count alone below; the change column's minimum lets a band fit a 390px
+ * screen there.
  */
-const WIDTHS = { wide: { change: 240, progress: 160 }, narrow: { change: 160, progress: 72 } } as const
+const WIDTHS = { wide: { change: 240, progress: 172 }, narrow: { change: 160, progress: 84 } } as const
+
+/** The project column's width: 200px where the panel docks (1280px), 140px below. */
+const PROJECT = { wide: 200, narrow: 140 } as const
 
 /**
- * The change columns: the head (`RowHead`), the project (`project`), the progress and the age, or the archive date in
- * an archive band (`archive`). The head links to the change, or opens a series; a member hangs on its series' guide
- * line.
+ * The change columns: the head (`RowHead`), the project (`project`), the progress and the age, an archived change's
+ * archive date. The head links to the change, or opens a series; a member hangs on its series' guide line. `spare` is
+ * the room past the list's cap, left empty at the right.
  */
 function changeColumns({
   project,
-  archive,
   narrow,
+  wide,
+  spare,
   now,
   label,
 }: {
   project: boolean
-  archive: boolean
   narrow: boolean
+  wide: boolean
+  spare: number
   now: number
   label: (key: string) => string
 }): ColumnDef<DataGridFeatures, ChangeGridRow>[] {
@@ -95,7 +102,7 @@ function changeColumns({
             id: "project",
             header: () => <ColumnLabel>Project</ColumnLabel>,
             cell: ({ row }) => (isArchived(row.original) ? label(row.original.key) : row.original.label),
-            size: 140,
+            size: wide ? PROJECT.wide : PROJECT.narrow,
             enableSorting: false,
             meta: { cellClassName: "text-muted-foreground" },
           } satisfies ColumnDef<DataGridFeatures, ChangeGridRow>,
@@ -103,8 +110,7 @@ function changeColumns({
       : []),
     {
       id: "progress",
-      // An archived change has no progress: its column stays, so the bands' columns line up, under no title.
-      header: () => (archive ? null : <ColumnLabel>Progress</ColumnLabel>),
+      header: () => <ColumnLabel>Progress</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (isArchived(r)) return <NoProgress />
@@ -133,12 +139,13 @@ function changeColumns({
       },
       size: width.progress,
       enableSorting: false,
-      // No padding: the column is exactly as wide as `ChangeProgress`.
-      meta: { headerClassName: "px-0", cellClassName: "px-0" },
+      // 12px at the left, so the title and the bars stand off the column's rule, and none at the right: the column is
+      // exactly that much wider than `ChangeProgress`.
+      meta: { headerClassName: "ps-3 pe-0", cellClassName: "ps-3 pe-0" },
     },
     {
       id: "age",
-      header: () => <ColumnLabel>{archive ? "Archived" : "Updated"}</ColumnLabel>,
+      header: () => <ColumnLabel>Updated</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (isArchived(r)) return r.a.date
@@ -152,33 +159,37 @@ function changeColumns({
         cellClassName: "ps-0 pe-6 text-right text-xs text-muted-foreground tabular-nums",
       },
     },
+    ...spareColumn<ChangeGridRow>(spare),
   ]
 }
 
 /**
- * The change grids of a page, all sized by the page's `columnSizing`: a band's grid props from its rows, its name, and
- * whether it shows the project (`project`, hidden below 768px) and is an archive band (`archive`). A click in a row
- * outside its head opens the change, or opens or closes a series.
+ * The change grids of a page, all sized by the page's `columnSizing`, with the project column when `project` (hidden
+ * below 768px) and `spare` pixels left empty past the list's cap: `head`, the page's one header row, and `band`, a
+ * band's rows from its rows and its name. A click in a row outside its head opens the change, or opens or closes a
+ * series.
  */
 export function useChangeGrid(
   columnSizing: ColumnSizingState,
   onColumnSizingChange: OnChangeFn<ColumnSizingState>,
-): (
-  rows: readonly ChangeGridRow[],
-  band: { label: string; project: boolean; archive?: boolean },
-) => BandGridProps<ChangeGridRow> {
+  { project, spare }: { project: boolean; spare: number },
+): {
+  head: BandGridProps<ChangeGridRow>
+  band: (rows: readonly ChangeGridRow[], label: string) => BandGridProps<ChangeGridRow>
+} {
   const now = useNow()
   const label = useLabel()
   const mobile = useIsMobile()
   const narrow = useBelowSm()
+  const wide = useWide()
   const [, navigate] = useLocation()
-  const sets = useMemo(() => {
-    const set = (project: boolean, archive: boolean) => changeColumns({ project, archive, narrow, now, label })
-    return { open: [set(false, false), set(true, false)], archive: [set(false, true), set(true, true)] }
-  }, [narrow, now, label])
-  return (rows, { label: name, project, archive = false }) => ({
+  const columns = useMemo(
+    () => changeColumns({ project, narrow, wide, spare, now, label }),
+    [project, narrow, wide, spare, now, label],
+  )
+  const grid = (rows: readonly ChangeGridRow[], name: string): BandGridProps<ChangeGridRow> => ({
     rows,
-    columns: (archive ? sets.archive : sets.open)[project ? 1 : 0] as ColumnDef<DataGridFeatures, ChangeGridRow>[],
+    columns,
     getRowId: changeRowId,
     getSubRows: subRowsOf,
     columnSizing,
@@ -192,10 +203,14 @@ export function useChangeGrid(
     },
     label: name,
   })
+  return {
+    head: { ...grid([], "Columns"), part: "head" },
+    band: (rows, name) => ({ ...grid(rows, name), part: "rows" }),
+  }
 }
 
 /**
- * The status groups of `rows`: Needs fixing, In progress, Not started, then Ready to archive (as rows, or with
+ * The status groups of `rows`: Invalid, In progress, Not started, then Ready to archive (as rows, or with
  * `readyByProject` as one count per project, which opens that project's page). Each band counts its rows, a series
  * once; Ready to archive by project counts its changes. Ready to archive starts collapsed.
  */

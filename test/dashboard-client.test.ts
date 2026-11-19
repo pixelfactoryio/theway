@@ -310,8 +310,8 @@ test("the code view holds its own extension set, read-only through EditorState.r
 
 test("the five syntax colours are defined light and dark", () => {
   const css = readFileSync(join(CLIENT, "styles", "globals.css"), "utf-8")
-  const light = { keyword: "#b0322a", string: "#0a3d75", constant: "#1f55ad", property: "#1a6640", comment: "#63636b" }
-  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#8d8d93" }
+  const light = { keyword: "#b0322a", string: "#0a3d75", constant: "#1f55ad", property: "#1a6640", comment: "#67635f" }
+  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#a6a4a1" }
   for (const [k, v] of Object.entries(light)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(1)
   for (const [k, v] of Object.entries(dark)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(2)
 })

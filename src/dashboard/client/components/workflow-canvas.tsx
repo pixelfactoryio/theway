@@ -60,6 +60,7 @@ import {
   layoutDrawing,
   type LayoutEdge,
   type LayoutNode,
+  openView,
   overflows,
   percent,
   revealDelta,
@@ -451,11 +452,16 @@ function Flow({
   }, [])
 
   const bounds = layout.bounds
-  const fit = useCallback(() => {
-    const area = pane()
-    if (area === null || area.height === 0) return
-    void flow.setViewport(fitView(bounds, area, area.top))
-  }, [flow, pane, bounds])
+  /** Shows the drawing through `view`: `openView` as the canvas opens, `fitView` on Fit. */
+  const show = useCallback(
+    (view: typeof fitView) => {
+      const area = pane()
+      if (area === null || area.height === 0) return
+      void flow.setViewport(view(bounds, area, area.top))
+    },
+    [flow, pane, bounds],
+  )
+  const fit = () => show(fitView)
 
   /** Pans by (`dx`, `dy`) pane pixels, at the same zoom. */
   const panBy = useCallback(
@@ -493,15 +499,16 @@ function Flow({
   }
 
   const size = useStore((s) => ({ width: s.width, height: s.height }), sameSize)
-  // Fitted once per mount, once React Flow's viewport is ready and the pane has its size; later resizes do not refit.
+  // Opened at 100% once per mount, once React Flow's viewport is ready and the pane has its size; later resizes do
+  // not move the view.
   const [ready, setReady] = useState(false)
-  const fitted = useRef(false)
+  const opened = useRef(false)
   const sized = size.width > 0 && size.height > 0
   useEffect(() => {
-    if (!ready || !sized || fitted.current) return
-    fitted.current = true
-    fit()
-  }, [ready, sized, fit])
+    if (!ready || !sized || opened.current) return
+    opened.current = true
+    show(openView)
+  }, [ready, sized, show])
 
   const zoom = useStore((s) => s.transform[2])
   const view = useStore((s) => ({ x: s.transform[0], y: s.transform[1], zoom: s.transform[2] }), sameView)

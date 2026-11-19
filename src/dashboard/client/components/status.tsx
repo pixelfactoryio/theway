@@ -47,7 +47,7 @@ export function StatusPill({ status, label }: { status: Status; label?: string }
     <span
       className={cn(
         "inline-flex items-center gap-2 text-sm font-medium tabular-nums",
-        status === "in-progress" && "text-warning",
+        status === "in-progress" && "text-warning-foreground",
         status === "ready" && "text-success",
         status === "invalid" && "text-destructive",
         (status === "not-started" || status === "archived") && "text-muted-foreground",

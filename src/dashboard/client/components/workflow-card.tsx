@@ -25,10 +25,10 @@ export const toneTile = (tone: Tone): { variant: "soft" | "outline"; className?:
   tone === null ? { variant: "outline" } : { variant: "soft", className: TONES[tone] }
 
 /**
- * One card of the canvas, filling its node: a button holding the header (the tone's 24px icon tile, the name and the
- * badges) and one muted line (the `N errors` badge first when the card has errors), then the menu beside it. A card
- * with errors has a destructive border; the selected card a stronger border and a 4px translucent ring; an on-fail card
- * (`dashed`) a dashed border.
+ * One card of the canvas, filling its node: a button holding the header (the tone's 24px icon tile and the name, on
+ * the row's whole width) and a second row (the `N errors` badge first when the card has errors, one muted line, then
+ * the badges at its right end), then the menu beside it. A card with errors has a destructive border; the selected
+ * card a stronger border and a 4px translucent ring; an on-fail card (`dashed`) a dashed border.
  */
 export function Card({
   label,
@@ -84,6 +84,13 @@ export function Card({
             tooltipClassName="max-w-sm"
             className={cn("min-w-0 flex-1 text-sm font-medium", code && "font-mono")}
           />
+        </span>
+        <span className="flex h-5 min-w-0 items-center gap-2">
+          {/* The card's description: its errors and its line, without the badges its name already holds. */}
+          <span id={line} className="flex min-w-0 flex-1 items-center gap-2">
+            <ErrorsBadge count={errors} />
+            {second}
+          </span>
           {badges.length > 0 ? (
             <span className="flex shrink-0 items-center gap-1">
               {badges.map((b) => (
@@ -93,10 +100,6 @@ export function Card({
               ))}
             </span>
           ) : null}
-        </span>
-        <span id={line} className="flex h-5 min-w-0 items-center gap-2">
-          <ErrorsBadge count={errors} />
-          {second}
         </span>
       </button>
       {menu}

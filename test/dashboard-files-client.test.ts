@@ -412,14 +412,20 @@ test("workflowCount counts each workflow once, however many of its steps use the
   expect(workflowCount([])).toBe(0)
 })
 
-test("the Workflows and Prompts lists have no tooltip, show whole descriptions and resize their columns", () => {
+test("the Workflows and Prompts lists have no tooltip, keep a name and its description to one line each and resize their columns", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
   const pages = ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]
   for (const file of [...pages, "components/file-list.tsx", "components/files-table.tsx"]) {
     const text = read(file)
-    expect([file, /Tooltip|OneLine|truncate/.test(text)]).toEqual([file, false])
+    expect([file, /Tooltip|OneLine/.test(text)]).toEqual([file, false])
   }
+  // A file's row is a change row's: its name in mono over its description in muted, each cut at the column's edge.
+  const cell = read("components", "files-table.tsx")
+  expect([
+    /truncate font-mono text-sm text-foreground/.test(cell),
+    /truncate text-sm text-muted-foreground/.test(cell),
+  ]).toEqual([true, true])
   // The errors badge of their Status column is the badge alone.
   expect(read("components", "status.tsx")).not.toContain("Tooltip")
   // Both pages render the shared list page, which holds the resizable grid.

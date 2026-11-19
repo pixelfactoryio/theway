@@ -8,7 +8,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
-import { ColumnLabel } from "@/components/list-grid"
+import { ColumnLabel, LIST_CAP, spareColumn, useSpare } from "@/components/list-grid"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -35,13 +35,13 @@ import {
   type Entry,
   inProgress,
   latest,
+  notStarted,
   PROJECT_FIELDS,
   type ProjectRow,
   projectTree,
   projectValues,
   renamed,
   suggestions,
-  toDoOf,
   togglePin,
   ungrouped,
   withGroup,
@@ -109,7 +109,7 @@ const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
 
 /** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
 const NAME = { wide: 240, narrow: 160 } as const
-const NO_COUNTS = { inProgress: false, toDo: false, lastArchived: false } as const
+const NO_COUNTS = { inProgress: false, notStarted: false, lastArchived: false } as const
 
 /** The expanded state `next` (or its updater) asks, from `current`, as a list of open rows. */
 const nextExpanded = (next: Updater<ExpandedState>, current: Record<string, boolean>): ExpandedState =>
@@ -130,6 +130,7 @@ export function ProjectsPage() {
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
   const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const { spare, sizer } = useSpare(LIST_CAP.changes)
   const narrow = useBelowSm()
   const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
@@ -255,7 +256,7 @@ export function ProjectsPage() {
     for (const id of groupIds) if (isOpen(id) !== expanded[id]) choices.set([id], !isOpen(id))
   }
 
-  /** The columns: the head, In progress (amber while any), To do, Last archived, then the row's actions. */
+  /** The columns: the head, In progress (amber while any), Not started, Last archived, then the row's actions. */
   const columns: ColumnDef<DataGridFeatures, ProjectRow>[] = [
     {
       id: "project",
@@ -287,17 +288,17 @@ export function ProjectsPage() {
       header: () => <ColumnLabel>In progress</ColumnLabel>,
       cell: ({ row }) => {
         const n = inProgress(lists, row.original.keys)
-        return <span className={cn(n > 0 && "text-warning")}>{n}</span>
+        return <span className={cn(n > 0 && "text-warning-foreground")}>{n}</span>
       },
       size: 96,
       enableSorting: false,
       meta: { headerClassName: RIGHT, cellClassName: COUNT },
     },
     {
-      id: "toDo",
-      header: () => <ColumnLabel>To do</ColumnLabel>,
-      cell: ({ row }) => toDoOf(lists, row.original.keys),
-      size: 80,
+      id: "notStarted",
+      header: () => <ColumnLabel>Not started</ColumnLabel>,
+      cell: ({ row }) => notStarted(lists, row.original.keys),
+      size: 96,
       enableSorting: false,
       meta: { headerClassName: RIGHT, cellClassName: COUNT },
     },
@@ -346,6 +347,7 @@ export function ProjectsPage() {
       // content's 24px right gutter.
       meta: { cellClassName: "relative p-0" },
     },
+    ...spareColumn<ProjectRow>(spare),
   ]
 
   return (
@@ -396,6 +398,7 @@ export function ProjectsPage() {
           </div>
         ))}
         <ScrollBody>
+          {sizer}
           {gate}
           {projects !== null && entries.length === 0 && narrowed ? (
             <NoMatch nouns="projects" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
@@ -418,7 +421,6 @@ export function ProjectsPage() {
                   else navigate(to.project(key))
                 }}
                 label="Projects"
-                stickyHeader
               />
             </div>
           ) : null}

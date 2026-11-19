@@ -73,7 +73,7 @@ export function GroupBand({
 /** The hint under a grouped list: Alt and a click on a band toggles every group. */
 export function CollapseHint() {
   return (
-    <p className="px-6 pt-4 pb-8 text-xs text-muted-foreground">
+    <p className="px-6 pt-4 pb-8 text-xs text-subtle-foreground">
       <Shortcut keys={[ALT]} />
       -click a header to collapse or expand every group
     </p>

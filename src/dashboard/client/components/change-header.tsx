@@ -49,7 +49,7 @@ export function DescriptionField({ description, edit }: { description: string | 
 
 /**
  * The top of a change's content, the title of the document below it and in its column: its description (its ID when
- * it has none) at 36/44 and 700, above the document's h1, its ID in small mono, and the reasons a change that cannot
+ * it has none) at 21/29 and 600, above the document's h1, its ID in small mono, and the reasons a change that cannot
  * be read gives. Where the change sits shows in the sidebar, not here. The document below gives the space under it.
  */
 export function ChangeTitle({ change, className }: { change: ChangeDetail; className?: string }) {

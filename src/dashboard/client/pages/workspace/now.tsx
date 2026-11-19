@@ -5,6 +5,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
+import { LIST_CAP, useSpare } from "@/components/list-grid"
 import {
   archiveGroups,
   projectField,
@@ -32,7 +33,7 @@ import { PageBody, PageHeader } from "@/shell/top-bar"
 const NOW_FIELDS = ["project", "status"] as const
 
 /**
- * `#/`: every project's changes in focus order: needs fixing, In progress, Not started, Ready to archive counted. With
+ * `#/`: every project's changes in focus order: Invalid, In progress, Not started, Ready to archive counted. With
  * Status is Archived, every project's archived changes too, by month.
  */
 export function NowPage() {
@@ -42,7 +43,8 @@ export function NowPage() {
   const { lists, failed, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
-  const grid = useChangeGrid(sizing, setSizing)
+  const { spare, sizer } = useSpare(LIST_CAP.changes)
+  const grid = useChangeGrid(sizing, setSizing, { project: true, spare })
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
@@ -60,9 +62,9 @@ export function NowPage() {
   const groups = [
     ...statusGroups(kept, {
       readyByProject: true,
-      body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: true })} />,
+      body: (rows, label) => <BandGrid {...grid.band(treeRows(rows), label)} />,
     }),
-    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid(rows, { label, project: true, archive: true })} />),
+    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid.band(rows, label)} />),
   ]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
   const settled = projects !== null && !pending
@@ -81,6 +83,7 @@ export function NowPage() {
           noun="change"
         />
         <ScrollBody>
+          {sizer}
           {gate}
           {failed.length > 0 ? (
             <EmptyNote tone="error" inset="page">
@@ -89,6 +92,7 @@ export function NowPage() {
           ) : null}
           {groups.length > 0 ? (
             <>
+              <BandGrid {...grid.head} />
               <Groups page="now" groups={groups} />
               <CollapseHint />
             </>

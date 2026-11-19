@@ -1,6 +1,6 @@
 /** The sidebar's pinned and recent entries and the grouping suggestions. Pure: no React, no DOM. */
 import type { ArchivedChange, ChangeList, DashboardSettings, Project } from "../../contract"
-import { type ActiveRow, activeRows, changeCount, rowStatus } from "./changes"
+import { type ActiveRow, activeRows, changeCount, rowStatus, type Status } from "./changes"
 import { monthGroup } from "./collapse"
 import { fileMatches } from "./files"
 import { type FieldRule, NONE, valueCounts } from "./list-filter"
@@ -165,9 +165,12 @@ export const togglePin = (settings: DashboardSettings, id: string): DashboardSet
 export const toDo = (list: ChangeList | undefined): number =>
   list?.active.filter((c) => c.status !== "ready").length ?? 0
 
+/** The rows Now lists under `status`: a change, or a series of that status as a whole counted once. */
+const rowCount = (list: ChangeList | undefined, status: Status): number =>
+  activeRows(list?.active ?? [], "").filter((r) => rowStatus(r) === status).length
+
 /** The rows Now lists as In progress: a change, or a series In progress as a whole counted once. */
-export const inProgressCount = (list: ChangeList | undefined): number =>
-  activeRows(list?.active ?? [], "").filter((r) => rowStatus(r) === "in-progress").length
+export const inProgressCount = (list: ChangeList | undefined): number => rowCount(list, "in-progress")
 
 export { countOf } from "./list-filter"
 
@@ -282,9 +285,9 @@ export const latest = (lists: Map<string, ChangeList>, keys: readonly string[]):
 export const inProgress = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
   keys.reduce((n, k) => n + inProgressCount(lists.get(k)), 0)
 
-/** The changes to do across the projects `keys`. */
-export const toDoOf = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
-  keys.reduce((n, k) => n + toDo(lists.get(k)), 0)
+/** The rows Not started across the projects `keys`, as Now counts them: a series Not started as a whole once. */
+export const notStarted = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
+  keys.reduce((n, k) => n + rowCount(lists.get(k), "not-started"), 0)
 
 /** A row of a change grid: a located change or series, or a series' member; a series has its members as `subRows`. */
 export type TreeRow = Located & { subRows: TreeRow[] }

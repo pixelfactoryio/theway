@@ -1,4 +1,3 @@
-import { cn } from "cn"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
@@ -7,8 +6,8 @@ import { ErrorsBadge, StatusMark } from "@/components/status"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 /**
- * A file's name cell: the name, a link, a `default` badge for the default workflow, then its whole description. Both
- * wrap onto more lines when the column is narrow: nothing is cut.
+ * A file's name cell, as a change row's head: the name in mono, a link, with a `default` badge for the default
+ * workflow, and its description under it in muted, each on one line, cut at the column's edge.
  */
 export function NameCell({
   href,
@@ -22,18 +21,18 @@ export function NameCell({
   isDefault?: boolean
 }) {
   return (
-    <div className={cn(WRAP, "flex min-h-10 min-w-0 flex-col justify-center gap-0.5")}>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 items-center gap-2">
         <Link
           href={href}
           onClick={(e) => e.stopPropagation()}
-          className="min-w-0 font-medium text-foreground hover:underline"
+          className="min-w-0 truncate font-mono text-sm text-foreground hover:underline"
         >
           {name}
         </Link>
         {isDefault ? <Badge variant="outline">default</Badge> : null}
       </div>
-      {description !== null ? <p className="text-muted-foreground">{description}</p> : null}
+      {description !== null ? <p className="truncate text-sm text-muted-foreground">{description}</p> : null}
     </div>
   )
 }

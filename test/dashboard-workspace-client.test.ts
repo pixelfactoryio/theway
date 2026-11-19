@@ -12,6 +12,7 @@ import {
   groupId,
   inProgress,
   inProgressCount,
+  notStarted,
   pinnedEntries,
   PROJECT_FIELDS,
   projectTree,
@@ -151,7 +152,7 @@ const change = (id: string, status: ActiveChange["status"]): ActiveChange => ({
   updated: "2026-11-16T00:00:00Z",
 })
 
-test("to do leaves out Ready; In progress counts a series In progress as a whole once", () => {
+test("to do leaves out Ready; In progress and Not started count their rows, a series as a whole once", () => {
   const list: ChangeList = {
     active: [
       change("add-a", "in-progress"),
@@ -177,6 +178,21 @@ test("to do leaves out Ready; In progress counts a series In progress as a whole
       ["-a", "-b", "-none"],
     ),
   ).toBe(3)
+  // Not started: add-c; the series add-s is In progress as a whole, so its Not started member is not counted. A series
+  // none of whose members has started counts once.
+  const fresh: ChangeList = {
+    active: [change("add-t-01", "not-started"), change("add-t-02", "not-started"), change("add-u", "ready")],
+    archived: [],
+  }
+  expect(
+    notStarted(
+      new Map([
+        ["-a", list],
+        ["-b", fresh],
+      ]),
+      ["-a", "-b", "-none"],
+    ),
+  ).toBe(2)
 })
 
 test("an archive month counts the month, not the rows listed when the list is cut", () => {

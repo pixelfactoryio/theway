@@ -51,6 +51,9 @@ const HEADING = (level: string, space: string) => ({
   paddingTop: space,
 })
 
+/** How far a wrapped code line continues past its start. */
+const CODE_HANG = "2ch"
+
 /** The deepest list level indented; deeper items line up with it. */
 const MAX_DEPTH = 6
 
@@ -95,14 +98,16 @@ const THEME = EditorView.theme({
     paddingTop: "0",
   },
   ".cm-lp-quote": { borderLeft: "3px solid var(--input)", paddingLeft: "1rem", ...MUTED },
-  // A code block: on a faint tint of the page, 85% mono at 1.5, 16px by 20px inside its 10px corners.
+  // A code block: on a faint tint of the page, 85% mono at 1.5, 16px by 20px inside its 10px corners. Its lines wrap:
+  // a wrapped line continues 2ch further in than it starts, as a list item's later lines hang past its marker.
   ".cm-lp-code": {
     ...WIDE,
     fontFamily: "var(--font-mono)",
     fontSize: "85%",
     lineHeight: "1.5",
     backgroundColor: "var(--code-surface)",
-    padding: "0 1.25rem",
+    padding: `0 1.25rem 0 calc(1.25rem + ${CODE_HANG})`,
+    textIndent: `-${CODE_HANG}`,
     tabSize: "4",
   },
   ".cm-lp-code-start": {
@@ -116,7 +121,7 @@ const THEME = EditorView.theme({
     borderBottomRightRadius: "var(--doc-code-radius)",
   },
   ".cm-lp-fence": MUTED,
-  ".cm-lp-label": { float: "right", ...MUTED, fontSize: "var(--text-xs)" },
+  ".cm-lp-label": { float: "right", ...MUTED, fontSize: "var(--text-xs)", textIndent: "0" },
   ".cm-lp-table": { ...MONO, ...WIDE },
   ".cm-lp-strong": { fontWeight: "600" },
   ".cm-lp-em": { fontStyle: "italic" },

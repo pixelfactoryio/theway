@@ -121,7 +121,7 @@ const columns = (): FileColumns<PromptRow> => ({
       size: 200,
       minSize: 200,
       enableSorting: true,
-      meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
+      meta: { fillWidth: true, skeleton: cellSkeleton("w-48") },
     },
   ],
   extra: [
