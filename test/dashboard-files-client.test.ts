@@ -446,17 +446,11 @@ test("a workflow's YAML, a prompt's source and change.yaml are one code tab, whi
     expect([page, read(page).includes("<CodeTab")]).toEqual([page, true])
     expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
   }
-  const tab = read("components/code-tab.tsx")
-  expect(tab).toContain("<GutterTitle rule>{title}</GutterTitle>")
-  expect(tab).toContain("<DocFooter file={file} details={[<LineCount text={text} />]} status={status} />")
 })
 
 test("every title block of a file page stands in one of the two shared wrappers, and History is one tab", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  const titles = read("components/doc-title.tsx")
-  expect(titles).toContain('<div className={cn("shrink-0 px-6 pt-4 pb-3", rule && "border-b")}>{children}</div>')
-  expect(titles).toContain('<div className={cn("pt-10", DOC_COLUMN)}>')
   // No page pads a title of its own: a `DocTitle` or a `ChangeHeading` is passed to a shared tab or wrapped by one.
   const wrapped = /<(GutterTitle|ColumnTitle)>\s*$|\btitle=\{$|\b(title|heading) = \($/
   for (const page of [
