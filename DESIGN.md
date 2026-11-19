@@ -344,25 +344,25 @@ State colours, used for state only:
 
 ### Neutral
 
-| Role | Token | Dark | Light |
-|---|---|---|---|
-| Window ground (`body`) | `--ground` | `#151311` | `#f3f1ef` |
-| Document | `--background` | `#161412` | `#ffffff` |
-| Sidebar and panel | `--sidebar` | `#1a1816` | `#f8f6f4` |
-| Workflow canvas | `--canvas` | `#161412` | `#f8f6f4` |
-| Canvas dots | `--canvas-dot` | `#2e2c2a` | `#d7d4d1` |
-| Cards, canvas controls, minimap | `--card` | `#1e1c1b` | `#ffffff` |
-| Group bands | `--band` | `#1e1c1b` | `#f6f4f2` |
-| Menus, dialogs, palette | `--popover` | `#211f1d` | `#ffffff` |
-| Muted fill (kbd, table heads, chip labels) | `--muted` | `#242220` | `#f2f0ee` |
-| Secondary fill | `--secondary` | `#272523` | `#eeecea` |
-| Hover and selection | `--accent`, `--sidebar-accent` | `#272523` | `#ebe9e7` |
-| Rules | `--border`, `--sidebar-border` | `#302e2c` | `#e6e4e2` |
-| Input rules, scrollbar thumb, split lines, link underlines | `--input` | `#363432` | `#d7d4d1` |
-| Third ink | `--subtle-foreground` | `#918d8a` | `#6f6b67` |
-| Dim ink | `--muted-foreground`, `--chart-5` | `#a6a4a1` | `#67635f` |
-| Ink | `--foreground`, `--primary` | `#eeecea` | `#1a1816` |
-| On ink | `--primary-foreground`, `--invert-foreground` | `#151311` | `#ffffff` |
+| Role                                                       | Token                                         | Dark      | Light     |
+| ---------------------------------------------------------- | --------------------------------------------- | --------- | --------- |
+| Window ground (`body`)                                     | `--ground`                                    | `#151311` | `#f3f1ef` |
+| Document                                                   | `--background`                                | `#161412` | `#ffffff` |
+| Sidebar and panel                                          | `--sidebar`                                   | `#1a1816` | `#f8f6f4` |
+| Workflow canvas                                            | `--canvas`                                    | `#161412` | `#f8f6f4` |
+| Canvas dots                                                | `--canvas-dot`                                | `#2e2c2a` | `#d7d4d1` |
+| Cards, canvas controls, minimap                            | `--card`                                      | `#1e1c1b` | `#ffffff` |
+| Group bands                                                | `--band`                                      | `#1e1c1b` | `#f6f4f2` |
+| Menus, dialogs, palette                                    | `--popover`                                   | `#211f1d` | `#ffffff` |
+| Muted fill (kbd, table heads, chip labels)                 | `--muted`                                     | `#242220` | `#f2f0ee` |
+| Secondary fill                                             | `--secondary`                                 | `#272523` | `#eeecea` |
+| Hover and selection                                        | `--accent`, `--sidebar-accent`                | `#272523` | `#ebe9e7` |
+| Rules                                                      | `--border`, `--sidebar-border`                | `#302e2c` | `#e6e4e2` |
+| Input rules, scrollbar thumb, split lines, link underlines | `--input`                                     | `#363432` | `#d7d4d1` |
+| Third ink                                                  | `--subtle-foreground`                         | `#918d8a` | `#6f6b67` |
+| Dim ink                                                    | `--muted-foreground`, `--chart-5`             | `#a6a4a1` | `#67635f` |
+| Ink                                                        | `--foreground`, `--primary`                   | `#eeecea` | `#1a1816` |
+| On ink                                                     | `--primary-foreground`, `--invert-foreground` | `#151311` | `#ffffff` |
 
 `--primary` is the ink, not a colour: a default button, a checked checkbox, radio and switch, and the active tab's underline are all ink.
 
@@ -434,13 +434,14 @@ The window is three columns at full height (`h-svh`) with no page scroll; each r
 - **Panel:** docked at the right from 1280px, 420px by default, resizable from 320 to 640px by its left edge or the arrow keys (16px a step), its width (in pixels, the same in a window of any size) and hidden state kept per browser. Below 1280px it opens over the page as a sheet, `min(420px, 90vw)` wide, on `--sidebar` as when docked. Its header row is 44px; under it a top and a bottom pane in a vertical split (see Components), each with a 40px tab row.
 - **List pages** (Now, a project or group page, All projects, Workflows, Prompts): 24px gutters (`px-6`), which the top row's title and actions, the filter bar, the rows and a document's footer all keep. The filter bar sits under the top row (`px-6 py-3`), the result line under it, then the list. Every list is a data grid whose columns resize by their header's edge (`columnsResizable`, at least 72px), under one 32px header row per page, which scrolls with the list: above the first band on Now and a project or group page, where the page's grids share their column widths, and at the top of the grid on All projects, Workflows and Prompts.
 - **List width:** a list's columns are capped, the cap on the left, against the 24px gutter: `--read-wide` (64rem) between the gutters on Now, a project or group page and All projects, 80rem on Workflows and Prompts. The first column takes the room the others leave up to the cap; the room past it stays empty (an empty last column of the grid), and band fills, the header's rule and a row's hover fill cross it to the page's edge. Change rows keep their other columns at the right of the cap: the project 200px from 1280px and 140px below (shown from 768px), the progress 172px (12px of left padding, a 96px bar from 640px, then `done/total` in 56px; 84px below 640px), the age or archive date 96px under "Updated". A list that shows no open change has no progress column (see Header row): the first column takes its room, and the project and the date keep their widths and their place against the cap. All projects' columns are In progress 96px, Not started 96px, Last archived 112px and the actions 108px. On the Workflows and Prompts grids the name is at least 200px, and the grid scrolls sideways when the columns are wider than the page.
-- **Document pages:** the reading column is the whole width between 24px gutters (`px-6`). Prose keeps its measure, at most `--read-width` (44.25rem, 708px, Notion's text column), centred; code blocks and tables take up to `--read-wide` (64rem), also centred, so hiding the sidebar or the panel gives them room. Above a Markdown file, a change's title sits 40px under the top row (`pt-10`), its document 24px under the title block (`pt-6 pb-10`). The live editor uses the same widths per line, with 24px padding and 64px at the foot.
-- **Code tabs:** a file shown as code (a workflow's YAML tab, a prompt's Prompt tab, a change's `change.yaml` tab) has one layout, one component (`components/code-tab.tsx`): the page's title block on the 24px gutter, 16px under the top row and 12px over a 1px rule (`px-6 pt-4 pb-3`, where the workflow's heading stands on every one of its tabs), not in the document column; under the rule the page's notices, each a full-width strip with its own rule below; then the code view on the whole width, its line numbers against the centre's left edge; then the footer with the file's name and its line count. Only the title block differs between the pages: a workflow's and a prompt's caption, name and description, a change's description and ID. Markdown tabs (a change's spec and notes, a prompt's Preview, an archived change) keep the document column and its title.
+- **Document pages:** the reading column is the whole width between 24px gutters (`px-6`). Prose keeps its measure, at most `--read-width` (44.25rem, 708px, Notion's text column), centred; code blocks and tables take up to `--read-wide` (64rem), also centred, so hiding the sidebar or the panel gives them room. Above a Markdown view (a change's spec, notes and other Markdown files, an archived change, a prompt's Preview tab) the page's title block is the document's title, one component (`ColumnTitle` in `components/doc-title.tsx`): in the prose measure, 40px under the top row (`pt-10`), inside the scroll root so it scrolls with the document, which starts 24px under it (`pt-6 pb-10`). A change's block is its description and ID; a prompt's is its caption, name and description, so its name stands one caption line lower. The live editor uses the same widths per line, with 24px padding and 64px at the foot.
+- **Code tabs:** a file shown as code (a workflow's YAML tab, a prompt's Prompt tab, a change's `change.yaml` tab) has one layout, one component (`components/code-tab.tsx`): the page's title block on the 24px gutter, 16px under the top row and 12px over a 1px rule (`px-6 pt-4 pb-3`, one component, `GutterTitle` in `components/doc-title.tsx`), not in the document column and never scrolling; under the rule the page's notices, each a full-width strip with its own rule below; then the code view on the whole width, its line numbers against the centre's left edge; then the footer with the file's name and its line count. Only the title block differs between the pages: a workflow's and a prompt's caption, name and description, a change's description and ID. Markdown tabs (a change's spec and notes, a prompt's Preview, an archived change) keep the document column and its title.
+- **History tabs:** a workflow's and a prompt's History tab is one component (`HistoryTab` in `components/history.tsx`): the same gutter title block without the rule, the page's notices, the toolbar and the version's code or diff on the whole width, then the footer with the file's name. So the gutter title stands on a workflow's Editor (floating on the canvas, or above a file that cannot be drawn), YAML and History tabs, a prompt's Prompt and History tabs and a change's `change.yaml` tab; the document-column title on a prompt's Preview tab, a change's Markdown tabs and an archived change. No page pads a title block of its own.
 - **Workflow canvas:** the whole centre, with the workflow's heading floating at its top-left (`px-6 pt-4`) and the drawing 24px under it. Cards are one column, 64px apart; an on-fail card stands 160px to the right of its step and 40px higher. The canvas opens at 100%, so its text is read at its size: the drawing's top 24px under the heading, centred across the canvas when it fits between 16px margins; a drawing too tall or too wide shows its top and left and is panned. Fit scales it down in 10% steps until it stands between the heading, the 16px side margins and a 68px band kept free at the bottom for the controls, no further than 50%; manual zoom runs 50 to 200% in 10% steps.
 
 Breakpoints: 640px (progress bars on rows), 768px (sidebar becomes a sheet, the project column shows), 1024px (sidebar open by default), 1280px (panel docks, the project column widens). The build is checked at 768, 1280, 1440 and 1920px.
 
-Spacing is Tailwind's 4px scale (`--spacing` 0.25rem). Padding, margins and gaps mostly use 4, 8, 12, 16, 20, 24, 28 and 32px; larger steps are 36px (band and row height), 40px (a change title's top padding, a member row's indent, the archived page foot), 48px (empty grid states), 64px (between canvas cards). 2px appears only as a hairline offset or inside a control (`gap-0.5` between sidebar rows, in the canvas controls, between a chip value's marks). Panel rows are `px-4 py-2`; task rows `px-3 py-4` with a rule between them. A document's rhythm is Notion's: 8px under a paragraph, 12px between list items, 32, 24 and 16px above an h1, h2 and h3 and 8px under them, 24px list indent.
+Spacing is Tailwind's 4px scale (`--spacing` 0.25rem). Padding, margins and gaps mostly use 4, 8, 12, 16, 20, 24, 28 and 32px; larger steps are 36px (band and row height), 40px (a document title's top padding, a member row's indent, the archived page foot), 48px (empty grid states), 64px (between canvas cards). 2px appears only as a hairline offset or inside a control (`gap-0.5` between sidebar rows, in the canvas controls, between a chip value's marks). Panel rows are `px-4 py-2`; task rows `px-3 py-4` with a rule between them. A document's rhythm is Notion's: 8px under a paragraph, 12px between list items, 32, 24 and 16px above an h1, h2 and h3 and 8px under them, 24px list indent.
 
 ## Elevation & Depth
 

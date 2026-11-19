@@ -447,7 +447,34 @@ test("a workflow's YAML, a prompt's source and change.yaml are one code tab, whi
     expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
   }
   const tab = read("components/code-tab.tsx")
-  expect(tab).toContain('<div className={cn(GUTTER_TITLE, "border-b")}>{title}</div>')
+  expect(tab).toContain("<GutterTitle rule>{title}</GutterTitle>")
   expect(tab).toContain("<DocFooter file={file} details={[<LineCount text={text} />]} status={status} />")
-  expect(read("components/doc-frame.tsx")).toContain('export const GUTTER_TITLE = "shrink-0 px-6 pt-4 pb-3"')
+})
+
+test("every title block of a file page stands in one of the two shared wrappers, and History is one tab", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  const titles = read("components/doc-title.tsx")
+  expect(titles).toContain('<div className={cn("shrink-0 px-6 pt-4 pb-3", rule && "border-b")}>{children}</div>')
+  expect(titles).toContain('<div className={cn("pt-10", DOC_COLUMN)}>')
+  // No page pads a title of its own: a `DocTitle` or a `ChangeHeading` is passed to a shared tab or wrapped by one.
+  const wrapped = /<(GutterTitle|ColumnTitle)>\s*$|\btitle=\{$|\b(title|heading) = \($/
+  for (const page of [
+    "pages/workflow/page.tsx",
+    "pages/prompt/page.tsx",
+    "pages/change/active.tsx",
+    "pages/change/archived.tsx",
+  ]) {
+    const text = read(page)
+    expect([page, /PROSE_COLUMN\}>\{(title|heading)\}|pt-4 pb-3|pt-5 pb-3|pt-10/.test(text)]).toEqual([page, false])
+    for (const match of text.matchAll(/<(DocTitle|ChangeHeading)\b/g)) {
+      const before = text.slice(0, match.index).trimEnd()
+      expect([page, match[0], wrapped.test(before.slice(-40))]).toEqual([page, match[0], true])
+    }
+  }
+  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"]) {
+    expect([page, read(page).includes("<HistoryTab")]).toEqual([page, true])
+    expect([page, read(page).includes("<GutterTitle>{title}</GutterTitle>")]).toEqual([page, false])
+  }
+  expect(read("components/history.tsx")).toContain("<GutterTitle>{title}</GutterTitle>")
 })

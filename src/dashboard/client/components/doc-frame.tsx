@@ -18,12 +18,6 @@ export const DOC_COLUMN = "px-6"
 /** The measure of prose in the reading column, centred: at most `--read-width` (708px, Notion's text column). */
 export const PROSE_COLUMN = "mx-auto w-full max-w-(--read-width)"
 
-/**
- * A title block on the 24px gutter, 16px under the top row and 12px over what follows: a workflow's, above its views,
- * and every file's above its code (`CodeTab`).
- */
-export const GUTTER_TITLE = "shrink-0 px-6 pt-4 pb-3"
-
 /** One tab of a document: a view of it with its own address, its icon, and a dot while it has unsaved edits. */
 export type FrameTab = { value: string; label: string; href: string; Icon: LucideIcon; dirty?: boolean }
 

@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from "react"
 
 import { type CodeLanguage, CodeView, DiffView } from "@/components/code-view"
+import { DocFooter } from "@/components/doc-footer"
+import { GutterTitle } from "@/components/doc-title"
 import type { FileDraft } from "@/components/file-draft"
 import { Badge } from "@/components/reui/badge"
 import {
@@ -228,4 +230,37 @@ export function useHistoryTab({
   )
 
   return { panel, main }
+}
+
+/**
+ * A file's History tab, the same on every page that keeps versions (a workflow, a prompt): the page's title block on
+ * the 24px gutter, the page's notices, the main area of `useHistoryTab` on the whole width, then the footer with the
+ * file's name and its save state.
+ */
+export function HistoryTab({
+  title,
+  notices,
+  main,
+  file,
+  status,
+}: {
+  /** The page's title block, as it passes it: a `DocTitle`. */
+  title: ReactNode
+  /** The strips between the title and the versions: a conflict, a failed save. */
+  notices?: ReactNode
+  /** `useHistoryTab`'s main area. */
+  main: ReactNode
+  /** The file's name, in the footer. */
+  file: string
+  /** The footer's save state. */
+  status: ReactNode
+}) {
+  return (
+    <>
+      <GutterTitle>{title}</GutterTitle>
+      {notices}
+      {main}
+      <DocFooter file={file} status={status} />
+    </>
+  )
 }

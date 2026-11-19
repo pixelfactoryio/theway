@@ -7,11 +7,11 @@ import type { CodeViewHandle } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { PageLoading, PageUnknown } from "@/components/page-states"
-import { useHistoryTab } from "@/components/history"
+import { HistoryTab, useHistoryTab } from "@/components/history"
 import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
-import { DocFrame, GUTTER_TITLE } from "@/components/doc-frame"
+import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
-import { DocTitle } from "@/components/doc-title"
+import { DocTitle, GutterTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
 import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
@@ -330,7 +330,6 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   )
 
   // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
-  const onCanvas = !history && !yamlTab && "drawing" in drawn
   const heading = (
     <DocTitle
       caption={`Workflows · ${appliesTo(project, label)}`}
@@ -438,20 +437,20 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             file={`${name}.yaml`}
             status={status}
           />
+        ) : history ? (
+          <HistoryTab title={heading} notices={notices} main={historyTab.main} file={`${name}.yaml`} status={status} />
         ) : (
           <>
-            {onCanvas ? null : <div className={GUTTER_TITLE}>{heading}</div>}
+            {"reason" in drawn ? <GutterTitle>{heading}</GutterTitle> : null}
             {notices}
-            {!history && drawing !== null && anchors ? (
+            {drawing !== null && anchors ? (
               <Alert className={STRIP}>
                 <InfoIcon aria-hidden="true" />
                 <AlertTitle>This file uses YAML anchors</AlertTitle>
                 <AlertDescription>Edit it on the YAML tab.</AlertDescription>
               </Alert>
             ) : null}
-            {history ? (
-              historyTab.main
-            ) : "reason" in drawn ? (
+            {"reason" in drawn ? (
               <CannotDraw
                 reason={drawn.reason}
                 openYaml={() => navigate(to.file("workflows", project, name, "yaml"))}

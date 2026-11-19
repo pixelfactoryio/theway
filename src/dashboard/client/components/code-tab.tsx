@@ -1,9 +1,8 @@
-import { cn } from "cn"
 import { type ReactNode, type Ref, useSyncExternalStore } from "react"
 
 import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
 import { DocFooter, LineCount } from "@/components/doc-footer"
-import { GUTTER_TITLE } from "@/components/doc-frame"
+import { GutterTitle } from "@/components/doc-title"
 import type { DraftStore } from "@/drafts/draft-store"
 import type { FileError } from "@/lib/files"
 
@@ -39,7 +38,7 @@ export function CodeTab({
   return (
     <>
       {/* The rule is the title's, so a notice, which brings its own under it, never doubles it. */}
-      <div className={cn(GUTTER_TITLE, "border-b")}>{title}</div>
+      <GutterTitle rule>{title}</GutterTitle>
       {notices}
       <div className="min-h-0 flex-1">
         <EditableCodeView ref={ref} draft={draft} errors={errors} />
