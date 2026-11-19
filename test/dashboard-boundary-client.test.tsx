@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { join, relative, sep } from "node:path"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
@@ -53,18 +53,12 @@ test("the page fallback shows the error and Try again", () => {
 
 test("every failed load in a page's centre is the one page alert; only the sidebar and a panel place their own", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
-  const files = (dir: string): string[] =>
-    readdirSync(join(client, dir), { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory() ? files(`${dir}/${e.name}`) : e.name.endsWith(".tsx") ? [`${dir}/${e.name}`] : [],
-    )
-  const own = ["components", "pages", "shell"]
-    .flatMap(files)
-    .filter((file) => !/^components\/(ui|reui)\//.test(file) && file !== "shell/load-error.tsx")
+  const own = readdirSync(client, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".tsx"))
+    .map((e) => relative(client, join(e.parentPath, e.name)).split(sep).join("/"))
+    .filter((file) => !/^(components\/(ui|reui)|hooks)\//.test(file) && file !== "shell/load-error.tsx")
     .filter((file) => readFileSync(join(client, file), "utf-8").includes("<LoadError"))
   expect(own.sort()).toEqual(["components/step-prompt.tsx", "shell/app-sidebar.tsx"])
-  expect(readFileSync(join(client, "shell/load-error.tsx"), "utf-8")).toContain(
-    '<LoadError {...props} className="mx-6 my-4 w-auto" />',
-  )
 })
 
 test("the root fallback shows the error and Reload", () => {

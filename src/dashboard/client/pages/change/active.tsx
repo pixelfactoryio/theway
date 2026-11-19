@@ -12,7 +12,7 @@ import { ChangePanel } from "@/components/change-panel"
 import { CodeTab } from "@/components/code-tab"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter, LineCount } from "@/components/doc-footer"
-import { ColumnTitle } from "@/components/doc-title"
+import { DocTab } from "@/components/doc-title"
 import { type CodeLanguage, type CodeViewHandle, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
 import { ErrorStrip, LinesAlert, STRIP } from "@/components/file-page"
@@ -208,20 +208,13 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   if (current.file !== null) {
     // A Markdown file scrolls with the change's title above it, its document title; the editor grows to its text.
     body = (
-      <>
-        {notices}
-        <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-          <ColumnTitle>
-            <ChangeHeading change={shown} />
-          </ColumnTitle>
-          {draft !== null ? (
-            <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
-          ) : (
-            <MarkdownView key={name} text={fileText(name)} name={name} />
-          )}
-        </div>
-        {footer}
-      </>
+      <DocTab title={<ChangeHeading change={shown} />} notices={notices} footer={footer}>
+        {draft !== null ? (
+          <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
+        ) : (
+          <MarkdownView key={name} text={fileText(name)} name={name} />
+        )}
+      </DocTab>
     )
   } else if (yaml !== null) {
     body = (
@@ -236,20 +229,11 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       />
     )
   } else {
-    // No `change.yaml` to edit: the reasons in place of the code.
+    // No `change.yaml` to edit: the title block states the reasons, and nothing stands in place of the code.
     body = (
-      <>
-        {notices}
-        <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-          <ColumnTitle>
-            <ChangeHeading change={shown} />
-          </ColumnTitle>
-          <div className="p-6">
-            <LinesAlert lines={shown.issues} title={UNREADABLE} className="max-w-[80ch]" />
-          </div>
-        </div>
-        {footer}
-      </>
+      <DocTab title={<ChangeHeading change={shown} />} notices={notices} footer={footer}>
+        {null}
+      </DocTab>
     )
   }
 

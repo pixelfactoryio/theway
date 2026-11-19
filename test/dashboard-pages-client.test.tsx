@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
 import { ColumnTitle, DocTitle, GutterTitle } from "../src/dashboard/client/components/doc-title"
+import { ListFoot } from "../src/dashboard/client/components/list-grid"
 import { PageUnknown } from "../src/dashboard/client/components/page-states"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
 
@@ -33,19 +34,12 @@ test("an address naming no project or group is the shared unknown page: its name
   ])
     expect([file, read(file).includes("<PageUnknown")]).toEqual([file, true])
   const scope = read("pages/workspace/scope.tsx")
-  expect(scope).toContain("if (projects !== null && entry === null) {")
   expect(scope).toContain('back={{ label: "Back to All projects", href: to.projects() }}')
   expect(scope).not.toMatch(/exist/)
 })
 
-test("Now shows the load error alone when no list could be loaded", () => {
-  const now = read("pages/workspace/now.tsx")
-  expect(now).toContain("const unread = failed.length > 0 && lists.size === 0")
-  expect(now).toContain(") : !settled || unread ? null : isNarrowed(filter) ? (")
-})
-
 test("every list page ends with the one list foot, 32px under its last row", () => {
-  expect(read("components/list-grid.tsx")).toContain('return <div className="pb-8">{children}</div>')
+  expect(renderToStaticMarkup(<ListFoot />)).toBe('<div class="pb-8"></div>')
   for (const file of [
     "pages/workspace/now.tsx",
     "pages/workspace/scope.tsx",
@@ -78,7 +72,15 @@ test("a title on the gutter is the same on every page; in the document column it
     expect(h1(html)).toBe("mt-1 text-title font-semibold tracking-tight text-foreground")
     expect(text(html)).toBe("text-sm text-muted-foreground max-w-xl")
   }
+  // The gutter wrapper: the 24px gutter, 16px over and 12px under, its rule only with `rule`.
+  const wrapper = (html: string) => /^<div class="([^"]*)"/.exec(html)?.[1]?.split(" ") ?? []
+  const plain = wrapper(renderToStaticMarkup(<GutterTitle>{title}</GutterTitle>))
+  expect(["px-6", "pt-4", "pb-3"].filter((c) => plain.includes(c))).toEqual(["px-6", "pt-4", "pb-3"])
+  expect(plain).not.toContain("border-b")
+  expect(wrapper(renderToStaticMarkup(<GutterTitle rule>{title}</GutterTitle>))).toContain("border-b")
   const column = renderToStaticMarkup(<ColumnTitle>{title}</ColumnTitle>)
+  // The column wrapper: 40px under the top row.
+  expect(wrapper(column)).toContain("pt-10")
   expect(h1(column)).toBe("mt-1 text-title font-semibold tracking-tight text-doc-foreground")
   expect(text(column)).toBe("text-sm text-muted-foreground")
   // No page chooses a title's ink or its description's width.

@@ -64,3 +64,34 @@ export function ColumnTitle({ children }: { children: ReactNode }) {
     </div>
   )
 }
+
+/**
+ * A document tab, the same on every page that shows a file as a document (a change's files, an archived change, a
+ * prompt's Preview): the page's notices, then the scroll root that holds the title in the document column
+ * (`ColumnTitle`) and the document under it, then the footer.
+ */
+export function DocTab({
+  title,
+  notices,
+  footer,
+  children,
+}: {
+  /** The page's title block, as it passes it: a `DocTitle` or a `ChangeHeading`. */
+  title: ReactNode
+  /** The strips over the document: a conflict, a failed save, the errors. */
+  notices?: ReactNode
+  footer: ReactNode
+  /** The document. */
+  children: ReactNode
+}) {
+  return (
+    <>
+      {notices}
+      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+        <ColumnTitle>{title}</ColumnTitle>
+        {children}
+      </div>
+      {footer}
+    </>
+  )
+}

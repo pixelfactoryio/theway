@@ -9,6 +9,7 @@ import {
   matrixOf,
   promptRef,
   type RunsOn,
+  runsOnOf,
   stepRunsOn,
   VERSION,
 } from "../../../core/language-schema"
@@ -382,14 +383,9 @@ export function drawWorkflow(
   }
 }
 
-/**
- * Where a drawing's steps run, as the Workflows list says it: `agents` or `session` when every step runs there, else
- * `mixed`; `null` without steps, or while a step names no place.
- */
-export function stepsRunOn(drawing: Drawing): "agents" | "session" | "mixed" | null {
-  const places = new Set(drawing.steps.map((s) => s.target))
-  if (places.size === 0 || places.has(null)) return null
-  return places.size === 1 ? ([...places][0] as "agents" | "session") : "mixed"
+/** Where a drawing's steps run, by the rule the Workflows list uses (`runsOnOf`). */
+export function stepsRunOn(drawing: Drawing): RunsOn | "mixed" | null {
+  return runsOnOf(drawing.steps.map((s) => s.target))
 }
 
 /**

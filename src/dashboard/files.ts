@@ -6,7 +6,15 @@ import { join } from "node:path"
 import { isMap as isYamlMap, isScalar, isSeq, LineCounter, type Node, parseDocument } from "yaml"
 import { isFile, type Overlay, readBytes } from "../core/io"
 import { listPromptFiles, listWorkflowFiles, parsePromptFile, resolveWorkflowFile } from "../core/language"
-import { FILE_PREFIX, matrixOf, NAME, promptRef, VERSION, type WorkflowFileItem } from "../core/language-schema"
+import {
+  FILE_PREFIX,
+  matrixOf,
+  NAME,
+  promptRef,
+  runsOnOf,
+  VERSION,
+  type WorkflowFileItem,
+} from "../core/language-schema"
 import { warnQuiet } from "../core/output"
 import { projectDir } from "../core/project"
 import { EXT, type Kind } from "../core/step-files"
@@ -63,12 +71,6 @@ function secondDefault(context: readonly WorkflowFileItem[], project: string | n
   return `${joinAnd(marked.map((w) => markedPath(project, w)))} both set default: true`
 }
 
-/** `agents` or `session` when every step runs there, else `mixed`. */
-function runsOnOf(steps: { runs_on: "agents" | "session" }[]): WorkflowRow["runsOn"] {
-  const set = new Set(steps.map((s) => s.runs_on))
-  return set.size === 1 ? ([...set][0] as "agents" | "session") : "mixed"
-}
-
 /** The body of `GET /api/workflows`. */
 export function listWorkflows(ctx: DashboardContext): WorkflowList {
   const workflows = workflowFiles(ctx).map(({ name, project, item, context }): WorkflowRow => {
@@ -79,7 +81,7 @@ export function listWorkflows(ctx: DashboardContext): WorkflowList {
       description: item.description,
       default: item.default,
       steps: item.doc === null ? null : item.doc.steps.length,
-      runsOn: item.doc === null ? null : runsOnOf(item.doc.steps),
+      runsOn: item.doc === null ? null : runsOnOf(item.doc.steps.map((s) => s.runs_on)),
       errors: [...item.errors.map((l) => own(l, `workflows/${name}.yaml: `)), ...(second === null ? [] : [second])],
     }
   })

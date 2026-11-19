@@ -3,14 +3,13 @@ import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { panelToggleLabel } from "@/lib/panel"
 import { PanelPortal } from "@/shell/panel"
 
 export { usePanelOpen } from "@/shell/panel"
 
 /** The tab strip's toggle of a record page's panel: `Hide panel` or `Show panel`. */
 export function PanelToggle({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const label = panelToggleLabel(open)
+  const label = open ? "Hide panel" : "Show panel"
   return (
     <Tooltip>
       <TooltipTrigger

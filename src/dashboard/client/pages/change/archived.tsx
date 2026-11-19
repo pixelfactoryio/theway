@@ -4,7 +4,7 @@ import { ChangeHeading, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
-import { ColumnTitle } from "@/components/doc-title"
+import { DocTab } from "@/components/doc-title"
 import { LinesAlert } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown-view"
 import { TaskList } from "@/components/task-list"
@@ -45,10 +45,15 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
         />
       }
     >
-      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-        <ColumnTitle>
-          <ChangeHeading change={data} />
-        </ColumnTitle>
+      <DocTab
+        title={<ChangeHeading change={data} />}
+        footer={
+          <DocFooter
+            file={file !== undefined ? file.name : <span className="font-sans">Tasks</span>}
+            details={[`Archived ${data.archived}, read-only`]}
+          />
+        }
+      >
         {file !== undefined ? (
           <MarkdownView key={file.name} text={file.text} name={file.name} />
         ) : (
@@ -58,11 +63,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
             </div>
           </div>
         )}
-      </div>
-      <DocFooter
-        file={file !== undefined ? file.name : <span className="font-sans">Tasks</span>}
-        details={[`Archived ${data.archived}, read-only`]}
-      />
+      </DocTab>
     </DocFrame>
   )
 }
