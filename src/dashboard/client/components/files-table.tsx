@@ -1,15 +1,13 @@
-import { cn } from "cn"
-import { CircleCheckIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
 import { Badge } from "@/components/reui/badge"
-import { ErrorsBadge } from "@/components/status"
+import { ErrorsBadge, StatusMark } from "@/components/status"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 /**
- * A file's name cell: the name, a link, a `default` badge for the default workflow, then its whole description. Both
- * wrap onto more lines when the column is narrow: nothing is cut.
+ * A file's name cell, as a change row's head: the name in mono, a link, with a `default` badge for the default
+ * workflow, and its description under it in muted, each on one line, cut at the column's edge.
  */
 export function NameCell({
   href,
@@ -23,18 +21,18 @@ export function NameCell({
   isDefault?: boolean
 }) {
   return (
-    <div className={cn(WRAP, "flex min-h-10 min-w-0 flex-col justify-center gap-0.5")}>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 items-center gap-2">
         <Link
           href={href}
           onClick={(e) => e.stopPropagation()}
-          className="min-w-0 font-medium text-foreground hover:underline"
+          className="min-w-0 truncate font-mono text-sm text-foreground hover:underline"
         >
           {name}
         </Link>
         {isDefault ? <Badge variant="outline">default</Badge> : null}
       </div>
-      {description !== null ? <p className="text-muted-foreground">{description}</p> : null}
+      {description !== null ? <p className="truncate text-sm text-muted-foreground">{description}</p> : null}
     </div>
   )
 }
@@ -50,17 +48,17 @@ export function Wrapped({ children }: { children: ReactNode }) {
   return <span className={WRAP}>{children}</span>
 }
 
-/** The Status column's header: it does not sort, and reads as the sortable headers' buttons do. */
-export const STATUS_HEADER = "text-sm font-medium text-foreground"
-
-/** The Status cell: the `Valid` badge, or the `N errors` badge; the errors themselves are on the file's page. */
+/**
+ * The Status cell: the status mark and `Valid`, as the file's panel header shows it, or the `N errors` badge; the
+ * errors themselves are on the file's page.
+ */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
   if (errors.length === 0) {
     return (
-      <Badge variant="success-light">
-        <CircleCheckIcon aria-hidden="true" />
+      <span className="inline-flex items-center gap-2">
+        <StatusMark status="ready" />
         Valid
-      </Badge>
+      </span>
     )
   }
   return <ErrorsBadge count={errors.length} />

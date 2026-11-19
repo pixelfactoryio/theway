@@ -57,7 +57,7 @@ export function PageHeader({
 }) {
   useDocumentTitle(title)
   return (
-    <TopRow className="px-4">
+    <TopRow className="px-6">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {parent !== undefined ? (
           <>

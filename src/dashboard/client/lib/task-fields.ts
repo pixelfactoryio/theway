@@ -10,7 +10,7 @@ export type OpenField =
   | { kind: "description"; value: string; error: string | null }
 
 /** The refusals the page shows under a field. */
-export const TASK_EMPTY = "A task needs a text."
+export const TASK_EMPTY = "A task cannot be empty."
 export const DESCRIPTION_EMPTY = "A description is one non-empty line."
 
 /** The row ids of the tasks of a `change.yaml` text, for the draft's epoch. */

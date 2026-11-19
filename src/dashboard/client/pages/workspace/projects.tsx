@@ -8,6 +8,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
+import { ColumnLabel, LIST_CAP, ListFoot, spareColumn, useSpare } from "@/components/list-grid"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -21,9 +22,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
-import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Input } from "@/components/ui/input"
 import { HeadLink, HeadToggle, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
 import { useBelowSm } from "@/hooks/use-below-sm"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
@@ -34,13 +35,13 @@ import {
   type Entry,
   inProgress,
   latest,
+  notStarted,
   PROJECT_FIELDS,
   type ProjectRow,
   projectTree,
   projectValues,
   renamed,
   suggestions,
-  toDoOf,
   togglePin,
   ungrouped,
   withGroup,
@@ -76,7 +77,7 @@ function NameDialog({
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className={DIALOG_TITLE}>{title}</DialogTitle>
           </DialogHeader>
           <Input
             aria-label="Group name"
@@ -103,12 +104,12 @@ function NameDialog({
 type Naming = { kind: "new"; keys: string[] } | { kind: "rename"; id: string; name: string } | null
 
 /** All projects' count columns: right-aligned, in mono. */
-const RIGHT = "text-right [&>div]:justify-end"
+const RIGHT = "text-right"
 const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
 
 /** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
 const NAME = { wide: 240, narrow: 160 } as const
-const NO_COUNTS = { inProgress: false, toDo: false, lastArchived: false } as const
+const NO_COUNTS = { inProgress: false, notStarted: false, lastArchived: false } as const
 
 /** The expanded state `next` (or its updater) asks, from `current`, as a list of open rows. */
 const nextExpanded = (next: Updater<ExpandedState>, current: Record<string, boolean>): ExpandedState =>
@@ -129,6 +130,7 @@ export function ProjectsPage() {
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
   const [sizing, setSizing] = useState<ColumnSizingState>({})
+  const { spare, sizer } = useSpare(LIST_CAP.changes)
   const narrow = useBelowSm()
   const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
@@ -254,11 +256,11 @@ export function ProjectsPage() {
     for (const id of groupIds) if (isOpen(id) !== expanded[id]) choices.set([id], !isOpen(id))
   }
 
-  /** The columns: the head, In progress (amber while any), To do, Last archived, then the row's actions. */
+  /** The columns: the head, In progress (amber while any), Not started, Last archived, then the row's actions. */
   const columns: ColumnDef<DataGridFeatures, ProjectRow>[] = [
     {
       id: "project",
-      header: ({ column }) => <DataGridColumnHeader title="Project" column={column} />,
+      header: () => <ColumnLabel>Project</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (r.key === null)
@@ -283,26 +285,26 @@ export function ProjectsPage() {
     },
     {
       id: "inProgress",
-      header: ({ column }) => <DataGridColumnHeader title="In progress" column={column} />,
+      header: () => <ColumnLabel>In progress</ColumnLabel>,
       cell: ({ row }) => {
         const n = inProgress(lists, row.original.keys)
-        return <span className={cn(n > 0 && "text-warning")}>{n}</span>
+        return <span className={cn(n > 0 && "text-warning-foreground")}>{n}</span>
       },
       size: 96,
       enableSorting: false,
       meta: { headerClassName: RIGHT, cellClassName: COUNT },
     },
     {
-      id: "toDo",
-      header: ({ column }) => <DataGridColumnHeader title="To do" column={column} />,
-      cell: ({ row }) => toDoOf(lists, row.original.keys),
-      size: 80,
+      id: "notStarted",
+      header: () => <ColumnLabel>Not started</ColumnLabel>,
+      cell: ({ row }) => notStarted(lists, row.original.keys),
+      size: 96,
       enableSorting: false,
       meta: { headerClassName: RIGHT, cellClassName: COUNT },
     },
     {
       id: "lastArchived",
-      header: ({ column }) => <DataGridColumnHeader title="Last archived" column={column} />,
+      header: () => <ColumnLabel>Last archived</ColumnLabel>,
       cell: ({ row }) => latest(lists, row.original.keys) || "–",
       size: 112,
       enableSorting: false,
@@ -345,6 +347,7 @@ export function ProjectsPage() {
       // content's 24px right gutter.
       meta: { cellClassName: "relative p-0" },
     },
+    ...spareColumn<ProjectRow>(spare),
   ]
 
   return (
@@ -395,12 +398,13 @@ export function ProjectsPage() {
           </div>
         ))}
         <ScrollBody>
+          {sizer}
           {gate}
           {projects !== null && entries.length === 0 && narrowed ? (
             <NoMatch nouns="projects" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : null}
           {rows.length > 0 ? (
-            <div className="pb-8">
+            <>
               <BandGrid
                 rows={rows}
                 columns={columns}
@@ -417,9 +421,9 @@ export function ProjectsPage() {
                   else navigate(to.project(key))
                 }}
                 label="Projects"
-                stickyHeader
               />
-            </div>
+              <ListFoot />
+            </>
           ) : null}
         </ScrollBody>
       </PageBody>

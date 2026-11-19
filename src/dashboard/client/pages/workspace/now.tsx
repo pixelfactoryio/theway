@@ -5,6 +5,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
+import { LIST_CAP, ListFoot, useSpare } from "@/components/list-grid"
 import {
   archiveGroups,
   projectField,
@@ -15,6 +16,7 @@ import {
 } from "@/components/workspace-bands"
 import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists } from "@/data/queries"
+import { rowStatus } from "@/lib/changes"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
   archivedValues,
@@ -32,19 +34,23 @@ import { PageBody, PageHeader } from "@/shell/top-bar"
 const NOW_FIELDS = ["project", "status"] as const
 
 /**
- * `#/`: every project's changes in focus order: needs fixing, In progress, Not started, Ready to archive counted. With
+ * `#/`: every project's changes in focus order: Invalid, In progress, Not started, Ready to archive counted. With
  * Status is Archived, every project's archived changes too, by month.
  */
 export function NowPage() {
   const { projects, gate } = useProjectsGate()
   const list = useMemo(() => projects ?? [], [projects])
   const keys = list.map((p) => p.key)
-  const { lists, failed } = useChangeLists(keys)
+  const { lists, failed, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
-  const grid = useChangeGrid(sizing, setSizing)
+  const { spare, sizer } = useSpare(LIST_CAP.changes)
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
+  // The progress column stands only over an open change listed as a row: the archive has none, and Ready to archive
+  // is counted by project here.
+  const progress = kept.some((r) => rowStatus(r.row) !== "ready")
+  const grid = useChangeGrid(sizing, setSizing, { project: true, progress, spare })
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
   const withArchive = picks(filter.rules, "status", "archived")
   const archiveAll = archivesOf(lists, keys)
@@ -60,11 +66,14 @@ export function NowPage() {
   const groups = [
     ...statusGroups(kept, {
       readyByProject: true,
-      body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: true })} />,
+      body: (rows, label) => <BandGrid {...grid.band(treeRows(rows), label)} />,
     }),
-    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid(rows, { label, project: true, archive: true })} />),
+    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid.band(rows, label)} />),
   ]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
+  const settled = projects !== null && !pending
+  // With no list loaded, the load error stands alone: nothing is known to be empty.
+  const unread = failed.length > 0 && lists.size === 0
   return (
     <>
       <PageHeader title="Now" />
@@ -74,11 +83,13 @@ export function NowPage() {
           filter={filter}
           onChange={setFilter}
           searchLabel="Search changes"
-          shown={projects !== null ? kept.reduce((n, r) => n + changesOf(r), 0) + archived.length : null}
-          total={projects !== null ? open + (withArchive ? archiveAll.length : 0) : null}
+          // Counts and empty states wait for every list: a list still loading reads as no change.
+          shown={settled ? kept.reduce((n, r) => n + changesOf(r), 0) + archived.length : null}
+          total={settled ? open + (withArchive ? archiveAll.length : 0) : null}
           noun="change"
         />
         <ScrollBody>
+          {sizer}
           {gate}
           {failed.length > 0 ? (
             <EmptyNote tone="error" inset="page">
@@ -87,10 +98,13 @@ export function NowPage() {
           ) : null}
           {groups.length > 0 ? (
             <>
+              <BandGrid {...grid.head} />
               <Groups page="now" groups={groups} />
-              <CollapseHint />
+              <ListFoot>
+                <CollapseHint />
+              </ListFoot>
             </>
-          ) : projects === null ? null : isNarrowed(filter) ? (
+          ) : !settled || unread ? null : isNarrowed(filter) ? (
             <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : (
             <EmptyNote inset="page">Nothing open.</EmptyNote>

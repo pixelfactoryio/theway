@@ -6,7 +6,7 @@ import { CHANGE_ROUTES, decoded, to } from "@/lib/routes"
 import { ChangePage } from "@/pages/change/change"
 import { NoProjectPage } from "@/components/no-project"
 import { PageLoading } from "@/components/page-states"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
@@ -21,12 +21,7 @@ function ProjectsGate({ label }: { label: string }) {
       <>
         <PageHeader title={label} />
         <PageBody>
-          <LoadError
-            what="the projects"
-            error={projects.error}
-            retry={() => void projects.refetch()}
-            className="m-4 w-auto"
-          />
+          <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
         </PageBody>
       </>
     )

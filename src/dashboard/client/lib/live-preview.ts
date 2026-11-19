@@ -373,12 +373,14 @@ export function tableBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>):
 }
 
 /**
- * The soft line breaks of `tree`'s paragraphs (a task item's text included), to join into one flowing paragraph as CommonMark renders them: each from
- * the end of a paragraph's line to the first character of its text on the next line, so the next line's indentation and
- * blockquote marks are covered too. A hard break (two or more trailing spaces, or a backslash) keeps its line break;
- * headings, code, tables, raw HTML, blank lines and a list item's own first line are no paragraph's soft break.
+ * The soft line breaks of `tree`'s paragraphs (a task item's text included), to join into one flowing paragraph as
+ * CommonMark renders them: each from the end of a paragraph's line to the first character of its text on the next line,
+ * so the next line's indentation and blockquote marks are covered too. A hard break (two or more trailing spaces, or a
+ * backslash) keeps its line break; headings, code, tables, raw HTML, blank lines and a list item's own first line are no
+ * paragraph's soft break. A paragraph one of the `active` lines touches keeps every line break: it shows as written,
+ * to be edited.
  */
-export function softBreaks(doc: Text, tree: Tree): Span[] {
+export function softBreaks(doc: Text, tree: Tree, active: ReadonlySet<number> = new Set()): Span[] {
   const breaks: Span[] = []
   tree.iterate({
     enter: (ref) => {
@@ -389,6 +391,7 @@ export function softBreaks(doc: Text, tree: Tree): Span[] {
       const first = doc.lineAt(ref.from).number
       const last = doc.lineAt(ref.to).number
       if (last === first) return false
+      for (let n = first; n <= last; n++) if (active.has(n)) return false
       // The lines that end in a hard break, and where the paragraph's blockquote marks start.
       const hard = new Set<number>()
       const quotes = new Map<number, number>()

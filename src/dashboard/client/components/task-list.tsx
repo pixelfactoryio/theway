@@ -79,7 +79,7 @@ function TaskBody({
     <>
       <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
         <span>{n}</span>
-        {next ? <span className="font-medium text-warning">Next</span> : null}
+        {next ? <span className="font-medium text-warning-foreground">Next</span> : null}
       </div>
       {field !== undefined ? (
         field

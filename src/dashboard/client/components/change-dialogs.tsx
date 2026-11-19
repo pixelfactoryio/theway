@@ -8,6 +8,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import type { Confirm } from "@/drafts/use-drafts"
 import { saveWithErrors } from "@/lib/edit"
 
@@ -35,7 +36,7 @@ export function ChangeDialogs({
         {confirm?.kind === "discard" || confirm?.kind === "reload" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+              <AlertDialogTitle className={DIALOG_TITLE}>Discard unsaved changes?</AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep editing</AlertDialogCancel>
@@ -53,7 +54,7 @@ export function ChangeDialogs({
         ) : confirm?.kind === "errors" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogTitle>{saveWithErrors(confirm.n)}</AlertDialogTitle>
+              <AlertDialogTitle className={DIALOG_TITLE}>{saveWithErrors(confirm.n)}</AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -70,7 +71,7 @@ export function ChangeDialogs({
         ) : confirm?.kind === "leave" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+              <AlertDialogTitle className={DIALOG_TITLE}>Unsaved changes</AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep editing</AlertDialogCancel>

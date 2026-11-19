@@ -155,32 +155,54 @@ export const KEEP = { top: 16, side: 16, bottom: 68 } as const
 /** A view of the canvas: React Flow's viewport, the flow's origin at (`x`, `y`) on the pane, scaled by `zoom`. */
 export type View = { x: number; y: number; zoom: number }
 
+/** The zoom's range: 50% to 200%. */
+const ZOOM = { min: 0.5, max: 2 } as const
+
 /**
  * The scale that fits a drawing `box` long into `area` (its height or its width): never above 1, rounded down to a 0.1
- * step, never below 0.8 (a larger drawing overflows at 0.8).
+ * step, never below the zoom's minimum (a larger drawing overflows at 0.5).
  */
 const fitScale = (box: number, area: number): number =>
-  Math.max(0.8, Math.floor(Math.min(1, area / box) * 10 + 1e-9) / 10)
+  Math.max(ZOOM.min, Math.floor(Math.min(1, area / box) * 10 + 1e-9) / 10)
 
 /** The space between the page's heading, drawn over the canvas's top, and the drawing it fits. */
 export const UNDER_HEADING = 24
 
+/** The line the drawing's top stands on: 24px under the page's heading, or 16px under the pane's top without one. */
+const topLine = (heading: number): number => (heading > 0 ? heading + UNDER_HEADING : KEEP.top)
+
+/**
+ * The view of `bounds` at `zoom` in a pane `width` wide: its top on `top`; centred across the pane when it fits
+ * between the 16px margins, else its left edge 16px from the pane's left.
+ */
+const viewAt = (bounds: Bounds, width: number, top: number, zoom: number): View => {
+  const shown = bounds.width * zoom
+  const x = shown <= width - 2 * KEEP.side ? (width - shown) / 2 : KEEP.side
+  return { x: x - bounds.x * zoom, y: top - bounds.y * zoom, zoom }
+}
+
+/**
+ * The view a canvas opens with, in a pane whose top `heading` pixels hold the page's heading: `bounds` at 100%, its
+ * top 24px under the heading (16px under the pane's top without one), centred across the pane when it fits between
+ * the 16px margins. A drawing too tall or too wide for the pane shows its top and its left, and is panned.
+ */
+export function openView(bounds: Bounds, pane: { width: number; height: number }, heading = 0): View {
+  return viewAt(bounds, pane.width, topLine(heading), 1)
+}
+
 /**
  * The view that fits `bounds` in a pane `width` × `height` whose top `heading` pixels hold the page's heading: the
  * scale fits its height between the heading + 24px (or the pane's top + 16px without one) and the toolbar's band, and
- * its width between 16px margins (`fitScale` of each, the smaller), its top at that line; it is centred across the
- * pane when it fits between the margins, else its left edge stands 16px from the pane's left (a drawing too tall or too
- * wide at 0.8 shows its top and its left).
+ * its width between 16px margins (`fitScale` of each, the smaller), placed as `openView` places it (a drawing too tall
+ * or too wide at 0.5 shows its top and its left).
  */
 export function fitView(bounds: Bounds, pane: { width: number; height: number }, heading = 0): View {
-  const top = heading > 0 ? heading + UNDER_HEADING : KEEP.top
+  const top = topLine(heading)
   const zoom = Math.min(
     fitScale(bounds.height, pane.height - top - KEEP.bottom),
     fitScale(bounds.width, pane.width - 2 * KEEP.side),
   )
-  const shown = bounds.width * zoom
-  const x = shown <= pane.width - 2 * KEEP.side ? (pane.width - shown) / 2 : KEEP.side
-  return { x: x - bounds.x * zoom, y: top - bounds.y * zoom, zoom }
+  return viewAt(bounds, pane.width, top, zoom)
 }
 
 /** Whether part of `bounds` lies outside the pane `width` × `height` seen through `view`. */
@@ -211,7 +233,7 @@ export function revealDelta(
 
 /** A zoom step: the scale minus or plus 0.1, rounded to one decimal, kept within 0.5 and 2. */
 export const zoomStep = (scale: number, delta: number): number =>
-  Math.min(2, Math.max(0.5, Math.round((scale + delta) * 10) / 10))
+  Math.min(ZOOM.max, Math.max(ZOOM.min, Math.round((scale + delta) * 10) / 10))
 
 /** The toolbar's percentage: `Math.round(scale * 100)` followed by `%`. */
 export const percent = (scale: number): string => `${Math.round(scale * 100)}%`

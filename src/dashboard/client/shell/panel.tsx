@@ -10,7 +10,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { PANEL_DOCKED } from "@/lib/preferences"
 import { useStored } from "@/shell/storage"
 
@@ -98,10 +98,13 @@ export function PanelArea() {
   if (name === null || wide) return null
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="right" className="w-[min(420px,90vw)] gap-0 p-0 sm:max-w-none">
+      <SheetContent
+        side="right"
+        // Under the sheet's own side variant, which sets its width and its cap.
+        className="gap-0 bg-sidebar p-0 data-[side=right]:w-[min(420px,90vw)] data-[side=right]:sm:max-w-none"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>{name}</SheetTitle>
-          <SheetDescription>{name}</SheetDescription>
         </SheetHeader>
         <aside ref={setSlot} aria-label={name} className="flex h-full min-h-0 flex-col" />
       </SheetContent>

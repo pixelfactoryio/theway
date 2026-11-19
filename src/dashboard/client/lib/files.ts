@@ -156,6 +156,10 @@ export const lineSeparatorOf = (text: string): string => {
   return at > 0 && text[at - 1] === "\r" ? "\r\n" : "\n"
 }
 
+/** The number of lines of a text: its line breaks, and one more when it does not end with one; 0 for no text. */
+export const lineCount = (text: string): number =>
+  text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0)
+
 /** A default value as the Details panel writes it: JSON-quoted. */
 export const quoted = (value: string): string => JSON.stringify(value)
 

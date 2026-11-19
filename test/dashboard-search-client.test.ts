@@ -48,7 +48,7 @@ const input = (rest: Partial<SearchInput> = {}): SearchInput => ({
   changes: [{ key: "-k", list: changes }],
   workflows: [workflow("agents", null), workflow("ship", "-k")],
   prompts: [prompt("review", null), prompt("local", "-k")],
-  projects: [project("-z", "revecto", 3), project("-k", "kt", 2)],
+  projects: [project("-z", "web", 3), project("-k", "kt", 2)],
   label,
   ...rest,
 })
@@ -77,7 +77,7 @@ test("the groups are Changes, Workflows, Prompts, Projects with their hrefs", ()
   // Projects by label.
   expect(groups[3]?.entries).toEqual([
     { value: "project:-k", label: "kt", detail: "2 active", href: "/-k?" },
-    { value: "project:-z", label: "revecto", detail: "3 active", href: "/-z?" },
+    { value: "project:-z", label: "web", detail: "3 active", href: "/-z?" },
   ])
 })
 

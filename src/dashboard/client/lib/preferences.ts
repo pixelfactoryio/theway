@@ -36,3 +36,15 @@ export const DIFF_LAYOUT: Codec<DiffLayout> = {
 
 /** A pane's chosen tab, as stored. */
 export const PANE_TAB: Codec<string | null> = { parse: (raw) => raw, format: (tab) => tab }
+
+/**
+ * The docked panel's width in pixels, whatever the window's: a whole number from `min` to `max`, else `fallback` (also
+ * with nothing stored).
+ */
+export const panelWidthCodec = (min: number, max: number, fallback: number): Codec<number> => ({
+  parse: (raw) => {
+    const width = raw === null ? Number.NaN : Number(raw)
+    return Number.isInteger(width) && width >= min && width <= max ? width : fallback
+  },
+  format: (width) => String(Math.round(width)),
+})

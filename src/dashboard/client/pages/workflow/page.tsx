@@ -2,18 +2,19 @@ import { CodeIcon, HistoryIcon, InfoIcon, WorkflowIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "wouter"
 
-import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { CodeTab } from "@/components/code-tab"
+import type { CodeViewHandle } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { PageLoading, PageUnknown } from "@/components/page-states"
-import { useHistoryTab } from "@/components/history"
+import { HistoryTab, useHistoryTab } from "@/components/history"
 import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
-import { DocTitle } from "@/components/doc-title"
+import { DocTitle, GutterTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
-import { Alert, AlertTitle } from "@/components/reui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { StatusPill } from "@/components/status"
@@ -38,9 +39,10 @@ import {
   sameSelection,
   type Selection,
   selectionOf,
+  stepsRunOn,
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The step picker open in the panel: adding a step at `at`, or changing the prompt of step `index`. */
@@ -199,26 +201,11 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         <PageHeader title={name} />
         <PageBody>
           {projects.isError ? (
-            <LoadError
-              what="the projects"
-              error={projects.error}
-              retry={() => void projects.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
           ) : fileFailed ? (
-            <LoadError
-              what="this workflow"
-              error={file.error as Error}
-              retry={() => void file.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="this workflow" error={file.error as Error} retry={() => void file.refetch()} />
           ) : (
-            <LoadError
-              what="the prompts"
-              error={prompts.error as Error}
-              retry={() => void prompts.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the prompts" error={prompts.error as Error} retry={() => void prompts.refetch()} />
           )}
         </PageBody>
       </>
@@ -320,7 +307,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <DetailRow label="Steps">
         <span className="tabular-nums">{drawing === null ? "–" : drawing.steps.length}</span>
       </DetailRow>
-      <DetailRow label="Runs on">{drawing?.runsOn ?? "–"}</DetailRow>
+      <DetailRow label="Runs on">{(drawing === null ? null : stepsRunOn(drawing)) ?? "–"}</DetailRow>
       <DetailRow label="File">
         <CopyPath value={data.path} name="the file path" />
       </DetailRow>
@@ -328,22 +315,17 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   )
 
   // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
-  const onCanvas = !history && !yamlTab && "drawing" in drawn
   const heading = (
-    <DocTitle
-      caption={`Workflows · ${appliesTo(project, label)}`}
-      title={name}
-      description={drawing?.description}
-      variant="canvas"
-    />
+    <DocTitle caption={`Workflows · ${appliesTo(project, label)}`} title={name} description={drawing?.description} />
   )
+  const notices = <DraftNotices draft={draft} lines={lines} history={history} />
+  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
 
   return (
     <>
       <DocFrame
         title={`${name} · Workflows`}
         label="Workflow views"
-        page={history ? "history" : "workflow"}
         value={history ? "history" : yamlTab ? "yaml" : "editor"}
         tabs={[
           {
@@ -425,37 +407,48 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           />
         }
       >
-        {onCanvas ? null : <div className="shrink-0 px-14 pt-5 pb-3">{heading}</div>}
-        <DraftNotices draft={draft} lines={lines} history={history} />
-        {!history && !yamlTab && drawing !== null && anchors ? (
-          <Alert className={STRIP}>
-            <InfoIcon aria-hidden="true" />
-            <AlertTitle>This file uses YAML anchors. Edit it on the YAML tab.</AlertTitle>
-          </Alert>
-        ) : null}
-        {history ? (
-          historyTab.main
-        ) : yamlTab ? (
-          <div className="min-h-0 flex-1 border-t">
-            <EditableCodeView ref={code} draft={draft.store} errors={errors} />
-          </div>
-        ) : "reason" in drawn ? (
-          <CannotDraw reason={drawn.reason} openYaml={() => navigate(to.file("workflows", project, name, "yaml"))} />
-        ) : (
-          <WorkflowCanvas
-            key={`${project ?? "global"}/${name}`}
-            drawing={drawn.drawing}
-            selection={kept}
-            onSelect={select}
-            store={draft.store}
-            edits={edits}
-            header={heading}
+        {yamlTab ? (
+          <CodeTab
+            ref={code}
+            title={heading}
+            notices={notices}
+            draft={draft.store}
+            errors={errors}
+            file={`${name}.yaml`}
+            status={status}
           />
+        ) : history ? (
+          <HistoryTab title={heading} notices={notices} main={historyTab.main} file={`${name}.yaml`} status={status} />
+        ) : (
+          <>
+            {"reason" in drawn ? <GutterTitle>{heading}</GutterTitle> : null}
+            {notices}
+            {drawing !== null && anchors ? (
+              <Alert className={STRIP}>
+                <InfoIcon aria-hidden="true" />
+                <AlertTitle>This file uses YAML anchors</AlertTitle>
+                <AlertDescription>Edit it on the YAML tab.</AlertDescription>
+              </Alert>
+            ) : null}
+            {"reason" in drawn ? (
+              <CannotDraw
+                reason={drawn.reason}
+                openYaml={() => navigate(to.file("workflows", project, name, "yaml"))}
+              />
+            ) : (
+              <WorkflowCanvas
+                key={`${project ?? "global"}/${name}`}
+                drawing={drawn.drawing}
+                selection={kept}
+                onSelect={select}
+                store={draft.store}
+                edits={edits}
+                header={heading}
+              />
+            )}
+            <DocFooter file={`${name}.yaml`} status={status} />
+          </>
         )}
-        <DocFooter
-          file={`${name}.yaml`}
-          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
-        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

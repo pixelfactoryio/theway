@@ -3,7 +3,7 @@ import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
 import { ActiveChange } from "@/pages/change/active"
 import { ArchivedChange } from "@/pages/change/archived"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The errors of a `404` on a change's route. */
@@ -48,12 +48,7 @@ export function ChangePage({
       <>
         <PageHeader title={name} />
         <PageBody>
-          <LoadError
-            what="this change"
-            error={change.error}
-            retry={() => void change.refetch()}
-            className="m-4 w-auto"
-          />
+          <PageLoadError what="this change" error={change.error} retry={() => void change.refetch()} />
         </PageBody>
       </>
     )

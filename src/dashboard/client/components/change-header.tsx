@@ -1,7 +1,4 @@
-import { cn } from "cn"
-
 import { TextField } from "@/components/change-fields"
-import { DOC_COLUMN, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocTitle } from "@/components/doc-title"
 import { LinesAlert } from "@/components/file-page"
 import type { ChangeDetail } from "@/lib/changes"
@@ -48,22 +45,16 @@ export function DescriptionField({ description, edit }: { description: string | 
 }
 
 /**
- * The top of a change's content, the title of the document below it and in its column: its description (its ID when
- * it has none) at 36/44 and 700, above the document's h1, its ID in small mono, and the reasons a change that cannot
- * be read gives. Where the change sits shows in the sidebar, not here. The document below gives the space under it.
+ * A change's title block: its description (its ID when it has none) at 21/29 and 600, its ID in small mono, and the
+ * reasons a change that cannot be read gives, no wider than prose. Where the change sits shows in the sidebar, not
+ * here. It stands in a `ColumnTitle` above a Markdown file and in the code tab's gutter title above `change.yaml`.
  */
-export function ChangeTitle({ change, className }: { change: ChangeDetail; className?: string }) {
+export function ChangeHeading({ change }: { change: ChangeDetail }) {
   const invalid = change.archived === null && change.issues.length > 0
   return (
-    <div className={cn("shrink-0 pt-10", DOC_COLUMN, className)}>
-      <div className={PROSE_COLUMN}>
-        <DocTitle
-          title={change.description ?? change.id}
-          id={change.description !== null ? change.id : undefined}
-          variant="document"
-        />
-        {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} className="mt-3" /> : null}
-      </div>
-    </div>
+    <>
+      <DocTitle title={change.description ?? change.id} id={change.description !== null ? change.id : undefined} />
+      {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} className="mt-3 max-w-(--read-width)" /> : null}
+    </>
   )
 }

@@ -6,7 +6,7 @@ import { useDefaultLayout, usePanelRef } from "react-resizable-panels"
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { HANDLE } from "@/components/ui-classes"
+import { HANDLE, LINE_TAB } from "@/components/ui-classes"
 import { PANE_TAB } from "@/lib/preferences"
 import { LAYOUTS, useStored } from "@/shell/storage"
 
@@ -55,14 +55,10 @@ function Pane({
         <TabsList
           variant="line"
           aria-label={label}
-          className="h-full min-w-0 flex-1 justify-start gap-1 rounded-none bg-transparent p-0"
+          className="min-w-0 flex-1 justify-start gap-1 rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-full"
         >
           {tabs.map((t) => (
-            <TabsTrigger
-              key={t.value}
-              value={t.value}
-              className="h-full flex-none gap-2 rounded-none border-0 px-2 text-sm font-normal transition-colors after:inset-x-2! after:bottom-0! after:h-0.5 data-active:text-foreground"
-            >
+            <TabsTrigger key={t.value} value={t.value} className={cn(LINE_TAB, "px-2 after:inset-x-2!")}>
               {t.label}
               {t.count !== undefined ? <span className="text-muted-foreground tabular-nums">{t.count}</span> : null}
             </TabsTrigger>
@@ -75,7 +71,8 @@ function Pane({
           key={t.value}
           value={t.value}
           inert={collapsed}
-          className="relative min-h-0 flex-1 overflow-y-auto"
+          // An outline, inside the pane: its rows' fills would cover an inset ring.
+          className="relative min-h-0 flex-1 overflow-y-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid"
         >
           {t.content}
         </TabsContent>
@@ -118,7 +115,6 @@ function Split({
     if (panel.isCollapsed()) panel.expand()
     else panel.collapse()
   }
-  const bottomName = `${label}: details`
   return (
     <ResizablePanelGroup
       orientation="vertical"
@@ -127,9 +123,9 @@ function Split({
       className="min-h-0 flex-1"
     >
       <ResizablePanel id="top" defaultSize={topShare} minSize="20%" className="flex min-h-0 flex-col">
-        <Pane tabs={top} remember={`${remember}:top`} label={`${label}: views`} className="flex-1" />
+        <Pane tabs={top} remember={`${remember}:top`} label={`${label}: top pane`} className="flex-1" />
       </ResizablePanel>
-      <ResizableHandle withHandle aria-label={`Resize ${bottomName}`} className={HANDLE} />
+      <ResizableHandle withHandle aria-label="Resize the panes" className={HANDLE} />
       <ResizablePanel
         id="bottom"
         panelRef={details}
@@ -142,7 +138,7 @@ function Split({
         <Pane
           tabs={bottom}
           remember={`${remember}:bottom`}
-          label={bottomName}
+          label={`${label}: bottom pane`}
           collapsed={collapsed}
           onChoose={() => {
             if (details.current?.isCollapsed() === true) details.current.expand()
@@ -153,7 +149,7 @@ function Split({
               variant="ghost"
               size="icon-sm"
               aria-expanded={!collapsed}
-              aria-label={collapsed ? `Expand ${bottomName}` : `Collapse ${bottomName}`}
+              aria-label={collapsed ? "Expand the bottom pane" : "Collapse the bottom pane"}
               // A disclosure is expanded by default: no pressed shade for it, the ghost's hover only.
               className="text-muted-foreground aria-expanded:bg-transparent aria-expanded:text-muted-foreground aria-expanded:hover:bg-muted aria-expanded:hover:text-foreground"
               onClick={toggle}
@@ -190,11 +186,11 @@ export function DocPanel({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-3">{header}</div>
+      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-4">{header}</div>
       {bottom !== undefined && bottom.length > 0 ? (
         <Split top={top} bottom={bottom} remember={remember} label={label} topShare={topShare} />
       ) : (
-        <Pane tabs={top} remember={`${remember}:top`} label={`${label}: views`} className="flex-1" />
+        <Pane tabs={top} remember={`${remember}:top`} label={`${label}: top pane`} className="flex-1" />
       )}
     </div>
   )

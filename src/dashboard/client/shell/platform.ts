@@ -4,6 +4,9 @@ export const MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(na
 /** The modifier key's name, for shortcut hints. */
 export const MOD = MAC ? "⌘" : "Ctrl"
 
+/** The Option key's name, for shortcut hints: ⌥ on macOS, Alt elsewhere. */
+export const ALT = MAC ? "⌥" : "Alt"
+
 /** Whether a key event holds the modifier key: ⌘ on macOS, Ctrl elsewhere. */
 export const modKey = (event: { metaKey: boolean; ctrlKey: boolean }): boolean => (MAC ? event.metaKey : event.ctrlKey)
 

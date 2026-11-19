@@ -7,7 +7,7 @@ import { GroupBand, useCollapsed } from "@/components/group-band"
 import { useProjects } from "@/data/queries"
 import { type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 
 /** The time now, refreshed every minute, for the rows' ages. */
 export function useNow(): number {
@@ -19,7 +19,7 @@ export function useNow(): number {
   return now
 }
 
-/** The progress columns of a row with none: as wide as a row's `ChangeProgress`, empty. */
+/** The progress column of a row with none: as wide as a row's `ChangeProgress`, empty. */
 export function NoProgress() {
   return (
     <>
@@ -33,7 +33,7 @@ export function NoProgress() {
 const HEAD = "flex w-full min-w-0 text-left outline-none"
 
 /** A member's head: the guide line of its opened row, under that row's chevron (its cell is `relative`). */
-const GUIDE = "before:absolute before:inset-y-0 before:left-8 before:w-px before:bg-border"
+const GUIDE = "before:absolute before:inset-y-0 before:left-3 before:w-px before:bg-border"
 
 /**
  * A row head that opens a page: a link carrying `data-nav-item`, which keeps its click from the row's own. A member's
@@ -82,10 +82,9 @@ export function HeadToggle({
 
 /**
  * A row's head: its ID (a change's, a series', a project's or a group's name) in mono on a first line, and its text
- * under it in muted (a change's description, a series' number of changes, a project's path), each truncating. A row
- * that opens has its chevron (`lead`) first, level with the ID; a row that does not starts its ID where a chevron
- * would be, so it never reads as a member of the opened row above it. A member of an opened row is indented past the
- * opened row's ID.
+ * under it in muted (a change's description, a series' number of changes, a project's path), each truncating. Every
+ * ID starts on the list's 24px gutter: a row that opens has its chevron (`lead`) hanging in the gutter, level with the
+ * ID. A member of an opened row is indented 40px from that edge.
  */
 export function RowHead({
   lead,
@@ -99,9 +98,11 @@ export function RowHead({
   member?: boolean
 }) {
   return (
-    <span className={cn("flex min-w-0 flex-1 items-start gap-2", member && "pl-10")}>
+    <span className={cn("relative flex min-w-0 flex-1 items-start", member && "pl-10")}>
       {lead !== undefined ? (
-        <span className="flex h-5 w-4 shrink-0 items-center justify-center text-muted-foreground">{lead}</span>
+        <span className="absolute top-0 -left-5 flex h-5 w-4 items-center justify-center text-muted-foreground">
+          {lead}
+        </span>
       ) : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-mono text-sm text-foreground">{id}</span>
@@ -115,7 +116,7 @@ export function RowHead({
 
 /** A status as the lists title it. */
 export const GROUP_TITLE: Record<Status, string> = {
-  invalid: "Needs fixing",
+  invalid: "Invalid",
   "in-progress": "In progress",
   "not-started": "Not started",
   ready: "Ready to archive",
@@ -127,7 +128,8 @@ export type Group = {
   id: string
   label: ReactNode
   mark?: ReactNode
-  count: number
+  /** The rows the group holds, or `N of M` when it lists only some. */
+  count: number | string
   collapsed?: boolean
   body: ReactNode
 }
@@ -163,9 +165,7 @@ export function useProjectsGate(): { projects: Project[] | null; gate: ReactNode
   if (query.isError)
     return {
       projects: null,
-      gate: (
-        <LoadError what="the projects" error={query.error} retry={() => void query.refetch()} className="m-4 w-auto" />
-      ),
+      gate: <PageLoadError what="the projects" error={query.error} retry={() => void query.refetch()} />,
     }
   return { projects: query.data?.projects ?? null, gate: null }
 }

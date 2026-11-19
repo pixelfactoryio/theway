@@ -1,5 +1,6 @@
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
+import { cn } from "cn"
 import { type ReactNode, useMemo, useState } from "react"
 import { useLocation } from "wouter"
 
@@ -8,25 +9,45 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
-import { NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/components/files-table"
-import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
+import { NoFile, StatusCell, Wrapped } from "@/components/files-table"
+import {
+  cellSkeleton,
+  ColumnLabel,
+  GridFrame,
+  LIST_CAP,
+  LIST_FRAME,
+  LIST_ROWS,
+  ListFoot,
+  SCROLL_AREA,
+  SORT_HEADER,
+  spareColumn,
+  useSpare,
+} from "@/components/list-grid"
 import { NewFileButton } from "@/components/new-file"
 import { StatusMark } from "@/components/status"
 import { useLabel, useProjects } from "@/data/queries"
 import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
-/** Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. */
-const LAYOUT = { headerSticky: true, columnsResizable: true, columnsResizeMode: "onChange" } as const
+/**
+ * Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. The header row
+ * scrolls with the rows, which keep the lists' look: no divider between them.
+ */
+const LAYOUT = {
+  headerSticky: false,
+  rowBorder: false,
+  columnsResizable: true,
+  columnsResizeMode: "onChange",
+} as const
 export const PAGE = { pageIndex: 0, pageSize: 1000 }
 /** No column is dragged narrower than its header's word. */
 export const COLUMN_DEFAULTS = { minSize: 72 }
 
-/** The grid's column under the filter bar: the page's width, with its 24px gutters; the grid scrolls inside it. */
-const COLUMN = "flex min-h-0 w-full flex-1 flex-col px-6"
+/** The grid's column under the filter bar: the page's width, edge to edge; the grid scrolls inside it. */
+const COLUMN = cn("flex min-h-0 w-full flex-1 flex-col", LIST_FRAME)
 
 /** A row of a file list: a workflow's or a prompt's. */
 type FileRow = { name: string; project: string | null; description: string | null; errors: string[] }
@@ -51,11 +72,14 @@ function FileGrid<Row extends FileRow>({
   rows,
   isLoading,
   columns: columnsOf,
+  spare,
 }: {
   kind: "workflows" | "prompts"
   rows: readonly Row[]
   isLoading: boolean
   columns: (label: (key: string) => string) => FileColumns<Row>
+  /** The room past the list's cap, left empty at the right. */
+  spare: number
 }) {
   const [, navigate] = useLocation()
   const label = useLabel()
@@ -70,7 +94,7 @@ function FileGrid<Row extends FileRow>({
       {
         id: "applies",
         accessorFn: (row) => appliesTo(row.project, label),
-        header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} className={SORT_HEADER} />,
         cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
         sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
         size: 130,
@@ -80,14 +104,16 @@ function FileGrid<Row extends FileRow>({
       ...extra,
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
+        header: () => <ColumnLabel>Status</ColumnLabel>,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 120,
         enableSorting: false,
-        meta: { skeleton: cellSkeleton("w-16") },
+        // The lists' 24px right gutter.
+        meta: { headerClassName: "pe-6", cellClassName: "pe-6", skeleton: cellSkeleton("w-16") },
       },
+      ...spareColumn<Row>(spare),
     ]
-  }, [columnsOf, label])
+  }, [columnsOf, label, spare])
 
   const table = useTable({
     features: dataGridFeatures,
@@ -107,11 +133,13 @@ function FileGrid<Row extends FileRow>({
       isLoading={isLoading}
       loadingMode="skeleton"
       tableLayout={LAYOUT}
+      tableClassNames={LIST_ROWS}
       onRowClick={(row) => navigate(to.file(kind, row.project, row.name))}
     >
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>
           <DataGridTable />
+          <ListFoot />
         </DataGridScrollArea>
       </GridFrame>
     </DataGrid>
@@ -180,6 +208,7 @@ export function FileListPage<Row extends FileRow, F extends string>({
   fileType: string
 }) {
   const projects = useProjects()
+  const { spare, sizer } = useSpare(LIST_CAP.files)
   const [filter, setFilter] = useListFilter(kind, fields)
   const all = useMemo(() => list?.rows ?? [], [list])
   const searched = useMemo(() => all.filter((r) => fileMatches(r, filter.q)), [all, filter.q])
@@ -201,19 +230,9 @@ export function FileListPage<Row extends FileRow, F extends string>({
         {top}
         <PageBody>
           {query.isError ? (
-            <LoadError
-              what={`the ${nouns}`}
-              error={query.error as Error}
-              retry={() => void query.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what={`the ${nouns}`} error={query.error as Error} retry={() => void query.refetch()} />
           ) : (
-            <LoadError
-              what="the projects"
-              error={projects.error as Error}
-              retry={() => void projects.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the projects" error={projects.error as Error} retry={() => void projects.refetch()} />
           )}
         </PageBody>
       </>
@@ -253,7 +272,8 @@ export function FileListPage<Row extends FileRow, F extends string>({
           <NoMatch nouns={nouns} filter={filter} fields={bar} onClear={() => setFilter(NO_FILTER)} />
         ) : (
           <div className={COLUMN}>
-            <FileGrid kind={kind} rows={rows} isLoading={!loaded} columns={columns} />
+            {sizer}
+            <FileGrid kind={kind} rows={rows} isLoading={!loaded} columns={columns} spare={spare} />
           </div>
         )}
       </PageBody>

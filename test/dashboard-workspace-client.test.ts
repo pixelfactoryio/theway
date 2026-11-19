@@ -6,10 +6,13 @@ import { activeRows } from "../src/dashboard/client/lib/changes"
 import { NONE, passesAll, valueCounts } from "../src/dashboard/client/lib/list-filter"
 import {
   allEntries,
+  archiveMonths,
   countOf,
   entryOf,
   groupId,
+  inProgress,
   inProgressCount,
+  notStarted,
   pinnedEntries,
   PROJECT_FIELDS,
   projectTree,
@@ -149,7 +152,7 @@ const change = (id: string, status: ActiveChange["status"]): ActiveChange => ({
   updated: "2026-11-16T00:00:00Z",
 })
 
-test("to do leaves out Ready; In progress counts a series In progress as a whole once", () => {
+test("to do leaves out Ready; In progress and Not started count their rows, a series as a whole once", () => {
   const list: ChangeList = {
     active: [
       change("add-a", "in-progress"),
@@ -164,6 +167,53 @@ test("to do leaves out Ready; In progress counts a series In progress as a whole
   expect(toDo(undefined)).toBe(0)
   // add-a, and the series add-s (one Ready, one Not started: In progress).
   expect(inProgressCount(list)).toBe(2)
+  // All projects counts as Now and the sidebar do, over the projects of the row.
+  const other: ChangeList = { active: [change("add-d", "in-progress")], archived: [] }
+  expect(
+    inProgress(
+      new Map([
+        ["-a", list],
+        ["-b", other],
+      ]),
+      ["-a", "-b", "-none"],
+    ),
+  ).toBe(3)
+  // Not started: add-c; the series add-s is In progress as a whole, so its Not started member is not counted. A series
+  // none of whose members has started counts once.
+  const fresh: ChangeList = {
+    active: [change("add-t-01", "not-started"), change("add-t-02", "not-started"), change("add-u", "ready")],
+    archived: [],
+  }
+  expect(
+    notStarted(
+      new Map([
+        ["-a", list],
+        ["-b", fresh],
+      ]),
+      ["-a", "-b", "-none"],
+    ),
+  ).toBe(2)
+})
+
+test("an archive month counts the month, not the rows listed when the list is cut", () => {
+  const archived = (id: string, date: string) => ({ key: "-a", a: { id, dir: `${date}-${id}`, date, updated: date } })
+  const all = [
+    archived("add-e", "2026-11-12"),
+    archived("add-d", "2026-11-03"),
+    archived("add-c", "2026-11-01"),
+    archived("add-b", "2026-10-20"),
+    archived("add-a", "2026-10-02"),
+  ]
+  const months = archiveMonths(all.slice(0, 4), all)
+  expect(months.map((m) => [m.id, m.rows.length, m.total])).toEqual([
+    ["archive:2026-11", 3, 3],
+    ["archive:2026-10", 1, 2],
+  ])
+  // Uncut, a month's total is its rows.
+  expect(archiveMonths(all).map((m) => [m.rows.length, m.total])).toEqual([
+    [3, 3],
+    [2, 2],
+  ])
 })
 
 test("countOf writes the noun singular for one and plural otherwise", () => {
@@ -227,4 +277,12 @@ test("Now, the project and group pages and All projects list their rows on the r
     expect([file, /<ul[^>]*data-nav-list/.test(read(file))]).toEqual([file, false])
   for (const page of pages) expect([page, read(page).includes("<BandGrid")]).toEqual([page, true])
   expect(read("components", "band-grid.tsx")).toContain("columnsResizable: true")
+})
+
+test("a change list draws the progress column only when it lists an open change as a row", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  expect(read("pages/workspace/scope.tsx")).toContain("progress: open.length > 0")
+  expect(read("pages/workspace/now.tsx")).toContain('const progress = kept.some((r) => rowStatus(r.row) !== "ready")')
+  expect(read("components/workspace-bands.tsx")).toMatch(/\.\.\.\(progress\s*\? \[\s*\{\s*id: "progress",/)
 })

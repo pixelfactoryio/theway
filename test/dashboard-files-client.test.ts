@@ -4,6 +4,7 @@ import { join } from "node:path"
 import {
   appliesTo,
   GLOBAL,
+  lineCount,
   lineSeparatorOf,
   previewText,
   PROMPT_FIELDS,
@@ -18,7 +19,14 @@ import {
   workflowValues,
 } from "../src/dashboard/client/lib/files"
 import { NONE } from "../src/dashboard/client/lib/list-filter"
-import { drawWorkflow, findPrompt, isDefaultText, keyLabel, selectionOf } from "../src/dashboard/client/lib/workflow"
+import {
+  drawWorkflow,
+  findPrompt,
+  isDefaultText,
+  keyLabel,
+  selectionOf,
+  stepsRunOn,
+} from "../src/dashboard/client/lib/workflow"
 
 const prompt = (
   name: string,
@@ -192,6 +200,21 @@ test("a workflow with comments is drawn: Inputs, steps with their badges, matrix
   // A project's workflow takes its project's own prompt.
   const own = drawWorkflow(WORKFLOW, [], PROMPTS, "-p")
   expect("drawing" in own && own.drawing.steps[1]?.description).toBe("Own review")
+})
+
+test("Details says where the steps run as the list does: one place, mixed, or none without steps", () => {
+  const on = (text: string) => {
+    const r = drawWorkflow(text, [], PROMPTS, null)
+    if (!("drawing" in r)) throw new Error(r.reason)
+    return stepsRunOn(r.drawing)
+  }
+  const head = "version: theway.workflow/v1beta1\nruns-on: agents\n"
+  // The file's `runs-on` is agents; one step runs in the session.
+  expect(on(WORKFLOW)).toBe("mixed")
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n  - uses: prompts/review.md\n`)).toBe("agents")
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n    runs-on: session\n`)).toBe("session")
+  expect(on(`${head}steps:\n`)).toBeNull()
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n    runs-on: elsewhere\n`)).toBeNull()
 })
 
 test("lines go to their card, steps[N] being 0-based; the workflow's own lines to the Inputs card", () => {
@@ -390,18 +413,68 @@ test("workflowCount counts each workflow once, however many of its steps use the
   expect(workflowCount([])).toBe(0)
 })
 
-test("the Workflows and Prompts lists have no tooltip, show whole descriptions and resize their columns", () => {
+test("the Workflows and Prompts lists have no tooltip, keep a name and its description to one line each and resize their columns", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
   const pages = ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]
   for (const file of [...pages, "components/file-list.tsx", "components/files-table.tsx"]) {
     const text = read(file)
-    expect([file, /Tooltip|OneLine|truncate/.test(text)]).toEqual([file, false])
+    expect([file, /Tooltip|OneLine/.test(text)]).toEqual([file, false])
   }
+  // A file's row is a change row's: its name in mono over its description in muted, each cut at the column's edge.
+  const cell = read("components", "files-table.tsx")
+  expect([
+    /truncate font-mono text-sm text-foreground/.test(cell),
+    /truncate text-sm text-muted-foreground/.test(cell),
+  ]).toEqual([true, true])
   // The errors badge of their Status column is the badge alone.
   expect(read("components", "status.tsx")).not.toContain("Tooltip")
   // Both pages render the shared list page, which holds the resizable grid.
   const list = read("components", "file-list.tsx")
   expect([list.includes("columnsResizable: true"), list.includes("<DataGridScrollArea")]).toEqual([true, true])
   for (const page of pages) expect([page, read(page).includes("<FileListPage")]).toEqual([page, true])
+})
+
+test("a file's line count is its line breaks, and one more when it does not end with one", () => {
+  expect(["", "a", "a\n", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n"].map(lineCount)).toEqual([0, 1, 1, 2, 2, 2, 1])
+})
+
+test("a workflow's YAML, a prompt's source and change.yaml are one code tab, which alone mounts the code view and its footer", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx", "pages/change/active.tsx"]) {
+    expect([page, read(page).includes("<CodeTab")]).toEqual([page, true])
+    expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
+  }
+  const tab = read("components/code-tab.tsx")
+  expect(tab).toContain("<GutterTitle rule>{title}</GutterTitle>")
+  expect(tab).toContain("<DocFooter file={file} details={[<LineCount text={text} />]} status={status} />")
+})
+
+test("every title block of a file page stands in one of the two shared wrappers, and History is one tab", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  const titles = read("components/doc-title.tsx")
+  expect(titles).toContain('<div className={cn("shrink-0 px-6 pt-4 pb-3", rule && "border-b")}>{children}</div>')
+  expect(titles).toContain('<div className={cn("pt-10", DOC_COLUMN)}>')
+  // No page pads a title of its own: a `DocTitle` or a `ChangeHeading` is passed to a shared tab or wrapped by one.
+  const wrapped = /<(GutterTitle|ColumnTitle)>\s*$|\btitle=\{$|\b(title|heading) = \($/
+  for (const page of [
+    "pages/workflow/page.tsx",
+    "pages/prompt/page.tsx",
+    "pages/change/active.tsx",
+    "pages/change/archived.tsx",
+  ]) {
+    const text = read(page)
+    expect([page, /PROSE_COLUMN\}>\{(title|heading)\}|pt-4 pb-3|pt-5 pb-3|pt-10/.test(text)]).toEqual([page, false])
+    for (const match of text.matchAll(/<(DocTitle|ChangeHeading)\b/g)) {
+      const before = text.slice(0, match.index).trimEnd()
+      expect([page, match[0], wrapped.test(before.slice(-40))]).toEqual([page, match[0], true])
+    }
+  }
+  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"]) {
+    expect([page, read(page).includes("<HistoryTab")]).toEqual([page, true])
+    expect([page, read(page).includes("<GutterTitle>{title}</GutterTitle>")]).toEqual([page, false])
+  }
+  expect(read("components/history.tsx")).toContain("<GutterTitle>{title}</GutterTitle>")
 })
