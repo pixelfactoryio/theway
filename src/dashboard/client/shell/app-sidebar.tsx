@@ -5,6 +5,7 @@ import {
   CircleHelpIcon,
   FileTextIcon,
   LayoutGridIcon,
+  type LucideIcon,
   SearchIcon,
   WorkflowIcon,
 } from "lucide-react"
@@ -46,14 +47,29 @@ import { SettingsMenu } from "@/shell/theme"
 
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
 
-const ROW =
-  "relative h-8 pl-3 before:absolute before:top-2 before:bottom-2 before:left-1 before:w-0.5 before:rounded-full"
+const ROW = "relative h-8 before:absolute before:top-2 before:bottom-2 before:left-1 before:w-0.5 before:rounded-full"
 
-/** A sidebar row: a 2px state bar at its left, its label, and its value at the right. */
+/**
+ * A row's 16px icon, in the 20px slot a project's letter tile takes, so every row's icon stands on one centre line and
+ * every label starts on one edge. In the icon rail the slot is the icon's size, which centres it.
+ */
+function RowIcon({ Icon }: { Icon: LucideIcon }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-5 shrink-0 items-center justify-center text-muted-foreground group-data-[collapsible=icon]:size-4"
+    >
+      <Icon />
+    </span>
+  )
+}
+
+/** A sidebar row: a 2px state bar at its left, its icon, its label, and its value at the right. */
 function Row({
   href,
   active,
   bar,
+  Icon,
   label,
   value,
   title,
@@ -61,7 +77,8 @@ function Row({
   href: string
   active: boolean
   bar: string
-  label: ReactNode
+  Icon: LucideIcon
+  label: string
   value: ReactNode
   title?: string
 }) {
@@ -74,6 +91,7 @@ function Row({
         title={title}
         className={cn(ROW, bar)}
       >
+        <RowIcon Icon={Icon} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums group-data-[collapsible=icon]:hidden">
           {value}
@@ -101,14 +119,14 @@ function Entries({ inProgress }: { inProgress: number | null }) {
           isActive={routeOf(location).name === "now"}
           className="h-8"
         >
-          <Clock3Icon aria-hidden="true" className="text-muted-foreground" />
+          <RowIcon Icon={Clock3Icon} />
           <span>Now</span>
           <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">{inProgress ?? ""}</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
         <SidebarMenuButton onClick={() => setOpen(true)} className="h-8">
-          <SearchIcon aria-hidden="true" className="text-muted-foreground" />
+          <RowIcon Icon={SearchIcon} />
           <span>Search</span>
           <Shortcut keys={[MOD, "K"]} className="ml-auto" />
         </SidebarMenuButton>
@@ -221,7 +239,9 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
     <>
       {pinned.length > 0 ? (
         <SidebarGroup className="py-1">
-          <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Pinned</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 text-muted-foreground group-data-[collapsible=icon]:hidden">
+            Pinned
+          </SidebarGroupLabel>
           <SidebarMenu className="gap-0.5">
             {pinned.map((e) => (
               <Place key={e.id} entry={e} lists={lists} label={label} active={active(e)} activeKey={activeKey} />
@@ -231,7 +251,9 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
       ) : null}
       {recent.length > 0 ? (
         <SidebarGroup className="py-1">
-          <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Recent</SidebarGroupLabel>
+          <SidebarGroupLabel className="h-7 text-muted-foreground group-data-[collapsible=icon]:hidden">
+            Recent
+          </SidebarGroupLabel>
           <SidebarMenu className="gap-0.5">
             {recent.map((e) => (
               <Place
@@ -254,7 +276,7 @@ function Places({ lists }: { lists: Map<string, ChangeList> }) {
               isActive={routeOf(location).name === "projects"}
               className="h-8"
             >
-              <LayoutGridIcon aria-hidden="true" className="text-muted-foreground" />
+              <RowIcon Icon={LayoutGridIcon} />
               <span>All projects</span>
               <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
                 {projects.data?.projects.length ?? ""}
@@ -298,7 +320,9 @@ function Library() {
   ]
   return (
     <SidebarGroup className="py-1">
-      <SidebarGroupLabel className="h-7 group-data-[collapsible=icon]:hidden">Library</SidebarGroupLabel>
+      <SidebarGroupLabel className="h-7 text-muted-foreground group-data-[collapsible=icon]:hidden">
+        Library
+      </SidebarGroupLabel>
       <SidebarMenu className="gap-0.5">
         {rows.map((row) => {
           const broken = row.list?.filter((f) => f.errors.length > 0).length ?? 0
@@ -308,12 +332,8 @@ function Library() {
               href={row.href}
               active={row.active}
               bar={broken > 0 ? "before:bg-destructive" : "before:bg-transparent"}
-              label={
-                <span className="flex items-center gap-2">
-                  <row.Icon aria-hidden="true" className="size-4 text-muted-foreground" />
-                  {row.label}
-                </span>
-              }
+              Icon={row.Icon}
+              label={row.label}
               value={row.list?.length ?? ""}
               title={broken > 0 ? `${row.label}: ${broken} with errors` : row.label}
             />

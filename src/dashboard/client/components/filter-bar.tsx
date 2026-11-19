@@ -26,6 +26,7 @@ import type {
   FilterEditorProps,
   FilterEditorRegistry,
   FilterField,
+  FilterLabels,
   FilterOperator,
   FilterOption,
   FilterQuery,
@@ -271,6 +272,21 @@ function Chip({ rule }: { rule: FilterRule<string[]> }) {
 
 const renderChip = (rule: FilterRule<string[]>): ReactNode => <Chip rule={rule} />
 
+/** The bar's words in place of the shipped ones: a filter's field and condition, as the chips and the docs say them. */
+const LABELS: Partial<FilterLabels> = {
+  addFilter: "Filter",
+  searchFields: "Filter by…",
+  searchOperators: "Condition…",
+  filtersLabel: "Filters",
+  fieldsLabel: "Filter fields",
+  stepAnnouncement: (step, label) =>
+    step === "field"
+      ? `Choose a filter field. ${label}`
+      : step === "operator"
+        ? `Choose a condition for ${label}`
+        : `Enter a value for ${label}`,
+}
+
 /** A chip's value: the values' marks, then their labels. */
 function chipValue({ options, values }: FilterValueDisplayContext<string[], unknown>): ReactNode {
   if (values.length === 0) return "Select…"
@@ -363,7 +379,7 @@ export function FilterBar({
               renderChip={renderChip}
               size="sm"
               showClear
-              labels={{ addFilter: "Filter", searchFields: "Filter by…", filtersLabel: "Filters" }}
+              labels={LABELS}
               trigger={
                 <Button variant="outline" size="sm">
                   <PlusIcon aria-hidden="true" />

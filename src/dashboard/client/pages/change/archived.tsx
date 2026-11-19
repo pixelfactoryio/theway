@@ -27,7 +27,6 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
     <DocFrame
       title={data.id}
       label="Change files"
-      page="change"
       value={current.slug}
       tabs={tabs.map((t) => ({
         value: t.slug,

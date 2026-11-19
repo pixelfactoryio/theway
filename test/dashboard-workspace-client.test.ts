@@ -6,9 +6,11 @@ import { activeRows } from "../src/dashboard/client/lib/changes"
 import { NONE, passesAll, valueCounts } from "../src/dashboard/client/lib/list-filter"
 import {
   allEntries,
+  archiveMonths,
   countOf,
   entryOf,
   groupId,
+  inProgress,
   inProgressCount,
   pinnedEntries,
   PROJECT_FIELDS,
@@ -164,6 +166,38 @@ test("to do leaves out Ready; In progress counts a series In progress as a whole
   expect(toDo(undefined)).toBe(0)
   // add-a, and the series add-s (one Ready, one Not started: In progress).
   expect(inProgressCount(list)).toBe(2)
+  // All projects counts as Now and the sidebar do, over the projects of the row.
+  const other: ChangeList = { active: [change("add-d", "in-progress")], archived: [] }
+  expect(
+    inProgress(
+      new Map([
+        ["-a", list],
+        ["-b", other],
+      ]),
+      ["-a", "-b", "-none"],
+    ),
+  ).toBe(3)
+})
+
+test("an archive month counts the month, not the rows listed when the list is cut", () => {
+  const archived = (id: string, date: string) => ({ key: "-a", a: { id, dir: `${date}-${id}`, date, updated: date } })
+  const all = [
+    archived("add-e", "2026-11-12"),
+    archived("add-d", "2026-11-03"),
+    archived("add-c", "2026-11-01"),
+    archived("add-b", "2026-10-20"),
+    archived("add-a", "2026-10-02"),
+  ]
+  const months = archiveMonths(all.slice(0, 4), all)
+  expect(months.map((m) => [m.id, m.rows.length, m.total])).toEqual([
+    ["archive:2026-11", 3, 3],
+    ["archive:2026-10", 1, 2],
+  ])
+  // Uncut, a month's total is its rows.
+  expect(archiveMonths(all).map((m) => [m.rows.length, m.total])).toEqual([
+    [3, 3],
+    [2, 2],
+  ])
 })
 
 test("countOf writes the noun singular for one and plural otherwise", () => {

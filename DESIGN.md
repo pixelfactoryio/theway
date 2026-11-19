@@ -135,9 +135,9 @@ typography:
     lineHeight: "1.3125rem"
   grid-header:
     fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: "1.125rem"
+    lineHeight: "1.25rem"
   button-small:
     fontFamily: '"SF Pro", system-ui, sans-serif'
     fontSize: "0.8rem"
@@ -228,7 +228,7 @@ components:
     textColor: "{colors.ink-dark}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
-    padding: "8px 8px 8px 12px"
+    padding: "8px"
     height: "32px"
   sidebar-row-active:
     backgroundColor: "{colors.selection-dark}"
@@ -392,13 +392,13 @@ Base: 16px root (`text-base` 1rem). Text inputs are `text-base` below 768px and 
 The interface:
 
 - **Title** (600, `text-title` 1.3125rem/1.8125rem, 21/29px, tracking -0.025em): a workflow's name, above its canvas.
-- **Heading** (600, `text-heading` 0.875rem/1.25rem): a list page's title in its top row, set apart by weight, not size.
+- **Heading** (600, `text-heading` 0.875rem/1.25rem): a list page's title in its top row, set apart by weight, not size. A dialog's title is the same size and weight (`text-sm` 600, in place of the vendored 16px).
 - **Body** (400 or 500, `text-sm` 0.875rem/1.25rem): every tab, button, menu item, panel line, field, band label and row text.
 - **Row ID** (400, Geist Mono `text-sm`): the first line of every row on Now, a project or group page and All projects: a change's, a series' or a project's ID, or a group's name. The row's text (description, "series of N", the project's path) sits under it in body dim ink.
 - **Task lead** (500, `text-md` 0.875rem/1.3125rem, 14/21): the lead of each task in the panel; its detail is `text-sm` 14/20 in the dim ink.
 - **Small** (400 or 500, `text-xs` 0.75rem/1rem): ages beside rows, the result line, the collapse hint, tooltips, kbd, badges, the zoom percentage, secondary lines.
 - **Mono small** (Geist Mono `text-xs`, `tabular-nums`): `done/total` on change rows, the counts and Last archived date on All projects, per-value counts in filter menus, the version tag, the step prompt's file name.
-- **Grid header** (400, 0.8125rem, line height 1.125/0.8125): the vendored data grid's column headers on the Workflows and Prompts lists; their Status header is `text-sm` 500 ink.
+- **Grid header** (400, `text-sm`, ink at 80%): the column headers of every list's data grid. A column that sorts keeps the vendored header button and its arrow; a column that does not shows its title as text, not as a button.
 - **Small button** (500, 0.8rem): the vendored `sm` button and toggle size, used by the filter bar's Filter button.
 - **Badge micro and tiny** (500, 0.6rem and 0.625rem, line height 1): the vendored badge's `xs` and `sm` sizes. The dashboard's badges use the default size (`text-xs`). The vendored ReUI filters also carry a 10px "+" on the drag copy of their advanced builder, which the dashboard's filter bar does not use.
 - **Code** (Geist Mono, 0.875rem/1.5rem): the YAML code view. Inline code in task text is Geist Mono `text-xs` on `--muted` with a 4px radius and 4px side padding.
@@ -425,8 +425,8 @@ The window is three columns at full height (`h-svh`) with no page scroll; each r
 
 - **Sidebar:** 17rem (272px) on `--sidebar`, open by default from 1024px (kept per browser after a toggle). Collapsed, it folds to a 3rem (48px) rail of icons (`collapsible="icon"`) that keeps its own toggle; labels, counts, the logo and the version tag hide. Below 768px (`use-mobile`) it is a sheet, opened from a button at the left of the top row. Rows are 32px (`h-8`) with 2px gaps; group labels are 28px.
 - **Centre:** the document on `--background`. Every page starts with a 44px top row (`h-11`, rule below) holding the page title or the document's tabs.
-- **Panel:** docked at the right from 1280px, 420px by default, resizable from 320 to 640px by its left edge or the arrow keys (16px a step), its width and hidden state kept per browser. Below 1280px it opens over the page as a sheet, `min(420px, 90vw)` wide. Its header row is 44px; under it a top and a bottom pane in a vertical split (see Components), each with a 40px tab row.
-- **List pages** (Now, a project or group page, All projects, Workflows, Prompts): the full width of the centre with 24px gutters (`px-6`). The filter bar sits under the top row (`px-6 py-3`), the result line under it, then the list. Change rows keep their columns at the right: the project 140px (`w-35`, from 768px), the progress bar 96px (from 640px), `done/total` 56px, the age 80px. All projects' columns are In progress 80px, To do 56px, Last archived 96px and the actions 84px, under a 32px header row. The Workflows and Prompts grids size their columns by hand (`columnsResizable`, at least 72px; the name 280px, at least 200px) and scroll sideways when the columns are wider than the page.
+- **Panel:** docked at the right from 1280px, 420px by default, resizable from 320 to 640px by its left edge or the arrow keys (16px a step), its width (in pixels, the same in a window of any size) and hidden state kept per browser. Below 1280px it opens over the page as a sheet, `min(420px, 90vw)` wide, on `--sidebar` as when docked. Its header row is 44px; under it a top and a bottom pane in a vertical split (see Components), each with a 40px tab row.
+- **List pages** (Now, a project or group page, All projects, Workflows, Prompts): the full width of the centre with 24px gutters (`px-6`), which the top row's title and actions, the filter bar, the rows and a document's footer all keep. The filter bar sits under the top row (`px-6 py-3`), the result line under it, then the list. Every list is a data grid whose columns resize by their header's edge (`columnsResizable`, at least 72px), under a 40px header row: one per band on Now and a project or group page, where the bands of a page share their column widths, and one, sticky, on All projects, Workflows and Prompts. Change rows keep their columns at the right: the project 140px (from 768px), the progress 160px (a 96px bar from 640px, then `done/total` in 56px; 72px below 640px), the age or archive date 96px. All projects' columns are In progress 96px, To do 80px, Last archived 112px and the actions 108px. On the Workflows and Prompts grids the name takes the room the other columns leave, at least 200px, and the grid scrolls sideways when the columns are wider than the page.
 - **Document pages:** the reading column is the whole width between 24px gutters (`px-6`). Prose keeps its measure, at most `--read-width` (44.25rem, 708px, Notion's text column), centred; code blocks and tables take up to `--read-wide` (64rem), also centred, so hiding the sidebar or the panel gives them room. A change's title sits 40px under the top row (`pt-10`), its document 24px under the title block (`pt-6 pb-10`). The live editor uses the same widths per line, with 24px padding and 64px at the foot.
 - **Workflow canvas:** the whole centre, with the workflow's heading floating at its top-left (`px-6 pt-4`) and the drawing 24px under it. Cards are one column, 64px apart; an on-fail card stands 160px to the right of its step and 40px higher. The canvas opens fitted between 80% and 100% (10% steps), with 16px margins at the top and sides and a 68px band kept free at the bottom for the controls; manual zoom runs 50 to 200% in 10% steps. A drawing too tall or too wide at 80% shows its top and left and can be panned.
 
@@ -446,7 +446,7 @@ Flat by default: regions are told apart by ground tone (window, document, sideba
 - **lg** (`0 4px 8px -2px rgb(0 0 0 / 0.14), 0 16px 40px -8px rgb(0 0 0 / 0.28)`): sheets and submenus.
 - **Next-task edge** (`inset 2px 0 0 var(--warning)`): not a shadow but a 2px amber edge on the next task.
 
-Dialogs dim the page with `#000` at 10% and a 4px backdrop blur where supported.
+Dialogs dim the page with `#000` at 10% and a 4px backdrop blur where supported. Menus, popovers and dialogs carry a 1px ring of the ink at 10% (`ring-foreground/10`) with their shadow.
 
 ### Named Rules
 
@@ -483,7 +483,7 @@ Quiet, compact, ink on neutral.
 
 ### Chips and badges
 
-- **Style:** the ReUI badge, 20px tall, `text-xs` 500, 4px radius. The dashboard uses `outline` (a rule, no fill), `secondary`, and the tinted `destructive-light` and `success-light` (the state colour at 10% with a 15% rule; dark 15% and 25%).
+- **Style:** the ReUI badge, 20px tall, `text-xs` 500, 4px radius. The dashboard uses `outline` (a rule, no fill), `secondary`, and the tinted `destructive-light` (the state colour at 10% with a 15% rule; dark 15% and 25%).
 - **Status pill** (panel header): no fill, the status mark then its label in the state colour, `text-sm` 500.
 - **Ready to archive chips** (Now): a project's name and its count in green 500, `text-sm`, 1px rule, 6px radius, `px-3 py-1`, accent on hover.
 
@@ -499,8 +499,9 @@ The ReUI `filters` bar, the same on every list page.
 
 ### Grouped lists
 
-- **Band:** each status group (and each archive month) opens with a full-width 36px band on `--band`, sticky under the top row. One button holds a 16px chevron in dim ink (turned 90° while open), the status mark, the label in `text-sm` 500 and its count in 400 dim ink. Hover takes the accent at 50%; focus shows a 2px inset ring. Collapsed state is kept per page and group in this browser; Alt-click toggles every group, and a `text-xs` hint under the list says so. Ready to archive and older archive months start collapsed.
-- **Row:** one link, at least 36px tall, `px-6 py-2`, no divider; hover fills with the accent at 40%, focus with the accent and a 2px inset ring. The ID in Geist Mono `text-sm` ink over the text in `text-sm` dim ink, each truncating, then the right-hand columns (Layout). Actions (pin, menu) stay visible at rest.
+- **Band:** each status group (and each archive month) opens with a full-width 36px band on `--band`, sticky under the top row. One button holds a 16px chevron in dim ink (turned 90° while open), the status mark, the label in `text-sm` 500 and its count in 400 dim ink. Hover takes the accent at 50%; focus shows a 2px inset ring. Collapsed state is kept per page and group in this browser; Alt-click (⌥ on macOS) toggles every group, and a `text-xs` hint under the list says so. Ready to archive and older archive months start collapsed. An archive month counts the month: `12 of 98` when the page lists only its newest.
+- **Header row:** under each band, 40px with a 1px rule below: the columns' titles in the grid header style, each on the edge its cells keep (a right-aligned title ends where its values end), and the columns' resize lines. An archive band's progress column has no title.
+- **Row:** a grid row, at least 36px tall, with the 24px gutters and no divider; its head (the ID over the text) is the link, and a click elsewhere in the row follows it. Hover fills with the accent at 40%, focus with the accent and a 2px inset ring. The ID in Geist Mono `text-sm` ink over the text in `text-sm` dim ink, each truncating, then the right-hand columns (Layout). Actions (pin, menu) stay visible at rest.
 - **Opening row:** a series on Now or a group on All projects is one row with a 14px chevron (right when closed, down when open) in a 16px slot before its ID; a row without a chevron starts its ID where the chevron sits. Its members are indented 40px beneath it along a 1px `--border` guide line 32px from the left.
 - **Progress:** a 96px × 4px bar on `--border`, filled amber while in progress, green when every task is done, red while invalid; `done/total` after it in mono.
 
@@ -520,15 +521,16 @@ Built on React Flow (`@xyflow/react`), its base styles in their own CSS layer.
 - **On-fail:** a dashed (5 5) edge in red at 60% to the on-fail card, with a 20px pill at its bend: `on fail · tries N` in `text-xs` red on `--card`, a red rule at 40%, fully rounded.
 - **Controls:** a floating 36px pill at the bottom centre, 16px from the edge: `--card`, 1px rule, 8px radius, shadow md, holding undo, redo, zoom out, the percentage (`text-xs` tabular, 48px), zoom in and Fit, with 16px vertical separators.
 - **Minimap:** shown when the drawing overflows the view, at the bottom right: 160 × 100px, `--card`, 1px rule, 8px radius, shadow md; nodes in `--input` (the selected one in the dim ink) with 2px corners, the area outside the view masked by `--background` at 55%. On a canvas narrower than 640px it sits above the controls.
-- **Attribution:** React Flow's link at the bottom left, `text-xs` in the dim ink on no background.
+- **Attribution:** React Flow's link at the bottom left, on the 24px gutter, `text-xs` in the dim ink on no background.
 
 ### Documents
 
-- **Read view:** Markdown through the typography plugin at the document scale (Typography) and widths (Layout), in `--doc-foreground`. List markers are dim ink; a blockquote is dim ink with a 3px `--input` left rule and 16px padding; a horizontal rule is `--border`.
+- **Read view:** the live editor, read-only: Markdown at the document scale (Typography) and widths (Layout), in `--doc-foreground`. A heading is exposed as a heading of its level. List markers are dim ink; a blockquote is dim ink with a 3px `--input` left rule and 16px padding; a horizontal rule is `--border`.
 - **Inline code:** 85% Geist Mono on `--doc-code-tint`, `0.2em 0.4em` padding, 4px radius, in the text colour.
 - **Code block:** on `--code-surface`, 10px radius, `16px 20px` padding, 85% mono at line height 1.5, scrolling sideways rather than wrapping, syntax colours from `--code-*`; its language label at the top right (8px, 12px) in mono `text-xs` dim ink. It is a focusable group, so a block wider than the column scrolls from the keyboard; the global `:focus-visible` outline in `--ring` marks it.
-- **Table:** in a focusable wrapper that scrolls sideways; full width of its room, a 1px `--border` around and between cells, cells `0.5em 0.75em` aligned to the top, the header row on `--muted` at 600, tabular numbers. In the live editor, inline code in a cell may break anywhere.
-- **Live editor:** CodeMirror with the same scale, colours, widths and blocks as the read view; a blank line is 8px; task boxes are 13px in `--link`; fence lines are dim ink.
+- **Table:** in a wrapper that scrolls sideways (focusable in the read view, so it scrolls from the keyboard); full width of its room, a 1px `--border` around and between cells, cells `0.5em 0.75em` aligned to the top, the header row on `--muted` at 600, tabular numbers. In the live editor, inline code in a cell may break anywhere.
+- **Live editor:** CodeMirror with the same scale, colours, widths and blocks as the read view; a blank line is 8px; task boxes are 13px in `--link`; fence lines are dim ink. A paragraph flows as one, its source line breaks joined, except the paragraph the cursor is in while the editor has the focus, which shows as written.
+- **Footer:** a 28px bar under a document (`h-7`, rule above, `px-6`), `text-xs` dim ink: the file's name in mono, its details after a `·` (`121 lines`), the save state at the right.
 
 ### Inputs / Fields
 
@@ -539,9 +541,9 @@ Built on React Flow (`@xyflow/react`), its base styles in their own CSS layer.
 
 ### Navigation
 
-- **Sidebar rows:** 32px, `text-sm`, 6px radius, hover on `--sidebar-accent`; the active row is `--sidebar-accent` and 500. A row's value (a count) sits at the right in `text-xs` dim ink, in Geist Mono on the Now, project and group rows. A 2px rounded bar at the row's left edge carries state (red when a project has broken files). In the icon rail, rows show only their icon.
+- **Sidebar rows:** 32px, `text-sm`, 6px radius, 8px padding, hover on `--sidebar-accent`; the active row is `--sidebar-accent` and 500. A row's 16px icon stands in a 20px slot, the size of a project's letter tile, so every icon shares one centre line and every label one edge. Group labels (Pinned, Recent, Library) are `text-xs` 500 in the dim ink. A row's value (a count) sits at the right in `text-xs` dim ink, in Geist Mono on the Now, project and group rows. A 2px rounded bar at the row's left edge carries state (red when a project has broken files). In the icon rail, rows show only their icon.
 - **Document tabs** (the centre's top row): `text-sm`, 16px side padding, full row height. Inactive tabs are dim and turn to ink on hover; the active tab is ink, 500, with a 2px ink underline. Focus shows a 2px inset ring.
-- **Panel tabs:** the same underlined style in a 40px row, 8px side padding, with a count in dim ink.
+- **Panel tabs:** the same underlined style in a 40px row, 8px side padding, the underline on the row's rule; a tab may carry a count in dim ink (Series, Problems), never one the panel's header already shows. A pane's content shows a 2px `--ring` outline inside its edge when it takes the keyboard focus.
 - **Command palette** (⌘K / Ctrl+K): a 12px-radius dialog on `--popover`, opened a third of the way down.
 - **Mobile:** below 768px the sidebar is a sheet and the panel is always a sheet.
 
@@ -562,7 +564,7 @@ The signature element. An 8px square (`size-2`) with a 2px radius and a 1.5px bo
 - **Invalid:** filled red.
 - **Archived:** filled dim ink at 60%.
 
-It appears on group bands, in the Status filter's values, in the panel's status pill and in the file status pill (Valid or N errors).
+It appears on group bands, in the Status filter's values, in the panel's status pill, in the file status pill (Valid or N errors) and, before `Valid`, in the Status cells of the Workflows and Prompts lists (a file with errors shows the `N errors` badge there).
 
 ### Task row
 

@@ -8,8 +8,8 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
-import { NoFile, STATUS_HEADER, StatusCell, Wrapped } from "@/components/files-table"
-import { cellSkeleton, GridFrame, SCROLL_AREA } from "@/components/list-grid"
+import { NoFile, StatusCell, Wrapped } from "@/components/files-table"
+import { cellSkeleton, ColumnLabel, GridFrame, SCROLL_AREA, SORT_HEADER } from "@/components/list-grid"
 import { NewFileButton } from "@/components/new-file"
 import { StatusMark } from "@/components/status"
 import { useLabel, useProjects } from "@/data/queries"
@@ -70,7 +70,7 @@ function FileGrid<Row extends FileRow>({
       {
         id: "applies",
         accessorFn: (row) => appliesTo(row.project, label),
-        header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} />,
+        header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} className={SORT_HEADER} />,
         cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
         sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
         size: 130,
@@ -80,7 +80,7 @@ function FileGrid<Row extends FileRow>({
       ...extra,
       {
         id: "status",
-        header: ({ column }) => <DataGridColumnHeader title="Status" column={column} className={STATUS_HEADER} />,
+        header: () => <ColumnLabel>Status</ColumnLabel>,
         cell: ({ row }) => <StatusCell errors={row.original.errors} />,
         size: 120,
         enableSorting: false,

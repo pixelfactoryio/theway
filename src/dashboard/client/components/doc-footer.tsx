@@ -13,7 +13,7 @@ export function DocFooter({
   status?: ReactNode
 }) {
   return (
-    <div className="flex h-7 shrink-0 items-center gap-2 border-t px-4 text-xs text-muted-foreground">
+    <div className="flex h-7 shrink-0 items-center gap-2 border-t px-6 text-xs text-muted-foreground">
       <span className="font-mono">{file}</span>
       {details.map((d, i) => (
         <Fragment key={i}>

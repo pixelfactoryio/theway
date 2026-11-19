@@ -61,7 +61,7 @@ function InputBox({
     write((t) => setInputField(t, input.name, k, value), mode)
   const editable = input.editable && !disabled
   return (
-    <div className="flex flex-col gap-4 rounded-lg border p-3">
+    <div className="flex flex-col gap-4 border-t pt-4 first:border-t-0 first:pt-0">
       <Field>
         <div className="flex items-center gap-2">
           <KeyText
@@ -191,7 +191,7 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
         <Errors lines={fields.get("default")} />
       </div>
       <FieldSet className="gap-4">
-        <FieldLegend variant="label" className="mb-0">
+        <FieldLegend variant="label" className="mb-2">
           <KeyLabelText yamlKey="inputs" />
         </FieldLegend>
         {form.inputs.length > 0 ? (

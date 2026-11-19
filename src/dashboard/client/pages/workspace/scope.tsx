@@ -51,7 +51,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const group =
     entry?.kind === "project" ? settings.groups.find((g) => g.projects.includes(entry.keys[0] as string)) : undefined
   const keys = entry?.keys ?? []
-  const { lists } = useChangeLists(keys)
+  const { lists, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter(id, SCOPE_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
   const grid = useChangeGrid(sizing, setSizing)
@@ -75,9 +75,11 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
       readyByProject: false,
       body: (rows, label) => <BandGrid {...grid(treeRows(rows), { label, project: isGroup })} />,
     }),
-    ...archiveGroups(archiveShown, (rows, label) => (
-      <BandGrid {...grid(rows, { label, project: keys.length > 1, archive: true })} />
-    )),
+    ...archiveGroups(
+      archiveShown,
+      (rows, label) => <BandGrid {...grid(rows, { label, project: keys.length > 1, archive: true })} />,
+      archived,
+    ),
   ]
   const total = located(lists, scoped, "").reduce((n, r) => n + changesOf(r), 0) + archiveAll.length
   const shown = open.reduce((n, r) => n + changesOf(r), 0) + archived.length
@@ -95,8 +97,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
             filter={filter}
             onChange={setFilter}
             searchLabel="Search changes"
-            shown={shown}
-            total={total}
+            // Counts and empty states wait for every list: a list still loading reads as no change.
+            shown={pending ? null : shown}
+            total={pending ? null : total}
             noun="change"
           />
         ) : null}
@@ -129,7 +132,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
               <CollapseHint />
             </>
           ) : null}
-          {entry !== null && groups.length === 0 ? (
+          {entry !== null && groups.length === 0 && !pending ? (
             isNarrowed(filter) ? (
               <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
             ) : (

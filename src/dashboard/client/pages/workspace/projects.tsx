@@ -8,6 +8,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
+import { ColumnLabel } from "@/components/list-grid"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -21,9 +22,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
-import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Input } from "@/components/ui/input"
 import { HeadLink, HeadToggle, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
 import { useBelowSm } from "@/hooks/use-below-sm"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
@@ -76,7 +77,7 @@ function NameDialog({
       <DialogContent className="sm:max-w-sm">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className={DIALOG_TITLE}>{title}</DialogTitle>
           </DialogHeader>
           <Input
             aria-label="Group name"
@@ -103,7 +104,7 @@ function NameDialog({
 type Naming = { kind: "new"; keys: string[] } | { kind: "rename"; id: string; name: string } | null
 
 /** All projects' count columns: right-aligned, in mono. */
-const RIGHT = "text-right [&>div]:justify-end"
+const RIGHT = "text-right"
 const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
 
 /** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
@@ -258,7 +259,7 @@ export function ProjectsPage() {
   const columns: ColumnDef<DataGridFeatures, ProjectRow>[] = [
     {
       id: "project",
-      header: ({ column }) => <DataGridColumnHeader title="Project" column={column} />,
+      header: () => <ColumnLabel>Project</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (r.key === null)
@@ -283,7 +284,7 @@ export function ProjectsPage() {
     },
     {
       id: "inProgress",
-      header: ({ column }) => <DataGridColumnHeader title="In progress" column={column} />,
+      header: () => <ColumnLabel>In progress</ColumnLabel>,
       cell: ({ row }) => {
         const n = inProgress(lists, row.original.keys)
         return <span className={cn(n > 0 && "text-warning")}>{n}</span>
@@ -294,7 +295,7 @@ export function ProjectsPage() {
     },
     {
       id: "toDo",
-      header: ({ column }) => <DataGridColumnHeader title="To do" column={column} />,
+      header: () => <ColumnLabel>To do</ColumnLabel>,
       cell: ({ row }) => toDoOf(lists, row.original.keys),
       size: 80,
       enableSorting: false,
@@ -302,7 +303,7 @@ export function ProjectsPage() {
     },
     {
       id: "lastArchived",
-      header: ({ column }) => <DataGridColumnHeader title="Last archived" column={column} />,
+      header: () => <ColumnLabel>Last archived</ColumnLabel>,
       cell: ({ row }) => latest(lists, row.original.keys) || "–",
       size: 112,
       enableSorting: false,

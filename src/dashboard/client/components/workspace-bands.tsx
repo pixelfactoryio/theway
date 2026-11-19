@@ -6,18 +6,17 @@ import { Link, useLocation } from "wouter"
 import type { BandGridProps } from "@/components/band-grid"
 import { ChangeProgress } from "@/components/change-progress"
 import type { BarField } from "@/components/filter-bar"
+import { ColumnLabel, HEADER_LAST_END } from "@/components/list-grid"
 import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
-import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { StatusMark } from "@/components/status"
 import { GROUP_TITLE, type Group, HeadLink, HeadToggle, NoProgress, RowHead, useNow } from "@/components/workspace-rows"
 import { useLabel } from "@/data/queries"
 import { useBelowSm } from "@/hooks/use-below-sm"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { ageOf, rowStatus, type Status } from "@/lib/changes"
-import { monthGroup } from "@/lib/collapse"
 import { type Project } from "@/lib/projects"
 import { to } from "@/lib/routes"
-import { type Archived, changesOf, type Located, monthOf, type TreeRow } from "@/lib/workspace"
+import { type Archived, archiveMonths, changesOf, type Located, type TreeRow } from "@/lib/workspace"
 
 /** A row of a change grid: an open change, a series or a series' member, or an archived change. */
 export type ChangeGridRow = TreeRow | Archived
@@ -37,9 +36,6 @@ const LABEL = "w-14 shrink-0 text-right"
  * from `sm` up, its count alone below; the change column's minimum lets a band fit a 390px screen there.
  */
 const WIDTHS = { wide: { change: 240, progress: 160 }, narrow: { change: 160, progress: 72 } } as const
-
-/** A right-aligned column's header and cells. */
-const RIGHT = "text-right [&>div]:justify-end"
 
 /**
  * The change columns: the head (`RowHead`), the project (`project`), the progress and the age, or the archive date in
@@ -63,7 +59,7 @@ function changeColumns({
   return [
     {
       id: "change",
-      header: ({ column }) => <DataGridColumnHeader title="Change" column={column} />,
+      header: () => <ColumnLabel>Change</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (isArchived(r))
@@ -97,7 +93,7 @@ function changeColumns({
       ? [
           {
             id: "project",
-            header: ({ column }) => <DataGridColumnHeader title="Project" column={column} />,
+            header: () => <ColumnLabel>Project</ColumnLabel>,
             cell: ({ row }) => (isArchived(row.original) ? label(row.original.key) : row.original.label),
             size: 140,
             enableSorting: false,
@@ -107,7 +103,8 @@ function changeColumns({
       : []),
     {
       id: "progress",
-      header: ({ column }) => <DataGridColumnHeader title="Progress" column={column} />,
+      // An archived change has no progress: its column stays, so the bands' columns line up, under no title.
+      header: () => (archive ? null : <ColumnLabel>Progress</ColumnLabel>),
       cell: ({ row }) => {
         const r = row.original
         if (isArchived(r)) return <NoProgress />
@@ -141,7 +138,7 @@ function changeColumns({
     },
     {
       id: "age",
-      header: ({ column }) => <DataGridColumnHeader title={archive ? "Archived" : "Updated"} column={column} />,
+      header: () => <ColumnLabel>{archive ? "Archived" : "Updated"}</ColumnLabel>,
       cell: ({ row }) => {
         const r = row.original
         if (isArchived(r)) return r.a.date
@@ -151,7 +148,7 @@ function changeColumns({
       enableSorting: false,
       // Right-aligned against the 24px right gutter, with no left padding, so an archive date fits whole.
       meta: {
-        headerClassName: `ps-0 ${RIGHT}`,
+        headerClassName: `ps-0 ${HEADER_LAST_END}`,
         cellClassName: "ps-0 pe-6 text-right text-xs text-muted-foreground tabular-nums",
       },
     },
@@ -252,24 +249,18 @@ export function statusGroups(
 
 /**
  * The archive months of `rows` (newest first), each a group of its rows in `body`'s grid; the first open, the older
- * ones collapsed.
+ * ones collapsed. A band counts its month among `all`, the list `rows` is cut from: `12 of 98` when it lists fewer.
  */
 export function archiveGroups(
   rows: readonly Archived[],
   body: (rows: readonly Archived[], label: string) => ReactNode,
+  all: readonly Archived[] = rows,
 ): Group[] {
-  const months: { id: string; month: string; rows: Archived[] }[] = []
-  for (const r of rows) {
-    const id = monthGroup(r.a.date)
-    const last = months.at(-1)
-    if (last?.id === id) last.rows.push(r)
-    else months.push({ id, month: monthOf(r.a.date), rows: [r] })
-  }
-  return months.map((m, i) => ({
+  return archiveMonths(rows, all).map((m, i) => ({
     id: m.id,
     label: m.month,
     mark: <StatusMark status="archived" />,
-    count: m.rows.length,
+    count: m.rows.length < m.total ? `${m.rows.length} of ${m.total}` : m.total,
     collapsed: i > 0,
     body: body(m.rows, m.month),
   }))

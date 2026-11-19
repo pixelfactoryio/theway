@@ -39,7 +39,7 @@ export function NowPage() {
   const { projects, gate } = useProjectsGate()
   const list = useMemo(() => projects ?? [], [projects])
   const keys = list.map((p) => p.key)
-  const { lists, failed } = useChangeLists(keys)
+  const { lists, failed, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
   const grid = useChangeGrid(sizing, setSizing)
@@ -65,6 +65,7 @@ export function NowPage() {
     ...archiveGroups(archived, (rows, label) => <BandGrid {...grid(rows, { label, project: true, archive: true })} />),
   ]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
+  const settled = projects !== null && !pending
   return (
     <>
       <PageHeader title="Now" />
@@ -74,8 +75,9 @@ export function NowPage() {
           filter={filter}
           onChange={setFilter}
           searchLabel="Search changes"
-          shown={projects !== null ? kept.reduce((n, r) => n + changesOf(r), 0) + archived.length : null}
-          total={projects !== null ? open + (withArchive ? archiveAll.length : 0) : null}
+          // Counts and empty states wait for every list: a list still loading reads as no change.
+          shown={settled ? kept.reduce((n, r) => n + changesOf(r), 0) + archived.length : null}
+          total={settled ? open + (withArchive ? archiveAll.length : 0) : null}
           noun="change"
         />
         <ScrollBody>
@@ -90,7 +92,7 @@ export function NowPage() {
               <Groups page="now" groups={groups} />
               <CollapseHint />
             </>
-          ) : projects === null ? null : isNarrowed(filter) ? (
+          ) : !settled ? null : isNarrowed(filter) ? (
             <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : (
             <EmptyNote inset="page">Nothing open.</EmptyNote>

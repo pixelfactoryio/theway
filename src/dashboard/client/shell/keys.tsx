@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 
 import { to } from "@/lib/routes"
-import { MOD } from "@/shell/platform"
+import { ALT, MOD } from "@/shell/platform"
 
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
 export type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
@@ -15,16 +15,45 @@ export const GO_TO: readonly { key: string; label: string; href: () => string }[
   { key: "p", label: "Prompts", href: () => to.prompts() },
 ]
 
-/** Every shortcut of the dashboard, as the sheet lists them. */
-export const SHORTCUTS: { keys: string[]; action: string }[] = [
-  { keys: [MOD, "K"], action: "Open the palette: go to anything, run an action" },
-  { keys: [MOD, "P"], action: "Open the palette (also inside an editor)" },
-  { keys: [MOD, "S"], action: "Save the page's unsaved files" },
-  { keys: [MOD, "B"], action: "Show or hide the sidebar (outside an editor)" },
-  { keys: ["↑", "↓"], action: "Move in a list (J and K too)" },
-  { keys: ["Enter"], action: "Open the item" },
-  ...GO_TO.map((g) => ({ keys: ["G", g.key.toUpperCase()], action: `Go to ${g.label}` })),
-  { keys: ["?"], action: "Show these shortcuts" },
+/** Every shortcut of the dashboard, as the sheet lists them: by the place they work in. */
+export const SHORTCUTS: { title: string; rows: { keys: string[]; action: string }[] }[] = [
+  {
+    title: "Anywhere",
+    rows: [
+      { keys: [MOD, "K"], action: "Open Search: go to anything, run an action" },
+      { keys: [MOD, "P"], action: "Open Search (also inside an editor)" },
+      { keys: [MOD, "S"], action: "Save the page's unsaved files" },
+      { keys: [MOD, "B"], action: "Show or hide the sidebar (outside an editor)" },
+      ...GO_TO.map((g) => ({ keys: ["G", g.key.toUpperCase()], action: `Go to ${g.label}` })),
+      { keys: ["?"], action: "Show these shortcuts" },
+    ],
+  },
+  {
+    title: "Lists",
+    rows: [
+      { keys: ["↑", "↓"], action: "Move in a list (J and K too)" },
+      { keys: ["Enter"], action: "Open the item" },
+      { keys: [ALT, "Click"], action: "Collapse or expand every group, on a group's header" },
+      { keys: [ALT, "↑", "↓"], action: "Move the task that has the focus" },
+    ],
+  },
+  {
+    title: "Markdown editor",
+    rows: [
+      { keys: [MOD, "B"], action: "Bold" },
+      { keys: [MOD, "I"], action: "Italic" },
+      { keys: [MOD, "E"], action: "Code" },
+      { keys: [MOD, "K"], action: "Link" },
+    ],
+  },
+  {
+    title: "Workflow canvas",
+    rows: [
+      { keys: [MOD, "0"], action: "Fit to view" },
+      { keys: [MOD, "="], action: "Zoom in" },
+      { keys: [MOD, "-"], action: "Zoom out" },
+    ],
+  },
 ]
 
 /** Whether a key event comes from a text field or an editor, where single keys type text. */

@@ -1,15 +1,8 @@
 import { createContext, type Dispatch, type SetStateAction, useContext, useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
 import { searchGroups } from "@/lib/search"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -136,15 +129,20 @@ export function SearchDialog() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [setOpen])
 
+  // The shipped command dialog puts its title outside the dialog's content, where it stays on the page as a heading
+  // while the search is closed: the dialog is composed here, its title and description inside.
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={setOpen}
-      title="Search"
-      description="Jump to a change, workflow, prompt or project"
-      className="sm:max-w-lg"
-    >
-      <Results close={() => setOpen(false)} />
-    </CommandDialog>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent
+        className="top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-lg"
+        showCloseButton={false}
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Search</DialogTitle>
+          <DialogDescription>Jump to a change, workflow, prompt or project</DialogDescription>
+        </DialogHeader>
+        <Results close={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
   )
 }

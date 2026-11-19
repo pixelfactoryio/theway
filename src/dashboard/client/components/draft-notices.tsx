@@ -13,7 +13,7 @@ export function ConflictNotice({ onReload }: { onReload: () => void }) {
   return (
     <Alert variant="warning" className={STRIP}>
       <TriangleAlertIcon aria-hidden="true" />
-      <AlertTitle>This file changed on disk since you opened it.</AlertTitle>
+      <AlertTitle>This file changed on disk since you opened it</AlertTitle>
       <AlertAction>
         <Button variant="outline" size="xs" onClick={onReload}>
           Reload

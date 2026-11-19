@@ -209,11 +209,22 @@ test("list item lines are indented by depth, the marker hanging on its line, the
   expect(hidden(doc, plan(source, [2]).plan)).toEqual(["    ", "> "])
 })
 
-/** The text each soft break of `source` covers. */
-function joins(source: string): string[] {
+/** The text each soft break of `source` covers, the paragraphs of the `active` lines left as written. */
+function joins(source: string, active: number[] = []): string[] {
   const doc = Text.of(source.split("\n"))
-  return softBreaks(doc, markdownLanguage.parser.parse(source)).map((b) => doc.sliceString(b.from, b.to))
+  return softBreaks(doc, markdownLanguage.parser.parse(source), new Set(active)).map((b) =>
+    doc.sliceString(b.from, b.to),
+  )
 }
+
+test("a paragraph an active line touches keeps every line break; the others are joined", () => {
+  const source = "a\nb\nc\n\nd\ne"
+  expect(joins(source)).toEqual(["\n", "\n", "\n"])
+  // Line 2 is in the first paragraph, on none of its ends.
+  expect(joins(source, [2])).toEqual(["\n"])
+  expect(joins(source, [6])).toEqual(["\n", "\n"])
+  expect(joins(source, [4])).toEqual(["\n", "\n", "\n"])
+})
 
 test("a soft break covers the next line's indentation and quote marks, nested and lazy lines included", () => {
   expect(joins("> > a\n> > b\n> c")).toEqual(["\n> > ", "\n> "])

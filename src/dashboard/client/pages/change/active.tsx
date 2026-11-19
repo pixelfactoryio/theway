@@ -30,6 +30,7 @@ import { useDrafts } from "@/drafts/use-drafts"
 import { alertLines } from "@/lib/alert-lines"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
+import { countOf } from "@/lib/list-filter"
 import { leavesChange, to } from "@/lib/routes"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
@@ -238,7 +239,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       {content}
       <DocFooter
         file={shownName}
-        details={[<span className="tabular-nums">{lineCount(fileText(shownName))} lines</span>]}
+        details={[<span className="tabular-nums">{countOf(lineCount(fileText(shownName)), "line")}</span>]}
         status={<DraftStatus dirty={drafts.isDirty(shownName)} saved={drafts.isSaved(shownName)} />}
       />
     </>
@@ -257,7 +258,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       {undoShown ? (
         <Alert className={STRIP}>
           <Trash2Icon aria-hidden="true" />
-          <AlertTitle>Task {undoNote.n} deleted.</AlertTitle>
+          <AlertTitle>Task {undoNote.n} deleted</AlertTitle>
           <AlertAction>
             <Button
               variant="outline"
@@ -310,7 +311,6 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       <DocFrame
         title={data.id}
         label="Change files"
-        page="change"
         value={current.slug}
         tabs={tabs.map((tab) => ({
           value: tab.slug,

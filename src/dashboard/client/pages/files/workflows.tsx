@@ -4,7 +4,7 @@ import { type ReactNode, useCallback, useMemo } from "react"
 import { Dash } from "@/components/file-page"
 import { type FieldOptions, type FileColumns, FileListPage } from "@/components/file-list"
 import { NameCell, Wrapped } from "@/components/files-table"
-import { cellSkeleton } from "@/components/list-grid"
+import { cellSkeleton, HEADER_END, SORT_HEADER } from "@/components/list-grid"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { useLabel, usePrompts, useWorkflows } from "@/data/queries"
 import {
@@ -45,7 +45,7 @@ const columns = (): FileColumns<WorkflowRow> => ({
     {
       id: "name",
       accessorFn: (row) => row.name,
-      header: ({ column }) => <DataGridColumnHeader title="Workflow" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Workflow" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => (
         <NameCell
           href={to.file("workflows", row.original.project, row.original.name)}
@@ -55,7 +55,8 @@ const columns = (): FileColumns<WorkflowRow> => ({
         />
       ),
       sortFn: (a, b) => byFile(a.original, b.original),
-      size: 280,
+      // The least: the column takes the room the others leave, and the grid scrolls sideways only under it.
+      size: 200,
       minSize: 200,
       enableSorting: true,
       meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
@@ -65,7 +66,7 @@ const columns = (): FileColumns<WorkflowRow> => ({
     {
       id: "steps",
       accessorFn: (row) => row.steps,
-      header: ({ column }) => <DataGridColumnHeader title="Steps" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Steps" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => (row.original.steps === null ? <Dash /> : row.original.steps),
       // A workflow without steps after every count.
       sortFn: ({ original: { steps: a } }, { original: { steps: b } }) =>
@@ -73,7 +74,7 @@ const columns = (): FileColumns<WorkflowRow> => ({
       size: 80,
       enableSorting: true,
       meta: {
-        headerClassName: "text-right [&>div]:justify-end",
+        headerClassName: HEADER_END,
         cellClassName: "text-right tabular-nums",
         skeleton: cellSkeleton("ms-auto w-8"),
       },
@@ -81,7 +82,7 @@ const columns = (): FileColumns<WorkflowRow> => ({
     {
       id: "runsOn",
       accessorFn: (row) => row.runsOn,
-      header: ({ column }) => <DataGridColumnHeader title="Runs on" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Runs on" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => (row.original.runsOn === null ? <Dash /> : <Wrapped>{row.original.runsOn}</Wrapped>),
       sortFn: (a, b) => compareText(a.original.runsOn, b.original.runsOn),
       size: 100,

@@ -127,7 +127,8 @@ export type Group = {
   id: string
   label: ReactNode
   mark?: ReactNode
-  count: number
+  /** The rows the group holds, or `N of M` when it lists only some. */
+  count: number | string
   collapsed?: boolean
   body: ReactNode
 }

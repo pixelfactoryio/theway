@@ -4,7 +4,13 @@ import { join } from "node:path"
 import { historyField } from "@codemirror/commands"
 import { EditorState } from "@codemirror/state"
 import { EditorView, keymap } from "@codemirror/view"
-import { linkMark, liveExtensions, softBreaks, tables } from "../src/dashboard/client/components/live-markdown"
+import {
+  linkMark,
+  liveExtensions,
+  setFocused,
+  softBreaks,
+  tables,
+} from "../src/dashboard/client/components/live-markdown"
 
 const realDocument = (globalThis as { document?: unknown }).document
 
@@ -39,20 +45,39 @@ test("a read-only state draws a table on the selection's line; an editable one s
   expect(stateOf(TABLE, false).field(tables).size).toBe(0)
 })
 
-test("a read-only state joins a paragraph's soft line breaks, not its hard breaks or code; an editable one has none", () => {
+/** The soft breaks `state` joins: where each is, and the text it covers. */
+function joined(state: EditorState): { from: number; to: number; text: string }[] {
+  const out: { from: number; to: number; text: string }[] = []
+  state.field(softBreaks).between(0, state.doc.length, (from, to) => {
+    out.push({ from, to, text: state.doc.sliceString(from, to) })
+  })
+  return out
+}
+
+test("a state joins a paragraph's soft line breaks, not its hard breaks or code", () => {
   const doc = "a\nb\n\n- c\n  d\n\n> e\n> f\n\ng  \nh\n\n```\nx\ny\n```"
-  const joined: { from: number; to: number; text: string }[] = []
-  stateOf(doc, true)
-    .field(softBreaks)
-    .between(0, doc.length, (from, to) => {
-      joined.push({ from, to, text: doc.slice(from, to) })
-    })
-  expect(joined).toEqual([
+  const all = [
     { from: 1, to: 2, text: "\n" },
     { from: 8, to: 11, text: "\n  " },
     { from: 17, to: 20, text: "\n> " },
+  ]
+  expect(joined(stateOf(doc, true))).toEqual(all)
+  // An editable document reads the same until the editor has the focus.
+  expect(joined(stateOf(doc, false))).toEqual(all)
+})
+
+test("an editable state with the focus keeps the line breaks of the paragraph the selection is in", () => {
+  const doc = "a\nb\n\n- c\n  d\n\n> e\n> f"
+  const focused = stateOf(doc, false).update({ effects: setFocused.of(true) }).state
+  // The selection is at 0: the first paragraph shows as written.
+  expect(joined(focused).map((j) => j.from)).toEqual([8, 17])
+  const inList = focused.update({ selection: { anchor: 10 } }).state
+  expect(joined(inList).map((j) => j.from)).toEqual([1, 17])
+  // Without the focus every paragraph flows again; a read-only state has no focus to follow.
+  expect(joined(inList.update({ effects: setFocused.of(false) }).state).map((j) => j.from)).toEqual([1, 8, 17])
+  expect(joined(stateOf(doc, true).update({ effects: setFocused.of(true) }).state).map((j) => j.from)).toEqual([
+    1, 8, 17,
   ])
-  expect(stateOf(doc, false).field(softBreaks, false)).toBeUndefined()
 })
 
 test("a read-only link is an anchor to its target in a new tab; an editable one is a span", () => {

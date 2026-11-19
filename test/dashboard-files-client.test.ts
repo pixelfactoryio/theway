@@ -18,7 +18,14 @@ import {
   workflowValues,
 } from "../src/dashboard/client/lib/files"
 import { NONE } from "../src/dashboard/client/lib/list-filter"
-import { drawWorkflow, findPrompt, isDefaultText, keyLabel, selectionOf } from "../src/dashboard/client/lib/workflow"
+import {
+  drawWorkflow,
+  findPrompt,
+  isDefaultText,
+  keyLabel,
+  selectionOf,
+  stepsRunOn,
+} from "../src/dashboard/client/lib/workflow"
 
 const prompt = (
   name: string,
@@ -192,6 +199,21 @@ test("a workflow with comments is drawn: Inputs, steps with their badges, matrix
   // A project's workflow takes its project's own prompt.
   const own = drawWorkflow(WORKFLOW, [], PROMPTS, "-p")
   expect("drawing" in own && own.drawing.steps[1]?.description).toBe("Own review")
+})
+
+test("Details says where the steps run as the list does: one place, mixed, or none without steps", () => {
+  const on = (text: string) => {
+    const r = drawWorkflow(text, [], PROMPTS, null)
+    if (!("drawing" in r)) throw new Error(r.reason)
+    return stepsRunOn(r.drawing)
+  }
+  const head = "version: theway.workflow/v1beta1\nruns-on: agents\n"
+  // The file's `runs-on` is agents; one step runs in the session.
+  expect(on(WORKFLOW)).toBe("mixed")
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n  - uses: prompts/review.md\n`)).toBe("agents")
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n    runs-on: session\n`)).toBe("session")
+  expect(on(`${head}steps:\n`)).toBeNull()
+  expect(on(`${head}steps:\n  - uses: prompts/implement.md\n    runs-on: elsewhere\n`)).toBeNull()
 })
 
 test("lines go to their card, steps[N] being 0-based; the workflow's own lines to the Inputs card", () => {

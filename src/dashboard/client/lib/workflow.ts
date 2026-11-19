@@ -383,6 +383,16 @@ export function drawWorkflow(
 }
 
 /**
+ * Where a drawing's steps run, as the Workflows list says it: `agents` or `session` when every step runs there, else
+ * `mixed`; `null` without steps, or while a step names no place.
+ */
+export function stepsRunOn(drawing: Drawing): "agents" | "session" | "mixed" | null {
+  const places = new Set(drawing.steps.map((s) => s.target))
+  if (places.size === 0 || places.has(null)) return null
+  return places.size === 1 ? ([...places][0] as "agents" | "session") : "mixed"
+}
+
+/**
  * The card a line of the error alert selects on the Editor tab: a `steps[N]` line selects step N+1's card (its on-fail
  * card for `steps[N].on-fail`) whatever its line; a placed line of the workflow's own selects the Inputs card; any
  * other line selects nothing.

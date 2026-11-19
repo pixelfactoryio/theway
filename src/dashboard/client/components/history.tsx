@@ -27,6 +27,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
 import { DIFF_LAYOUT } from "@/lib/preferences"
@@ -78,7 +79,6 @@ export function useHistoryTab({
 
   const panel = (
     <div className="flex flex-col gap-4 p-4">
-      <h2 className="text-sm font-medium">Versions</h2>
       {versions.data === undefined ? null : list.length === 0 ? (
         <Empty className="p-0">
           <EmptyHeader>
@@ -164,7 +164,7 @@ export function useHistoryTab({
     />
   ) : versions.data === undefined ? null : (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-6 py-2">
         <span className="text-sm font-medium tabular-nums">{time ?? "Current"}</span>
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export function useHistoryTab({
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Restore the version of {time}?</AlertDialogTitle>
+            <AlertDialogTitle className={DIALOG_TITLE}>Restore the version of {time}?</AlertDialogTitle>
             <AlertDialogDescription render={<div />} className="flex flex-col gap-2">
               <p>The current text is kept as a version.</p>
               {draft.dirty ? <p>Your unsaved changes are dropped.</p> : null}

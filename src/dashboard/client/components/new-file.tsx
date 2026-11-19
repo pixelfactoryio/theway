@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { failureOf, getJson } from "@/data/api"
 import { apiPath, useLabel, useProjects, usePrompts, useWorkflows, useWrites } from "@/data/queries"
 import { emptyText, NAME } from "@/lib/edit"
@@ -30,7 +31,7 @@ const TITLE: Record<Kind, string> = { workflows: "New workflow", prompts: "New p
 const BAD_NAME = "Use lowercase letters and digits, in words joined by single hyphens."
 const TAKEN = "A file of this name exists there already."
 const NO_DESCRIPTION = "Say what it does."
-const REPLACES = "Replaces the global file of this name for this project."
+const REPLACES = "Replaces the All projects file of this name, for this project only."
 
 /** The fields of the dialog; a new form each time it opens. */
 function NewFileForm({ kind, close }: { kind: Kind; close: () => void }) {
@@ -229,7 +230,7 @@ export function NewFileDialog({
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{TITLE[kind]}</DialogTitle>
+          <DialogTitle className={DIALOG_TITLE}>{TITLE[kind]}</DialogTitle>
         </DialogHeader>
         <NewFileForm key={instance} kind={kind} close={close} />
       </DialogContent>

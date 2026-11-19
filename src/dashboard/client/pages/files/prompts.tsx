@@ -6,7 +6,7 @@ import { Link } from "wouter"
 import { Dash } from "@/components/file-page"
 import { type FieldOptions, type FileColumns, FileListPage } from "@/components/file-list"
 import { NameCell, WRAP, Wrapped } from "@/components/files-table"
-import { cellSkeleton } from "@/components/list-grid"
+import { cellSkeleton, SORT_HEADER } from "@/components/list-grid"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -108,7 +108,7 @@ const columns = (): FileColumns<PromptRow> => ({
     {
       id: "name",
       accessorFn: (row) => row.name,
-      header: ({ column }) => <DataGridColumnHeader title="Prompt" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Prompt" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => (
         <NameCell
           href={to.file("prompts", row.original.project, row.original.name)}
@@ -117,7 +117,8 @@ const columns = (): FileColumns<PromptRow> => ({
         />
       ),
       sortFn: (a, b) => byFile(a.original, b.original),
-      size: 280,
+      // The least: the column takes the room the others leave, and the grid scrolls sideways only under it.
+      size: 200,
       minSize: 200,
       enableSorting: true,
       meta: { autoSize: true, skeleton: cellSkeleton("w-48") },
@@ -127,7 +128,7 @@ const columns = (): FileColumns<PromptRow> => ({
     {
       id: "kind",
       accessorFn: (row) => KIND_LABEL[kindOf(row)],
-      header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => <Wrapped>{KIND_LABEL[kindOf(row.original)]}</Wrapped>,
       sortFn: (a, b) => compareText(KIND_LABEL[kindOf(a.original)], KIND_LABEL[kindOf(b.original)]),
       size: 130,
@@ -137,7 +138,7 @@ const columns = (): FileColumns<PromptRow> => ({
     {
       id: "model",
       accessorFn: (row) => row.model,
-      header: ({ column }) => <DataGridColumnHeader title="Model" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Model" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => (row.original.model === null ? <Dash /> : <Wrapped>{row.original.model}</Wrapped>),
       sortFn: (a, b) => compareText(a.original.model, b.original.model),
       size: 100,
@@ -147,7 +148,7 @@ const columns = (): FileColumns<PromptRow> => ({
     {
       id: "usedBy",
       accessorFn: (row) => row.usedBy[0]?.workflow ?? null,
-      header: ({ column }) => <DataGridColumnHeader title="Used by" column={column} />,
+      header: ({ column }) => <DataGridColumnHeader title="Used by" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => <UsedByCell row={row.original} />,
       sortFn: (a, b) => compareText(a.original.usedBy[0]?.workflow ?? null, b.original.usedBy[0]?.workflow ?? null),
       size: 170,

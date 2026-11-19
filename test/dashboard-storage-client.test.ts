@@ -7,6 +7,7 @@ import {
   GROUP_OPEN,
   PANE_TAB,
   PANEL_DOCKED,
+  panelWidthCodec,
   sidebarCodec,
 } from "../src/dashboard/client/lib/preferences"
 
@@ -31,6 +32,15 @@ test("the panel is docked unless hidden, and shown removes the key", () => {
   expect([PANEL_DOCKED.format(true), PANEL_DOCKED.format(false)]).toEqual([null, "hidden"])
   roundTrips(PANEL_DOCKED, [true, false])
   expect(PANEL_DOCKED.parse("x")).toBe(true)
+})
+
+test("the panel's width is kept in pixels, and a missing or out-of-range value gives the default", () => {
+  const width = panelWidthCodec(320, 640, 420)
+  expect(width.parse(null)).toBe(420)
+  roundTrips(width, [320, 420, 521, 640])
+  expect(width.format(520.6)).toBe("521")
+  // A share of the window (an earlier layout), a width outside the range, and anything else.
+  expect(["41.708", "200", "800", "wide", ""].map((raw) => width.parse(raw))).toEqual([420, 420, 420, 420, 420])
 })
 
 test("a sidebar group is unchosen with nothing stored, else open only when open", () => {

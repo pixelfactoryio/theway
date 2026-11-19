@@ -160,7 +160,7 @@ function StepNode({ data }: NodeProps<FlowNode>) {
         menu={
           edits === null ? null : (
             <ReorderMenu
-              label="Step actions"
+              label={`Step ${index + 1} actions`}
               size="icon-xs"
               triggerClassName="absolute top-3 right-2"
               contentClassName="w-auto"
@@ -373,6 +373,9 @@ const flowEdges = (edges: LayoutEdge[]): FlowEdge[] =>
     sourceHandle: e.kind === "on-fail" ? "on-fail" : undefined,
     type: e.kind,
     data: { layout: e },
+    // A line between two cards says nothing the cards' order does not, and React Flow names it by its internal ids:
+    // out of the accessibility tree. Its "+" and its pill are drawn outside it.
+    domAttributes: { "aria-hidden": true },
     markerEnd:
       e.kind === "on-fail" ? arrow("var(--destructive)") : e.arrow ? arrow("var(--xy-edge-stroke)") : undefined,
   }))

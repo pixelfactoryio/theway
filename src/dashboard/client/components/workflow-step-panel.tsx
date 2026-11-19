@@ -328,7 +328,7 @@ function StepHeader({
       action={
         onChange !== null ? (
           <Button variant="outline" onClick={onChange}>
-            Change
+            Change prompt
           </Button>
         ) : undefined
       }

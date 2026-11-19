@@ -240,7 +240,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       <DocFrame
         title={`${name} · Prompts`}
         label="Prompt views"
-        page={history ? "history" : "prompt"}
         value={view}
         tabs={[
           {

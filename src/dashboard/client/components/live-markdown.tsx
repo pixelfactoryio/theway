@@ -181,13 +181,17 @@ const THEME = EditorView.theme({
   },
 })
 
+/** A heading's line: styled, and a heading of its level to assistive technology, which a line of an editor is not. */
+const heading = (level: number): Decoration =>
+  Decoration.line({ class: `cm-lp-h${level}`, attributes: { role: "heading", "aria-level": String(level) } })
+
 const LINE: Record<LineKind, Decoration> = {
-  h1: Decoration.line({ class: "cm-lp-h1" }),
-  h2: Decoration.line({ class: "cm-lp-h2" }),
-  h3: Decoration.line({ class: "cm-lp-h3" }),
-  h4: Decoration.line({ class: "cm-lp-h4" }),
-  h5: Decoration.line({ class: "cm-lp-h5" }),
-  h6: Decoration.line({ class: "cm-lp-h6" }),
+  h1: heading(1),
+  h2: heading(2),
+  h3: heading(3),
+  h4: heading(4),
+  h5: heading(5),
+  h6: heading(6),
   quote: Decoration.line({ class: "cm-lp-quote" }),
   code: Decoration.line({ class: "cm-lp-code" }),
   "code-start": Decoration.line({ class: "cm-lp-code-start" }),
@@ -295,21 +299,35 @@ function cellContent(cell: HTMLElement, text: string): void {
   }
 }
 
-/** A GFM table drawn as a table; a click on it puts the cursor in its source, which then shows. */
+/**
+ * A GFM table drawn as a table. In an editable view a click on it puts the cursor in its source, which then shows; in
+ * a read-only one (`readOnly`) its wrapper takes the focus, so a table wider than its room scrolls from the keyboard.
+ */
 class TableWidget extends WidgetType {
-  constructor(readonly block: TableBlock) {
+  constructor(
+    readonly block: TableBlock,
+    readonly readOnly: boolean,
+  ) {
     super()
   }
 
   eq(other: TableWidget): boolean {
     const a = this.block
     const b = other.block
-    return JSON.stringify([a.header, a.align, a.rows]) === JSON.stringify([b.header, b.align, b.rows])
+    return (
+      this.readOnly === other.readOnly &&
+      JSON.stringify([a.header, a.align, a.rows]) === JSON.stringify([b.header, b.align, b.rows])
+    )
   }
 
   toDOM(): HTMLElement {
     const wrap = document.createElement("div")
     wrap.className = "cm-lp-tablewrap"
+    if (this.readOnly) {
+      wrap.tabIndex = 0
+      wrap.setAttribute("role", "group")
+      wrap.setAttribute("aria-label", "Table")
+    }
     const table = document.createElement("table")
     const row = (cells: readonly string[], tag: "th" | "td"): HTMLTableRowElement => {
       const tr = document.createElement("tr")
@@ -344,7 +362,7 @@ function tableDecorations(state: EditorState): DecorationSet {
   const active = activeLines(state.doc, state.selection.ranges, !state.readOnly)
   return Decoration.set(
     tableBlocks(state.doc, syntaxTree(state), active).map((b) =>
-      Decoration.replace({ widget: new TableWidget(b), block: true }).range(b.from, b.to),
+      Decoration.replace({ widget: new TableWidget(b, state.readOnly), block: true }).range(b.from, b.to),
     ),
   )
 }
@@ -373,17 +391,46 @@ class SpaceWidget extends WidgetType {
 
 const SPACE = Decoration.replace({ widget: new SpaceWidget() })
 
-const softBreakDecorations = (state: EditorState): DecorationSet =>
-  Decoration.set(softBreakSpans(state.doc, syntaxTree(state)).map((b) => SPACE.range(b.from, b.to)))
+/** Tells the state whether the editor has the focus. */
+export const setFocused = StateEffect.define<boolean>()
 
 /**
- * A read view's soft line breaks, each replaced by a space so a paragraph flows as one, as CommonMark renders it. The
- * replacements cover line breaks, which only decorations given directly from state may do.
+ * Whether the editor has the focus, kept in the state: the decorations only a state field may give (a joined line
+ * break) follow the focus as the live preview's own do. A state taken from a view that had the focus says so until
+ * its next view corrects it.
+ */
+const focused = StateField.define<boolean>({
+  create: () => false,
+  update: (value, tr) => tr.effects.reduce((v, e) => (e.is(setFocused) ? e.value : v), value),
+})
+
+const trackFocus = EditorView.focusChangeEffect.of((_, focusing) => setFocused.of(focusing))
+
+/**
+ * The soft breaks joined in `state`: every paragraph's, but the ones the selection touches while an editable editor
+ * has the focus.
+ */
+function softBreakDecorations(state: EditorState): DecorationSet {
+  const editing = !state.readOnly && state.field(focused, false) === true
+  const active = activeLines(state.doc, state.selection.ranges, editing)
+  return Decoration.set(softBreakSpans(state.doc, syntaxTree(state), active).map((b) => SPACE.range(b.from, b.to)))
+}
+
+/**
+ * The soft line breaks of a document, each replaced by a space so a paragraph flows as one, as CommonMark renders it.
+ * In an editable editor that has the focus, the paragraph the selection is in keeps its line breaks, as its source has
+ * them, the way its syntax shows there; a read-only document flows whole. The replacements cover line breaks, which
+ * only decorations given directly from state may do.
  */
 export const softBreaks = StateField.define<DecorationSet>({
   create: softBreakDecorations,
   update: (set, tr) =>
-    tr.docChanged || syntaxTree(tr.startState) !== syntaxTree(tr.state) ? softBreakDecorations(tr.state) : set,
+    tr.docChanged ||
+    tr.selection !== undefined ||
+    tr.startState.field(focused, false) !== tr.state.field(focused, false) ||
+    syntaxTree(tr.startState) !== syntaxTree(tr.state)
+      ? softBreakDecorations(tr.state)
+      : set,
   provide: (field) => EditorView.decorations.from(field),
 })
 
@@ -512,7 +559,7 @@ const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length
  * coloured by their scoped highlight styles, the live preview, history with the stock keys and `Mod-Shift-z` as redo,
  * the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator and the style nonce.
  * It binds no `Mod-s`: saving is the page's. `readOnly` gives the set of a read view: not editable, no history, no keys,
- * no table click, no line ever active, so the text always shows formatted, and soft line breaks joined.
+ * no table click, no line ever active, so the text always shows formatted. Either set joins soft line breaks.
  */
 export function liveExtensions({
   name,
@@ -535,12 +582,12 @@ export function liveExtensions({
     CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
     livePreview,
     tables,
+    softBreaks,
   ]
   if (readOnly)
     return [
       LIVE.of(true),
       ...preview,
-      softBreaks,
       THEME,
       EditorView.lineWrapping,
       EditorState.readOnly.of(true),
@@ -556,6 +603,8 @@ export function liveExtensions({
     keymap.of([...defaultKeymap, ...historyKeymap]),
     keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
     ...preview,
+    focused,
+    trackFocus,
     tableClick,
     THEME,
     EditorView.lineWrapping,
@@ -589,6 +638,8 @@ export function LiveMarkdown({ store, name, className }: { store: DraftStore; na
       },
     })
     store.attach(v)
+    // A state kept from a view that had the focus: this view starts without it.
+    if (v.state.field(focused, false) === true && !v.hasFocus) v.dispatch({ effects: setFocused.of(false) })
     if (v.state !== store.state) store.set(v.state)
     return () => {
       store.detach(v)

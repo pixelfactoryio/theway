@@ -112,7 +112,7 @@
   /* A list page's title in its top row: 14/20, set apart by its weight. */
   --text-heading: 0.875rem;
   --text-heading--line-height: 1.25rem;
-  /* A workflow's or prompt's name: 21/29. */
+  /* A workflow's name, above its canvas: 21/29. */
   --text-title: 1.3125rem;
   --text-title--line-height: 1.8125rem;
 }
@@ -404,8 +404,10 @@
   --band: #1c1c1f;
 }
 
-/* React Flow's attribution on the workflow canvas: the theme's muted text, on no background. */
+/* React Flow's attribution on the workflow canvas: the theme's muted text, on no background, on the page's 24px gutter. */
 .react-flow__attribution {
+  margin-left: 1.5rem;
+  padding-left: 0;
   background: transparent;
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);

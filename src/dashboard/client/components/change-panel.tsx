@@ -82,9 +82,7 @@ export function ChangePanel({
   const invalid = change.status === "invalid"
   const project = useLabel()(projectKey)
   const ordinal = memberOf(change.id)?.ordinal
-  const top: PaneTab[] = [
-    { value: "tasks", label: "Tasks", count: invalid ? "–" : `${change.done}/${change.total}`, content: tasks },
-  ]
+  const top: PaneTab[] = [{ value: "tasks", label: "Tasks", content: tasks }]
   const bottom: PaneTab[] = [
     {
       value: "details",

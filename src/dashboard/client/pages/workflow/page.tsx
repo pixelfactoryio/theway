@@ -13,7 +13,7 @@ import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
 import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
-import { Alert, AlertTitle } from "@/components/reui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { Badge } from "@/components/reui/badge"
 import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { StatusPill } from "@/components/status"
@@ -38,6 +38,7 @@ import {
   sameSelection,
   type Selection,
   selectionOf,
+  stepsRunOn,
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { LoadError } from "@/shell/load-error"
@@ -320,7 +321,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <DetailRow label="Steps">
         <span className="tabular-nums">{drawing === null ? "–" : drawing.steps.length}</span>
       </DetailRow>
-      <DetailRow label="Runs on">{drawing?.runsOn ?? "–"}</DetailRow>
+      <DetailRow label="Runs on">{(drawing === null ? null : stepsRunOn(drawing)) ?? "–"}</DetailRow>
       <DetailRow label="File">
         <CopyPath value={data.path} name="the file path" />
       </DetailRow>
@@ -343,7 +344,6 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <DocFrame
         title={`${name} · Workflows`}
         label="Workflow views"
-        page={history ? "history" : "workflow"}
         value={history ? "history" : yamlTab ? "yaml" : "editor"}
         tabs={[
           {
@@ -425,12 +425,13 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           />
         }
       >
-        {onCanvas ? null : <div className="shrink-0 px-14 pt-5 pb-3">{heading}</div>}
+        {onCanvas ? null : <div className="shrink-0 px-6 pt-4 pb-3">{heading}</div>}
         <DraftNotices draft={draft} lines={lines} history={history} />
         {!history && !yamlTab && drawing !== null && anchors ? (
           <Alert className={STRIP}>
             <InfoIcon aria-hidden="true" />
-            <AlertTitle>This file uses YAML anchors. Edit it on the YAML tab.</AlertTitle>
+            <AlertTitle>This file uses YAML anchors</AlertTitle>
+            <AlertDescription>Edit it on the YAML tab.</AlertDescription>
           </Alert>
         ) : null}
         {history ? (

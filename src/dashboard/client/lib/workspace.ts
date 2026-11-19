@@ -1,6 +1,7 @@
 /** The sidebar's pinned and recent entries and the grouping suggestions. Pure: no React, no DOM. */
 import type { ArchivedChange, ChangeList, DashboardSettings, Project } from "../../contract"
 import { type ActiveRow, activeRows, changeCount, rowStatus } from "./changes"
+import { monthGroup } from "./collapse"
 import { fileMatches } from "./files"
 import { type FieldRule, NONE, valueCounts } from "./list-filter"
 import { byLabel } from "./projects"
@@ -216,6 +217,29 @@ export const monthOf = (date: string): string => {
 /** An archived change with its project's key. */
 export type Archived = { key: string; a: ArchivedChange }
 
+/** A month of an archive list: its group ID, its heading, the rows listed, and how many the month holds. */
+export type ArchiveMonth = { id: string; month: string; rows: Archived[]; total: number }
+
+/**
+ * The months of `shown` (newest first), each with its rows and the number of `all`'s rows of that month, which is more
+ * than its rows when the list is cut. `shown` holds rows of `all`.
+ */
+export function archiveMonths(shown: readonly Archived[], all: readonly Archived[] = shown): ArchiveMonth[] {
+  const totals = new Map<string, number>()
+  for (const r of all) {
+    const id = monthGroup(r.a.date)
+    totals.set(id, (totals.get(id) ?? 0) + 1)
+  }
+  const months: ArchiveMonth[] = []
+  for (const r of shown) {
+    const id = monthGroup(r.a.date)
+    const last = months.at(-1)
+    if (last?.id === id) last.rows.push(r)
+    else months.push({ id, month: monthOf(r.a.date), rows: [r], total: totals.get(id) ?? 0 })
+  }
+  return months
+}
+
 /** An archived change's values in the lists' filter fields. */
 export const archivedValues = (r: Archived, field: string): string[] =>
   field === "status" ? ["archived"] : field === "project" ? [r.key] : []
@@ -254,9 +278,9 @@ export function countsOf(
 export const latest = (lists: Map<string, ChangeList>, keys: readonly string[]): string =>
   keys.map((k) => lastArchived(lists.get(k)?.archived)).reduce((a, b) => (a > b ? a : b), "")
 
-/** The changes In progress across the projects `keys`. */
+/** The rows In progress across the projects `keys`, as Now counts them: a series In progress as a whole once. */
 export const inProgress = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>
-  keys.reduce((n, k) => n + (lists.get(k)?.active.filter((c) => c.status === "in-progress").length ?? 0), 0)
+  keys.reduce((n, k) => n + inProgressCount(lists.get(k)), 0)
 
 /** The changes to do across the projects `keys`. */
 export const toDoOf = (lists: Map<string, ChangeList>, keys: readonly string[]): number =>

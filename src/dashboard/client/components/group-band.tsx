@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { collapsedKey, isCollapsed, withCollapsed } from "@/lib/collapse"
 import { COLLAPSED } from "@/lib/preferences"
+import { ALT } from "@/shell/platform"
 import { Shortcut } from "@/shell/shortcut"
 import { useStored } from "@/shell/storage"
 
@@ -39,7 +40,7 @@ export function GroupBand({
 }: {
   label: ReactNode
   mark?: ReactNode
-  count?: number
+  count?: number | string
   open: boolean
   /** The group asked open (`open`), with `all` when Alt was held. */
   onToggle: (open: boolean, all: boolean) => void
@@ -73,8 +74,8 @@ export function GroupBand({
 export function CollapseHint() {
   return (
     <p className="px-6 pt-4 pb-8 text-xs text-muted-foreground">
-      <Shortcut keys={["Alt"]} />
-      -click a header to collapse or expand all
+      <Shortcut keys={[ALT]} />
+      -click a header to collapse or expand every group
     </p>
   )
 }

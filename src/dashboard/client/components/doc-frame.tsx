@@ -1,10 +1,11 @@
+import { cn } from "cn"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { PanelPage } from "@/lib/panel"
+import { LINE_TAB } from "@/components/ui-classes"
 import { TopRow, useDocumentTitle } from "@/shell/top-bar"
 
 /**
@@ -29,7 +30,6 @@ export function DocFrame({
   tabs,
   value,
   label,
-  page,
   panelName,
   panel,
   children,
@@ -39,7 +39,6 @@ export function DocFrame({
   tabs: FrameTab[]
   value: string
   label: string
-  page: PanelPage
   panelName: string
   panel: ReactNode
   children: ReactNode
@@ -61,7 +60,7 @@ export function DocFrame({
                 value={tab.value}
                 nativeButton={false}
                 render={<Link href={tab.href} />}
-                className="h-full flex-none gap-2 rounded-none border-0 px-4 text-sm font-normal transition-colors after:bottom-0! after:h-0.5 data-active:font-medium data-active:text-foreground"
+                className={cn(LINE_TAB, "px-4")}
               >
                 <tab.Icon className="size-3.5" aria-hidden="true" />
                 {tab.label}
@@ -73,7 +72,7 @@ export function DocFrame({
           </TabsList>
         </Tabs>
         <div className="flex shrink-0 items-center">
-          <PanelToggle page={page} open={open} onOpenChange={setOpen} />
+          <PanelToggle open={open} onOpenChange={setOpen} />
         </div>
       </TopRow>
       <RecordBody name={panelName} panel={panel}>

@@ -1,10 +1,9 @@
 import { cn } from "cn"
-import { CircleCheckIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
 import { Badge } from "@/components/reui/badge"
-import { ErrorsBadge } from "@/components/status"
+import { ErrorsBadge, StatusMark } from "@/components/status"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 /**
@@ -50,17 +49,17 @@ export function Wrapped({ children }: { children: ReactNode }) {
   return <span className={WRAP}>{children}</span>
 }
 
-/** The Status column's header: it does not sort, and reads as the sortable headers' buttons do. */
-export const STATUS_HEADER = "text-sm font-medium text-foreground"
-
-/** The Status cell: the `Valid` badge, or the `N errors` badge; the errors themselves are on the file's page. */
+/**
+ * The Status cell: the status mark and `Valid`, as the file's panel header shows it, or the `N errors` badge; the
+ * errors themselves are on the file's page.
+ */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
   if (errors.length === 0) {
     return (
-      <Badge variant="success-light">
-        <CircleCheckIcon aria-hidden="true" />
+      <span className="inline-flex items-center gap-2">
+        <StatusMark status="ready" />
         Valid
-      </Badge>
+      </span>
     )
   }
   return <ErrorsBadge count={errors.length} />

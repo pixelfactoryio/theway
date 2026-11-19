@@ -3,22 +3,14 @@ import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type PanelPage, panelToggleLabel } from "@/lib/panel"
+import { panelToggleLabel } from "@/lib/panel"
 import { PanelPortal } from "@/shell/panel"
 
 export { usePanelOpen } from "@/shell/panel"
 
-/** The tab strip's toggle of a record page's panel: `Hide <word>` or `Show <word>`, the word of `page`. */
-export function PanelToggle({
-  page,
-  open,
-  onOpenChange,
-}: {
-  page: PanelPage
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const label = panelToggleLabel(page, open)
+/** The tab strip's toggle of a record page's panel: `Hide panel` or `Show panel`. */
+export function PanelToggle({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const label = panelToggleLabel(open)
   return (
     <Tooltip>
       <TooltipTrigger
