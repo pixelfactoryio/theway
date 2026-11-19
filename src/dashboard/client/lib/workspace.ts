@@ -220,7 +220,7 @@ export const listsOpenRow = (rows: readonly Located[], readyByProject: boolean):
 export const noneLoaded = (failed: number, loaded: number): boolean => failed > 0 && loaded === 0
 
 /** The month heading of an archive date `YYYY-MM-DD…`: "November 2026". */
-export const monthOf = (date: string): string => {
+const monthOf = (date: string): string => {
   const d = new Date(`${date.slice(0, 7)}-01T00:00:00`)
   return Number.isNaN(d.getTime())
     ? date.slice(0, 7)
