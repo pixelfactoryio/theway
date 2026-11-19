@@ -4,6 +4,7 @@ import { join } from "node:path"
 import {
   appliesTo,
   GLOBAL,
+  lineCount,
   lineSeparatorOf,
   previewText,
   PROMPT_FIELDS,
@@ -432,4 +433,21 @@ test("the Workflows and Prompts lists have no tooltip, keep a name and its descr
   const list = read("components", "file-list.tsx")
   expect([list.includes("columnsResizable: true"), list.includes("<DataGridScrollArea")]).toEqual([true, true])
   for (const page of pages) expect([page, read(page).includes("<FileListPage")]).toEqual([page, true])
+})
+
+test("a file's line count is its line breaks, and one more when it does not end with one", () => {
+  expect(["", "a", "a\n", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n"].map(lineCount)).toEqual([0, 1, 1, 2, 2, 2, 1])
+})
+
+test("a workflow's YAML, a prompt's source and change.yaml are one code tab, which alone mounts the code view and its footer", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx", "pages/change/active.tsx"]) {
+    expect([page, read(page).includes("<CodeTab")]).toEqual([page, true])
+    expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
+  }
+  const tab = read("components/code-tab.tsx")
+  expect(tab).toContain('<div className={cn(GUTTER_TITLE, "border-b")}>{title}</div>')
+  expect(tab).toContain("<DocFooter file={file} details={[<LineCount text={text} />]} status={status} />")
+  expect(read("components/doc-frame.tsx")).toContain('export const GUTTER_TITLE = "shrink-0 px-6 pt-4 pb-3"')
 })

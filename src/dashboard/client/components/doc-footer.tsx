@@ -1,5 +1,13 @@
 import { Fragment, type ReactNode } from "react"
 
+import { lineCount } from "@/lib/files"
+import { countOf } from "@/lib/list-filter"
+
+/** A footer's line count, a detail of `DocFooter`: `121 lines` (`1 line`) of `text`, in figures that line up. */
+export function LineCount({ text }: { text: string }) {
+  return <span className="tabular-nums">{countOf(lineCount(text), "line")}</span>
+}
+
 /**
  * A document page's footer bar: the file in mono, each detail after a `·`, and `status` (its save state) at the right.
  */

@@ -278,3 +278,11 @@ test("Now, the project and group pages and All projects list their rows on the r
   for (const page of pages) expect([page, read(page).includes("<BandGrid")]).toEqual([page, true])
   expect(read("components", "band-grid.tsx")).toContain("columnsResizable: true")
 })
+
+test("a change list draws the progress column only when it lists an open change as a row", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  expect(read("pages/workspace/scope.tsx")).toContain("progress: open.length > 0")
+  expect(read("pages/workspace/now.tsx")).toContain('const progress = kept.some((r) => rowStatus(r.row) !== "ready")')
+  expect(read("components/workspace-bands.tsx")).toMatch(/\.\.\.\(progress\s*\? \[\s*\{\s*id: "progress",/)
+})

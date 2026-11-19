@@ -2,7 +2,8 @@ import { EyeIcon, FileTextIcon, HistoryIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { useLocation } from "wouter"
 
-import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { CodeTab } from "@/components/code-tab"
+import type { CodeViewHandle } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { PageLoading, PageUnknown } from "@/components/page-states"
@@ -234,6 +235,16 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   // While the draft differs from the file, the header fields of its last applied check; else the prompt's row.
   const fields: HeaderFields = draft.dirty && draft.details !== null ? draft.details : shownRow
   const history = view === "history"
+  const title = (
+    <DocTitle
+      caption={`Prompts · ${appliesTo(project, label)}`}
+      title={name}
+      description={fields.description}
+      variant="document"
+    />
+  )
+  const notices = <DraftNotices draft={draft} lines={lines} history={history} />
+  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
 
   return (
     <>
@@ -263,32 +274,32 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           />
         }
       >
-        <div className={`shrink-0 pt-5 pb-3 ${DOC_COLUMN}`}>
-          <div className={PROSE_COLUMN}>
-            <DocTitle
-              caption={`Prompts · ${appliesTo(project, label)}`}
-              title={name}
-              description={fields.description}
-              variant="document"
-            />
-          </div>
-        </div>
-        <DraftNotices draft={draft} lines={lines} history={history} />
-        {history ? (
-          historyTab.main
-        ) : view === "preview" ? (
-          <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-            <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
-          </div>
+        {view === "prompt" ? (
+          <CodeTab
+            ref={code}
+            title={title}
+            notices={notices}
+            draft={draft.store}
+            errors={errors}
+            file={`${name}.md`}
+            status={status}
+          />
         ) : (
-          <div className="min-h-0 flex-1">
-            <EditableCodeView ref={code} draft={draft.store} errors={errors} />
-          </div>
+          <>
+            <div className={`shrink-0 pt-5 pb-3 ${DOC_COLUMN}`}>
+              <div className={PROSE_COLUMN}>{title}</div>
+            </div>
+            {notices}
+            {history ? (
+              historyTab.main
+            ) : (
+              <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+                <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
+              </div>
+            )}
+            <DocFooter file={`${name}.md`} status={status} />
+          </>
         )}
-        <DocFooter
-          file={`${name}.md`}
-          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
-        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

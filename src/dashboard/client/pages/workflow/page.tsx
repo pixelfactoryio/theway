@@ -2,13 +2,14 @@ import { CodeIcon, HistoryIcon, InfoIcon, WorkflowIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "wouter"
 
-import { type CodeViewHandle, EditableCodeView } from "@/components/code-view"
+import { CodeTab } from "@/components/code-tab"
+import type { CodeViewHandle } from "@/components/code-view"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
 import { useFileDraft } from "@/components/file-draft"
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useHistoryTab } from "@/components/history"
 import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
-import { DocFrame } from "@/components/doc-frame"
+import { DocFrame, GUTTER_TITLE } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
 import { DocTitle } from "@/components/doc-title"
 import { usePanelOpen } from "@/components/record-panel"
@@ -338,6 +339,8 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       variant="canvas"
     />
   )
+  const notices = <DraftNotices draft={draft} lines={lines} history={history} />
+  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
 
   return (
     <>
@@ -425,38 +428,48 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           />
         }
       >
-        {onCanvas ? null : <div className="shrink-0 px-6 pt-4 pb-3">{heading}</div>}
-        <DraftNotices draft={draft} lines={lines} history={history} />
-        {!history && !yamlTab && drawing !== null && anchors ? (
-          <Alert className={STRIP}>
-            <InfoIcon aria-hidden="true" />
-            <AlertTitle>This file uses YAML anchors</AlertTitle>
-            <AlertDescription>Edit it on the YAML tab.</AlertDescription>
-          </Alert>
-        ) : null}
-        {history ? (
-          historyTab.main
-        ) : yamlTab ? (
-          <div className="min-h-0 flex-1 border-t">
-            <EditableCodeView ref={code} draft={draft.store} errors={errors} />
-          </div>
-        ) : "reason" in drawn ? (
-          <CannotDraw reason={drawn.reason} openYaml={() => navigate(to.file("workflows", project, name, "yaml"))} />
-        ) : (
-          <WorkflowCanvas
-            key={`${project ?? "global"}/${name}`}
-            drawing={drawn.drawing}
-            selection={kept}
-            onSelect={select}
-            store={draft.store}
-            edits={edits}
-            header={heading}
+        {yamlTab ? (
+          <CodeTab
+            ref={code}
+            title={heading}
+            notices={notices}
+            draft={draft.store}
+            errors={errors}
+            file={`${name}.yaml`}
+            status={status}
           />
+        ) : (
+          <>
+            {onCanvas ? null : <div className={GUTTER_TITLE}>{heading}</div>}
+            {notices}
+            {!history && drawing !== null && anchors ? (
+              <Alert className={STRIP}>
+                <InfoIcon aria-hidden="true" />
+                <AlertTitle>This file uses YAML anchors</AlertTitle>
+                <AlertDescription>Edit it on the YAML tab.</AlertDescription>
+              </Alert>
+            ) : null}
+            {history ? (
+              historyTab.main
+            ) : "reason" in drawn ? (
+              <CannotDraw
+                reason={drawn.reason}
+                openYaml={() => navigate(to.file("workflows", project, name, "yaml"))}
+              />
+            ) : (
+              <WorkflowCanvas
+                key={`${project ?? "global"}/${name}`}
+                drawing={drawn.drawing}
+                selection={kept}
+                onSelect={select}
+                store={draft.store}
+                edits={edits}
+                header={heading}
+              />
+            )}
+            <DocFooter file={`${name}.yaml`} status={status} />
+          </>
         )}
-        <DocFooter
-          file={`${name}.yaml`}
-          status={<DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />}
-        />
       </DocFrame>
       <DraftDialogs draft={draft} />
     </>

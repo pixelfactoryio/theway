@@ -16,6 +16,7 @@ import {
 } from "@/components/workspace-bands"
 import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists } from "@/data/queries"
+import { rowStatus } from "@/lib/changes"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
   archivedValues,
@@ -44,9 +45,12 @@ export function NowPage() {
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
   const [sizing, setSizing] = useState<ColumnSizingState>({})
   const { spare, sizer } = useSpare(LIST_CAP.changes)
-  const grid = useChangeGrid(sizing, setSizing, { project: true, spare })
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
+  // The progress column stands only over an open change listed as a row: the archive has none, and Ready to archive
+  // is counted by project here.
+  const progress = kept.some((r) => rowStatus(r.row) !== "ready")
+  const grid = useChangeGrid(sizing, setSizing, { project: true, progress, spare })
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
   const withArchive = picks(filter.rules, "status", "archived")
   const archiveAll = archivesOf(lists, keys)

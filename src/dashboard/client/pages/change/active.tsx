@@ -9,10 +9,11 @@ import { CHANGE_FILE, changeStatus, changeTextErrors, checkChangeText } from "..
 import { ChangeDialogs } from "@/components/change-dialogs"
 import { DescriptionField, UNREADABLE } from "@/components/change-header"
 import { ChangePanel } from "@/components/change-panel"
-import { ChangeTitle } from "@/components/change-header"
+import { ChangeHeading, ChangeTitle } from "@/components/change-header"
+import { CodeTab } from "@/components/code-tab"
 import { DocFrame } from "@/components/doc-frame"
-import { DocFooter } from "@/components/doc-footer"
-import { type CodeLanguage, type CodeViewHandle, EditableCodeView, editableExtensions } from "@/components/code-view"
+import { DocFooter, LineCount } from "@/components/doc-footer"
+import { type CodeLanguage, type CodeViewHandle, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
 import { ErrorStrip, LinesAlert, STRIP } from "@/components/file-page"
 import { LiveMarkdown } from "@/components/live-markdown"
@@ -30,7 +31,6 @@ import { useDrafts } from "@/drafts/use-drafts"
 import { alertLines } from "@/lib/alert-lines"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
-import { countOf } from "@/lib/list-filter"
 import { leavesChange, to } from "@/lib/routes"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
@@ -201,49 +201,51 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   )
 
   const fileText = (file: string): string => drafts.text(file) ?? data.files.find((f) => f.name === file)?.text ?? ""
-  const lineCount = (text: string): number =>
-    text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0)
+  const status = <DraftStatus dirty={drafts.isDirty(name)} saved={drafts.isSaved(name)} />
+  const footer = <DocFooter file={name} details={[<LineCount text={fileText(name)} />]} status={status} />
 
-  // A Markdown file scrolls with the change's title above it, its document title; the editor grows to its text.
-  let content: ReactNode
+  let body: ReactNode
   if (current.file !== null) {
-    content = (
-      <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
-        <ChangeTitle change={shown} />
-        {draft !== null ? (
-          <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
-        ) : (
-          <MarkdownView key={name} text={fileText(name)} name={name} />
-        )}
-      </div>
+    // A Markdown file scrolls with the change's title above it, its document title; the editor grows to its text.
+    body = (
+      <>
+        {notices}
+        <div data-scroll-root className="min-h-0 flex-1 overflow-y-auto">
+          <ChangeTitle change={shown} />
+          {draft !== null ? (
+            <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
+          ) : (
+            <MarkdownView key={name} text={fileText(name)} name={name} />
+          )}
+        </div>
+        {footer}
+      </>
     )
-  } else if (textView && yaml !== null) {
-    content = (
-      <div className="min-h-0 flex-1">
-        <EditableCodeView ref={code} draft={yaml.store} errors={errors} />
-      </div>
+  } else if (yaml !== null) {
+    body = (
+      <CodeTab
+        ref={code}
+        title={<ChangeHeading change={shown} />}
+        notices={notices}
+        draft={yaml.store}
+        errors={errors}
+        file={name}
+        status={status}
+      />
     )
   } else {
-    content = (
-      <div className="p-6">
-        <LinesAlert lines={shown.issues} title={UNREADABLE} className="max-w-[80ch]" />
-      </div>
+    // No `change.yaml` to edit: the reasons in place of the code.
+    body = (
+      <>
+        <ChangeTitle change={shown} className="pb-4" />
+        {notices}
+        <div className="p-6">
+          <LinesAlert lines={shown.issues} title={UNREADABLE} className="max-w-[80ch]" />
+        </div>
+        {footer}
+      </>
     )
   }
-
-  const shownName = current.file ?? CHANGE_FILE
-  const body = (
-    <>
-      {current.file === null ? <ChangeTitle change={shown} className="pb-4" /> : null}
-      {notices}
-      {content}
-      <DocFooter
-        file={shownName}
-        details={[<span className="tabular-nums">{countOf(lineCount(fileText(shownName)), "line")}</span>]}
-        status={<DraftStatus dirty={drafts.isDirty(shownName)} saved={drafts.isSaved(shownName)} />}
-      />
-    </>
-  )
 
   const taskPane = (
     <div className="flex flex-col">
