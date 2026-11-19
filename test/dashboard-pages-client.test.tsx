@@ -38,12 +38,6 @@ test("an address naming no project or group is the shared unknown page: its name
   expect(scope).not.toMatch(/exist/)
 })
 
-test("Now shows the load error alone when no list could be loaded", () => {
-  const now = read("pages/workspace/now.tsx")
-  expect(now).toContain("const unread = failed.length > 0 && lists.size === 0")
-  expect(now).toContain(") : !settled || unread ? null : isNarrowed(filter) ? (")
-})
-
 test("every list page ends with the one list foot, 32px under its last row", () => {
   expect(read("components/list-grid.tsx")).toContain('return <div className="pb-8">{children}</div>')
   for (const file of [

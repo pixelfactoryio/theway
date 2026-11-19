@@ -12,6 +12,9 @@ import {
   groupId,
   inProgress,
   inProgressCount,
+  listsOpenRow,
+  located,
+  noneLoaded,
   notStarted,
   pinnedEntries,
   PROJECT_FIELDS,
@@ -280,9 +283,20 @@ test("Now, the project and group pages and All projects list their rows on the r
 })
 
 test("a change list draws the progress column only when it lists an open change as a row", () => {
-  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
-  const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  expect(read("pages/workspace/scope.tsx")).toContain("progress: open.length > 0")
-  expect(read("pages/workspace/now.tsx")).toContain('const progress = kept.some((r) => rowStatus(r.row) !== "ready")')
-  expect(read("components/workspace-bands.tsx")).toMatch(/\.\.\.\(progress\s*\? \[\s*\{\s*id: "progress",/)
+  const rows = (...statuses: ActiveChange["status"][]) =>
+    located(
+      new Map([["-a", { active: statuses.map((s, i) => change(`add-${"abc"[i]}`, s)), archived: [] }]]),
+      [project("-a", "acme", statuses.length)],
+      "",
+    )
+  // A project's page lists Ready to archive as rows; Now counts it by project.
+  expect([listsOpenRow(rows("ready"), false), listsOpenRow(rows("ready"), true)]).toEqual([true, false])
+  expect(listsOpenRow(rows("ready", "not-started"), true)).toBe(true)
+  // A list of archived changes alone has no open row.
+  expect([listsOpenRow([], false), listsOpenRow([], true)]).toEqual([false, false])
+})
+
+test("Now shows the load error alone only when no change list could be read", () => {
+  // Some lists failed and none came back; none failed; some failed but others came back.
+  expect([noneLoaded(1, 0), noneLoaded(0, 0), noneLoaded(1, 2)]).toEqual([true, false, false])
 })

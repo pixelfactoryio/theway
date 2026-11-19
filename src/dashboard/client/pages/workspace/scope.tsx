@@ -28,6 +28,7 @@ import {
   changesOf,
   countsOf,
   entryOf,
+  listsOpenRow,
   located,
   locatedValues,
   treeRows,
@@ -64,7 +65,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const open = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // A group's page names each row's project, in its open bands and its archive bands alike: they share one header.
   // The progress column stands only over an open change: a list of archived changes alone has none.
-  const grid = useChangeGrid(sizing, setSizing, { project: isGroup, progress: open.length > 0, spare })
+  const grid = useChangeGrid(sizing, setSizing, { project: isGroup, progress: listsOpenRow(open, false), spare })
   const archiveAll = archivesOf(lists, keys)
   const archiveSearched = archivesMatching(archiveAll, filter.q)
   const archived = archiveSearched.filter((r) => passesAll(r, filter.rules, archivedValues))

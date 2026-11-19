@@ -209,6 +209,16 @@ export const locatedValues = (r: Located, field: string): string[] =>
 /** The changes a row holds: a series row its listed members. */
 export const changesOf = (r: Located): number => changeCount([r.row])
 
+/**
+ * Whether a change list lists an open change as a row, so draws the progress column: any of `rows`, but a Ready to
+ * archive row only when Ready to archive is listed as rows, not counted by project (`readyByProject`).
+ */
+export const listsOpenRow = (rows: readonly Located[], readyByProject: boolean): boolean =>
+  rows.some((r) => !readyByProject || rowStatus(r.row) !== "ready")
+
+/** Whether no change list could be read: some failed (`failed`) and none came back (`loaded`), so none is known empty. */
+export const noneLoaded = (failed: number, loaded: number): boolean => failed > 0 && loaded === 0
+
 /** The month heading of an archive date `YYYY-MM-DD…`: "November 2026". */
 export const monthOf = (date: string): string => {
   const d = new Date(`${date.slice(0, 7)}-01T00:00:00`)

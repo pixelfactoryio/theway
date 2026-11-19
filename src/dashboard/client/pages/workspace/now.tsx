@@ -16,7 +16,6 @@ import {
 } from "@/components/workspace-bands"
 import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists } from "@/data/queries"
-import { rowStatus } from "@/lib/changes"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
   archivedValues,
@@ -25,8 +24,10 @@ import {
   changesOf,
   countOf,
   countsOf,
+  listsOpenRow,
   located,
   locatedValues,
+  noneLoaded,
   treeRows,
 } from "@/lib/workspace"
 import { PageBody, PageHeader } from "@/shell/top-bar"
@@ -49,7 +50,7 @@ export function NowPage() {
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // The progress column stands only over an open change listed as a row: the archive has none, and Ready to archive
   // is counted by project here.
-  const progress = kept.some((r) => rowStatus(r.row) !== "ready")
+  const progress = listsOpenRow(kept, true)
   const grid = useChangeGrid(sizing, setSizing, { project: true, progress, spare })
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
   const withArchive = picks(filter.rules, "status", "archived")
@@ -73,7 +74,7 @@ export function NowPage() {
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
   const settled = projects !== null && !pending
   // With no list loaded, the load error stands alone: nothing is known to be empty.
-  const unread = failed.length > 0 && lists.size === 0
+  const unread = noneLoaded(failed.length, lists.size)
   return (
     <>
       <PageHeader title="Now" />
