@@ -8,7 +8,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
-import { ColumnLabel, LIST_CAP, spareColumn, useSpare } from "@/components/list-grid"
+import { ColumnLabel, LIST_CAP, ListFoot, spareColumn, useSpare } from "@/components/list-grid"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -404,7 +404,7 @@ export function ProjectsPage() {
             <NoMatch nouns="projects" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : null}
           {rows.length > 0 ? (
-            <div className="pb-8">
+            <>
               <BandGrid
                 rows={rows}
                 columns={columns}
@@ -422,7 +422,8 @@ export function ProjectsPage() {
                 }}
                 label="Projects"
               />
-            </div>
+              <ListFoot />
+            </>
           ) : null}
         </ScrollBody>
       </PageBody>

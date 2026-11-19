@@ -17,6 +17,7 @@ import {
   LIST_CAP,
   LIST_FRAME,
   LIST_ROWS,
+  ListFoot,
   SCROLL_AREA,
   SORT_HEADER,
   spareColumn,
@@ -28,7 +29,7 @@ import { useLabel, useProjects } from "@/data/queries"
 import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
@@ -138,6 +139,7 @@ function FileGrid<Row extends FileRow>({
       <GridFrame>
         <DataGridScrollArea className={SCROLL_AREA}>
           <DataGridTable />
+          <ListFoot />
         </DataGridScrollArea>
       </GridFrame>
     </DataGrid>
@@ -228,19 +230,9 @@ export function FileListPage<Row extends FileRow, F extends string>({
         {top}
         <PageBody>
           {query.isError ? (
-            <LoadError
-              what={`the ${nouns}`}
-              error={query.error as Error}
-              retry={() => void query.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what={`the ${nouns}`} error={query.error as Error} retry={() => void query.refetch()} />
           ) : (
-            <LoadError
-              what="the projects"
-              error={projects.error as Error}
-              retry={() => void projects.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the projects" error={projects.error as Error} retry={() => void projects.refetch()} />
           )}
         </PageBody>
       </>

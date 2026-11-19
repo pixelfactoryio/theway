@@ -53,11 +53,7 @@ export function ChangeHeading({ change }: { change: ChangeDetail }) {
   const invalid = change.archived === null && change.issues.length > 0
   return (
     <>
-      <DocTitle
-        title={change.description ?? change.id}
-        id={change.description !== null ? change.id : undefined}
-        variant="document"
-      />
+      <DocTitle title={change.description ?? change.id} id={change.description !== null ? change.id : undefined} />
       {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} className="mt-3 max-w-(--read-width)" /> : null}
     </>
   )

@@ -31,7 +31,7 @@ import {
 } from "@/lib/files"
 import { type AlertLine, alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The prompt page's side panel: its status; Inputs and Used by (or the versions); then its Details. */
@@ -190,21 +190,15 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         <PageHeader title={name} />
         <PageBody>
           {projects.isError ? (
-            <LoadError
-              what="the projects"
-              error={projects.error}
-              retry={() => void projects.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
           ) : (
-            <LoadError
+            <PageLoadError
               what="this prompt"
               error={(file.error ?? prompts.error) as Error}
               retry={() => {
                 void file.refetch()
                 void prompts.refetch()
               }}
-              className="m-4 w-auto"
             />
           )}
         </PageBody>
@@ -236,12 +230,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const fields: HeaderFields = draft.dirty && draft.details !== null ? draft.details : shownRow
   const history = view === "history"
   const title = (
-    <DocTitle
-      caption={`Prompts · ${appliesTo(project, label)}`}
-      title={name}
-      description={fields.description}
-      variant="document"
-    />
+    <DocTitle caption={`Prompts · ${appliesTo(project, label)}`} title={name} description={fields.description} />
   )
   const notices = <DraftNotices draft={draft} lines={lines} history={history} />
   const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />

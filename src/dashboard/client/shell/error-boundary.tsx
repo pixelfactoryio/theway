@@ -2,7 +2,7 @@ import { Component, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 type BoundaryProps = {
@@ -43,13 +43,7 @@ export function PageError({ error, reset }: { error: Error; reset: () => void })
     <>
       <PageHeader title="Error" />
       <PageBody>
-        <LoadError
-          title="This page failed to render"
-          action="Try again"
-          error={error}
-          retry={reset}
-          className="m-4 w-auto"
-        />
+        <PageLoadError title="This page failed to render" action="Try again" error={error} retry={reset} />
       </PageBody>
     </>
   )

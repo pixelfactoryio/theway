@@ -113,6 +113,14 @@ export function GridFrame({ children }: { children: ReactNode }) {
 
 export const SCROLL_AREA = "min-h-0 flex-1"
 
+/**
+ * A list's foot, the same on every list page: 32px of room under the last row, inside the list's scroll root. A
+ * grouped list's hint stands in it.
+ */
+export function ListFoot({ children }: { children?: ReactNode }) {
+  return <div className="pb-8">{children}</div>
+}
+
 /** A table's search field: `label` is its placeholder and accessible name. */
 export function SearchField({
   value,

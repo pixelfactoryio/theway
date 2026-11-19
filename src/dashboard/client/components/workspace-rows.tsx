@@ -7,7 +7,7 @@ import { GroupBand, useCollapsed } from "@/components/group-band"
 import { useProjects } from "@/data/queries"
 import { type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 
 /** The time now, refreshed every minute, for the rows' ages. */
 export function useNow(): number {
@@ -165,9 +165,7 @@ export function useProjectsGate(): { projects: Project[] | null; gate: ReactNode
   if (query.isError)
     return {
       projects: null,
-      gate: (
-        <LoadError what="the projects" error={query.error} retry={() => void query.refetch()} className="m-4 w-auto" />
-      ),
+      gate: <PageLoadError what="the projects" error={query.error} retry={() => void query.refetch()} />,
     }
   return { projects: query.data?.projects ?? null, gate: null }
 }

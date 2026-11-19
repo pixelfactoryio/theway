@@ -42,7 +42,7 @@ import {
   stepsRunOn,
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The step picker open in the panel: adding a step at `at`, or changing the prompt of step `index`. */
@@ -201,26 +201,11 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         <PageHeader title={name} />
         <PageBody>
           {projects.isError ? (
-            <LoadError
-              what="the projects"
-              error={projects.error}
-              retry={() => void projects.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
           ) : fileFailed ? (
-            <LoadError
-              what="this workflow"
-              error={file.error as Error}
-              retry={() => void file.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="this workflow" error={file.error as Error} retry={() => void file.refetch()} />
           ) : (
-            <LoadError
-              what="the prompts"
-              error={prompts.error as Error}
-              retry={() => void prompts.refetch()}
-              className="m-4 w-auto"
-            />
+            <PageLoadError what="the prompts" error={prompts.error as Error} retry={() => void prompts.refetch()} />
           )}
         </PageBody>
       </>
@@ -331,12 +316,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
 
   // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
   const heading = (
-    <DocTitle
-      caption={`Workflows · ${appliesTo(project, label)}`}
-      title={name}
-      description={drawing?.description}
-      variant="canvas"
-    />
+    <DocTitle caption={`Workflows · ${appliesTo(project, label)}`} title={name} description={drawing?.description} />
   )
   const notices = <DraftNotices draft={draft} lines={lines} history={history} />
   const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />

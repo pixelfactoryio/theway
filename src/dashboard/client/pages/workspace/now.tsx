@@ -5,7 +5,7 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
-import { LIST_CAP, useSpare } from "@/components/list-grid"
+import { LIST_CAP, ListFoot, useSpare } from "@/components/list-grid"
 import {
   archiveGroups,
   projectField,
@@ -72,6 +72,8 @@ export function NowPage() {
   ]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
   const settled = projects !== null && !pending
+  // With no list loaded, the load error stands alone: nothing is known to be empty.
+  const unread = failed.length > 0 && lists.size === 0
   return (
     <>
       <PageHeader title="Now" />
@@ -98,9 +100,11 @@ export function NowPage() {
             <>
               <BandGrid {...grid.head} />
               <Groups page="now" groups={groups} />
-              <CollapseHint />
+              <ListFoot>
+                <CollapseHint />
+              </ListFoot>
             </>
-          ) : !settled ? null : isNarrowed(filter) ? (
+          ) : !settled || unread ? null : isNarrowed(filter) ? (
             <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : (
             <EmptyNote inset="page">Nothing open.</EmptyNote>

@@ -33,7 +33,7 @@ import { DIALOG_TITLE } from "@/components/ui-classes"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
 import { DIFF_LAYOUT } from "@/lib/preferences"
-import { LoadError } from "@/shell/load-error"
+import { PageLoadError } from "@/shell/load-error"
 import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
@@ -134,7 +134,7 @@ export function useHistoryTab({
   let body: ReactNode
   if (isCurrent) body = <CodeView text={saved} language={language} name="Current text" errors={[]} />
   else if (text.isError) {
-    body = <LoadError what="this version" error={text.error} retry={() => void text.refetch()} className="m-4 w-auto" />
+    body = <PageLoadError what="this version" error={text.error} retry={() => void text.refetch()} />
   } else if (text.data === undefined) body = null
   else if (!show) body = <CodeView text={text.data.text} language={language} name={versionName} errors={[]} />
   else if (same) {
@@ -158,12 +158,7 @@ export function useHistoryTab({
   }
 
   const main = versions.isError ? (
-    <LoadError
-      what="the versions"
-      error={versions.error}
-      retry={() => void versions.refetch()}
-      className="m-4 w-auto"
-    />
+    <PageLoadError what="the versions" error={versions.error} retry={() => void versions.refetch()} />
   ) : versions.data === undefined ? null : (
     <>
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-6 py-2">

@@ -6,7 +6,8 @@ import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
-import { LIST_CAP, useSpare } from "@/components/list-grid"
+import { LIST_CAP, ListFoot, useSpare } from "@/components/list-grid"
+import { PageUnknown } from "@/components/page-states"
 import { Button } from "@/components/ui/button"
 import {
   archiveGroups,
@@ -84,6 +85,22 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
   const total = located(lists, scoped, "").reduce((n, r) => n + changesOf(r), 0) + archiveAll.length
   const shown = open.reduce((n, r) => n + changesOf(r), 0) + archived.length
 
+  // An address naming no project or group: the same page as an unknown workflow, prompt or change.
+  if (projects !== null && entry === null) {
+    const name = id.slice(id.indexOf(":") + 1)
+    return (
+      <PageUnknown
+        title={name}
+        message={
+          <>
+            No {id.startsWith("group:") ? "group" : "project"} <code className="font-mono">{name}</code>
+          </>
+        }
+        back={{ label: "Back to All projects", href: to.projects() }}
+      />
+    )
+  }
+
   return (
     <>
       <PageHeader
@@ -106,9 +123,6 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
         <ScrollBody>
           {sizer}
           {gate}
-          {projects !== null && entry === null ? (
-            <EmptyNote inset="page">This project or group no longer exists.</EmptyNote>
-          ) : null}
           {entry !== null && groups.length > 0 ? (
             <>
               <BandGrid {...grid.head} />
@@ -131,7 +145,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
                   All archived →
                 </Button>
               ) : null}
-              <CollapseHint />
+              <ListFoot>
+                <CollapseHint />
+              </ListFoot>
             </>
           ) : null}
           {entry !== null && groups.length === 0 && !pending ? (
