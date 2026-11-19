@@ -229,12 +229,10 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       />
     )
   } else {
-    // No `change.yaml` to edit: the reasons in place of the code.
+    // No `change.yaml` to edit: the title block states the reasons, and nothing stands in place of the code.
     body = (
       <DocTab title={<ChangeHeading change={shown} />} notices={notices} footer={footer}>
-        <div className="p-6">
-          <LinesAlert lines={shown.issues} title={UNREADABLE} className="max-w-[80ch]" />
-        </div>
+        {null}
       </DocTab>
     )
   }
