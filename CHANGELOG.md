@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/pixelfactoryio/theway/compare/v0.23.0...v0.23.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **dashboard:** polish layout, colours and shared page parts ([#158](https://github.com/pixelfactoryio/theway/issues/158)) ([35dbba8](https://github.com/pixelfactoryio/theway/commit/35dbba8048e740182e1d2ebf7979c3bebb99238a))
+
 ## [0.23.0](https://github.com/pixelfactoryio/theway/compare/v0.22.0...v0.23.0) (2026-11-18)
 
 
