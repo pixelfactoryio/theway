@@ -10,8 +10,8 @@ import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
- * What `#/` and a project's pages show until the projects are known: an empty content area while they load, the load
- * error after a failure. `null` once loaded.
+ * What `#/` and a project's pages show until the projects are known: the page's header and, after 400ms, a loading
+ * line while they load (`PageLoading`); the load error after a failure. `null` once loaded.
  */
 function ProjectsGate({ label }: { label: string }) {
   const projects = useProjects()

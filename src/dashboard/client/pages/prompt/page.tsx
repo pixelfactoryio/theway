@@ -1,27 +1,26 @@
-import { EyeIcon, FileTextIcon, HistoryIcon } from "lucide-react"
+import { FileTextIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { useLocation } from "wouter"
 
 import { CodeTab } from "@/components/code-tab"
 import type { CodeViewHandle } from "@/components/code-view"
-import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
-import { useFileDraft } from "@/components/file-draft"
-import { PageLoading, PageUnknown } from "@/components/page-states"
-import { HistoryTab, useHistoryTab } from "@/components/history"
-import { Dash, InputsList, LineList, UNKNOWN_FILE } from "@/components/file-page"
-import { MarkdownView } from "@/components/markdown-view"
-import { DocFrame } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
-import { DocTab, DocTitle } from "@/components/doc-title"
-import { useSaveKey } from "@/components/step-prompt"
-import { UsedByList } from "@/components/used-by-list"
+import { DocFrame, ItemHeading } from "@/components/doc-frame"
+import { DocTab } from "@/components/doc-tab"
+import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { fileStatus, InputsCard, ProblemsCard, StatusCard, UsedByCard } from "@/components/fact-cards"
+import { useFileDraft } from "@/components/file-draft"
+import { Dash, UNKNOWN_FILE } from "@/components/file-page"
+import { HistoryTab, useHistoryTab } from "@/components/history"
+import { MarkdownView } from "@/components/markdown-view"
+import { PageLoading, PageUnknown } from "@/components/page-states"
+import { PropertyCard, PropertyCards, PropertyList, PropertyRow, PropertyText } from "@/components/property-card"
 import { StatusPill } from "@/components/status"
-import { DetailRow, DocPanel } from "@/components/doc-panel"
+import { useSaveKey } from "@/components/step-prompt"
 import { CopyPath } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import {
   appliesTo,
-  errorCount,
   type FileBody,
   type HeaderFields,
   KIND_LABEL,
@@ -34,83 +33,64 @@ import { to } from "@/lib/routes"
 import { PageLoadError } from "@/shell/load-error"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
-/** The prompt page's side panel: its status; Inputs and Used by (or the versions); then its Details. */
-function PromptPanel({
+/** The prompt's path in every header of its page: Prompts, then its name. */
+const PARENTS = [{ label: "Prompts", href: to.prompts() }]
+
+/**
+ * The prompt page's right column, one stack of cards: its Problems while it has errors; on History its Versions; then
+ * its Details (the description, the kind, the model, what it applies to, the file's path), its Inputs and the
+ * workflows that use it, all from the draft.
+ */
+function PromptCards({
   file,
   fields,
-  errors,
   lines,
   versions,
 }: {
   file: FileBody
   fields: HeaderFields
-  errors: number
   lines: readonly AlertLine[]
   versions: ReactNode | null
 }) {
   const label = useLabel()
-  const usedBy = file.usedBy ?? []
+  const description = fields.header ? fields.description : null
   return (
-    <DocPanel
-      remember="prompt"
-      label="Prompt"
-      header={
-        <StatusPill status={errors === 0 ? "ready" : "invalid"} label={errors === 0 ? "Valid" : errorCount(errors)} />
-      }
-      top={
-        versions !== null
-          ? [{ value: "versions", label: "Versions", content: versions }]
-          : [
-              {
-                value: "inputs",
-                label: "Inputs",
-                count: fields.inputs.length > 0 ? fields.inputs.length : undefined,
-                content: (
-                  <div className="p-4">
-                    <InputsList inputs={fields.inputs} />
-                  </div>
-                ),
-              },
-              {
-                value: "used-by",
-                label: "Used by",
-                count: usedBy.length > 0 ? usedBy.length : undefined,
-                content: <UsedByList uses={usedBy} label={label} />,
-              },
-              {
-                value: "problems",
-                label: "Problems",
-                count: errors > 0 ? errors : undefined,
-                content: <LineList variant="panel" lines={lines} />,
-              },
-            ]
-      }
-      bottom={[
-        {
-          value: "details",
-          label: "Details",
-          content: (
-            <dl className="flex flex-col py-2">
-              <DetailRow label="Description">
-                {fields.header && fields.description !== null ? fields.description : <Dash />}
-              </DetailRow>
-              <DetailRow label="Kind">{KIND_LABEL[kindOf(fields)]}</DetailRow>
-              <DetailRow label="Model">{fields.model ?? <Dash />}</DetailRow>
-              <DetailRow label="Applies to">{appliesTo(file.project, label)}</DetailRow>
-              <DetailRow label="File">
-                <CopyPath value={file.path} name="the file path" />
-              </DetailRow>
-            </dl>
-          ),
-        },
-      ]}
-    />
+    <PropertyCards>
+      <StatusCard {...fileStatus(lines.length)} />
+      {lines.length > 0 ? <ProblemsCard lines={lines} /> : null}
+      {/* The history's own Versions card. */}
+      {versions}
+      <PropertyCard title="Details">
+        {description !== null ? <PropertyText>{description}</PropertyText> : null}
+        <PropertyList>
+          {description === null ? (
+            <PropertyRow label="Description">
+              <Dash />
+            </PropertyRow>
+          ) : null}
+          <PropertyRow label="Kind">{KIND_LABEL[kindOf(fields)]}</PropertyRow>
+          <PropertyRow label="Model">{fields.model ?? <Dash />}</PropertyRow>
+          {fields.inputs.length === 0 ? (
+            <PropertyRow label="Inputs">
+              <Dash />
+            </PropertyRow>
+          ) : null}
+          <PropertyRow label="Applies to">{appliesTo(file.project, label)}</PropertyRow>
+          <PropertyRow label="File">
+            <CopyPath value={file.path} name="the file path" />
+          </PropertyRow>
+        </PropertyList>
+      </PropertyCard>
+      {fields.inputs.length > 0 ? <InputsCard inputs={fields.inputs} /> : null}
+      <UsedByCard uses={file.usedBy ?? []} label={label} />
+    </PropertyCards>
   )
 }
 
 /**
  * `#/prompts/global/<name>[/preview|/history]` and `#/prompts/projects/<key>/<name>[/preview|/history]`: a prompt's text
- * in the editable code view, its rendered preview, its history, and its Details panel, all from the draft.
+ * in the editable code view, its rendered preview, its history, and its cards in the panel, all from the draft. The
+ * header states its name once, for every view: Prompts › name, its status, the panel's button, the views as pill tabs.
  */
 export function PromptPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
   const projects = useProjects()
@@ -141,7 +121,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   useSaveKey(() => {
     if (draft.dirty) void draft.save(false)
   })
-  const label = useLabel()
 
   // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there: the child's
   // mount effect, which attaches its editor to the draft, runs before this one.
@@ -175,9 +154,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     return (
       <PageUnknown
         title={name}
+        mono
+        icon={FileTextIcon}
+        parents={PARENTS}
         message={
           <>
-            No prompt <code className="font-mono">{name}</code>
+            No prompt <code className="font-mono text-xs">{name}</code>
           </>
         }
         back={{ label: "Back to Prompts", href: to.prompts() }}
@@ -187,7 +169,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <PageHeader title={name} />
+        <PageHeader title={name} mono icon={FileTextIcon} parents={PARENTS} />
         <PageBody>
           {projects.isError ? (
             <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
@@ -214,7 +196,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     draft.store === null ||
     draft.text === null
   ) {
-    return <PageLoading title={name} />
+    return <PageLoading title={name} mono icon={FileTextIcon} parents={PARENTS} />
   }
   const shownRow: PromptRow = row ?? {
     name,
@@ -228,17 +210,20 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   }
   // While the draft differs from the file, the header fields of its last applied check; else the prompt's row.
   const fields: HeaderFields = draft.dirty && draft.details !== null ? draft.details : shownRow
+  // The page's title is the prompt's description: with none, no title repeats the file name the header gives.
+  const pageTitle = fields.header ? fields.description : null
   const history = view === "history"
-  const title = (
-    <DocTitle caption={`Prompts · ${appliesTo(project, label)}`} title={name} description={fields.description} />
-  )
   const notices = <DraftNotices draft={draft} lines={lines} history={history} />
   const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+  const fileName = `${name}.md`
 
   return (
     <>
       <DocFrame
-        title={`${name} · Prompts`}
+        title={name}
+        mono
+        icon={FileTextIcon}
+        parents={PARENTS}
         label="Prompt views"
         value={view}
         tabs={[
@@ -246,38 +231,24 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             value: "prompt",
             label: "Prompt",
             href: to.file("prompts", project, name),
-            Icon: FileTextIcon,
             dirty: draft.dirty && view === "prompt",
           },
-          { value: "preview", label: "Preview", href: to.file("prompts", project, name, "preview"), Icon: EyeIcon },
-          { value: "history", label: "History", href: to.file("prompts", project, name, "history"), Icon: HistoryIcon },
+          { value: "preview", label: "Preview", href: to.file("prompts", project, name, "preview") },
+          { value: "history", label: "History", href: to.file("prompts", project, name, "history") },
         ]}
-        panelName={history ? "Versions" : "Details"}
-        panel={
-          <PromptPanel
-            file={data}
-            fields={fields}
-            errors={errors.length}
-            lines={lines}
-            versions={history ? historyTab.panel : null}
-          />
-        }
+        status={<StatusPill {...fileStatus(errors.length)} />}
+        notices={notices}
+        heading={<ItemHeading title={pageTitle} />}
+        panelName="Details"
+        panel={<PromptCards file={data} fields={fields} lines={lines} versions={history ? historyTab.panel : null} />}
       >
         {view === "prompt" ? (
-          <CodeTab
-            ref={code}
-            title={title}
-            notices={notices}
-            draft={draft.store}
-            errors={errors}
-            file={`${name}.md`}
-            status={status}
-          />
+          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} />
         ) : history ? (
-          <HistoryTab title={title} notices={notices} main={historyTab.main} file={`${name}.md`} status={status} />
+          <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (
-          <DocTab title={title} notices={notices} footer={<DocFooter file={`${name}.md`} status={status} />}>
-            <MarkdownView text={previewText(draft.text, fields.header)} name={`${name}.md`} />
+          <DocTab footer={<DocFooter file={fileName} status={status} />}>
+            <MarkdownView text={previewText(draft.text, fields.header)} name={fileName} title={pageTitle} />
           </DocTab>
         )}
       </DocFrame>

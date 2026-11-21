@@ -1,17 +1,20 @@
 /**
- * A resize handle's look: its line in the input border and its grip in the muted text colour, seen at rest (3:1 or
- * more on both themes), tinted on hover and while dragged.
+ * A resize handle's look: the 1px hairline between the two sides, which is the handle itself (its hit area is wider),
+ * tinted blue on hover, while dragged and with the focus. No grip is drawn on it.
  */
 export const HANDLE =
-  "bg-input [&>div]:bg-muted-foreground transition-colors data-[separator=active]:bg-foreground/60 data-[separator=hover]:bg-foreground/40"
+  "bg-border transition-colors data-[separator=active]:bg-ring data-[separator=hover]:bg-ring/60 focus-visible:bg-ring"
 
 /**
- * A tab of an underlined row (a document's tabs, a panel pane's): the row's full height, dim until chosen, then ink at
- * 500 over a 2px underline on the row's rule; a 2px inset ring on focus, inside the row so a scrolling row cannot clip
- * it.
+ * A pill tab (a page's view, a panel pane's tab): 26px, 12px across, a hairline outline at rest in the secondary ink;
+ * the chosen one on the blue tint in the ink, without outline; a 2px focus ring.
  */
-export const LINE_TAB =
-  "h-full flex-none gap-2 rounded-none border-0 text-sm font-normal text-muted-foreground transition-colors after:bottom-0! after:h-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset data-active:font-medium data-active:text-foreground"
+export const PILL_TAB =
+  "h-6.5 flex-none rounded-full border-border px-3 py-0 text-sm font-normal text-muted-foreground transition-colors after:hidden hover:text-foreground focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-active:border-transparent data-active:bg-selected data-active:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-none dark:text-muted-foreground dark:data-active:border-transparent dark:data-active:bg-selected"
 
-/** A dialog's title: the interface's heading, 14px at 600, in place of the shipped 16px. */
-export const DIALOG_TITLE = "text-sm font-semibold"
+/** The list of pill tabs: no surface of its own, the pills 8px apart, scrolling sideways when they overflow. */
+export const PILL_LIST =
+  "h-full min-w-0 justify-start gap-2 overflow-x-auto rounded-none bg-transparent p-0 group-data-horizontal/tabs:h-full [scrollbar-width:none]"
+
+/** A dialog's title: the interface's heading, 15px at 600, in place of the shipped 16px. */
+export const DIALOG_TITLE = "text-heading font-semibold"

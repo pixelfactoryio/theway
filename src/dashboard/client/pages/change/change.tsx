@@ -1,3 +1,5 @@
+import { FolderIcon } from "lucide-react"
+
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
@@ -29,15 +31,17 @@ export function ChangePage({
   const label = useLabel()(projectKey)
   const name = dir ?? id ?? ""
 
-  if (change.isPending) return <PageLoading title={name} />
+  // The path and the mono ID a change's page gives in its header.
+  const head = { title: name, mono: true, icon: FolderIcon, parents: [{ label, href: to.project(projectKey) }] }
+  if (change.isPending) return <PageLoading {...head} />
   if (change.isError) {
     if (UNKNOWN.includes(change.error.message)) {
       return (
         <PageUnknown
-          title={name}
+          {...head}
           message={
             <>
-              No change <code className="font-mono">{name}</code> in {label}
+              No change <code className="font-mono text-xs">{name}</code> in {label}
             </>
           }
           back={{ label: `Back to ${label}`, href: to.project(projectKey) }}
@@ -46,7 +50,7 @@ export function ChangePage({
     }
     return (
       <>
-        <PageHeader title={name} />
+        <PageHeader {...head} />
         <PageBody>
           <PageLoadError what="this change" error={change.error} retry={() => void change.refetch()} />
         </PageBody>

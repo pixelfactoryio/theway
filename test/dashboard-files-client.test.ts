@@ -413,7 +413,7 @@ test("workflowCount counts each workflow once, however many of its steps use the
   expect(workflowCount([])).toBe(0)
 })
 
-test("the Workflows and Prompts lists have no tooltip, keep a name and its description to one line each and resize their columns", () => {
+test("the Workflows and Prompts lists have no tooltip, keep each row to one line, stick their head and resize their columns", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
   const pages = ["pages/files/workflows.tsx", "pages/files/prompts.tsx"]
@@ -421,18 +421,55 @@ test("the Workflows and Prompts lists have no tooltip, keep a name and its descr
     const text = read(file)
     expect([file, /Tooltip|OneLine/.test(text)]).toEqual([file, false])
   }
-  // A file's row is a change row's: its name in mono over its description in muted, each cut at the column's edge.
+  // A file's row reads as a list's row: its description first, then its name as the kit's grey mono ID, on one line;
+  // a file with no description leads with its name in the ink; the lead is the row's walkable link.
   const cell = read("components", "files-table.tsx")
   expect([
-    /truncate font-mono text-sm text-foreground/.test(cell),
-    /truncate text-sm text-muted-foreground/.test(cell),
-  ]).toEqual([true, true])
+    cell.includes("<RowId>{name}</RowId>"),
+    cell.includes("<IdName>{name}</IdName>"),
+    cell.includes('data-nav-item=""'),
+  ]).toEqual([true, true, true])
+  // The Prompts page keeps every cell to one line: nothing takes the grid's wrapping back.
+  expect(read("pages", "files", "prompts.tsx")).not.toMatch(/\bWRAP\b|<Wrapped/)
   // The errors badge of their Status column is the badge alone.
   expect(read("components", "status.tsx")).not.toContain("Tooltip")
-  // Both pages render the shared list page, which holds the resizable grid.
+  // Both pages render the shared list page, which holds the resizable grid, its column titles sticking at the top over
+  // 36px rows with a light rule under each, and no column line drawn at rest.
   const list = read("components", "file-list.tsx")
-  expect([list.includes("columnsResizable: true"), list.includes("<DataGridScrollArea")]).toEqual([true, true])
+  expect([
+    list.includes("columnsResizable: true"),
+    list.includes("headerSticky: true"),
+    list.includes("<DataGridScrollArea"),
+  ]).toEqual([true, true, true])
+  // 40px rows with no rule between them, a 32px head.
+  const grid = read("components", "list-grid.tsx")
+  expect([grid.includes("[&_td]:h-10"), grid.includes("[&_th]:h-8"), list.includes("rowBorder: false")]).toEqual([
+    true,
+    true,
+    true,
+  ])
   for (const page of pages) expect([page, read(page).includes("<FileListPage")]).toEqual([page, true])
+})
+
+test("a prompt's page is the item frame: its name once in the header, its title above every view, a column of cards", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const page = readFileSync(join(client, "pages", "prompt", "page.tsx"), "utf-8")
+  // The frame carries the path, the mono name and the pill views; the description is the title, once.
+  expect(page).toContain("<DocFrame")
+  expect(page).toContain('const PARENTS = [{ label: "Prompts", href: to.prompts() }]')
+  expect(page).toContain("heading={<ItemHeading")
+  // The panel is one stack of the shared cards, the status first.
+  for (const card of [
+    "<PropertyCards>",
+    "<StatusCard",
+    '<PropertyCard title="Details">',
+    "<InputsCard",
+    "<UsedByCard",
+    "<ProblemsCard",
+  ])
+    expect([card, page.includes(card)]).toEqual([card, true])
+  // Preview is a document view, as a change's files are.
+  expect(page).toMatch(/<DocTab\b[^]*<MarkdownView\b/)
 })
 
 test("a file's line count is its line breaks, and one more when it does not end with one", () => {
@@ -448,11 +485,10 @@ test("a workflow's YAML, a prompt's source and change.yaml are one code tab, whi
   }
 })
 
-test("every title block of a file page stands in one of the two shared wrappers, and History is one tab", () => {
+test("every item page passes its title once to the shared frame, and History is one tab", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  // No page pads a title of its own: a `DocTitle` or a `ChangeHeading` is passed to a shared tab or wrapped by one.
-  const wrapped = /<(GutterTitle|ColumnTitle)>\s*$|\btitle=\{$|\b(title|heading) = \($/
+  // No page pads a title of its own: its `ItemHeading` or `ChangeHeading` is the frame's `heading`, above every view.
   for (const page of [
     "pages/workflow/page.tsx",
     "pages/prompt/page.tsx",
@@ -461,14 +497,11 @@ test("every title block of a file page stands in one of the two shared wrappers,
   ]) {
     const text = read(page)
     expect([page, /PROSE_COLUMN\}>\{(title|heading)\}|pt-4 pb-3|pt-5 pb-3|pt-10/.test(text)]).toEqual([page, false])
-    for (const match of text.matchAll(/<(DocTitle|ChangeHeading)\b/g)) {
+    for (const match of text.matchAll(/<(ItemHeading|ChangeHeading)\b/g)) {
       const before = text.slice(0, match.index).trimEnd()
-      expect([page, match[0], wrapped.test(before.slice(-40))]).toEqual([page, match[0], true])
+      expect([page, match[0], /\bheading=\{$/.test(before)]).toEqual([page, match[0], true])
     }
   }
-  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"]) {
+  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"])
     expect([page, read(page).includes("<HistoryTab")]).toEqual([page, true])
-    expect([page, read(page).includes("<GutterTitle>{title}</GutterTitle>")]).toEqual([page, false])
-  }
-  expect(read("components/history.tsx")).toContain("<GutterTitle>{title}</GutterTitle>")
 })

@@ -422,3 +422,32 @@ export function softBreaks(doc: Text, tree: Tree, active: ReadonlySet<number>): 
   })
   return breaks
 }
+
+/** An ATX h1 line: its text, without its closing marks. */
+const H1_LINE = /^ {0,3}#[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/
+
+/** A heading's leading label (`Spec Analysis: `), which a title never repeats. */
+const LABEL = /^[\p{L}\p{N}][\p{L}\p{N} '-]*:\s+/u
+
+/**
+ * Whether a document's h1 `heading` restates the page's `title`: both lowercased, the heading's leading `<words>: `
+ * dropped (`Spec Analysis: X` reads `x`), either holds the other.
+ */
+export function restatesTitle(heading: string, title: string): boolean {
+  const h = heading.trim().toLowerCase().replace(LABEL, "").trim()
+  const t = title.trim().toLowerCase()
+  if (h === "" || t === "") return false
+  return h.includes(t) || t.includes(h)
+}
+
+/**
+ * The first line of `doc` when it is an h1 that restates the page's `title` (`restatesTitle`), which the page states
+ * once, above the document; `null` with no title or no such line.
+ */
+export function titleLine(doc: Text, title: string | null): Span | null {
+  if (title === null) return null
+  const line = doc.line(1)
+  const heading = H1_LINE.exec(line.text)?.[1]
+  if (heading === undefined || !restatesTitle(heading, title)) return null
+  return { from: line.from, to: line.to }
+}

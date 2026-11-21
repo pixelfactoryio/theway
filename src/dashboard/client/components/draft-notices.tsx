@@ -1,36 +1,32 @@
-import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react"
-
 import { ChangeDialogs } from "@/components/change-dialogs"
 import type { FileDraft } from "@/components/file-draft"
-import { ErrorStrip, SavedStatus, STRIP } from "@/components/file-page"
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
+import { ErrorStrip, SavedStatus } from "@/components/file-page"
 import { Button } from "@/components/ui/button"
 import type { AlertLine } from "@/lib/alert-lines"
 import { MOD, shortcutText } from "@/shell/platform"
+import { StateNotice } from "@/shell/state"
 
 /** The strip shown when the file changed on disk since it was opened, with Reload. */
 export function ConflictNotice({ onReload }: { onReload: () => void }) {
   return (
-    <Alert variant="warning" className={STRIP}>
-      <TriangleAlertIcon aria-hidden="true" />
-      <AlertTitle>This file changed on disk since you opened it</AlertTitle>
-      <AlertAction>
+    <StateNotice
+      tone="warning"
+      title="This file changed on disk since you opened it"
+      action={
         <Button variant="outline" size="xs" onClick={onReload}>
           Reload
         </Button>
-      </AlertAction>
-    </Alert>
+      }
+    />
   )
 }
 
 /** The strip shown when the last save failed, with the reason. */
 export function SaveFailureNotice({ message }: { message: string }) {
   return (
-    <Alert variant="destructive" className={STRIP}>
-      <CircleAlertIcon aria-hidden="true" />
-      <AlertTitle>The file could not be saved</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
+    <StateNotice tone="error" title="The file could not be saved">
+      {message}
+    </StateNotice>
   )
 }
 
@@ -52,11 +48,9 @@ export function DraftNotices({
       {draft.conflict ? <ConflictNotice onReload={draft.reload} /> : null}
       {draft.saveFailure !== null ? <SaveFailureNotice message={draft.saveFailure} /> : null}
       {draft.checkFailure !== null ? (
-        <Alert variant="destructive" className={STRIP}>
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>The check could not run</AlertTitle>
-          <AlertDescription>{draft.checkFailure}</AlertDescription>
-        </Alert>
+        <StateNotice tone="error" title="The check could not run">
+          {draft.checkFailure}
+        </StateNotice>
       ) : history ? null : (
         <ErrorStrip lines={lines} />
       )}

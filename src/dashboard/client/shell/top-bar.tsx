@@ -1,15 +1,9 @@
 import { cn } from "cn"
-import { type ReactNode, useEffect } from "react"
+import { ChevronRightIcon, type LucideIcon } from "lucide-react"
+import { createContext, Fragment, type ReactNode, useContext, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Link } from "wouter"
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
 
 /**
@@ -23,69 +17,101 @@ export function useDocumentTitle(title: string): void {
 }
 
 /**
- * The sidebar's button at the left of a top row, below 768px only, where the sidebar opens over the page. Wider, the
- * collapsed sidebar is a rail of icons that keeps its own button.
+ * The element the page's header renders into: the top of the work area's panel, above the page and its docked panel,
+ * so the header spans both. `undefined` outside the shell (a page rendered alone), where the header renders in place.
+ */
+export const HeaderSlot = createContext<HTMLElement | null | undefined>(undefined)
+
+/** Renders `children` into the shell's header slot, or in place outside the shell. */
+function InHeader({ children }: { children: ReactNode }) {
+  const slot = useContext(HeaderSlot)
+  if (slot === undefined) return <>{children}</>
+  return slot === null ? null : createPortal(children, slot)
+}
+
+/**
+ * The sidebar's button at the left of a header, below 768px only, where the sidebar opens over the page. Wider, the
+ * sidebar keeps its own button.
  */
 function ShowSidebar() {
   const sidebar = useSidebar()
   if (!sidebar.isMobile) return null
-  return <SidebarTrigger className="mr-1 size-7 self-center text-muted-foreground" />
-}
-
-/** A page's 44px top row, level with the panel's header: the sidebar button when hidden, then `children`. */
-export function TopRow({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn("flex h-11 shrink-0 items-stretch border-b px-2", className)}>
-      <ShowSidebar />
-      {children}
-    </div>
-  )
+  return <SidebarTrigger className="-ml-1 size-7 shrink-0 text-muted-foreground" />
 }
 
 /**
- * A list page's top row: its title, after a breadcrumb link to the page it sits in when `parent` is given, then its
- * actions at the right.
+ * The work area's 44px header row, the same on every page: the sidebar button when the sidebar is hidden, then
+ * `children` (the page's place and its actions), on the panel's 16px gutter at the left and 12px at the right, where
+ * the icon buttons stand.
  */
-export function PageHeader({
-  title,
-  actions,
-  parent,
-}: {
-  title: string
-  actions?: ReactNode
-  parent?: { label: string; href: string }
-}) {
-  useDocumentTitle(title)
+export function TopRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <TopRow className="px-6">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        {parent !== undefined ? (
-          <>
-            <h1 className="sr-only">{title}</h1>
-            {/* `text-heading` goes on the items: on the list, tailwind-merge reads it as a colour and drops the
-                list's `text-muted-foreground`. `flex-nowrap` keeps one line, where the title truncates. */}
-            <Breadcrumb className="min-w-0">
-              <BreadcrumbList className="flex-nowrap">
-                <BreadcrumbItem className="shrink-0 text-heading">
-                  <BreadcrumbLink render={<Link href={parent.href} />}>{parent.label}</BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem className="min-w-0 text-heading">
-                  <BreadcrumbPage className="min-w-0 truncate font-semibold">{title}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </>
-        ) : (
-          <h1 className="truncate text-heading font-semibold">{title}</h1>
-        )}
+    <InHeader>
+      <div className={cn("flex h-11 shrink-0 items-center gap-2 pr-3 pl-4", className)}>
+        <ShowSidebar />
+        {children}
       </div>
-      {actions !== undefined ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </TopRow>
+    </InHeader>
   )
 }
 
-/** The page wrapper below the top row: it never scrolls; the page's `data-scroll-root` element does. */
+/** One step of a page's path above it: its label and the page it opens. */
+export type Crumb = { label: string; href: string }
+
+/**
+ * A page's header: its icon, its path (`parents`, then its title, the page's `h1`), then `actions` at the right; and,
+ * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `lead` stands right after the title (a pin's
+ * star). The title is the interface's 13px at 500 (an ID, with `mono`, Geist Mono 12px); the path before it is
+ * secondary. In a narrow header the path is cut first, the title last.
+ */
+export function PageHeader({
+  title,
+  icon: Icon,
+  parents = [],
+  mono = false,
+  lead,
+  actions,
+  tabs,
+}: {
+  title: string
+  icon?: LucideIcon
+  parents?: readonly Crumb[]
+  mono?: boolean
+  lead?: ReactNode
+  actions?: ReactNode
+  tabs?: ReactNode
+}) {
+  useDocumentTitle(title)
+  return (
+    <InHeader>
+      <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
+        <ShowSidebar />
+        <nav aria-label="Location" className="flex min-w-0 items-center gap-2">
+          {Icon !== undefined ? <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /> : null}
+          {parents.map((p) => (
+            <Fragment key={p.href}>
+              <Link
+                href={p.href}
+                className="min-w-0 truncate rounded-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {p.label}
+              </Link>
+              <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            </Fragment>
+          ))}
+          <h1 className={cn("max-w-full shrink-0 truncate font-semibold", mono && "font-mono text-xs font-medium")}>
+            {title}
+          </h1>
+        </nav>
+        {lead !== undefined ? <div className="flex shrink-0 items-center">{lead}</div> : null}
+        {actions !== undefined ? <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div> : null}
+      </div>
+      {tabs}
+    </InHeader>
+  )
+}
+
+/** The page wrapper below the header: it never scrolls; the page's `data-scroll-root` element does. */
 export function PageBody({ children }: { children: ReactNode }) {
   return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
 }

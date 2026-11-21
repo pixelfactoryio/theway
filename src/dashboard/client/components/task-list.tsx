@@ -67,9 +67,7 @@ function TaskBody({
         <TaskText text={lead} />
       </div>
       {detail !== "" ? (
-        <div
-          className={cn("mt-1 text-sm leading-5 whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}
-        >
+        <div className={cn("mt-1 text-md whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}>
           <TaskText text={detail} />
         </div>
       ) : null}
@@ -77,9 +75,13 @@ function TaskBody({
   )
   return (
     <>
-      <div className="mb-1 flex items-center gap-2 font-mono text-xs leading-4 text-muted-foreground tabular-nums">
+      <div className="mb-1 flex h-4 items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums">
         <span>{n}</span>
-        {next ? <span className="font-medium text-warning-foreground">Next</span> : null}
+        {next ? (
+          <span className="inline-flex h-4 items-center rounded-sm border px-1 font-sans font-medium text-foreground">
+            Next
+          </span>
+        ) : null}
       </div>
       {field !== undefined ? (
         field
@@ -152,14 +154,11 @@ function Row({
       aria-label={taskName(n, row.text, row.done)}
       data-task-id={row.id}
       onKeyDown={onKeyDown}
-      className={cn(
-        "group/row relative flex items-start gap-3 border-t px-3 py-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-        next && "bg-warning/5 shadow-[inset_2px_0_0_var(--warning)]",
-      )}
+      className="group/row relative flex items-start gap-3 border-t border-rule py-3 pr-2 pl-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
     >
       <SortableItemHandle
         render={<button type="button" aria-label={`Drag task ${n}`} />}
-        className="absolute top-9 left-0 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute top-8 left-0.5 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </SortableItemHandle>
@@ -169,7 +168,6 @@ function Row({
           checked={row.done}
           onCheckedChange={(next) => actions.toggle(index, next === true)}
           aria-label={`Task ${n} done`}
-          className={cn(next && "border-warning")}
         />
       </span>
       <div className="min-w-0 flex-1">
@@ -285,7 +283,7 @@ function ReadOnlyList({ rows }: { rows: ReadOnlyProps["rows"] }) {
         const n = i + 1
         const { lead, detail } = splitTask(row.text)
         return (
-          <li key={String(i)} className="flex items-start gap-3 border-t px-3 py-4">
+          <li key={String(i)} className="flex items-start gap-3 border-t border-rule px-4 py-3">
             <span className="mt-5 flex h-(--text-md--line-height) shrink-0 items-center">
               <Checkbox checked={row.done} disabled aria-label={`Task ${n} done`} />
             </span>
@@ -329,7 +327,7 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
           type="button"
           aria-expanded={showDone}
           onClick={() => setShowDone(!showDone)}
-          className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          className="flex h-8 w-full items-center gap-2 border-t border-rule px-4 text-xs text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         >
           <ChevronRightIcon className={cn("size-3 transition-transform", showDone && "rotate-90")} aria-hidden="true" />
           {doneCount} done
@@ -367,7 +365,11 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
           ]
           if (below !== null && below.id === row.id) {
             out.push(
-              <div key={`below-${row.id}`} role="listitem" className="flex items-start gap-3 border-t px-3 py-3">
+              <div
+                key={`below-${row.id}`}
+                role="listitem"
+                className="flex items-start gap-3 border-t border-rule py-3 pr-2 pl-4"
+              >
                 <Checkbox disabled aria-hidden="true" tabIndex={-1} className="mt-2" />
                 <div className="min-w-0 flex-1">
                   <TextField
@@ -388,7 +390,7 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
           }
           return out
         })}
-        <div role="listitem" className="flex items-center gap-3 border-t px-3 py-3">
+        <div role="listitem" className="flex items-center gap-3 border-t border-rule py-2 pr-2 pl-4">
           <PlusIcon className="size-4 text-muted-foreground" aria-hidden="true" />
           <Input
             value={add}

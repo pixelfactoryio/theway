@@ -1,4 +1,5 @@
-import { ChevronRightIcon } from "lucide-react"
+import { cn } from "cn"
+import { ChevronDownIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -24,12 +25,13 @@ export function useCollapsed(page: string): {
 }
 
 /**
- * One group of a grouped list: its band, full width, one surface step above the page and sticky under the page's top
- * row, then its rows while open. The band is one button (chevron, `mark`, `label`, the muted `count`) that toggles the
- * group; with Alt held it asks `onToggle` to toggle every group of the page. `actions` sit at the band's right, outside
- * the button.
+ * One section of a list: its band, a filled bar with 6px corners on the panel's 8px inset, sticky under the
+ * list's column head; then its rows while open. The band is one button: the status `mark` where rows keep
+ * theirs, the `label` in the ink at 600, the `count` in the secondary ink,
+ * and a caret at the right that turns while the section is closed. With Alt held it asks `onToggle` to toggle every
+ * section of the page. `actions` sit at the band's right, outside the button.
  */
-export function GroupBand({
+export function SectionBand({
   label,
   mark,
   count,
@@ -42,7 +44,7 @@ export function GroupBand({
   mark?: ReactNode
   count?: number | string
   open: boolean
-  /** The group asked open (`open`), with `all` when Alt was held. */
+  /** The section asked open (`open`), with `all` when Alt was held. */
   onToggle: (open: boolean, all: boolean) => void
   actions?: ReactNode
   children: ReactNode
@@ -53,29 +55,34 @@ export function GroupBand({
       onOpenChange={(next, details) => onToggle(next, (details.event as Partial<MouseEvent>).altKey === true)}
       render={<section />}
     >
-      <h2 className="sticky top-0 z-10 flex h-9 items-center bg-band text-sm">
-        <CollapsibleTrigger className="group/band flex h-full min-w-0 flex-1 items-center gap-2 px-6 text-left font-medium transition-colors outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-          <ChevronRightIcon
-            aria-hidden="true"
-            className="size-4 shrink-0 text-muted-foreground transition-transform group-data-panel-open/band:rotate-90"
-          />
-          {mark}
-          <span className="truncate">{label}</span>
-          {count !== undefined ? <span className="font-normal text-muted-foreground tabular-nums">{count}</span> : null}
-        </CollapsibleTrigger>
-        {actions}
+      <h2 className="sticky top-8 z-10 bg-background px-2 pt-2">
+        <span className="mb-1 flex h-9 items-center rounded-md bg-band">
+          <CollapsibleTrigger className="group/band flex h-full min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left transition-colors outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
+            {mark}
+            <span className="truncate font-semibold">{label}</span>
+            {count !== undefined ? <span className="shrink-0 text-muted-foreground tabular-nums">{count}</span> : null}
+            <ChevronDownIcon
+              aria-hidden="true"
+              className={cn(
+                "ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform",
+                !open && "-rotate-90",
+              )}
+            />
+          </CollapsibleTrigger>
+          {actions}
+        </span>
       </h2>
       <CollapsibleContent>{children}</CollapsibleContent>
     </Collapsible>
   )
 }
 
-/** The hint under a grouped list, in its `ListFoot`: Alt and a click on a band toggles every group. */
+/** The hint under a sectioned list, in its `ListFoot`: Alt and a click on a band toggles every section. */
 export function CollapseHint() {
   return (
-    <p className="px-6 pt-4 text-xs text-subtle-foreground">
+    <p className="px-4 pt-4 text-xs text-muted-foreground">
       <Shortcut keys={[ALT]} />
-      -click a header to collapse or expand every group
+      -click a band to collapse or expand every section
     </p>
   )
 }

@@ -94,14 +94,17 @@ export const errorCount = (n: number): string => countOf(n, "error")
 export const appliesTo = (project: string | null, label: (key: string) => string): string =>
   project === null ? "All projects" : `${label(project)} only`
 
+/** Where a workflow uses a prompt: `step N`, `on-fail of step N` or `value in step N`. */
+export const placeOfUse = (use: Use): string =>
+  use.as === "step"
+    ? `step ${use.step}`
+    : use.as === "on-fail"
+      ? `on-fail of step ${use.step}`
+      : `value in step ${use.step}`
+
 /** A use's text: `<workflow>[ · <label>] · step N`, `… · on-fail of step N`, `… · value in step N`. */
 export function describeUse(use: Use, label: (key: string) => string): string {
-  const where =
-    use.as === "step"
-      ? `step ${use.step}`
-      : use.as === "on-fail"
-        ? `on-fail of step ${use.step}`
-        : `value in step ${use.step}`
+  const where = placeOfUse(use)
   return use.project === null ? `${use.workflow} · ${where}` : `${use.workflow} · ${label(use.project)} · ${where}`
 }
 

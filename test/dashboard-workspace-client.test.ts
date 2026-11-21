@@ -272,14 +272,22 @@ test("All projects lists a group with its kept projects as sub-rows, and a proje
   expect(rows[1]?.subRows).toEqual([])
 })
 
-test("Now, the project and group pages and All projects list their rows on the resizable data grid", () => {
+test("Now, the project and group pages and All projects list their rows with the one list kit", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (...path: string[]) => readFileSync(join(client, ...path), "utf-8")
   const pages = ["pages/workspace/now.tsx", "pages/workspace/scope.tsx", "pages/workspace/projects.tsx"]
+  // No page draws a list, a row or a band of its own: the kit's head, rows and sections do.
   for (const file of [...pages, "components/workspace-rows.tsx", "components/workspace-bands.tsx"])
-    expect([file, /<ul[^>]*data-nav-list/.test(read(file))]).toEqual([file, false])
-  for (const page of pages) expect([page, read(page).includes("<BandGrid")]).toEqual([page, true])
-  expect(read("components", "band-grid.tsx")).toContain("columnsResizable: true")
+    expect([file, /<(ul|li|table)\b/.test(read(file))]).toEqual([file, false])
+  for (const page of pages) expect([page, read(page).includes("<ListHead")]).toEqual([page, true])
+  expect(read("pages/workspace/projects.tsx")).toContain("<ListRow")
+  expect(read("components/workspace-bands.tsx")).toContain("<ListRow")
+  // A page of sections is walked as one list, across its bands.
+  for (const page of ["pages/workspace/now.tsx", "pages/workspace/scope.tsx"])
+    expect([page, /<NavList>\s*<Sections /.test(read(page))]).toEqual([page, true])
+  // The column head sticks at the top of the list, the bands under it.
+  expect(read("components/list-kit.tsx")).toMatch(/className="sticky top-0 z-20 flex h-8 /)
+  expect(read("components/group-band.tsx")).toMatch(/className="sticky top-8 z-10 bg-background px-2 pt-2"/)
 })
 
 test("a change list draws the progress column only when it lists an open change as a row", () => {

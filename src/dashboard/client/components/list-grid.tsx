@@ -19,33 +19,37 @@ export function ColumnLabel({ children }: { children: ReactNode }) {
 }
 
 /**
- * A sortable header's button in the headers' size and ink, without its 1px border, so its title starts on its cells'
- * edge: the shipped header steps back by the button's padding alone.
+ * A sortable header's button in the headers' size and ink (12px, the secondary ink, at 400), without its 1px border,
+ * so its title starts on its cells' edge: the shipped header steps back by the button's padding alone.
  */
-export const SORT_HEADER = "border-0 text-xs text-subtle-foreground"
+export const SORT_HEADER = "border-0 text-xs font-normal text-muted-foreground"
 
 /** A right-aligned column's header: a label ends on its cells' edge, a sortable header's arrow does. */
 export const HEADER_END = "text-right [&>div]:-me-2 [&>div]:justify-end"
 
 /**
- * The header of a grid's last column, right-aligned: the shipped 32px that clears the resize handle gives way to the
- * cells' 24px gutter.
+ * A list's frame around its grid, the row anatomy of the lists (`list-kit`): the header row 32px high over its
+ * hairline, the rows 40px on one line with no rule between them, every cell's text in the secondary ink (the name's
+ * link takes the ink), and the panel's 16px left gutter on the first column. No rule between columns: at rest a short
+ * 8px tick in the head marks a column's resize edge; pointed at, the edge's full line shows in the focus ring's blue,
+ * as the panel's edge does.
  */
-export const HEADER_LAST_END = "pe-6 text-right"
+export const LIST_FRAME = cn(
+  "[&_th]:h-8 [&_tr>:first-child]:ps-4",
+  "[&_td]:h-10 [&_td]:py-0 [&_td]:whitespace-nowrap [&_td]:text-muted-foreground",
+  "[&_[data-slot=data-grid-table-resize-handle]]:before:inset-y-3",
+  "[&_[data-slot=data-grid-table-resize-handle]:hover]:before:inset-y-0 [&_[data-slot=data-grid-table-resize-handle]:hover]:before:bg-ring",
+)
 
 /**
- * A list's frame around its grid: the header row 32px high in place of the shipped 40px, and the lists' 24px left
- * gutter on the first column (each column set gives its last column its right one).
- */
-export const LIST_FRAME = "[&_th]:h-8 [&_tr>:first-child]:ps-6"
-
-/**
- * A list's rows: the lists' hover fill, and the focused head's fill and inset ring on its whole row (a head carries
+ * A grid list in the list kit's anatomy (`list-kit.tsx`, with `LIST_FRAME`): the row of column titles sticks at the
+ * top; each row has the hover fill, and the focused head's fill and inset ring on the whole row (a head carries
  * `data-nav-item`).
  */
 export const LIST_ROWS = {
+  headerSticky: "sticky top-0 z-20 bg-background",
   bodyRow:
-    "hover:bg-accent/40 has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
+    "hover:bg-accent has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
 } as const
 
 /**

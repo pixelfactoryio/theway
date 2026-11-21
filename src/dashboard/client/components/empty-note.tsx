@@ -1,28 +1,26 @@
-import { cn } from "cn"
 import type { ReactNode } from "react"
 
+import { StateBlock } from "@/shell/state"
+
 /**
- * A line saying a list or a page has nothing to show, muted, or in red with `tone="error"`. Its gutters are a panel's
- * (16px), or a workspace page's (24px) with `inset="page"`.
+ * The one empty state: a line saying a list, a pane or a page has nothing to show, in the secondary ink, with one
+ * optional `action`; in red with `tone="error"`. `size="page"` for a page's whole body, `inline` (the default) in a
+ * list or a pane.
  */
 export function EmptyNote({
   children,
+  action,
   tone = "muted",
-  inset = "panel",
+  size = "inline",
 }: {
   children: ReactNode
+  action?: ReactNode
   tone?: "muted" | "error"
-  inset?: "panel" | "page"
+  size?: "page" | "inline"
 }) {
   return (
-    <p
-      className={cn(
-        "py-3 text-sm",
-        inset === "page" ? "px-6" : "px-4",
-        tone === "error" ? "text-destructive" : "text-muted-foreground",
-      )}
-    >
-      {children}
-    </p>
+    <StateBlock size={size} action={action} role={tone === "error" ? "alert" : undefined}>
+      {tone === "error" ? <span className="text-destructive-foreground">{children}</span> : children}
+    </StateBlock>
   )
 }

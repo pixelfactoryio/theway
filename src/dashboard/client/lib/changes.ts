@@ -35,6 +35,8 @@ type ChangeRow = {
 export type SeriesRow = {
   kind: "series"
   id: string
+  /** Its first member's description (the lowest ordinal among all its active members), `null` when it has none. */
+  description: string | null
   status: ActiveStatus
   /** The summed counts of its valid members, `null` when none is valid. */
   progress: { done: number; total: number } | null
@@ -87,14 +89,16 @@ export function activeRows(active: readonly ActiveChange[], q: string): ActiveRo
     }
     if (seen.has(series)) continue
     seen.add(series)
-    const children = members
-      .filter(kept)
-      .sort((a, b) => byText(memberOf(a.id)?.ordinal ?? "", memberOf(b.id)?.ordinal ?? "") || byText(a.id, b.id))
-      .map((m): ChangeRow => ({ kind: "change", id: m.id, change: m }))
+    const ordered = [...members].sort(
+      (a, b) => byText(memberOf(a.id)?.ordinal ?? "", memberOf(b.id)?.ordinal ?? "") || byText(a.id, b.id),
+    )
+    const children = ordered.filter(kept).map((m): ChangeRow => ({ kind: "change", id: m.id, change: m }))
     if (children.length === 0) continue
+    const first = ordered[0]?.description ?? ""
     rows.push({
       kind: "series",
       id: series,
+      description: first !== "" ? first : null,
       status: seriesStatus(members),
       progress: seriesProgress(members),
       updated: members.reduce((u, m) => (m.updated > u ? m.updated : u), ""),

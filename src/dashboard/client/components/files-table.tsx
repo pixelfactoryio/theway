@@ -1,13 +1,17 @@
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
-import { Badge } from "@/components/reui/badge"
+import { ID_LEAD, IdName, RowChip, RowId } from "@/components/list-kit"
 import { ErrorsBadge, StatusMark } from "@/components/status"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { errorCount } from "@/lib/files"
+import { StateBlock } from "@/shell/state"
 
 /**
- * A file's name cell, as a change row's head: the name in mono, a link, with a `default` badge for the default
- * workflow, and its description under it in muted, each on one line, cut at the column's edge.
+ * A file's name cell, as a list's row reads (`list-kit`): on one line, what the file does (its description) in the ink,
+ * then its name as the ID chip (`RowId`), and a `default` chip for the default workflow; a file
+ * with no description leads with its name's chip (`IdName`). The lead is the row's link (`data-nav-item`, walked by
+ * J/K and the arrows, Cmd/Ctrl and a click opening a new tab); the row's whole surface opens it too. In a narrow
+ * column the lead gives way first, then the name's chip, never under 10 characters.
  */
 export function NameCell({
   href,
@@ -21,46 +25,47 @@ export function NameCell({
   isDefault?: boolean
 }) {
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="flex min-w-0 items-center gap-2">
-        <Link
-          href={href}
-          onClick={(e) => e.stopPropagation()}
-          className="min-w-0 truncate font-mono text-sm text-foreground hover:underline"
-        >
-          {name}
-        </Link>
-        {isDefault ? <Badge variant="outline">default</Badge> : null}
-      </div>
-      {description !== null ? <p className="truncate text-sm text-muted-foreground">{description}</p> : null}
+    <div className="flex min-w-0 items-center gap-2">
+      <Link
+        href={href}
+        data-nav-item=""
+        onClick={(e) => e.stopPropagation()}
+        className={`min-w-0 truncate rounded-sm font-medium text-foreground outline-none ${ID_LEAD}`}
+      >
+        {description ?? <IdName>{name}</IdName>}
+      </Link>
+      {description !== null ? <RowId>{name}</RowId> : null}
+      {isDefault ? <RowChip>default</RowChip> : null}
     </div>
   )
 }
 
 /**
- * Text that wraps inside a grid cell: the grid's resizable columns keep each cell on one line, cut at its edge, so a cell's
- * own element takes normal wrapping back, breaking a long word rather than overflowing.
+ * A cell's text, on one line like every cell of a list, cut at its column's edge: the grid's resizable columns are
+ * dragged wider to read it whole.
  */
-export const WRAP = "whitespace-normal wrap-break-word"
+export const WRAP = "block min-w-0 truncate"
 
-/** A cell's text, wrapping onto more lines when its column is narrow. */
+/** A cell's text, cut at its column's edge. */
 export function Wrapped({ children }: { children: ReactNode }) {
   return <span className={WRAP}>{children}</span>
 }
 
 /**
- * The Status cell: the status mark and `Valid`, as the file's panel header shows it, or the `N errors` badge; the
- * errors themselves are on the file's page.
+ * A file's status, the first cell of its row: the status icon, a green check when the file is valid, the red Invalid
+ * mark when it has errors, named for assistive technology (`Valid`, `N errors`).
  */
 export function StatusCell({ errors }: { errors: readonly string[] }) {
-  if (errors.length === 0) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <StatusMark status="ready" />
-        Valid
-      </span>
-    )
-  }
+  const valid = errors.length === 0
+  return (
+    <span role="img" aria-label={valid ? "Valid" : errorCount(errors.length)}>
+      <StatusMark status={valid ? "ready" : "invalid"} />
+    </span>
+  )
+}
+
+/** A file's errors after its name: the `N errors` badge, nothing when it has none (the errors are on its page). */
+export function ErrorsCell({ errors }: { errors: readonly string[] }) {
   return <ErrorsBadge count={errors.length} />
 }
 
@@ -77,14 +82,8 @@ export function NoFile({
   action?: ReactNode
 }) {
   return (
-    <Empty className="py-12">
-      <EmptyHeader>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>
-          Add a {kind} file to <code className="font-mono">{folder}/</code>.
-        </EmptyDescription>
-      </EmptyHeader>
-      {action !== undefined ? <EmptyContent>{action}</EmptyContent> : null}
-    </Empty>
+    <StateBlock size="page" title={title} action={action}>
+      Add a {kind} file to <code className="font-mono text-xs">{folder}/</code>.
+    </StateBlock>
   )
 }

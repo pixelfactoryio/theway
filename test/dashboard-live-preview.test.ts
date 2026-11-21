@@ -7,8 +7,10 @@ import {
   type Plan,
   softBreaks,
   type Span,
+  restatesTitle,
   tableBlocks,
   taskToggle,
+  titleLine,
 } from "../src/dashboard/client/lib/live-preview"
 
 /** The plan of `source` with the lines `active` (from 1) active, within `ranges` when given. */
@@ -234,4 +236,26 @@ test("a soft break covers the next line's indentation and quote marks, nested an
 test("a backslash or two trailing spaces keep their line break; a heading, a table and HTML are not joined", () => {
   expect(joins("a\\\nb  \nc")).toEqual([])
   expect(joins("# h\ntext\n\n| a |\n|---|\n| 1 |\n\n<div>\nx\n</div>")).toEqual([])
+})
+
+test("a heading restates a title when, lowercased and past a leading label, either holds the other", () => {
+  expect(restatesTitle("Add the acme importer", "Add the Acme importer")).toBe(true)
+  expect(restatesTitle("Spec Analysis: Add the acme importer", "add the acme importer")).toBe(true)
+  expect(restatesTitle("Importer", "Add the acme importer")).toBe(true)
+  expect(restatesTitle("Add the acme importer and its tests", "Add the acme importer")).toBe(true)
+  expect(restatesTitle("Context", "Add the acme importer")).toBe(false)
+  expect(restatesTitle("Spec: ", "Add the acme importer")).toBe(false)
+  expect(restatesTitle("Add the acme importer", "")).toBe(false)
+})
+
+test("a title line is the first line, an h1 restating the title; no other line or level, and none with no title", () => {
+  const doc = (source: string) => Text.of(source.split("\n"))
+  expect(titleLine(doc("# Spec: Add the acme importer #\n\nBody"), "Add the acme importer")).toEqual({
+    from: 0,
+    to: 31,
+  })
+  expect(titleLine(doc("# Context\n\nBody"), "Add the acme importer")).toBeNull()
+  expect(titleLine(doc("## Add the acme importer"), "Add the acme importer")).toBeNull()
+  expect(titleLine(doc("Intro\n# Add the acme importer"), "Add the acme importer")).toBeNull()
+  expect(titleLine(doc("# Add the acme importer"), null)).toBeNull()
 })

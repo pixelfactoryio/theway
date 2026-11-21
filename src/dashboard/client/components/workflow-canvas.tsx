@@ -8,30 +8,25 @@ import {
   type EdgeProps,
   getSmoothStepPath,
   Handle,
-  MarkerType,
   MiniMap,
   type Node as FlowNodeBase,
   type NodeProps,
-  Panel,
   Position,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   useStore,
 } from "@xyflow/react"
-import { cn } from "cn"
 import {
   ArrowDownIcon,
+  ArrowRightToLineIcon,
   ArrowUpIcon,
-  FileTextIcon,
   MinusIcon,
   PlusIcon,
   Redo2Icon,
-  RotateCcwIcon,
-  ScanIcon,
-  TextCursorInputIcon,
   Trash2Icon,
   Undo2Icon,
+  WrenchIcon,
 } from "lucide-react"
 import {
   createContext,
@@ -51,7 +46,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ReorderMenu } from "@/components/reorder-menu"
-import { AddButton, Card, CardLine, Placeholder } from "@/components/workflow-card"
+import { AddButton, Card, CardChip, CardName, kindOf, Placeholder } from "@/components/workflow-card"
 import type { DraftStore } from "@/drafts/draft-store"
 import { type Drawing, sameSelection, type Selection } from "@/lib/workflow"
 import {
@@ -60,6 +55,8 @@ import {
   layoutDrawing,
   type LayoutEdge,
   type LayoutNode,
+  MINIMAP,
+  minimapClears,
   openView,
   overflows,
   percent,
@@ -113,20 +110,39 @@ function Dot({ type, position, id }: { type: "source" | "target"; position: Posi
   )
 }
 
-/** The Inputs card: the workflow's inputs, its own errors; selecting it shows the workflow's panel. */
+/** Where a step runs and its matrix, as its card's second line ends: `agents · opus · matrix · 5`. */
+const metaOf = (...parts: (string | null)[]): string => parts.filter((p) => p !== null).join(" · ")
+
+/**
+ * The Inputs card: the workflow's inputs on its second line (one input with its description and `required`, several
+ * by their names), its own errors; selecting it shows the workflow's panel.
+ */
 function InputsNode() {
   const { drawing, selection, onSelect, edits } = useCanvas()
   const own = { kind: "inputs" } as const
+  const inputs = drawing.inputFields
+  const only = inputs.length === 1 ? inputs[0] : undefined
   return (
     <>
       <Card
         label="Inputs"
-        icon={<TextCursorInputIcon aria-hidden="true" />}
-        tone="inputs"
-        name="Inputs"
-        code={false}
-        badges={[]}
-        second={<CardLine text={drawing.inputs.length === 0 ? "No input" : drawing.inputs.join(", ")} />}
+        kind="inputs"
+        number={<ArrowRightToLineIcon />}
+        title="Inputs"
+        name={
+          inputs.length === 0 ? (
+            "No input"
+          ) : only !== undefined ? (
+            <>
+              <CardName fixed>{only.name}</CardName>
+              {only.description !== "" ? <span className="min-w-0 truncate">{only.description}</span> : null}
+              {only.required ? <CardChip>required</CardChip> : null}
+            </>
+          ) : (
+            <CardName>{inputs.map((i) => i.name).join(", ")}</CardName>
+          )
+        }
+        meta={inputs.length > 1 ? `${inputs.length} inputs` : null}
         errors={drawing.errors.length}
         selected={sameSelection(selection, own)}
         onSelect={() => onSelect(own)}
@@ -136,7 +152,7 @@ function InputsNode() {
   )
 }
 
-/** A step's card, its menu when the canvas edits. */
+/** A step's card: its number, what its prompt does, its name and where it runs; its menu when the canvas edits. */
 function StepNode({ data }: NodeProps<FlowNode>) {
   const { drawing, selection, onSelect, edits } = useCanvas()
   const index = data.layout.kind === "step" ? data.layout.index : 0
@@ -144,18 +160,16 @@ function StepNode({ data }: NodeProps<FlowNode>) {
   if (step === undefined) return null
   const total = drawing.steps.length
   const own = { kind: "step", index } as const
-  const badges = [...(step.matrix !== null ? [step.matrix] : []), ...(step.badge !== null ? [step.badge] : [])]
   return (
     <>
       <Dot type="target" position={Position.Top} />
       <Card
         label={`Step ${index + 1}: ${step.name}`}
-        icon={<FileTextIcon aria-hidden="true" />}
-        tone={step.target}
-        name={step.name}
-        code={step.code}
-        badges={badges}
-        second={<CardLine text={step.valid ? (step.description ?? "No description") : "Invalid step"} />}
+        kind={kindOf(step.badge)}
+        number={index + 1}
+        title={step.valid ? (step.description ?? step.name) : "Invalid step"}
+        name={<CardName>{step.name}</CardName>}
+        meta={metaOf(step.badge, step.matrix)}
         errors={step.errors.length}
         selected={sameSelection(selection, own)}
         menu={
@@ -163,7 +177,7 @@ function StepNode({ data }: NodeProps<FlowNode>) {
             <ReorderMenu
               label={`Step ${index + 1} actions`}
               size="icon-xs"
-              triggerClassName="absolute top-3 right-2"
+              triggerClassName="absolute top-1.5 right-1.5 text-muted-foreground"
               contentClassName="w-auto"
               items={[
                 {
@@ -198,7 +212,7 @@ function StepNode({ data }: NodeProps<FlowNode>) {
   )
 }
 
-/** A step's on-fail card, at its right with a dashed border; selecting it opens its step's panel at `on-fail`. */
+/** A step's on-fail card, level with it at its right, dashed; selecting it opens its step's panel at `on-fail`. */
 function OnFailNode({ data }: NodeProps<FlowNode>) {
   const { drawing, selection, onSelect } = useCanvas()
   const index = data.layout.kind === "on-fail" ? data.layout.index : 0
@@ -210,12 +224,11 @@ function OnFailNode({ data }: NodeProps<FlowNode>) {
       <Dot type="target" position={Position.Left} />
       <Card
         label={`On fail of step ${index + 1}: ${card.name}`}
-        icon={<RotateCcwIcon aria-hidden="true" />}
-        tone="on-fail"
-        name={card.name}
-        code={card.code}
-        badges={card.badge !== null ? [card.badge] : []}
-        second={<CardLine text={card.description ?? "No description"} />}
+        kind="on-fail"
+        number={<WrenchIcon />}
+        title={card.description ?? card.name}
+        name={<CardName>{card.name}</CardName>}
+        meta={card.badge}
         errors={card.errors.length}
         selected={sameSelection(selection, own)}
         dashed
@@ -253,8 +266,8 @@ function AddNode({ data }: NodeProps<FlowNode>) {
 }
 
 /**
- * An edge of the column: a smooth-step line with a small arrow head and, when the canvas edits, a round "+" always
- * shown on it, which adds a step there: centred across the line, and between the card above and the arrow head.
+ * An edge of the column: a 1px line from a card to the next and, when the canvas edits, a round "+" always shown on
+ * it, which adds a step there, centred on the line.
  */
 function FlowEdgeView({
   id,
@@ -264,7 +277,6 @@ function FlowEdgeView({
   targetY,
   sourcePosition,
   targetPosition,
-  markerEnd,
   data,
 }: EdgeProps<FlowEdge>) {
   const { edits } = useCanvas()
@@ -280,7 +292,7 @@ function FlowEdgeView({
   const add = layout?.kind === "flow" ? layout.add : null
   return (
     <>
-      <BaseEdge id={id} path={path} markerEnd={markerEnd} interactionWidth={0} />
+      <BaseEdge id={id} path={path} interactionWidth={0} />
       {edits !== null && add !== null ? (
         <EdgeLabelRenderer>
           <div
@@ -295,7 +307,7 @@ function FlowEdgeView({
   )
 }
 
-/** The dashed destructive edge from a step to its on-fail card, its pill at the middle: "on fail · tries N". */
+/** The dashed line from a step to its on-fail card, level with both, its label over its middle: "on fail · tries N". */
 function OnFailEdgeView({
   id,
   sourceX,
@@ -304,7 +316,6 @@ function OnFailEdgeView({
   targetY,
   sourcePosition,
   targetPosition,
-  markerEnd,
   data,
 }: EdgeProps<FlowEdge>) {
   const [path, labelX, labelY] = getSmoothStepPath({
@@ -319,19 +330,12 @@ function OnFailEdgeView({
   const tries = layout?.kind === "on-fail" ? layout.tries : null
   return (
     <>
-      <BaseEdge
-        id={id}
-        path={path}
-        markerEnd={markerEnd}
-        interactionWidth={0}
-        className="stroke-destructive/60"
-        strokeDasharray="5 5"
-      />
+      <BaseEdge id={id} path={path} interactionWidth={0} strokeDasharray="4 4" />
       <EdgeLabelRenderer>
         <div
           aria-hidden="true"
-          className="absolute flex h-5 items-center rounded-full border border-destructive/40 bg-card px-2 text-xs whitespace-nowrap text-destructive-foreground"
-          style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          className="absolute rounded-sm bg-canvas px-1 text-xs whitespace-nowrap text-muted-foreground"
+          style={{ transform: `translate(-50%, -100%) translate(${labelX}px, ${labelY - 4}px)` }}
         >
           on fail · tries {tries ?? "–"}
         </div>
@@ -349,9 +353,6 @@ const NODE_TYPES = {
   add: AddNode,
 }
 const EDGE_TYPES = { flow: FlowEdgeView, "on-fail": OnFailEdgeView }
-
-/** A small closed arrow head, coloured by the edge's stroke (a CSS colour). */
-const arrow = (color: string) => ({ type: MarkerType.ArrowClosed, width: 14, height: 14, color })
 
 /** The layout's nodes as React Flow's: placed, sized, neither dragged, selected nor focused by React Flow itself. */
 const flowNodes = (nodes: LayoutNode[]): FlowNode[] =>
@@ -377,8 +378,6 @@ const flowEdges = (edges: LayoutEdge[]): FlowEdge[] =>
     // A line between two cards says nothing the cards' order does not, and React Flow names it by its internal ids:
     // out of the accessibility tree. Its "+" and its pill are drawn outside it.
     domAttributes: { "aria-hidden": true },
-    markerEnd:
-      e.kind === "on-fail" ? arrow("var(--destructive)") : e.arrow ? arrow("var(--xy-edge-stroke)") : undefined,
   }))
 
 /** The Undo and Redo buttons: they act on the draft's state through its dispatch, and update on every transaction. */
@@ -399,8 +398,8 @@ function HistoryButtons({ store }: { store: DraftStore }) {
 
 /**
  * The Editor tab's canvas, on React Flow: one column of cards (Inputs, then each step with its on-fail at its right) on
- * a 16px dot grid, a floating toolbar at the bottom centre (Undo, Redo, zoom out, the zoom, zoom in, Fit), and a minimap
- * at the bottom right while the drawing overflows the view. With `edits`, a "+" on each edge and under the last card,
+ * a 16px dot grid, under a toolbar strip (Undo and Redo at its left; zoom out, the zoom, zoom in and Fit at its right),
+ * and a minimap at the bottom right while the drawing overflows the view and the room right of it holds the minimap. With `edits`, a "+" on each edge and under the last card,
  * and a menu on each step card.
  */
 export function WorkflowCanvas(props: {
@@ -409,7 +408,6 @@ export function WorkflowCanvas(props: {
   onSelect: (selection: Selection | null) => void
   store: DraftStore
   edits: CanvasEdits | null
-  header: ReactNode
 }) {
   return (
     <ReactFlowProvider>
@@ -424,14 +422,12 @@ function Flow({
   onSelect,
   store,
   edits,
-  header,
 }: {
   drawing: Drawing
   selection: Selection | null
   onSelect: (selection: Selection | null) => void
   store: DraftStore
   edits: CanvasEdits | null
-  header: ReactNode
 }) {
   const flow = useReactFlow<FlowNode, FlowEdge>()
   const wrapper = useRef<HTMLDivElement>(null)
@@ -442,13 +438,10 @@ function Flow({
   const edges = useMemo(() => flowEdges(layout.edges), [layout])
   const canvas = useMemo<Canvas>(() => ({ drawing, selection, onSelect, edits }), [drawing, selection, onSelect, edits])
 
-  const heading = useRef<HTMLDivElement>(null)
-  /** The pane's size, and the room the page's heading takes at its top: the drawing fits under it. */
+  /** The pane's size. */
   const pane = useCallback(() => {
     const box = wrapper.current?.getBoundingClientRect()
-    if (box === undefined) return null
-    const head = heading.current?.getBoundingClientRect()
-    return { width: box.width, height: box.height, top: head === undefined ? 0 : head.bottom - box.top }
+    return box === undefined ? null : { width: box.width, height: box.height }
   }, [])
 
   const bounds = layout.bounds
@@ -457,7 +450,7 @@ function Flow({
     (view: typeof fitView) => {
       const area = pane()
       if (area === null || area.height === 0) return
-      void flow.setViewport(view(bounds, area, area.top))
+      void flow.setViewport(view(bounds, area))
     },
     [flow, pane, bounds],
   )
@@ -473,7 +466,7 @@ function Flow({
     [flow],
   )
 
-  // A placeholder card that appears out of view is panned in: above the toolbar's band, or 16px under the top edge.
+  // A placeholder card that appears out of view is panned in: 24px above the bottom edge, or under the top edge.
   useEffect(() => {
     if (placeholder === null) return
     const node = layout.nodes.find((n) => n.kind === "placeholder")
@@ -513,10 +506,8 @@ function Flow({
   const zoom = useStore((s) => s.transform[2])
   const view = useStore((s) => ({ x: s.transform[0], y: s.transform[1], zoom: s.transform[2] }), sameView)
   const zoomBy = (delta: number) => void flow.zoomTo(zoomStep(zoom, delta))
-  // The minimap stands at the bottom right while part of the drawing is out of view; on a pane too narrow to hold it
-  // beside the toolbar, above the toolbar's band.
-  const minimap = overflows(layout.bounds, view, size)
-  const minimapAbove = size.width < 640
+  // The minimap stands at the bottom right while part of the drawing is out of view, only where it covers no card.
+  const minimap = overflows(layout.bounds, view, size) && minimapClears(layout.bounds, view, size)
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // A menu's content is portalled: its keys reach the canvas through React, not through the DOM.
@@ -535,6 +526,33 @@ function Flow({
 
   return (
     <CanvasContext value={canvas}>
+      <div
+        role="toolbar"
+        aria-label="Canvas"
+        className="flex h-10 shrink-0 items-center gap-0.5 border-y bg-background px-3 text-muted-foreground"
+      >
+        <HistoryButtons store={store} />
+        <span className="flex-1" />
+        <ToolbarButton
+          tip="Zoom out"
+          keys={[MOD, "-"]}
+          label="Zoom out"
+          disabled={zoom <= 0.5}
+          onClick={() => zoomBy(-0.1)}
+        >
+          <MinusIcon aria-hidden="true" />
+        </ToolbarButton>
+        <output aria-label="Zoom" className="w-12 text-center text-foreground tabular-nums">
+          {percent(zoom)}
+        </output>
+        <ToolbarButton tip="Zoom in" keys={[MOD, "="]} label="Zoom in" disabled={zoom >= 2} onClick={() => zoomBy(0.1)}>
+          <PlusIcon aria-hidden="true" />
+        </ToolbarButton>
+        <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-center" />
+        <ToolbarButton tip="Fit to view" keys={[MOD, "0"]} label="Fit to view" size="sm" onClick={fit}>
+          Fit
+        </ToolbarButton>
+      </div>
       <div
         ref={wrapper}
         tabIndex={-1}
@@ -570,60 +588,22 @@ function Flow({
           zoomOnDoubleClick={false}
           defaultMarkerColor={null}
           attributionPosition="bottom-left"
-          className="bg-canvas [--xy-edge-stroke-width:1.5] [--xy-edge-stroke:color-mix(in_oklab,var(--muted-foreground)_50%,transparent)]"
+          className="bg-canvas [--xy-edge-stroke-width:1] [--xy-edge-stroke:color-mix(in_oklab,var(--muted-foreground)_75%,transparent)]"
         >
-          <Panel ref={heading} position="top-left" className="pointer-events-none z-0 m-0 px-6 pt-4">
-            {header}
-          </Panel>
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1.5} color="var(--canvas-dot)" />
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1.25} color="var(--canvas-dot)" />
           {minimap ? (
             <MiniMap<FlowNode>
               ariaLabel="Minimap"
               pannable
-              style={{ width: 160, height: 100 }}
+              style={{ width: MINIMAP.width, height: MINIMAP.height }}
               bgColor="var(--card)"
-              maskColor="color-mix(in oklab, var(--background) 55%, transparent)"
-              nodeColor={(n) => (selectedNode(n.data.layout, selection) ? "var(--muted-foreground)" : "var(--input)")}
-              nodeBorderRadius={2}
-              className={cn("m-4 overflow-hidden rounded-lg border shadow-md", minimapAbove && "mb-17")}
+              maskColor="color-mix(in oklab, var(--canvas) 70%, transparent)"
+              maskStrokeColor="var(--border)"
+              nodeColor={(n) => (selectedNode(n.data.layout, selection) ? "var(--ring)" : "var(--border)")}
+              nodeBorderRadius={3}
+              className="m-4 overflow-hidden rounded-lg border shadow-md"
             />
           ) : null}
-          <Panel position="bottom-center" className="m-4">
-            <div
-              role="toolbar"
-              aria-label="Canvas"
-              className="flex h-9 items-center gap-0.5 rounded-lg border bg-card px-1 shadow-md"
-            >
-              <HistoryButtons store={store} />
-              <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-center" />
-              <ToolbarButton
-                tip="Zoom out"
-                keys={[MOD, "-"]}
-                label="Zoom out"
-                disabled={zoom <= 0.5}
-                onClick={() => zoomBy(-0.1)}
-              >
-                <MinusIcon aria-hidden="true" />
-              </ToolbarButton>
-              <output aria-label="Zoom" className="w-12 text-center text-xs tabular-nums">
-                {percent(zoom)}
-              </output>
-              <ToolbarButton
-                tip="Zoom in"
-                keys={[MOD, "="]}
-                label="Zoom in"
-                disabled={zoom >= 2}
-                onClick={() => zoomBy(0.1)}
-              >
-                <PlusIcon aria-hidden="true" />
-              </ToolbarButton>
-              <Separator orientation="vertical" className="mx-1 h-4 data-vertical:self-center" />
-              <ToolbarButton tip="Fit to view" keys={[MOD, "0"]} label="Fit to view" size="sm" onClick={fit}>
-                <ScanIcon aria-hidden="true" />
-                Fit
-              </ToolbarButton>
-            </div>
-          </Panel>
         </ReactFlow>
       </div>
     </CanvasContext>
@@ -660,7 +640,16 @@ function ToolbarButton({
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<Button variant="ghost" size={size} aria-label={label} disabled={disabled} onClick={onClick} />}
+        render={
+          <Button
+            variant="ghost"
+            size={size}
+            aria-label={label}
+            disabled={disabled}
+            onClick={onClick}
+            className="text-muted-foreground hover:text-foreground"
+          />
+        }
       >
         {children}
       </TooltipTrigger>

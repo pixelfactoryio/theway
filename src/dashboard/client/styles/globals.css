@@ -19,7 +19,18 @@
   }
 }
 
-/* The code font, served by the dashboard itself; the interface uses the system font. */
+/* The interface font and the code font, served by the dashboard itself: nothing loads from another host. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url(/fonts/inter.woff2) format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @font-face {
   font-family: "Geist Mono Variable";
   font-style: normal;
@@ -32,8 +43,8 @@
 }
 
 @theme inline {
-  /* Conductor's interface font: SF Pro on macOS, the system font elsewhere. */
-  --font-sans: "SF Pro", system-ui, sans-serif;
+  /* Inter for the interface, Geist Mono for IDs and code. */
+  --font-sans: "Inter Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-background: var(--background);
@@ -62,14 +73,14 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-ground: var(--ground);
+  --color-band: var(--band);
+  --color-rule: var(--rule);
+  --color-selected: var(--selected);
   --color-brand: var(--brand);
   --color-link: var(--link);
+  --color-track: var(--track);
   --color-canvas: var(--canvas);
   --color-canvas-dot: var(--canvas-dot);
-  --color-tone-inputs: var(--tone-inputs);
-  --color-tone-session: var(--tone-session);
-  --color-tone-agents: var(--tone-agents);
-  --color-tone-on-fail: var(--tone-on-fail);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -86,52 +97,64 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-invert: var(--invert);
   --color-invert-foreground: var(--invert-foreground);
-  /* Conductor's radius scale: sm 4px, md 6px, lg 8px, xl 12px. */
+  --color-doc-foreground: var(--doc-foreground);
+  --color-project-1: var(--project-1);
+  --color-project-2: var(--project-2);
+  --color-project-3: var(--project-3);
+  --color-project-4: var(--project-4);
+  --color-project-5: var(--project-5);
+  --color-project-6: var(--project-6);
+  --color-project-7: var(--project-7);
+  /* Radii: 4px (chips), 6px (controls, rows of a menu), 8px (cards), 10px (the work area's panel). */
   --radius-sm: 0.25rem;
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: 0.75rem;
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-/* Overlay shadows only (menus, dialogs, the palette); panels and rows are separated by hairline rules. */
-@theme {
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.06);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 0 0 / 0.1);
-  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.12), 0 8px 16px -4px rgb(0 0 0 / 0.18);
-  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.14), 0 16px 40px -8px rgb(0 0 0 / 0.28);
-  /* Conductor's type scale: text-sm 14/20, text-xs 12/16. */
-  --text-sm: 0.875rem;
-  --text-sm--line-height: 1.25rem;
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  /* A task's lead: 14/21. */
-  --text-md: 0.875rem;
-  --text-md--line-height: 1.3125rem;
-  /* A list page's title in its top row: 14/20, set apart by its weight. */
-  --text-heading: 0.875rem;
-  --text-heading--line-height: 1.25rem;
-  /* The one larger size of the interface: a workflow's name above its canvas and a document's title, 21/29. */
-  --text-title: 1.3125rem;
-  --text-title--line-height: 1.8125rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
+  --radius-4xl: 1.25rem;
 }
 
 /*
- * A document read or edited, at Notion's scale: body 16/24, h1 30/39, h2 24/31, h3 20/26. Its title block, above it,
- * is the interface's (`--text-title`). Static: the live editor's theme reads the heading sizes from script, where
- * Tailwind does not see them, so every variable is always emitted.
+ * The type scale. The interface has two sizes: 14px (`text-sm`, every label, row, field and button) and 13px
+ * (`text-xs`, secondary labels, counts, column titles, chips, and the mono of IDs and code). Headings above them are
+ * 16px (`text-heading`, a dialog's or a card's title in a reading view) and 22px (`text-title`, an item's title).
+ * `text-md` is the 14px copy of multi-line text in the interface (a task, a description), at 20px leading.
+ */
+@theme {
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16);
+  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.12), 0 16px 40px -8px rgb(0 0 0 / 0.24);
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-md: 0.875rem;
+  --text-md--line-height: 1.25rem;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.375rem;
+  --text-title: 1.375rem;
+  --text-title--line-height: 1.75rem;
+}
+
+/*
+ * A document read or edited: its page's title (`text-doc-title`, `ItemHeading`) 28/34, then body 16/23 (144%), h1
+ * 20/28, h2 17/24, h3 16/23 at 600, so a document's own headings never outrank the title above it. Static: the live
+ * editor's theme reads the heading sizes from script, where Tailwind does not see them, so every variable is always
+ * emitted.
  */
 @theme static {
+  --text-doc-title: 1.75rem;
+  --text-doc-title--line-height: 2.125rem;
   --text-doc: 1rem;
-  --text-doc--line-height: 1.5rem;
-  --text-doc-h1: 1.875rem;
-  --text-doc-h1--line-height: 2.4375rem;
-  --text-doc-h2: 1.5rem;
-  --text-doc-h2--line-height: 1.9375rem;
-  --text-doc-h3: 1.25rem;
-  --text-doc-h3--line-height: 1.625rem;
+  --text-doc--line-height: 1.4375rem;
+  --text-doc-h1: 1.25rem;
+  --text-doc-h1--line-height: 1.75rem;
+  --text-doc-h2: 1.0625rem;
+  --text-doc-h2--line-height: 1.5rem;
+  --text-doc-h3: 1rem;
+  --text-doc-h3--line-height: 1.4375rem;
 }
 
 /* Reduced motion: overlays keep their fade but no longer scale, slide or rotate, and nothing turns or moves. */
@@ -151,128 +174,152 @@
   }
 }
 
+/*
+ * The palette: cool neutrals, one blue, and the status colours. `--ground` is the app's ground the sidebar sits on;
+ * `--background` the work area's panel; `--foreground` the ink; `--muted-foreground` the secondary ink (every dim text,
+ * AA on the panel, the ground and a band); `--sidebar-foreground` the sidebar's labels, receding under the ink (the
+ * active row's label is in the ink); `--border` the hairline; `--rule` the lighter rule between rows; `--band` a
+ * section band's tint; `--accent` a hover fill; `--selected` the blue tint of a selected or active item. The blue
+ * (`--link`, `--ring`, `--sidebar-primary`) is for selection, the active item and links only; red, amber and green are
+ * the statuses' (their `-foreground` step for text, AA on the panel and a band).
+ */
 :root {
   --radius: 0.5rem;
-  --ground: #f3f1ef;
-  --brand: #b4650f;
+  --ground: #eceef1;
+  --brand: #18191b;
   --background: #ffffff;
-  --foreground: #1a1816;
+  --foreground: #111214;
   --card: #ffffff;
-  --card-foreground: #1a1816;
+  --card-foreground: #111214;
   --popover: #ffffff;
-  --popover-foreground: #1a1816;
-  --primary: #1a1816;
+  --popover-foreground: #111214;
+  --primary: #18191b;
   --primary-foreground: #ffffff;
-  --secondary: #eeecea;
-  --secondary-foreground: #1a1816;
-  --muted: #f2f0ee;
-  --muted-foreground: #67635f;
-  --subtle-foreground: #6f6b67;
-  --accent: #ebe9e7;
-  --accent-foreground: #1a1816;
-  --destructive: #c2392c;
-  --border: #e6e4e2;
-  --input: #d7d4d1;
-  --ring: #2563c9;
-  --link: #2563c9;
-  --chart-1: #2563c9;
-  --chart-2: #1a7044;
-  --chart-3: #8f5407;
-  --chart-4: #c2392c;
-  --chart-5: #67635f;
-  --canvas: #f8f6f4;
-  --canvas-dot: #d7d4d1;
-  --tone-inputs: var(--color-sky-700);
-  --tone-session: var(--color-teal-700);
-  --tone-agents: var(--color-indigo-600);
-  --tone-on-fail: var(--color-rose-700);
-  --sidebar: #f8f6f4;
-  --sidebar-foreground: #1a1816;
-  --sidebar-primary: #2563c9;
+  --secondary: #f1f2f4;
+  --secondary-foreground: #18191b;
+  --muted: #f1f2f4;
+  --muted-foreground: #55585e;
+  --subtle-foreground: #55585e;
+  --accent: #f3f4f6;
+  --accent-foreground: #18191b;
+  --destructive: #cf2f2f;
+  --border: #dcdee2;
+  --input: #d4d6da;
+  --ring: #2f6fd0;
+  --link: #2f6fd0;
+  --rule: #eceef0;
+  --band: #eff0f3;
+  --selected: rgb(47 111 208 / 0.1);
+  --track: #dfe1e5;
+  --chart-1: #2f6fd0;
+  --chart-2: #1f8a4c;
+  --chart-3: #a86b00;
+  --chart-4: #cf2f2f;
+  --chart-5: #55585e;
+  --canvas: #f2f3f5;
+  --canvas-dot: #cfd2d7;
+  --sidebar: #eceef1;
+  --sidebar-foreground: #3a3c41;
+  --sidebar-primary: #2f6fd0;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ebe9e7;
-  --sidebar-accent-foreground: #1a1816;
-  --sidebar-border: #e6e4e2;
-  --sidebar-ring: #2563c9;
-  --destructive-foreground: #b02f23;
-  --success: #1a7044;
-  --success-foreground: #1a7044;
-  --info: #2563c9;
-  --info-foreground: #1f55ad;
-  --warning: #ca7a00;
-  --warning-foreground: #8f5407;
-  --invert: #1a1816;
+  --sidebar-accent: #e0e2e6;
+  --sidebar-accent-foreground: #18191b;
+  --sidebar-border: #dcdee2;
+  --sidebar-ring: #2f6fd0;
+  --destructive-foreground: #c22727;
+  --success: #1f8a4c;
+  --success-foreground: #1a7a43;
+  --info: #2f6fd0;
+  --info-foreground: #2a62b8;
+  --warning: #b07a14;
+  --warning-foreground: #946000;
+  --invert: #18191b;
   --invert-foreground: #ffffff;
+  /* Project hues (`lib/project-hue.ts`): indigo, violet, pink, teal, cyan, olive, brown. */
+  --project-1: #5a62cf;
+  --project-2: #8a4fd6;
+  --project-3: #c63d8b;
+  --project-4: #138a80;
+  --project-5: #1d84a8;
+  --project-6: #6f7d1c;
+  --project-7: #9a6438;
   /* Syntax colours of the code view. */
   --code-keyword: #b0322a;
   --code-string: #0a3d75;
   --code-constant: #1f55ad;
   --code-property: #1a6640;
-  --code-comment: #67635f;
+  --code-comment: #55585e;
   --code-function: #6639ba;
   --code-type: #953800;
-  /* A code block's surface: a faint warm tint of the page. */
-  --code-surface: rgb(135 131 120 / 0.07);
+  /* A code block's surface: a faint tint of the panel. */
+  --code-surface: rgb(24 25 27 / 0.03);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --ground: #151311;
-    --brand: #f5a74b;
-    --background: #161412;
-    --foreground: #eeecea;
-    --card: #1e1c1b;
-    --card-foreground: #eeecea;
-    --popover: #211f1d;
-    --popover-foreground: #eeecea;
-    --primary: #eeecea;
-    --primary-foreground: #151311;
-    --secondary: #272523;
-    --secondary-foreground: #eeecea;
-    --muted: #242220;
-    --muted-foreground: #a6a4a1;
-    --subtle-foreground: #918d8a;
-    --accent: #272523;
-    --accent-foreground: #eeecea;
-    --destructive: #ef6a5b;
-    --border: #302e2c;
-    --input: #363432;
-    --ring: #6aa7ff;
-    --link: #6aa7ff;
-    --chart-1: #6aa7ff;
-    --chart-2: #45b97c;
-    --chart-3: #e3a43f;
-    --chart-4: #ef6a5b;
-    --chart-5: #a6a4a1;
-    --canvas: #161412;
-    --canvas-dot: #2e2c2a;
-    --tone-inputs: var(--color-sky-400);
-    --tone-session: var(--color-teal-400);
-    --tone-agents: var(--color-indigo-300);
-    --tone-on-fail: var(--color-rose-400);
-    --sidebar: #1a1816;
-    --sidebar-foreground: #eeecea;
-    --sidebar-primary: #6aa7ff;
-    --sidebar-primary-foreground: #151311;
-    --sidebar-accent: #272523;
-    --sidebar-accent-foreground: #eeecea;
-    --sidebar-border: #302e2c;
-    --sidebar-ring: #6aa7ff;
-    --destructive-foreground: #ef6a5b;
-    --success: #45b97c;
-    --success-foreground: #45b97c;
-    --info: #6aa7ff;
-    --info-foreground: #6aa7ff;
-    --warning: #e3a43f;
-    --warning-foreground: #e3a43f;
-    --invert: #eeecea;
-    --invert-foreground: #151311;
+    --ground: #09090b;
+    --brand: #f2f2f0;
+    --background: #151619;
+    --foreground: #f2f2f0;
+    --card: #1a1b1f;
+    --card-foreground: #f2f2f0;
+    --popover: #1d1e22;
+    --popover-foreground: #f2f2f0;
+    --primary: #f2f2f0;
+    --primary-foreground: #151619;
+    --secondary: #222327;
+    --secondary-foreground: #f2f2f0;
+    --muted: #1f2024;
+    --muted-foreground: #a1a4aa;
+    --subtle-foreground: #a1a4aa;
+    --accent: #1f2024;
+    --accent-foreground: #f2f2f0;
+    --destructive: #e5534b;
+    --border: #2c2d33;
+    --input: #34363c;
+    --ring: #4f8fe6;
+    --link: #4f8fe6;
+    --rule: #1f2024;
+    --band: #222328;
+    --selected: rgb(79 143 230 / 0.15);
+    --track: #3a3c42;
+    --chart-1: #4f8fe6;
+    --chart-2: #4caf7d;
+    --chart-3: #d9a441;
+    --chart-4: #e5534b;
+    --chart-5: #a1a4aa;
+    --canvas: #0d0e10;
+    --canvas-dot: #2f3137;
+    --sidebar: #09090b;
+    --sidebar-foreground: #c4c6ca;
+    --sidebar-primary: #4f8fe6;
+    --sidebar-primary-foreground: #09090b;
+    --sidebar-accent: #1b1c20;
+    --sidebar-accent-foreground: #f2f2f0;
+    --sidebar-border: #2c2d33;
+    --sidebar-ring: #4f8fe6;
+    --destructive-foreground: #ef6a62;
+    --success: #4caf7d;
+    --success-foreground: #4caf7d;
+    --info: #4f8fe6;
+    --info-foreground: #6aa0ec;
+    --warning: #d9a441;
+    --warning-foreground: #d9a441;
+    --invert: #f2f2f0;
+    --invert-foreground: #151619;
+    --project-1: #8a90f0;
+    --project-2: #b48af2;
+    --project-3: #ec7ab8;
+    --project-4: #3cc3b6;
+    --project-5: #4fb6dc;
+    --project-6: #aebd4a;
+    --project-7: #d29a6c;
     --code-keyword: #ff7b72;
     --code-string: #a5d6ff;
     --code-constant: #79c0ff;
     --code-property: #7ee787;
-    --code-comment: #a6a4a1;
+    --code-comment: #a1a4aa;
     --code-function: #d2a8ff;
     --code-type: #ffa657;
     --code-surface: rgb(255 255 255 / 0.03);
@@ -281,61 +328,68 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #151311;
-  --brand: #f5a74b;
-  --background: #161412;
-  --foreground: #eeecea;
-  --card: #1e1c1b;
-  --card-foreground: #eeecea;
-  --popover: #211f1d;
-  --popover-foreground: #eeecea;
-  --primary: #eeecea;
-  --primary-foreground: #151311;
-  --secondary: #272523;
-  --secondary-foreground: #eeecea;
-  --muted: #242220;
-  --muted-foreground: #a6a4a1;
-  --subtle-foreground: #918d8a;
-  --accent: #272523;
-  --accent-foreground: #eeecea;
-  --destructive: #ef6a5b;
-  --border: #302e2c;
-  --input: #363432;
-  --ring: #6aa7ff;
-  --link: #6aa7ff;
-  --chart-1: #6aa7ff;
-  --chart-2: #45b97c;
-  --chart-3: #e3a43f;
-  --chart-4: #ef6a5b;
-  --chart-5: #a6a4a1;
-  --canvas: #161412;
-  --canvas-dot: #2e2c2a;
-  --tone-inputs: var(--color-sky-400);
-  --tone-session: var(--color-teal-400);
-  --tone-agents: var(--color-indigo-300);
-  --tone-on-fail: var(--color-rose-400);
-  --sidebar: #1a1816;
-  --sidebar-foreground: #eeecea;
-  --sidebar-primary: #6aa7ff;
-  --sidebar-primary-foreground: #151311;
-  --sidebar-accent: #272523;
-  --sidebar-accent-foreground: #eeecea;
-  --sidebar-border: #302e2c;
-  --sidebar-ring: #6aa7ff;
-  --destructive-foreground: #ef6a5b;
-  --success: #45b97c;
-  --success-foreground: #45b97c;
-  --info: #6aa7ff;
-  --info-foreground: #6aa7ff;
-  --warning: #e3a43f;
-  --warning-foreground: #e3a43f;
-  --invert: #eeecea;
-  --invert-foreground: #151311;
+  --ground: #09090b;
+  --brand: #f2f2f0;
+  --background: #151619;
+  --foreground: #f2f2f0;
+  --card: #1a1b1f;
+  --card-foreground: #f2f2f0;
+  --popover: #1d1e22;
+  --popover-foreground: #f2f2f0;
+  --primary: #f2f2f0;
+  --primary-foreground: #151619;
+  --secondary: #222327;
+  --secondary-foreground: #f2f2f0;
+  --muted: #1f2024;
+  --muted-foreground: #a1a4aa;
+  --subtle-foreground: #a1a4aa;
+  --accent: #1f2024;
+  --accent-foreground: #f2f2f0;
+  --destructive: #e5534b;
+  --border: #2c2d33;
+  --input: #34363c;
+  --ring: #4f8fe6;
+  --link: #4f8fe6;
+  --rule: #1f2024;
+  --band: #222328;
+  --selected: rgb(79 143 230 / 0.15);
+  --track: #3a3c42;
+  --chart-1: #4f8fe6;
+  --chart-2: #4caf7d;
+  --chart-3: #d9a441;
+  --chart-4: #e5534b;
+  --chart-5: #a1a4aa;
+  --canvas: #0d0e10;
+  --canvas-dot: #2f3137;
+  --sidebar: #09090b;
+  --sidebar-foreground: #c4c6ca;
+  --sidebar-primary: #4f8fe6;
+  --sidebar-primary-foreground: #09090b;
+  --sidebar-accent: #1b1c20;
+  --sidebar-accent-foreground: #f2f2f0;
+  --sidebar-border: #2c2d33;
+  --sidebar-ring: #4f8fe6;
+  --destructive-foreground: #ef6a62;
+  --success: #4caf7d;
+  --success-foreground: #4caf7d;
+  --info: #4f8fe6;
+  --info-foreground: #6aa0ec;
+  --warning: #d9a441;
+  --warning-foreground: #d9a441;
+  --invert: #f2f2f0;
+  --invert-foreground: #151619;
+  --project-1: #8a90f0;
+  --project-2: #b48af2;
+  --project-3: #ec7ab8;
+  --project-4: #3cc3b6;
+  --project-5: #4fb6dc;
+  --project-6: #aebd4a;
+  --project-7: #d29a6c;
   --code-keyword: #ff7b72;
   --code-string: #a5d6ff;
   --code-constant: #79c0ff;
   --code-property: #7ee787;
-  --code-comment: #a6a4a1;
+  --code-comment: #a1a4aa;
   --code-function: #d2a8ff;
   --code-type: #ffa657;
   --code-surface: rgb(255 255 255 / 0.03);
@@ -347,16 +401,22 @@
   }
   html {
     @apply font-sans;
+    /* Inter's optical sizes, and tabular figures wherever a number shows. */
+    font-optical-sizing: auto;
+    font-variant-numeric: tabular-nums;
   }
   body {
-    @apply bg-ground text-foreground antialiased;
+    @apply bg-ground text-sm text-foreground antialiased;
   }
   ::selection {
-    background-color: color-mix(in oklab, var(--link) 32%, transparent);
+    background-color: color-mix(in oklab, var(--link) 30%, transparent);
   }
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--input) transparent;
+  }
+  a {
+    text-underline-offset: 0.2em;
   }
   :focus-visible {
     outline-color: var(--ring);
@@ -387,7 +447,15 @@
 }
 
 /*
- * Placeholders are the third ink. Unlayered, so the rule wins over the shipped `placeholder:text-muted-foreground` and
+ * The shipped small button and toggle (and the triggers rendered as them) set 12.8px, off the type scale: 14px, as
+ * every control. Unlayered, so the rule wins over the shipped utility.
+ */
+.text-\[0\.8rem\] {
+  font-size: var(--text-sm);
+}
+
+/*
+ * Placeholders are the secondary ink. Unlayered, so the rule wins over the shipped `placeholder:text-muted-foreground` and
  * `data-placeholder:text-muted-foreground`.
  */
 ::placeholder,
@@ -395,30 +463,47 @@
   color: var(--subtle-foreground);
 }
 
-/* A grouped list's header band: one surface step above the page, in each theme. */
-@theme inline {
-  --color-band: var(--band);
-  --color-doc-foreground: var(--doc-foreground);
-}
-
+/*
+ * Modal surfaces: the overlay under a dialog, the search and the panel's sheet is a plain dim of the ground, no blur;
+ * a dialog stands on it with its hairline ring and a soft shadow. Unlayered, so these rules win over the shipped
+ * `bg-black/10`, `backdrop-blur-xs` and ring-only utilities.
+ */
 :root {
-  --band: #f6f4f2;
+  --overlay: rgb(15 16 18 / 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --band: #1e1c1b;
+    --overlay: rgb(0 0 0 / 0.5);
   }
 }
 
 :root[data-theme="dark"] {
-  --band: #1e1c1b;
+  --overlay: rgb(0 0 0 / 0.5);
 }
 
-/* React Flow's attribution on the workflow canvas: the theme's muted text, on no background, on the page's 24px gutter. */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  background-color: var(--overlay);
+  backdrop-filter: none;
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
+    var(--shadow-lg);
+}
+
+/*
+ * React Flow's attribution on the workflow canvas, kept as its docs ask (removing it is for its subscribers): the theme's
+ * secondary ink at 12px, on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
+ * fade out over the canvas's last 40px (clear under 24px), so the credit never sits on a card.
+ */
 .react-flow__attribution {
-  margin-left: 1.5rem;
-  padding-left: 0;
+  margin: 0 0 0.25rem 1rem;
+  padding: 0;
   background: transparent;
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
@@ -428,28 +513,31 @@
   color: var(--muted-foreground);
 }
 
+.react-flow__renderer {
+  mask-image: linear-gradient(to top, transparent 1.5rem, #000 2.5rem);
+}
+
 /*
- * Reading a document, at Notion's scale: the text column (708px) and the wider room of code blocks and tables (64rem),
- * both centred; the document's text, a warm off-white in dark and a warm ink in light; inline code on a soft tint;
- * code blocks on a faint one, with 10px corners. The interface around a document stays at 14px.
+ * Reading a document: one column on the page's left edge (36rem, about 70 characters of 16px Inter a line) for text,
+ * code blocks and tables, and the wider room of the change lists (64rem); the document's text in the ink; inline code
+ * on a fainter tint than a code block's, so a path does not outweigh its sentence; code blocks with 8px corners. The interface around a document
+ * stays at 14px.
  */
 :root {
-  --read-width: 44.25rem;
+  --read-width: 36rem;
   --read-wide: 64rem;
-  --doc-code-radius: 0.625rem;
-  --doc-foreground: #37352f;
-  --doc-code-tint: rgb(135 131 120 / 0.15);
+  --doc-code-radius: 0.5rem;
+  --doc-foreground: var(--foreground);
+  --doc-code-tint: rgb(24 25 27 / 0.045);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --doc-foreground: #f0efed;
     --doc-code-tint: rgb(255 255 255 / 0.055);
   }
 }
 
 :root[data-theme="dark"] {
-  --doc-foreground: #f0efed;
   --doc-code-tint: rgb(255 255 255 / 0.055);
 }
 

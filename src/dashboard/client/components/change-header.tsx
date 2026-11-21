@@ -1,5 +1,5 @@
 import { TextField } from "@/components/change-fields"
-import { DocTitle } from "@/components/doc-title"
+import { ItemHeading } from "@/components/doc-frame"
 import { LinesAlert } from "@/components/file-page"
 import type { ChangeDetail } from "@/lib/changes"
 import type { OpenField } from "@/lib/task-fields"
@@ -45,16 +45,14 @@ export function DescriptionField({ description, edit }: { description: string | 
 }
 
 /**
- * A change's title block: its description (its ID when it has none) at 21/29 and 600, its ID in small mono, and the
- * reasons a change that cannot be read gives, no wider than prose. Where the change sits shows in the sidebar, not
- * here. It stands in a `ColumnTitle` above a Markdown file and in the code tab's gutter title above `change.yaml`.
+ * A change's title, above every file of its page: its description (none when it has none: the ID stands once, in the
+ * header's path), then the reasons a change that cannot be read gives, no wider than prose.
  */
 export function ChangeHeading({ change }: { change: ChangeDetail }) {
   const invalid = change.archived === null && change.issues.length > 0
   return (
-    <>
-      <DocTitle title={change.description ?? change.id} id={change.description !== null ? change.id : undefined} />
-      {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} className="mt-3 max-w-(--read-width)" /> : null}
-    </>
+    <ItemHeading title={change.description}>
+      {invalid ? <LinesAlert lines={change.issues} title={UNREADABLE} place="bare" className="mt-3" /> : null}
+    </ItemHeading>
   )
 }

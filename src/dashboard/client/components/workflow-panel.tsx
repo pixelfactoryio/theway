@@ -1,18 +1,19 @@
-import { PlusIcon, TextCursorInputIcon, XIcon } from "lucide-react"
+import { PlusIcon, XIcon } from "lucide-react"
 import { useId, useState } from "react"
 
 import { WORKFLOW_INPUT_TYPES } from "../../../core/language-schema"
-import { KeyLabelText, LinesAlert } from "@/components/file-page"
-import { InspectorHeader } from "@/components/inspector-header"
+import { PropertyCard } from "@/components/property-card"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldError, FieldLegend, FieldSet } from "@/components/ui/field"
+import { FieldError } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   byField,
+  CardLines,
   ChoiceSelect,
   DraftText,
   Errors,
+  FieldNote,
   type HistoryMode,
   KeyText,
   ON_YAML,
@@ -61,9 +62,9 @@ function InputBox({
     write((t) => setInputField(t, input.name, k, value), mode)
   const editable = input.editable && !disabled
   return (
-    <div className="flex flex-col gap-4 border-t pt-4 first:border-t-0 first:pt-0">
-      <Field>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col border-t first:border-t-0">
+      <div className="flex flex-col gap-1 px-3 py-2">
+        <div className="flex items-center gap-1">
           <KeyText
             id={id("name")}
             label="Input name"
@@ -77,9 +78,10 @@ function InputBox({
               render={
                 <Button
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   aria-label={`Remove input ${input.name}`}
                   disabled={disabled}
+                  className="text-muted-foreground"
                   onClick={() => write((t) => removeInput(t, input.name))}
                 />
               }
@@ -89,9 +91,9 @@ function InputBox({
             <TooltipContent>{`Remove input ${input.name}`}</TooltipContent>
           </Tooltip>
         </div>
-        {nameErr !== null ? <FieldError>{nameErr}</FieldError> : null}
+        {nameErr !== null ? <FieldError className="text-xs font-normal">{nameErr}</FieldError> : null}
         <Errors lines={lines.get(`inputs.${input.name}`)} />
-      </Field>
+      </div>
       <PanelField yamlKey="type" htmlFor={id("type")} errors={at("type")}>
         <ChoiceSelect
           id={id("type")}
@@ -107,18 +109,18 @@ function InputBox({
           value={editable ? input.description : null}
           onWrite={(v, mode) => field("description", v, mode)}
         />
-        {input.editable && input.description === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
+        {input.editable && input.description === null ? <FieldNote>{ON_YAML}</FieldNote> : null}
       </PanelField>
-      <PanelField yamlKey="required" htmlFor={id("required")} orientation="horizontal">
+      <PanelField yamlKey="required" htmlFor={id("required")} errors={at("required")}>
         <Switch
           id={id("required")}
+          size="sm"
           checked={input.required === true}
           disabled={!editable || input.required === null}
           onCheckedChange={(v) => field("required", v)}
         />
+        {input.editable && input.required === null ? <FieldNote>{ON_YAML}</FieldNote> : null}
       </PanelField>
-      {input.editable && input.required === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-      <Errors lines={at("required")} />
       <PanelField yamlKey="default" htmlFor={id("default")} errors={at("default")}>
         <DraftText
           id={id("default")}
@@ -126,17 +128,21 @@ function InputBox({
           disabled={input.required === true}
           onWrite={(v, mode) => field("default", v, mode)}
         />
-        {input.editable && input.default === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
+        {input.editable && input.default === null ? <FieldNote>{ON_YAML}</FieldNote> : null}
       </PanelField>
-      {!input.editable && !disabled ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
+      {!input.editable && !disabled ? (
+        <div className="border-t border-rule px-3 py-2">
+          <FieldNote>{ON_YAML}</FieldNote>
+        </div>
+      ) : null}
     </div>
   )
 }
 
 /**
- * The workflow panel as a form (no card or the Inputs card selected): `description`, `runs-on`, `default`, the
- * inputs with Add input, then Applies to and File, read-only. The workflow's lines go under their fields; the others
- * in the alert under the title row.
+ * The workflow's cards as a form (no card or the Inputs card selected): Workflow (`description`, `runs-on`,
+ * `default`) and Inputs (each input's name, `type`, `description`, `required` and `default`, with Add input in its
+ * header). The workflow's lines go under their fields; the others in the Workflow card, under its header.
  */
 export function WorkflowEditPanel({ text, lines, write }: { text: string; lines: readonly string[]; write: Write }) {
   const uid = useId()
@@ -155,20 +161,18 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
   const { fields, alert } = byField(places, shown)
   const id = (k: string) => `${uid}-${k}`
   return (
-    <div className="flex flex-col gap-6 p-4">
-      <InspectorHeader tone="inputs" icon={<TextCursorInputIcon aria-hidden="true" />} title="Workflow" />
-      <LinesAlert lines={alert} />
-      <div className="flex flex-col gap-4">
+    <>
+      <PropertyCard title="Workflow">
+        <CardLines lines={alert} />
         <PanelField yamlKey="description" htmlFor={id("description")} errors={fields.get("description")}>
           <DraftText
             id={id("description")}
             multiline
             rows={2}
             value={form.description}
-            className="min-h-0"
             onWrite={(v, mode) => write((t) => setWorkflowKey(t, "description", v), mode)}
           />
-          {form.description === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
+          {form.description === null ? <FieldNote>{ON_YAML}</FieldNote> : null}
         </PanelField>
         <PanelField yamlKey="runs-on" htmlFor={id("runs-on")} errors={fields.get("runs-on")}>
           <ChoiceSelect
@@ -179,23 +183,29 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
             onChange={(v) => v !== null && write((t) => setWorkflowKey(t, "runs-on", v))}
           />
         </PanelField>
-        <PanelField yamlKey="default" htmlFor={id("default")} orientation="horizontal">
+        <PanelField yamlKey="default" htmlFor={id("default")} errors={fields.get("default")}>
           <Switch
             id={id("default")}
+            size="sm"
             checked={form.default === true}
             disabled={form.default === null}
             onCheckedChange={(v) => write((t) => setDefault(t, v))}
           />
+          {form.default === null ? <FieldNote>{ON_YAML}</FieldNote> : null}
         </PanelField>
-        {form.default === null ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-        <Errors lines={fields.get("default")} />
-      </div>
-      <FieldSet className="gap-4">
-        <FieldLegend variant="label" className="mb-2">
-          <KeyLabelText yamlKey="inputs" />
-        </FieldLegend>
+      </PropertyCard>
+      <PropertyCard
+        title="Inputs"
+        meta={form.inputs.length}
+        action={
+          <Button variant="outline" size="xs" disabled={!form.inputsEditable} onClick={() => write((t) => addInput(t))}>
+            <PlusIcon aria-hidden="true" />
+            Add input
+          </Button>
+        }
+      >
         {form.inputs.length > 0 ? (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col border-t">
             {form.inputs.map((input, i) => (
               <InputBox
                 key={i}
@@ -210,14 +220,12 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
             ))}
           </div>
         ) : null}
-        <div>
-          <Button variant="outline" disabled={!form.inputsEditable} onClick={() => write((t) => addInput(t))}>
-            <PlusIcon aria-hidden="true" />
-            Add input
-          </Button>
-        </div>
-        {!form.inputsEditable ? <FieldDescription>{ON_YAML}</FieldDescription> : null}
-      </FieldSet>
-    </div>
+        {!form.inputsEditable ? (
+          <div className="border-t border-rule px-3 py-2">
+            <FieldNote>{ON_YAML}</FieldNote>
+          </div>
+        ) : null}
+      </PropertyCard>
+    </>
   )
 }

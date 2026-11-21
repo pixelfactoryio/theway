@@ -28,22 +28,24 @@ import {
   type TableBlock,
   tableBlocks,
   taskToggle,
+  titleLine,
   type Widget,
 } from "@/lib/live-preview"
 
 const MUTED = { color: "var(--muted-foreground)" }
-const MONO = { fontFamily: "var(--font-mono)", fontSize: "85%" }
-/** Inline code: 85% Geist Mono on a soft tint, in the text's colour. */
+/** Geist Mono a step under the text it sits in (13px in 16px body text), never under 12px. */
+const MONO = { fontFamily: "var(--font-mono)", fontSize: "max(0.75rem, 0.8125em)" }
+/**
+ * Inline code: the mono step, in the text's colour, on a faint tint that keeps inside its line (no vertical padding),
+ * so a sentence full of paths still reads as a sentence.
+ */
 const INLINE_CODE = {
-  fontFamily: "var(--font-mono)",
-  fontSize: "85%",
-  padding: "0.2em 0.4em",
+  ...MONO,
+  padding: "0.1em 0.3em",
   borderRadius: "var(--radius-sm)",
   backgroundColor: "var(--doc-code-tint)",
 }
-/** The wider room of code blocks and tables, centred in the column. */
-const WIDE = { maxWidth: "var(--read-wide)" }
-/** A heading at Notion's scale: 600, its size and line height from the `--text-doc-*` tokens. */
+/** A heading of the document's scale: 600, its size and line height from the `--text-doc-*` tokens. */
 const HEADING = (level: string, space: string) => ({
   fontSize: `var(--text-doc-${level})`,
   lineHeight: `var(--text-doc-${level}--line-height)`,
@@ -69,9 +71,9 @@ const ITEM_STYLES = Object.fromEntries(
 )
 
 /**
- * Notion's scale and rhythm: body 16/24 in the document's colour; a blank line between two blocks
- * 8px tall; space above a heading (with the blank line before it, 32px above h1, 24px above h2, 16px above h3); 36px
- * from one list item to the next.
+ * The document's scale and rhythm: body 15/21 in the document's colour, about 70 characters a line; a blank line
+ * between two blocks 8px tall; space above a heading (with the blank line before it, 32px above h1, 24px above h2,
+ * 16px above h3); 8px from one list item to the next.
  */
 const THEME = EditorView.theme({
   "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--doc-foreground)" },
@@ -82,11 +84,12 @@ const THEME = EditorView.theme({
     lineHeight: "var(--text-doc--line-height)",
     overflow: "auto",
   },
-  // The column's 24px gutters; each line centred at most `--read-width` wide, code and tables `--read-wide`.
+  // The column's 24px gutters; each line on its left edge, at most `--read-width` wide, code blocks and tables too (a
+  // table fits its columns, and one wider than the measure scrolls in its own box).
   // `minWidth: 0` keeps the content to the column, so a table wider than its room scrolls in its own box.
   ".cm-content": { padding: "1.5rem 1.5rem 4rem", minWidth: "0", caretColor: "var(--link)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--link)" },
-  ".cm-line": { padding: "0", maxWidth: "var(--read-width)", marginInline: "auto", boxSizing: "border-box" },
+  ".cm-line": { padding: "0", maxWidth: "var(--read-width)", boxSizing: "border-box" },
   ".cm-lp-blank": { lineHeight: "0.5rem" },
   ".cm-lp-h1": HEADING("h1", "1.5rem"),
   ".cm-lp-h2": HEADING("h2", "1rem"),
@@ -97,14 +100,16 @@ const THEME = EditorView.theme({
   ".cm-content > .cm-line:first-child:is(.cm-lp-h1, .cm-lp-h2, .cm-lp-h3, .cm-lp-h4, .cm-lp-h5, .cm-lp-h6)": {
     paddingTop: "0",
   },
-  ".cm-lp-quote": { borderLeft: "3px solid var(--input)", paddingLeft: "1rem", ...MUTED },
-  // A code block: on a faint tint of the page, 85% mono at 1.5, 16px by 20px inside its 10px corners. Its lines wrap:
-  // a wrapped line continues 2ch further in than it starts, as a list item's later lines hang past its marker.
+  // Under a hidden title line (`titleHidden`), the blank line after it takes no room and the next line no space above.
+  ".cm-lp-title-gap + .cm-lp-blank": { lineHeight: "0" },
+  ".cm-lp-title-gap + .cm-line, .cm-lp-title-gap + .cm-lp-blank + .cm-line": { paddingTop: "0" },
+  ".cm-lp-quote": { borderLeft: "1px solid var(--border)", paddingLeft: "1rem", ...MUTED },
+  // A code block: on a faint tint of the page, 13px mono on 20px lines, 16px by 20px inside its 8px corners. Its lines
+  // wrap: a wrapped line continues 2ch further in than it starts, as a list item's later lines hang past its marker.
   ".cm-lp-code": {
-    ...WIDE,
     fontFamily: "var(--font-mono)",
-    fontSize: "85%",
-    lineHeight: "1.5",
+    fontSize: "var(--text-xs)",
+    lineHeight: "1.25rem",
     backgroundColor: "var(--code-surface)",
     padding: `0 1.25rem 0 calc(1.25rem + ${CODE_HANG})`,
     textIndent: `-${CODE_HANG}`,
@@ -122,20 +127,20 @@ const THEME = EditorView.theme({
   },
   ".cm-lp-fence": MUTED,
   ".cm-lp-label": { float: "right", ...MUTED, fontSize: "var(--text-xs)", textIndent: "0" },
-  ".cm-lp-table": { ...MONO, ...WIDE },
+  ".cm-lp-table": MONO,
   ".cm-lp-strong": { fontWeight: "600" },
   ".cm-lp-em": { fontStyle: "italic" },
   ".cm-lp-strike": { textDecoration: "line-through" },
   ".cm-lp-inline-code": INLINE_CODE,
   ".cm-lp-link": {
-    fontWeight: "500",
+    color: "var(--link)",
     textDecoration: "underline",
-    textDecorationColor: "var(--input)",
+    textDecorationColor: "color-mix(in srgb, var(--link) 40%, transparent)",
     textUnderlineOffset: "3px",
     "&:hover": { textDecorationColor: "currentColor" },
   },
-  // 12px between items; a list's first item, after a blank line, is 8px under the text above it, as a paragraph is.
-  ".cm-lp-item-first": { paddingTop: "0.75rem" },
+  // 8px between items; a list's first item, after a blank line, is 8px under the text above it, as a paragraph is.
+  ".cm-lp-item-first": { paddingTop: "0.5rem" },
   ".cm-lp-blank + .cm-lp-item-first": { paddingTop: "0" },
   ".cm-lp-done, .cm-lp-number": MUTED,
   ".cm-lp-number": { display: "inline-block", minWidth: "1.25em", textIndent: "0" },
@@ -150,11 +155,12 @@ const THEME = EditorView.theme({
   },
   ".cm-lp-task:disabled": { cursor: "default" },
   ...ITEM_STYLES,
-  // A table: 1px rules, the header row on the muted surface at 600, tabular numbers.
+  // A table ruled like a chart: no box and no vertical rule; a hairline under the header row (600) and a light rule
+  // between rows, the first column on the text's edge, one size (the body's) with tabular numbers.
   // Words break between words, not anywhere as wrapped lines do: a column too narrow for a word scrolls instead.
   ".cm-lp-tablewrap": {
-    ...WIDE,
-    marginInline: "auto",
+    maxWidth: "var(--read-width)",
+    width: "fit-content",
     padding: "0.25rem 0",
     overflowX: "auto",
     cursor: "text",
@@ -165,17 +171,18 @@ const THEME = EditorView.theme({
   ".cm-lp-tablewrap table": {
     width: "100%",
     borderCollapse: "collapse",
-    border: "1px solid var(--border)",
     fontSize: "inherit",
     lineHeight: "var(--text-doc--line-height)",
     fontVariantNumeric: "tabular-nums",
   },
   ".cm-lp-tablewrap th, .cm-lp-tablewrap td": {
-    border: "1px solid var(--border)",
-    padding: "0.5em 0.75em",
+    borderBottom: "1px solid var(--rule)",
+    padding: "0.5rem 0.75rem",
     verticalAlign: "top",
   },
-  ".cm-lp-tablewrap th": { fontWeight: "600", backgroundColor: "var(--muted)", textAlign: "left" },
+  ".cm-lp-tablewrap :is(th, td):first-child": { paddingLeft: "0" },
+  ".cm-lp-tablewrap :is(th, td):last-child": { paddingRight: "0" },
+  ".cm-lp-tablewrap th": { fontWeight: "600", textAlign: "left", borderBottomColor: "var(--border)" },
   // A long path or identifier in a cell breaks anywhere, so it does not set its column's width.
   ".cm-lp-tablewrap code": { ...INLINE_CODE, overflowWrap: "anywhere" },
   ".cm-lp-hr": {
@@ -439,6 +446,52 @@ export const softBreaks = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 })
 
+/** Gives the state the page's title (`ItemHeading`'s), `null` when the page states none. */
+export const setTitle = StateEffect.define<string | null>()
+
+/** The page's title, which the document's first line may restate (`titleLine`). */
+const pageTitle = StateField.define<string | null>({
+  create: () => null,
+  update: (value, tr) => tr.effects.reduce((v, e) => (e.is(setTitle) ? e.value : v), value),
+})
+
+/** The hidden title line's place: an empty block, which the text after it starts under as a first line does. */
+class TitleGapWidget extends WidgetType {
+  eq(): boolean {
+    return true
+  }
+
+  toDOM(): HTMLElement {
+    const div = document.createElement("div")
+    div.className = "cm-lp-title-gap"
+    div.setAttribute("aria-hidden", "true")
+    return div
+  }
+}
+
+const HIDE_LINE = Decoration.replace({ widget: new TitleGapWidget(), block: true })
+
+/**
+ * The document's first line hidden when it is an h1 restating the page's title, so the title reads once: always in a
+ * read-only state; in an editable one, unless the editor has the focus with the selection on that line, where it shows
+ * as written, as the live preview's syntax does.
+ */
+function titleDecorations(state: EditorState): DecorationSet {
+  const line = titleLine(state.doc, state.field(pageTitle, false) ?? null)
+  if (line === null) return Decoration.none
+  const editing = !state.readOnly && state.field(focused, false) === true
+  if (activeLines(state.doc, state.selection.ranges, editing).has(1)) return Decoration.none
+  return Decoration.set([HIDE_LINE.range(line.from, line.to)])
+}
+
+/** The first line's h1 hidden while it restates the page's title (`titleDecorations`), a block replacement. */
+export const titleHidden = StateField.define<DecorationSet>({
+  create: titleDecorations,
+  update: (set, tr) =>
+    tr.docChanged || tr.selection !== undefined || tr.effects.length > 0 ? titleDecorations(tr.state) : set,
+  provide: (field) => EditorView.decorations.from(field),
+})
+
 /** A mousedown on a drawn table puts the cursor at its start, so its source shows for editing. */
 const tableClick = EditorView.domEventHandlers({
   mousedown(event, view) {
@@ -570,10 +623,13 @@ export function liveExtensions({
   name,
   separator,
   readOnly = false,
+  title = null,
 }: {
   name: string
   separator: string
   readOnly?: boolean
+  /** The page's title, whose restatement as the document's first line is hidden (`titleHidden`). */
+  title?: string | null
 }): Extension[] {
   const preview: Extension[] = [
     // A read view's links take focus, so its keys reach the editor: Markdown's Enter and Backspace and its URL paste
@@ -588,6 +644,8 @@ export function liveExtensions({
     livePreview,
     tables,
     softBreaks,
+    pageTitle.init(() => title),
+    titleHidden,
   ]
   if (readOnly)
     return [
@@ -619,9 +677,12 @@ export function liveExtensions({
   ]
 }
 
-/** The effect that gives `state` the live set, keeping its text, selection, undo history and line separator. */
-const toLive = (state: EditorState, name: string): StateEffect<unknown> =>
-  StateEffect.reconfigure.of(liveExtensions({ name, separator: state.lineBreak }))
+/**
+ * The effect that gives `state` the live set with the page's `title`, keeping its text, selection, undo history and
+ * line separator.
+ */
+const toLive = (state: EditorState, name: string, title: string | null): StateEffect<unknown> =>
+  StateEffect.reconfigure.of(liveExtensions({ name, separator: state.lineBreak, title }))
 
 /**
  * A Markdown draft, editable where it is read: formatted, its syntax shown on the lines the selection touches. It mounts
@@ -629,13 +690,37 @@ const toLive = (state: EditorState, name: string): StateEffect<unknown> =>
  * draft's first one, or one taken by Discard, Reload or Restore) is reconfigured to it, which keeps the text, the
  * selection and the undo history.
  */
-export function LiveMarkdown({ store, name, className }: { store: DraftStore; name: string; className?: string }) {
+export function LiveMarkdown({
+  store,
+  name,
+  title = null,
+  className,
+}: {
+  store: DraftStore
+  name: string
+  /** The page's title: a first line restating it is hidden off its line (`titleHidden`). */
+  title?: string | null
+  className?: string
+}) {
   const host = useRef<HTMLDivElement>(null)
+  const latestTitle = useRef(title)
+
+  // Before the mount below, so a new view takes the current title.
+  useEffect(() => {
+    latestTitle.current = title
+    const v = store.view
+    if (v !== null && v.state.field(pageTitle, false) !== title) v.dispatch({ effects: setTitle.of(title) })
+  }, [store, title])
 
   useEffect(() => {
     if (host.current === null) return
+    const title = latestTitle.current
     const v = new EditorView({
-      state: store.state.facet(LIVE) ? store.state : store.state.update({ effects: toLive(store.state, name) }).state,
+      state: store.state.facet(LIVE)
+        ? store.state.field(pageTitle, false) === title
+          ? store.state
+          : store.state.update({ effects: setTitle.of(title) }).state
+        : store.state.update({ effects: toLive(store.state, name, title) }).state,
       parent: host.current,
       dispatchTransactions: (trs, view) => {
         view.update(trs)
@@ -657,7 +742,7 @@ export function LiveMarkdown({ store, name, className }: { store: DraftStore; na
   const generation = store.generation
   useEffect(() => {
     const v = store.view
-    if (v !== null && !v.state.facet(LIVE)) v.dispatch({ effects: toLive(v.state, name) })
+    if (v !== null && !v.state.facet(LIVE)) v.dispatch({ effects: toLive(v.state, name, latestTitle.current) })
   }, [store, name, generation])
 
   return <div ref={host} className={cn("h-full min-h-0", className)} />

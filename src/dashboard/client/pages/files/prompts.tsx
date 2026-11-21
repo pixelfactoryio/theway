@@ -5,7 +5,7 @@ import { Link } from "wouter"
 
 import { Dash } from "@/components/file-page"
 import { type FieldOptions, type FileColumns, FileListPage } from "@/components/file-list"
-import { NameCell, WRAP, Wrapped } from "@/components/files-table"
+import { NameCell } from "@/components/files-table"
 import { cellSkeleton, SORT_HEADER } from "@/components/list-grid"
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { Button } from "@/components/ui/button"
@@ -38,22 +38,25 @@ function UseLink({ use, children, className }: { use: Use; children: string; cla
     <Link
       href={to.file("workflows", use.project, use.workflow)}
       onClick={(e) => e.stopPropagation()}
-      className={className ?? "underline-offset-4 hover:underline"}
+      className={cn(
+        "rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
+        className,
+      )}
     >
       {children}
     </Link>
   )
 }
 
-/** The Used by cell: the first workflow, wrapping when the column is narrow, then `+N` opening every use. */
+/** The Used by cell, on one line: the first workflow, cut at the column's edge, then `+N` opening every use. */
 function UsedByCell({ row }: { row: PromptRow }) {
   const label = useLabel()
   const first = row.usedBy[0]
   if (first === undefined) return <Dash />
   const name = first.project === null ? first.workflow : `${first.workflow} · ${label(first.project)}`
   return (
-    <div className={cn(WRAP, "flex flex-wrap items-center gap-1")}>
-      <UseLink use={first} className="min-w-0 hover:underline">
+    <div className="flex min-w-0 items-center gap-1">
+      <UseLink use={first} className="min-w-0 truncate">
         {name}
       </UseLink>
       {row.usedBy.length > 1 ? (
@@ -63,7 +66,7 @@ function UsedByCell({ row }: { row: PromptRow }) {
               <Button
                 variant="ghost"
                 size="xs"
-                className="tabular-nums"
+                className="shrink-0 px-1 text-muted-foreground tabular-nums"
                 aria-label={`${row.usedBy.length} uses of ${row.name}`}
                 onClick={(e) => e.stopPropagation()}
               />
@@ -102,7 +105,7 @@ const FIELD_ICON: Record<Field, ReactNode> = {
   status: <CircleCheckIcon aria-hidden="true" />,
 }
 
-/** The name column, then Kind, Model and Used by. */
+/** The name column, then Kind, Model and Used by; each cell one line, cut at its column's edge. */
 const columns = (): FileColumns<PromptRow> => ({
   lead: [
     {
@@ -129,9 +132,9 @@ const columns = (): FileColumns<PromptRow> => ({
       id: "kind",
       accessorFn: (row) => KIND_LABEL[kindOf(row)],
       header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} className={SORT_HEADER} />,
-      cell: ({ row }) => <Wrapped>{KIND_LABEL[kindOf(row.original)]}</Wrapped>,
+      cell: ({ row }) => KIND_LABEL[kindOf(row.original)],
       sortFn: (a, b) => compareText(KIND_LABEL[kindOf(a.original)], KIND_LABEL[kindOf(b.original)]),
-      size: 130,
+      size: 120,
       enableSorting: true,
       meta: { skeleton: cellSkeleton("w-24") },
     },
@@ -139,9 +142,9 @@ const columns = (): FileColumns<PromptRow> => ({
       id: "model",
       accessorFn: (row) => row.model,
       header: ({ column }) => <DataGridColumnHeader title="Model" column={column} className={SORT_HEADER} />,
-      cell: ({ row }) => (row.original.model === null ? <Dash /> : <Wrapped>{row.original.model}</Wrapped>),
+      cell: ({ row }) => row.original.model ?? <Dash />,
       sortFn: (a, b) => compareText(a.original.model, b.original.model),
-      size: 100,
+      size: 96,
       enableSorting: true,
       meta: { skeleton: cellSkeleton("w-12") },
     },
@@ -151,7 +154,7 @@ const columns = (): FileColumns<PromptRow> => ({
       header: ({ column }) => <DataGridColumnHeader title="Used by" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => <UsedByCell row={row.original} />,
       sortFn: (a, b) => compareText(a.original.usedBy[0]?.workflow ?? null, b.original.usedBy[0]?.workflow ?? null),
-      size: 170,
+      size: 180,
       enableSorting: true,
       meta: { skeleton: cellSkeleton("w-24") },
     },

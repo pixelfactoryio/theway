@@ -1,37 +1,37 @@
 import { undo } from "@codemirror/commands"
 import { EditorState } from "@codemirror/state"
 import { useQueryClient } from "@tanstack/react-query"
-import { CircleAlertIcon, FileCodeIcon, FileTextIcon, Trash2Icon, XIcon } from "lucide-react"
+import { FileCodeIcon, FolderIcon, Trash2Icon, XIcon } from "lucide-react"
 import { useCallback, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react"
 import { useLocation } from "wouter"
 
 import { CHANGE_FILE, changeStatus, changeTextErrors, checkChangeText } from "../../../../core/change-text"
 import { ChangeDialogs } from "@/components/change-dialogs"
 import { ChangeHeading, DescriptionField, UNREADABLE } from "@/components/change-header"
-import { ChangePanel } from "@/components/change-panel"
+import { ChangePanel, ChangeStatus } from "@/components/change-panel"
 import { CodeTab } from "@/components/code-tab"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter, LineCount } from "@/components/doc-footer"
-import { DocTab } from "@/components/doc-title"
+import { DocTab } from "@/components/doc-tab"
 import { type CodeLanguage, type CodeViewHandle, editableExtensions } from "@/components/code-view"
 import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
-import { ErrorStrip, LinesAlert, STRIP } from "@/components/file-page"
+import { ErrorStrip, LinesAlert } from "@/components/file-page"
 import { LiveMarkdown } from "@/components/live-markdown"
 import { MarkdownView } from "@/components/markdown-view"
 import { formattingKeymap } from "@/components/markdown-editor"
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/reui/alert"
 import { useSaveKey } from "@/components/step-prompt"
 import { TaskList } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
 import { useTaskFields } from "@/components/use-task-fields"
 import { getJson } from "@/data/api"
-import { apiPath, queryKeys, useWrites } from "@/data/queries"
+import { apiPath, queryKeys, useLabel, useWrites } from "@/data/queries"
 import type { SyncedFile } from "@/drafts/draft-set"
 import { useDrafts } from "@/drafts/use-drafts"
 import { alertLines } from "@/lib/alert-lines"
 import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
+import { StateNotice } from "@/shell/state"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
 function loadedFiles(data: ChangeDetail): SyncedFile[] {
@@ -63,6 +63,7 @@ function stateOf(name: string, text: string): EditorState {
 export function ActiveChange({ projectKey, data, tab }: { projectKey: string; data: ChangeDetail; tab?: string }) {
   const queryClient = useQueryClient()
   const writes = useWrites()
+  const project = useLabel()(projectKey)
   const [, navigate] = useLocation()
   const files = useMemo(() => loadedFiles(data), [data])
   /** Every file in tab order: the Markdown files, then `change.yaml` at the Tasks tab's place. */
@@ -206,74 +207,66 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
 
   let body: ReactNode
   if (current.file !== null) {
-    // A Markdown file scrolls with the change's title above it, its document title; the editor grows to its text.
+    // A Markdown file scrolls under the change's title; the editor grows to its text.
     body = (
-      <DocTab title={<ChangeHeading change={shown} />} notices={notices} footer={footer}>
+      <DocTab footer={footer}>
         {draft !== null ? (
-          <LiveMarkdown key={name} store={draft.store} name={name} className="h-auto" />
+          <LiveMarkdown key={name} store={draft.store} name={name} title={description} className="h-auto" />
         ) : (
-          <MarkdownView key={name} text={fileText(name)} name={name} />
+          <MarkdownView key={name} text={fileText(name)} name={name} title={description} />
         )}
       </DocTab>
     )
   } else if (yaml !== null) {
-    body = (
-      <CodeTab
-        ref={code}
-        title={<ChangeHeading change={shown} />}
-        notices={notices}
-        draft={yaml.store}
-        errors={errors}
-        file={name}
-        status={status}
-      />
-    )
+    body = <CodeTab ref={code} draft={yaml.store} errors={errors} file={name} status={status} />
   } else {
-    // No `change.yaml` to edit: the title block states the reasons, and nothing stands in place of the code.
-    body = (
-      <DocTab title={<ChangeHeading change={shown} />} notices={notices} footer={footer}>
-        {null}
-      </DocTab>
-    )
+    // No `change.yaml` to edit: the title states the reasons, and nothing stands in place of the code.
+    body = <DocTab footer={footer}>{null}</DocTab>
   }
 
   const taskPane = (
     <div className="flex flex-col">
       {actionError !== null ? (
-        <Alert variant="destructive" className={STRIP}>
-          <CircleAlertIcon aria-hidden="true" />
-          <AlertTitle>The change could not be edited</AlertTitle>
-          <AlertDescription>{actionError}</AlertDescription>
-          <AlertAction>{dismiss(() => setActionError(null))}</AlertAction>
-        </Alert>
+        <StateNotice
+          tone="error"
+          place="card"
+          title="The change could not be edited"
+          action={dismiss(() => setActionError(null))}
+        >
+          {actionError}
+        </StateNotice>
       ) : null}
       {undoShown ? (
-        <Alert className={STRIP}>
-          <Trash2Icon aria-hidden="true" />
-          <AlertTitle>Task {undoNote.n} deleted</AlertTitle>
-          <AlertAction>
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => {
-                if (yaml !== null) undo({ state: yaml.store.state, dispatch: yaml.store.dispatch })
-                setUndoNote(null)
-              }}
-            >
-              Undo
-            </Button>
-            {dismiss(() => setUndoNote(null))}
-          </AlertAction>
-        </Alert>
+        <StateNotice
+          tone="info"
+          place="card"
+          icon={<Trash2Icon aria-hidden="true" />}
+          title={`Task ${undoNote.n} deleted`}
+          action={
+            <>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  if (yaml !== null) undo({ state: yaml.store.state, dispatch: yaml.store.dispatch })
+                  setUndoNote(null)
+                }}
+              >
+                Undo
+              </Button>
+              {dismiss(() => setUndoNote(null))}
+            </>
+          }
+        />
       ) : null}
       {yaml === null || !valid ? (
-        <div className="flex flex-col gap-3 p-3">
-          <LinesAlert lines={shown.issues} title={UNREADABLE} />
+        <div className="flex flex-col">
+          <LinesAlert lines={shown.issues} title={UNREADABLE} place="card" />
           {yaml !== null ? (
             <Button
               variant="outline"
               size="sm"
-              className="self-start"
+              className="m-3 self-start"
               onClick={() => navigate(to.change(projectKey, data.id, "tasks"))}
             >
               <FileCodeIcon aria-hidden="true" />
@@ -282,7 +275,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
           ) : null}
         </div>
       ) : (
-        <div className="px-1 py-1">
+        <div>
           <TaskList
             rows={rows}
             field={field}
@@ -302,15 +295,20 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     <>
       <DocFrame
         title={data.id}
+        mono
+        icon={FolderIcon}
+        parents={[{ label: project, href: to.project(projectKey) }]}
         label="Change files"
         value={current.slug}
         tabs={tabs.map((tab) => ({
           value: tab.slug,
           label: tab.file ?? CHANGE_FILE,
           href: to.change(projectKey, data.id, tab.slug),
-          Icon: tab.file === null ? FileCodeIcon : FileTextIcon,
           dirty: drafts.isDirty(tab.file ?? CHANGE_FILE),
         }))}
+        status={<ChangeStatus change={shown} />}
+        notices={notices}
+        heading={<ChangeHeading change={shown} />}
         panelName="Change"
         panel={<ChangePanel projectKey={projectKey} change={shown} tasks={taskPane} description={descriptionPane} />}
       >

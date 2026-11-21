@@ -1,14 +1,22 @@
-import type { ColumnDef, ColumnSizingState, ExpandedState, Updater } from "@tanstack/react-table"
 import { cn } from "cn"
-import { ArrowUpRightIcon, FolderIcon, MoreHorizontalIcon, PlusIcon, StarIcon } from "lucide-react"
-import { type FormEvent, useMemo, useState } from "react"
-import { Link, useLocation } from "wouter"
+import {
+  ArrowUpRightIcon,
+  FolderIcon,
+  FoldersIcon,
+  LayoutGridIcon,
+  MoreHorizontalIcon,
+  PlusIcon,
+  StarIcon,
+} from "lucide-react"
+import { type FormEvent, type ReactNode, useMemo, useState } from "react"
+import { useLocation } from "wouter"
 
-import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { useCollapsed } from "@/components/group-band"
-import { ColumnLabel, LIST_CAP, ListFoot, spareColumn, useSpare } from "@/components/list-grid"
+import { ListFoot } from "@/components/list-grid"
+import { COLUMN, type ListColumn, ListHead, ListRow, ListRows, RowActions } from "@/components/list-kit"
+import { PinButton } from "@/components/pin-button"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
@@ -21,12 +29,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
 import { Input } from "@/components/ui/input"
-import { HeadLink, HeadToggle, RowHead, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { DIALOG_TITLE } from "@/components/ui-classes"
 import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
-import { useBelowSm } from "@/hooks/use-below-sm"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import {
@@ -37,7 +43,6 @@ import {
   latest,
   notStarted,
   PROJECT_FIELDS,
-  type ProjectRow,
   projectTree,
   projectValues,
   renamed,
@@ -48,6 +53,7 @@ import {
   withoutProject,
   withProjectIn,
 } from "@/lib/workspace"
+import { ProjectMark } from "@/shell/project-mark"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** A dialog asking for a group's name: `initial` filled in; `onName` with the trimmed name. */
@@ -103,17 +109,16 @@ function NameDialog({
 /** A pending name request: a new group of `keys`, or renaming group `id`. */
 type Naming = { kind: "new"; keys: string[] } | { kind: "rename"; id: string; name: string } | null
 
-/** All projects' count columns: right-aligned, in mono. */
-const RIGHT = "text-right"
-const COUNT = "text-right font-mono text-xs text-muted-foreground tabular-nums"
+/** All projects' columns: In progress, Not started and Last archived, then a row's actions. */
+const COLUMNS: ListColumn[] = [
+  { id: "inProgress", title: "In progress", className: COLUMN.count, align: "end" },
+  { id: "notStarted", title: "Not started", className: COLUMN.count, align: "end" },
+  { id: "lastArchived", title: "Last archived", className: COLUMN.count, align: "end" },
+  { id: "actions", title: "", className: COLUMN.actions, align: "end" },
+]
 
-/** The name column's width, lowered below `sm`, where the count columns hide so the list fits a 390px screen. */
-const NAME = { wide: 240, narrow: 160 } as const
-const NO_COUNTS = { inProgress: false, notStarted: false, lastArchived: false } as const
-
-/** The expanded state `next` (or its updater) asks, from `current`, as a list of open rows. */
-const nextExpanded = (next: Updater<ExpandedState>, current: Record<string, boolean>): ExpandedState =>
-  typeof next === "function" ? next(current) : next
+/** A count of All projects: the ink while there is any, the secondary ink at zero. */
+const Count = ({ n }: { n: number }) => <span className={cn(n > 0 && "text-foreground")}>{n}</span>
 
 const PROJECT_FIELD_LABEL: Record<(typeof PROJECT_FIELDS)[number], string> = { group: "Group", pinned: "Pinned" }
 
@@ -129,9 +134,6 @@ export function ProjectsPage() {
   const { lists } = useChangeLists(list.map((p) => p.key))
   const [filter, setFilter] = useListFilter("projects", PROJECT_FIELDS)
   const choices = useCollapsed("projects")
-  const [sizing, setSizing] = useState<ColumnSizingState>({})
-  const { spare, sizer } = useSpare(LIST_CAP.changes)
-  const narrow = useBelowSm()
   const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
   const [error, setError] = useState<string | null>(null)
@@ -191,6 +193,11 @@ export function ProjectsPage() {
       <DropdownMenuContent align="end" className="w-52">
         {e.kind === "group" && key === null ? (
           <>
+            <DropdownMenuItem onClick={() => navigate(e.href)}>
+              <ArrowUpRightIcon aria-hidden="true" />
+              Open group
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => setNaming({ kind: "rename", id: e.id.slice("group:".length), name: e.label })}
             >
@@ -230,129 +237,45 @@ export function ProjectsPage() {
     </DropdownMenu>
   )
 
-  const pin = (e: Entry) => {
-    const pinned = settings.pinned.includes(e.id)
-    return (
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-pressed={pinned}
-        aria-label={pinned ? `Unpin ${e.label}` : `Pin ${e.label}`}
-        onClick={() => save((s) => togglePin(s, e.id))}
-        className={pinned ? "text-foreground" : "text-muted-foreground"}
-      >
-        <StarIcon aria-hidden="true" className={cn(pinned && "fill-current")} />
-      </Button>
-    )
-  }
+  const pin = (e: Entry) => (
+    <PinButton
+      pinned={settings.pinned.includes(e.id)}
+      label={e.label}
+      onToggle={() => save((s) => togglePin(s, e.id))}
+    />
+  )
 
   const rows = projectTree(entries)
-  const groupIds = rows.filter((r) => r.key === null).map((r) => r.id)
   // A group opens as this browser last chose, else by default only while the list is narrowed.
-  const expanded = Object.fromEntries(groupIds.map((id) => [id, !choices.collapsed(id, !narrowed)]))
-  const onExpandedChange = (update: Updater<ExpandedState>) => {
-    const next = nextExpanded(update, expanded)
-    const isOpen = (id: string) => next === true || next[id] === true
-    for (const id of groupIds) if (isOpen(id) !== expanded[id]) choices.set([id], !isOpen(id))
+  const isOpen = (id: string) => !choices.collapsed(id, !narrowed)
+  /**
+   * A project's folder, after its name: plain 13px secondary text, nothing when it is not known. It takes only the room
+   * the name leaves (no basis, growing up to its own width), so the name is never cut for it.
+   */
+  const path = (key: string) => {
+    const folder = list.find((p) => p.key === key)?.path ?? ""
+    return folder.trim() === "" || folder === "/" ? undefined : (
+      <span className="max-w-max min-w-0 grow basis-0 truncate text-xs text-muted-foreground">{folder}</span>
+    )
   }
-
-  /** The columns: the head, In progress (amber while any), Not started, Last archived, then the row's actions. */
-  const columns: ColumnDef<DataGridFeatures, ProjectRow>[] = [
-    {
-      id: "project",
-      header: () => <ColumnLabel>Project</ColumnLabel>,
-      cell: ({ row }) => {
-        const r = row.original
-        if (r.key === null)
-          return (
-            <HeadToggle
-              open={row.getIsExpanded()}
-              onToggle={() => row.toggleExpanded()}
-              head={(lead) => <RowHead lead={lead} id={r.entry.label} text={countOf(r.keys.length, "project")} />}
-            />
-          )
-        const member = row.depth === 1
-        return (
-          <HeadLink href={to.project(r.key)} member={member}>
-            <RowHead id={label(r.key)} text={list.find((p) => p.key === r.key)?.path ?? undefined} member={member} />
-          </HeadLink>
-        )
-      },
-      size: narrow ? NAME.narrow : NAME.wide,
-      ...(narrow ? { minSize: NAME.narrow } : {}),
-      enableSorting: false,
-      meta: { fillWidth: true, cellClassName: "relative" },
-    },
-    {
-      id: "inProgress",
-      header: () => <ColumnLabel>In progress</ColumnLabel>,
-      cell: ({ row }) => {
-        const n = inProgress(lists, row.original.keys)
-        return <span className={cn(n > 0 && "text-warning-foreground")}>{n}</span>
-      },
-      size: 96,
-      enableSorting: false,
-      meta: { headerClassName: RIGHT, cellClassName: COUNT },
-    },
-    {
-      id: "notStarted",
-      header: () => <ColumnLabel>Not started</ColumnLabel>,
-      cell: ({ row }) => notStarted(lists, row.original.keys),
-      size: 96,
-      enableSorting: false,
-      meta: { headerClassName: RIGHT, cellClassName: COUNT },
-    },
-    {
-      id: "lastArchived",
-      header: () => <ColumnLabel>Last archived</ColumnLabel>,
-      cell: ({ row }) => latest(lists, row.original.keys) || "–",
-      size: 112,
-      enableSorting: false,
-      meta: { headerClassName: RIGHT, cellClassName: COUNT },
-    },
-    {
-      id: "actions",
-      header: "",
-      cell: ({ row }) => {
-        const r = row.original
-        // The actions act alone: a click anywhere in their cell, gutter included, never reaches the row's.
-        return (
-          <span className="absolute inset-0 flex items-center justify-end pe-6" onClick={(e) => e.stopPropagation()}>
-            {r.key === null ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Open ${r.entry.label}`}
-                  className="text-muted-foreground"
-                  render={<Link href={r.entry.href} />}
-                >
-                  <ArrowUpRightIcon aria-hidden="true" />
-                </Button>
-                {pin(r.entry)}
-                {menu(r.entry, null)}
-              </>
-            ) : (
-              <>
-                {r.entry.kind === "project" ? pin(r.entry) : null}
-                {menu(r.entry, r.key)}
-              </>
-            )}
-          </span>
-        )
-      },
-      size: 108,
-      enableSorting: false,
-      // The cell's content covers it whole, so its click stops there; the three buttons of a group fill it inside the
-      // content's 24px right gutter.
-      meta: { cellClassName: "relative p-0" },
-    },
-    ...spareColumn<ProjectRow>(spare),
-  ]
+  const cells = (keys: readonly string[], actions: ReactNode) =>
+    COLUMNS.map((column) => ({
+      column,
+      content:
+        column.id === "inProgress" ? (
+          <Count n={inProgress(lists, keys)} />
+        ) : column.id === "notStarted" ? (
+          <Count n={notStarted(lists, keys)} />
+        ) : column.id === "lastArchived" ? (
+          latest(lists, keys) || "–"
+        ) : (
+          <RowActions>{actions}</RowActions>
+        ),
+    }))
 
   return (
     <>
-      <PageHeader title="All projects" />
+      <PageHeader title="All projects" icon={LayoutGridIcon} />
       <PageBody>
         <FilterBar
           fields={fields}
@@ -363,27 +286,21 @@ export function ProjectsPage() {
           total={projects !== null ? list.length : null}
           noun="project"
         />
-        {error !== null ? (
-          <EmptyNote tone="error" inset="page">
-            Could not save: {error}
-          </EmptyNote>
-        ) : null}
+        {error !== null ? <EmptyNote tone="error">Could not save: {error}</EmptyNote> : null}
         {suggested.map((s) => (
-          <div
-            key={s.key}
-            className="mx-6 mb-3 flex items-center gap-3 rounded-lg border border-dashed px-4 py-3 text-sm"
-          >
-            <span className="text-muted-foreground">
+          <div key={s.key} role="note" className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
+            <FoldersIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 text-muted-foreground">
               Group{" "}
               {s.keys.map((k, i) => (
                 <span key={k}>
                   {i > 0 ? (i === s.keys.length - 1 ? " and " : ", ") : null}
-                  <span className="font-medium text-foreground">{label(k)}</span>
+                  <span className="text-foreground">{label(k)}</span>
                 </span>
               ))}
               ? Their names share “{s.name}”.
             </span>
-            <span className="ml-auto flex gap-2">
+            <span className="flex shrink-0 gap-2">
               <Button size="sm" variant="outline" onClick={() => save((now) => withGroup(now, s.name, s.keys))}>
                 Group
               </Button>
@@ -398,30 +315,65 @@ export function ProjectsPage() {
           </div>
         ))}
         <ScrollBody>
-          {sizer}
           {gate}
           {projects !== null && entries.length === 0 && narrowed ? (
             <NoMatch nouns="projects" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : null}
           {rows.length > 0 ? (
             <>
-              <BandGrid
-                rows={rows}
-                columns={columns}
-                getRowId={(r) => r.id}
-                getSubRows={(r) => r.subRows}
-                columnSizing={sizing}
-                onColumnSizingChange={setSizing}
-                expanded={expanded}
-                onExpandedChange={onExpandedChange}
-                columnVisibility={narrow ? NO_COUNTS : undefined}
-                onRowClick={(row) => {
-                  const key = row.original.key
-                  if (key === null) row.toggleExpanded()
-                  else navigate(to.project(key))
-                }}
-                label="Projects"
-              />
+              <ListHead name="Project" columns={COLUMNS} />
+              <ListRows label="Projects">
+                {rows.map((r) => {
+                  if (r.key !== null)
+                    return (
+                      <ListRow
+                        key={r.id}
+                        head={{ href: to.project(r.key) }}
+                        icon={<ProjectMark label={label(r.key)} />}
+                        meta={path(r.key)}
+                        cells={cells(r.keys, [
+                          ...(r.entry.kind === "project" ? [<span key="pin">{pin(r.entry)}</span>] : []),
+                          <span key="menu">{menu(r.entry, r.key)}</span>,
+                        ])}
+                      >
+                        {label(r.key)}
+                      </ListRow>
+                    )
+                  const open = isOpen(r.id)
+                  return [
+                    <ListRow
+                      key={r.id}
+                      head={{ onToggle: () => choices.set([r.id], open), expanded: open }}
+                      icon={<ProjectMark label={r.entry.label} group />}
+                      meta={
+                        <span className="shrink-0 text-muted-foreground tabular-nums">
+                          {countOf(r.keys.length, "project")}
+                        </span>
+                      }
+                      cells={cells(r.keys, [
+                        <span key="pin">{pin(r.entry)}</span>,
+                        <span key="menu">{menu(r.entry, null)}</span>,
+                      ])}
+                    >
+                      {r.entry.label}
+                    </ListRow>,
+                    ...(open
+                      ? r.subRows.map((m) => (
+                          <ListRow
+                            key={m.id}
+                            member
+                            head={{ href: to.project(m.key as string) }}
+                            icon={<FolderIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />}
+                            meta={path(m.key as string)}
+                            cells={cells(m.keys, <span>{menu(m.entry, m.key)}</span>)}
+                          >
+                            {label(m.key as string)}
+                          </ListRow>
+                        ))
+                      : []),
+                  ]
+                })}
+              </ListRows>
               <ListFoot />
             </>
           ) : null}

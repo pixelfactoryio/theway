@@ -1,41 +1,51 @@
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress"
 import { cn } from "cn"
 
-import { ProgressIndicator, ProgressTrack } from "@/components/ui/progress"
 import type { Status } from "@/lib/changes"
 
 /**
- * A change's progress: a 96px bar, then `done/total`. Red while invalid, green once every task is done, amber
- * otherwise. `trackClassName` and `labelClassName` add to the bar's and the label's classes. The progressbar is named
- * "Tasks done" and reads its value as `done of total`: its children, the visible count among them, are presentational.
+ * A change's progress: `done/total` in the secondary ink, tabular, then a 14px ring that fills as its tasks are done:
+ * red while invalid, green once every task is done, the ink otherwise. The progressbar is named "Tasks done" and reads
+ * its value as `done of total`: the visible count and the ring are presentational.
  */
 export function ChangeProgress({
   done,
   total,
   status,
-  trackClassName,
-  labelClassName,
+  className,
 }: {
   done: number
   total: number
   status: Status
-  trackClassName?: string
-  labelClassName?: string
+  className?: string
 }) {
-  const colour = status === "invalid" ? "bg-destructive" : total > 0 && done === total ? "bg-success" : "bg-warning"
+  const share = total === 0 ? 0 : done / total
+  const stroke =
+    status === "invalid" ? "stroke-destructive" : total > 0 && done === total ? "stroke-success" : "stroke-foreground"
   return (
     <ProgressPrimitive.Root
-      value={total === 0 ? 0 : (done / total) * 100}
+      value={share * 100}
       aria-label="Tasks done"
       getAriaValueText={() => `${done} of ${total}`}
-      className="flex items-center gap-2"
+      className={cn("flex items-center justify-end gap-2", className)}
     >
-      <ProgressTrack className={cn("w-24 shrink-0", trackClassName)}>
-        <ProgressIndicator className={colour} />
-      </ProgressTrack>
-      <span className={cn("font-mono text-xs text-muted-foreground tabular-nums", labelClassName)}>
+      <span aria-hidden="true" className="text-muted-foreground tabular-nums">
         {done}/{total}
       </span>
+      <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 shrink-0 -rotate-90 fill-none">
+        <circle cx="8" cy="8" r="6" strokeWidth={2} className="stroke-track" />
+        {share > 0 ? (
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            strokeWidth={2}
+            pathLength={100}
+            strokeDasharray={`${share * 100} 100`}
+            className={stroke}
+          />
+        ) : null}
+      </svg>
     </ProgressPrimitive.Root>
   )
 }

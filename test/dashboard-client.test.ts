@@ -149,6 +149,7 @@ const NOT_CLIENT = [
   "@clack/prompts",
   "@eslint/js",
   "@fontsource-variable/geist-mono",
+  "@fontsource-variable/inter",
   "@hono/node-server",
   "@tailwindcss/cli",
   "@types/node",
@@ -295,6 +296,16 @@ test("the lint gutter's error mark is a destructive dot drawn in CSS, with no im
   expect(text).not.toMatch(/data:image|url\(/)
 })
 
+test("the code view sets code in Geist Mono at 13px on a 20px line, with a quiet gutter and its search in the interface's words", () => {
+  const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
+  expect(text).toContain('fontSize: "0.8125rem"')
+  expect(text).toContain('".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.25rem" }')
+  expect(text).toContain(
+    '".cm-gutters": { backgroundColor: "var(--background)", color: "var(--muted-foreground)", border: "none" }',
+  )
+  expect(text).toContain('"match case": "Match case"')
+})
+
 test("the code view holds its own extension set, read-only through EditorState.readOnly, with the page's nonce", () => {
   const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
   expect(text).not.toMatch(/basicSetup|minimalSetup|from "codemirror"|EditorView\.editable/)
@@ -305,8 +316,8 @@ test("the code view holds its own extension set, read-only through EditorState.r
 
 test("the five syntax colours are defined light and dark", () => {
   const css = readFileSync(join(CLIENT, "styles", "globals.css"), "utf-8")
-  const light = { keyword: "#b0322a", string: "#0a3d75", constant: "#1f55ad", property: "#1a6640", comment: "#67635f" }
-  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#a6a4a1" }
+  const light = { keyword: "#b0322a", string: "#0a3d75", constant: "#1f55ad", property: "#1a6640", comment: "#55585e" }
+  const dark = { keyword: "#ff7b72", string: "#a5d6ff", constant: "#79c0ff", property: "#7ee787", comment: "#a1a4aa" }
   for (const [k, v] of Object.entries(light)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(1)
   for (const [k, v] of Object.entries(dark)) expect(css.split(`--code-${k}: ${v};`).length - 1).toBe(2)
 })

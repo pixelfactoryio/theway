@@ -2,13 +2,15 @@ import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 
-import { KeyLabelText } from "@/components/file-page"
-import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { StatusMark } from "@/components/status"
+import { FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import type { DraftStore } from "@/drafts/draft-store"
 import { keyError, RUNS_ON_ORDER, type TextValue } from "@/lib/workflow-form"
+import { keyLabel } from "@/lib/workflow"
 import type { Place } from "@/lib/workflow-place"
 
 /** How an edit joins the undo history: its own step (`full`), the first keystroke of a field (`before`), or typing (`null`). */
@@ -39,18 +41,41 @@ export const ON_YAML = "Edit this value on the YAML tab."
 /** The value of a select's default option (the workflow's, the prompt's, None). */
 const DEFAULT = "\u0000default"
 
-/** Each line under its field. */
+/** Each line under its field, in red, in the code font. */
 export function Errors({ lines }: { lines: readonly string[] | undefined }) {
   if (lines === undefined || lines.length === 0) return null
   return (
     <>
       {lines.map((line, i) => (
-        <FieldError key={i} className="font-mono text-xs">
+        <FieldError key={i} className="font-mono text-xs font-normal text-destructive-foreground">
           {line}
         </FieldError>
       ))}
     </>
   )
+}
+
+/**
+ * The lines of a card that no field shows (a step that is not a map, a key the panel has no field for): one row each
+ * on a light rule, the Invalid mark then the line in the code font, in red.
+ */
+export function CardLines({ lines }: { lines: readonly string[] }) {
+  if (lines.length === 0) return null
+  return (
+    <ul role="alert" className="flex flex-col">
+      {lines.map((line, i) => (
+        <li key={i} className="flex gap-2 border-t border-rule px-3 py-2">
+          <StatusMark status="invalid" className="mt-0.5" />
+          <span className="min-w-0 font-mono text-xs wrap-break-word text-destructive-foreground">{line}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** A field's note under its control (an input's description, why a control is disabled): 12px, the secondary ink. */
+export function FieldNote({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-muted-foreground">{children}</p>
 }
 
 /**
@@ -111,8 +136,15 @@ export function DraftText({
       if (onWrite(next, mode)) self.current = true
     },
   }
-  return multiline ? <Textarea rows={rows} {...props} /> : <Input {...props} />
+  return multiline ? (
+    <Textarea rows={rows} {...props} className={cn(CONTROL, "min-h-0 py-1", className)} />
+  ) : (
+    <Input {...props} className={cn(CONTROL, "h-7", className)} />
+  )
 }
+
+/** A control of a card's row: 6px corners, 8px across, the interface's 13px at every width. */
+const CONTROL = "rounded-md px-2 text-sm md:text-sm"
 
 /** A select option. */
 export type Option = { value: string; label: string }
@@ -158,7 +190,7 @@ export function ChoiceSelect({
         else if (known(v as string)) onChange(v as string)
       }}
     >
-      <SelectTrigger id={id} className={cn("w-full", className)}>
+      <SelectTrigger id={id} size="sm" className={cn("w-full rounded-md", className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
@@ -172,49 +204,40 @@ export function ChoiceSelect({
   )
 }
 
-/** A field label that is a YAML key, as `KeyLabelText` writes it. */
-export function KeyLabel({ htmlFor, yamlKey }: { htmlFor?: string; yamlKey: string }) {
-  return (
-    <FieldLabel htmlFor={htmlFor}>
-      <KeyLabelText yamlKey={yamlKey} />
-    </FieldLabel>
-  )
-}
-
 /**
- * A row of a workflow panel: a shadcn `Field` holding its YAML key's label (for `htmlFor`'s control when given), its
- * value or control (`children`), then the lines of `errors` under it. A horizontal row puts its control before the
- * label, as a switch reads.
+ * A row of a workflow panel's card, as a property card's row: on a light rule, its label at the left in a 92px column
+ * in the secondary ink (`label`, or its YAML key as a name: `runs-on` is Runs on), level with a 28px control; its value
+ * or control (`children`) at the right, then the lines of `errors` under it. `orientation` is kept for the callers: a
+ * switch stands at the start of the value column like any control.
  */
 export function PanelField({
   yamlKey,
+  label,
   htmlFor,
-  orientation = "vertical",
   errors,
   children,
 }: {
   yamlKey: string
+  /** The label in place of the key's name (an input's name, in mono). */
+  label?: ReactNode
   htmlFor?: string
   orientation?: "vertical" | "horizontal"
   errors?: readonly string[]
   children: ReactNode
 }) {
-  const label = <KeyLabel htmlFor={htmlFor} yamlKey={yamlKey} />
   return (
-    <Field orientation={orientation}>
-      {orientation === "horizontal" ? (
-        <>
-          {children}
-          {label}
-        </>
-      ) : (
-        <>
-          {label}
-          {children}
-        </>
-      )}
-      <Errors lines={errors} />
-    </Field>
+    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-start gap-x-2 border-t border-rule px-3 py-2">
+      <Label
+        htmlFor={htmlFor}
+        className="block min-w-0 text-sm leading-7 font-normal wrap-break-word text-muted-foreground"
+      >
+        {label ?? keyLabel(yamlKey)}
+      </Label>
+      <div className="flex min-h-7 min-w-0 flex-col justify-center gap-1">
+        {children}
+        <Errors lines={errors} />
+      </div>
+    </div>
   )
 }
 
@@ -270,7 +293,7 @@ export function KeyText({
       id={id}
       aria-label={label}
       aria-invalid={err !== null || undefined}
-      className={cn("font-mono", className)}
+      className={cn(CONTROL, "h-7 font-mono text-xs md:text-xs", className)}
       value={typed ?? value ?? ""}
       disabled={value === null}
       onFocus={() => {

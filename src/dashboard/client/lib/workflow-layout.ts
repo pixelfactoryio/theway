@@ -5,31 +5,26 @@
  */
 import type { Drawing } from "./workflow"
 
-/** A card's size: 300px wide and 72px high (12px padding, a 24px header row, 4px, a 20px second row, 12px). */
-export const CARD = { width: 300, height: 72 } as const
+/**
+ * A card's size: 360px wide and 56px high: two lines (the title, 18px; the name and where it runs, 20px) 2px apart,
+ * centred in the card, its step number in a 36px column at its left.
+ */
+export const CARD = { width: 360, height: 56 } as const
 /** An on-fail card's width; it is as high as a card. */
 export const ON_FAIL_WIDTH = 232
-/** The space between two cards of the column: room for a round "+" clear of both cards and of the arrow head. */
-export const GAP = 64
-/** The space between a step card and its on-fail card. */
-export const ON_FAIL_GAP = 160
-/** How far an on-fail card stands above its step card, so the dashed edge bends and its pill sits on the bend. */
-export const ON_FAIL_RISE = 40
+/** The space between two cards of the column: a 1px line, with room for a round "+" clear of both cards. */
+export const GAP = 40
+/** The space between a step card and its on-fail card, which stands level with it: the dashed line and its label. */
+export const ON_FAIL_GAP = 112
 /** The round "Add a step" button, on each line between two cards and under the last card. */
 export const ADD_SIZE = 20
 /**
- * The room an edge's arrow head takes above the card it points to: React Flow's closed arrow, 14px at the edges' 1.5
- * stroke, is 5.25px long, and its own stroke.
+ * The space between a line's start and its "+": the line's length less the "+", halved, so the "+" stands as far from
+ * the card above as from the card below; the "+" under the last card stands as far under it.
  */
-export const ARROW = 6
-/**
- * The space between a line's start and its "+": the line's room above the arrow head, less the "+", halved. The "+"
- * stands centred in that room, as far from the card above as from the arrow head below; the "+" under the last card
- * stands as far under it.
- */
-export const ADD_CLEARANCE = (GAP - ARROW - ADD_SIZE) / 2
+export const ADD_CLEARANCE = (GAP - ADD_SIZE) / 2
 /** Where a line's "+" is centred, between a card's bottom at `sourceY` and the next card's top at `targetY`. */
-export const addCentre = (sourceY: number, targetY: number): number => (sourceY + targetY - ARROW) / 2
+export const addCentre = (sourceY: number, targetY: number): number => (sourceY + targetY) / 2
 
 /** A node of the canvas, its top-left corner and size in flow coordinates. */
 export type LayoutNode = { id: string; x: number; y: number; width: number; height: number } & (
@@ -52,8 +47,6 @@ export type LayoutEdge = {
       kind: "flow"
       /** The index a step added on this edge takes, `null` for an edge with no "+". */
       add: number | null
-      /** Whether the edge ends in an arrow head (not toward the "+" under the last card). */
-      arrow: boolean
     }
   | {
       kind: "on-fail"
@@ -91,7 +84,7 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
   /** A card of the column at the current height, joined to the one before it. */
   const place = (node: LayoutNode, add: number | null) => {
     nodes.push(node)
-    edges.push({ id: `${previous}->${node.id}`, source: previous, target: node.id, kind: "flow", add, arrow: true })
+    edges.push({ id: `${previous}->${node.id}`, source: previous, target: node.id, kind: "flow", add })
     previous = node.id
     y += node.height + GAP
   }
@@ -113,7 +106,7 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
         kind: "on-fail",
         index: step.index,
         x: CARD.width + ON_FAIL_GAP,
-        y: top - ON_FAIL_RISE,
+        y: top,
         width: ON_FAIL_WIDTH,
         height: CARD.height,
       })
@@ -139,7 +132,7 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
       height: ADD_SIZE,
     }
     nodes.push(node)
-    edges.push({ id: `${previous}->add`, source: previous, target: "add", kind: "flow", add: null, arrow: false })
+    edges.push({ id: `${previous}->add`, source: previous, target: "add", kind: "flow", add: null })
   }
 
   const left = Math.min(...nodes.map((n) => n.x))
@@ -149,8 +142,8 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
   return { nodes, edges, bounds: { x: left, y: top, width: right - left, height: bottom - top } }
 }
 
-/** The room kept free around the drawing in the view: 16px at the top and sides, and the toolbar's band at the bottom. */
-export const KEEP = { top: 16, side: 16, bottom: 68 } as const
+/** The room kept free around the drawing in the view: 24px on every side. */
+export const KEEP = { top: 24, side: 24, bottom: 24 } as const
 
 /** A view of the canvas: React Flow's viewport, the flow's origin at (`x`, `y`) on the pane, scaled by `zoom`. */
 export type View = { x: number; y: number; zoom: number }
@@ -165,44 +158,35 @@ const ZOOM = { min: 0.5, max: 2 } as const
 const fitScale = (box: number, area: number): number =>
   Math.max(ZOOM.min, Math.floor(Math.min(1, area / box) * 10 + 1e-9) / 10)
 
-/** The space between the page's heading, drawn over the canvas's top, and the drawing it fits. */
-export const UNDER_HEADING = 24
-
-/** The line the drawing's top stands on: 24px under the page's heading, or 16px under the pane's top without one. */
-const topLine = (heading: number): number => (heading > 0 ? heading + UNDER_HEADING : KEEP.top)
+/**
+ * The view of `bounds` at `zoom`: its top 24px under the pane's top, its left edge 24px from the pane's left, on the
+ * title's edge.
+ */
+const viewAt = (bounds: Bounds, zoom: number): View => ({
+  x: KEEP.side - bounds.x * zoom,
+  y: KEEP.top - bounds.y * zoom,
+  zoom,
+})
 
 /**
- * The view of `bounds` at `zoom` in a pane `width` wide: its top on `top`; centred across the pane when it fits
- * between the 16px margins, else its left edge 16px from the pane's left.
+ * The view a canvas opens with: `bounds` at 100%, its top 24px under the pane's top and its left 24px from the pane's
+ * left. A drawing too tall or too wide for the pane shows its top and its left, and is panned.
  */
-const viewAt = (bounds: Bounds, width: number, top: number, zoom: number): View => {
-  const shown = bounds.width * zoom
-  const x = shown <= width - 2 * KEEP.side ? (width - shown) / 2 : KEEP.side
-  return { x: x - bounds.x * zoom, y: top - bounds.y * zoom, zoom }
+export function openView(bounds: Bounds): View {
+  return viewAt(bounds, 1)
 }
 
 /**
- * The view a canvas opens with, in a pane whose top `heading` pixels hold the page's heading: `bounds` at 100%, its
- * top 24px under the heading (16px under the pane's top without one), centred across the pane when it fits between
- * the 16px margins. A drawing too tall or too wide for the pane shows its top and its left, and is panned.
+ * The view that fits `bounds` in a pane `width` × `height`: the scale fits its height between the pane's top + 24px
+ * and its bottom - 24px, and its width between 24px margins (`fitScale` of each, the smaller), placed as `openView`
+ * places it (a drawing too tall or too wide at 0.5 shows its top and its left).
  */
-export function openView(bounds: Bounds, pane: { width: number; height: number }, heading = 0): View {
-  return viewAt(bounds, pane.width, topLine(heading), 1)
-}
-
-/**
- * The view that fits `bounds` in a pane `width` × `height` whose top `heading` pixels hold the page's heading: the
- * scale fits its height between the heading + 24px (or the pane's top + 16px without one) and the toolbar's band, and
- * its width between 16px margins (`fitScale` of each, the smaller), placed as `openView` places it (a drawing too tall
- * or too wide at 0.5 shows its top and its left).
- */
-export function fitView(bounds: Bounds, pane: { width: number; height: number }, heading = 0): View {
-  const top = topLine(heading)
+export function fitView(bounds: Bounds, pane: { width: number; height: number }): View {
   const zoom = Math.min(
-    fitScale(bounds.height, pane.height - top - KEEP.bottom),
+    fitScale(bounds.height, pane.height - KEEP.top - KEEP.bottom),
     fitScale(bounds.width, pane.width - 2 * KEEP.side),
   )
-  return viewAt(bounds, pane.width, top, zoom)
+  return viewAt(bounds, zoom)
 }
 
 /** Whether part of `bounds` lies outside the pane `width` × `height` seen through `view`. */
@@ -214,9 +198,21 @@ export function overflows(bounds: Bounds, view: View, pane: { width: number; hei
   return left < 0 || top < 0 || right > pane.width || bottom > pane.height
 }
 
+/** The minimap's size, and its margin from the pane's edges. */
+export const MINIMAP = { width: 160, height: 100, margin: 16 } as const
+
 /**
- * How far to pan so a box (`top`…`bottom`, `left`…`right`, in pane pixels) shows whole: inside 16px at the top and
- * sides, and above the toolbar's band. `{ dx: 0, dy: 0 }` when it already shows.
+ * Whether the minimap, at the pane's bottom right, clears the drawing seen through `view`: the room right of the
+ * drawing holds it with its margins. A drawing panned past the pane's right edge leaves no room.
+ */
+export function minimapClears(bounds: Bounds, view: View, pane: { width: number }): boolean {
+  const right = (bounds.x + bounds.width) * view.zoom + view.x
+  return pane.width - right >= MINIMAP.width + 2 * MINIMAP.margin
+}
+
+/**
+ * How far to pan so a box (`top`…`bottom`, `left`…`right`, in pane pixels) shows whole: inside 24px at the top and
+ * sides and bottom. `{ dx: 0, dy: 0 }` when it already shows.
  */
 export function revealDelta(
   box: { left: number; top: number; right: number; bottom: number },

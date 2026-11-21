@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
-import { ColumnTitle, DocTitle, GutterTitle } from "../src/dashboard/client/components/doc-title"
+import { ItemHeading } from "../src/dashboard/client/components/doc-frame"
 import { ListFoot } from "../src/dashboard/client/components/list-grid"
 import { PageUnknown } from "../src/dashboard/client/components/page-states"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
@@ -24,7 +24,10 @@ test("an address naming no project or group is the shared unknown page: its name
     </QueryClientProvider>,
   )
   expect(html).toContain(">nope</h1>")
-  expect(html).toMatch(/data-slot="empty"[^>]*>.*No project nope.*<a [^>]*href="\/x"[^>]*>Back to All projects<\/a>/s)
+  // The one state shape, left-aligned on the panel's 16px gutter: the message, then the way back.
+  expect(html).toMatch(
+    /data-slot="state" class="[^"]*\bpx-4\b[^"]*">.*No project nope.*<a [^>]*href="\/x"[^>]*>Back to All projects<\/a>/s,
+  )
   // A project's or a group's page renders it, as a workflow's, a prompt's and a change's do, and no view of its own.
   for (const file of [
     "pages/workspace/scope.tsx",
@@ -58,32 +61,70 @@ test("every list page ends with the one list foot, 32px under its last row", () 
     "pages/files/prompts.tsx",
     "components/file-list.tsx",
     "components/group-band.tsx",
-    "components/band-grid.tsx",
+    "components/list-kit.tsx",
   ])
     expect([file, /\bpb-\d/.test(read(file))]).toEqual([file, false])
 })
 
-test("a title on the gutter is the same on every page; in the document column it takes the document's ink", () => {
-  const title = <DocTitle caption="Prompts · Global" title="implement" description="What it does" />
-  const h1 = (html: string) => /<h1 class="([^"]*)"/.exec(html)?.[1]
-  const text = (html: string) => /<p class="([^"]*)">What it does/.exec(html)?.[1]
-  // On a canvas (no wrapper) and in the gutter wrapper: the interface's ink, the description at most 36rem.
-  for (const html of [renderToStaticMarkup(title), renderToStaticMarkup(<GutterTitle rule>{title}</GutterTitle>)]) {
-    expect(h1(html)).toBe("mt-1 text-title font-semibold tracking-tight text-foreground")
-    expect(text(html)).toBe("text-sm text-muted-foreground max-w-xl")
+test("an item's page states its title once, above every view, its ID or file name once in the header's path", () => {
+  // The title: in the reading column, at the reading scale's title size, outside the view's scroll root.
+  const html = renderToStaticMarkup(<ItemHeading title="Split the client" />)
+  expect(html).toMatch(
+    /^<div class="shrink-0 [^"]*\bpt-8 pb-4\b[^"]*\bpx-6\b[^"]*"><div class="w-full max-w-\(--read-width\)">/,
+  )
+  // A hairline under it only once the view under it is scrolled.
+  expect(html).toContain("border-transparent")
+  expect(html).toContain("[&amp;:has(~[data-scrolled])]:border-border")
+  // At most two lines, the whole title on hover.
+  expect(html).toContain(
+    '<h2 title="Split the client" class="line-clamp-2 text-doc-title font-semibold tracking-tight text-pretty text-foreground">Split the client</h2>',
+  )
+  // An item with no description has no title: its ID or file name stands once, in the header's path.
+  expect(renderToStaticMarkup(<ItemHeading title={null} />)).toBe("")
+  expect(renderToStaticMarkup(<ItemHeading title="  " />)).toBe("")
+  // A change's, a workflow's and a prompt's page are one frame: the header with the mono ID or name, the pill views,
+  // the title passed once to the frame (never to a view), the panel's cards; no page builds a header of its own.
+  const heading = {
+    "pages/change/active.tsx": "heading={<ChangeHeading",
+    "pages/change/archived.tsx": "heading={<ChangeHeading",
+    "pages/workflow/page.tsx": "heading={<ItemHeading",
+    "pages/prompt/page.tsx": "heading={<ItemHeading",
   }
-  // The gutter wrapper: the 24px gutter, 16px over and 12px under, its rule only with `rule`.
-  const wrapper = (html: string) => /^<div class="([^"]*)"/.exec(html)?.[1]?.split(" ") ?? []
-  const plain = wrapper(renderToStaticMarkup(<GutterTitle>{title}</GutterTitle>))
-  expect(["px-6", "pt-4", "pb-3"].filter((c) => plain.includes(c))).toEqual(["px-6", "pt-4", "pb-3"])
-  expect(plain).not.toContain("border-b")
-  expect(wrapper(renderToStaticMarkup(<GutterTitle rule>{title}</GutterTitle>))).toContain("border-b")
-  const column = renderToStaticMarkup(<ColumnTitle>{title}</ColumnTitle>)
-  // The column wrapper: 40px under the top row.
-  expect(wrapper(column)).toContain("pt-10")
-  expect(h1(column)).toBe("mt-1 text-title font-semibold tracking-tight text-doc-foreground")
-  expect(text(column)).toBe("text-sm text-muted-foreground")
-  // No page chooses a title's ink or its description's width.
-  for (const file of ["pages/workflow/page.tsx", "pages/prompt/page.tsx", "components/change-header.tsx"])
-    expect([file, /<DocTitle[^>]*\bvariant=/.test(read(file))]).toEqual([file, false])
+  for (const [file, passed] of Object.entries(heading)) {
+    const text = read(file)
+    expect([file, text.match(/<DocFrame\b/g)?.length]).toEqual([file, 1])
+    expect([file, text.match(/<(ChangeHeading|ItemHeading)\b/g)?.length]).toEqual([file, 1])
+    expect([file, text.includes(passed)]).toEqual([file, true])
+    expect([file, /title=\{(data\.id|name)\}\s+mono\b/.test(text)]).toEqual([file, true])
+    expect([file, /<(DocTab|CodeTab|HistoryTab)\b[^>]*\btitle=/.test(text)]).toEqual([file, false])
+    expect([file, /<ViewTabs\b|<RecordBody\b|<PanelToggle\b/.test(text)]).toEqual([file, false])
+  }
+  // The views take no title of their own.
+  for (const file of ["components/code-tab.tsx", "components/history.tsx", "components/doc-tab.tsx"])
+    expect([file, /\btitle\??:/.test(read(file))]).toEqual([file, false])
+})
+
+test("a change's panel is stacked property cards, and its tasks mark the next one without colour", () => {
+  const panel = read("components/change-panel.tsx")
+  expect(panel).toContain("<PropertyCards>")
+  // Its first card is the status card every item's panel opens with.
+  expect(panel).toContain("<StatusCard")
+  for (const card of ['title="Tasks"', 'title="Details"', 'title="Series"']) expect(panel).toContain(card)
+  expect(panel).not.toContain("DocPanel")
+  // The Series card lists its members with the list kit.
+  expect(panel).toContain("<ListRow")
+  const tasks = read("components/task-list.tsx")
+  expect(tasks).not.toMatch(/shadow-\[inset|text-warning|border-warning|bg-warning/)
+})
+
+test("the document scale: body leading within 120 to 145%, headings under the page's title, each step smaller", () => {
+  const css = readFileSync(join(client, "styles", "globals.css"), "utf-8")
+  const rem = (token: string) => Number(new RegExp(`--${token}: ([\\d.]+)rem;`).exec(css)?.[1])
+  for (const level of ["doc", "doc-title", "doc-h1", "doc-h2", "doc-h3"]) {
+    const ratio = rem(`text-${level}--line-height`) / rem(`text-${level}`)
+    expect([level, ratio >= 1.2 && ratio <= 1.45]).toEqual([level, true])
+  }
+  const sizes = ["doc-title", "doc-h1", "doc-h2", "doc-h3"].map((l) => rem(`text-${l}`))
+  expect(sizes).toEqual([...sizes].sort((a, b) => b - a))
+  expect(rem("text-doc-h3") >= rem("text-doc")).toBe(true)
 })
