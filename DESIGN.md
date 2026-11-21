@@ -1,618 +1,744 @@
 ---
 name: theway dashboard
-description: The local web view of a theway home, built as a dark-first desktop app after Conductor.
+description: The local web view of a theway home, a text-heavy desktop tool set in one inset panel on a cool ground.
 colors:
-  # Dark theme (designed first): `:root[data-theme="dark"]` and `prefers-color-scheme: dark`.
-  window-dark: "#151311"
-  document-dark: "#161412"
-  sidebar-panel-dark: "#1a1816"
-  card-dark: "#1e1c1b"
-  band-dark: "#1e1c1b"
-  popover-dark: "#211f1d"
-  muted-dark: "#242220"
-  selection-dark: "#272523"
-  rule-dark: "#302e2c"
-  canvas-dot-dark: "#2e2c2a"
-  input-rule-dark: "#363432"
-  dim-ink-dark: "#a6a4a1"
-  third-ink-dark: "#918d8a"
-  ink-dark: "#eeecea"
-  doc-ink-dark: "#f0efed"
-  doc-code-tint-dark: "rgb(255 255 255 / 0.055)"
-  code-surface-dark: "rgb(255 255 255 / 0.03)"
-  link-blue-dark: "#6aa7ff"
-  done-green-dark: "#45b97c"
-  progress-amber-dark: "#e3a43f"
-  invalid-red-dark: "#ef6a5b"
-  brand-amber-dark: "#f5a74b"
-  code-keyword-dark: "#ff7b72"
-  code-string-dark: "#a5d6ff"
-  code-constant-dark: "#79c0ff"
-  code-function-dark: "#d2a8ff"
-  code-type-dark: "#ffa657"
-  code-property-dark: "#7ee787"
-  tone-inputs-dark: "oklch(74.6% 0.16 232.661)"
-  tone-session-dark: "oklch(77.7% 0.152 181.912)"
-  tone-agents-dark: "oklch(78.5% 0.115 274.713)"
-  tone-on-fail-dark: "oklch(71.2% 0.194 13.428)"
-  # Light theme: `:root`, the same roles on a near-white ground.
-  document-light: "#ffffff"
-  window-light: "#f3f1ef"
-  sidebar-panel-light: "#f8f6f4"
-  band-light: "#f6f4f2"
-  muted-light: "#f2f0ee"
-  secondary-light: "#eeecea"
-  selection-light: "#ebe9e7"
-  rule-light: "#e6e4e2"
-  input-rule-light: "#d7d4d1"
-  dim-ink-light: "#67635f"
-  third-ink-light: "#6f6b67"
-  ink-light: "#1a1816"
-  doc-ink-light: "#37352f"
-  doc-code-tint-light: "rgb(135 131 120 / 0.15)"
-  code-surface-light: "rgb(135 131 120 / 0.07)"
-  link-blue-light: "#2563c9"
-  info-ink-light: "#1f55ad"
-  done-green-light: "#1a7044"
-  progress-amber-light: "#ca7a00"
-  progress-amber-ink-light: "#8f5407"
-  invalid-red-light: "#c2392c"
-  invalid-ink-light: "#b02f23"
-  brand-amber-light: "#b4650f"
+  # Light theme (`:root`), one entry per token of globals.css; the dark entry follows each.
+  ground-light: "#eceef1"
+  ground-dark: "#09090b"
+  brand-light: "#18191b"
+  brand-dark: "#f2f2f0"
+  background-light: "#ffffff"
+  background-dark: "#151619"
+  foreground-light: "#111214"
+  foreground-dark: "#f2f2f0"
+  card-light: "#ffffff"
+  card-dark: "#1a1b1f"
+  card-foreground-light: "#111214"
+  card-foreground-dark: "#f2f2f0"
+  popover-light: "#ffffff"
+  popover-dark: "#1d1e22"
+  popover-foreground-light: "#111214"
+  popover-foreground-dark: "#f2f2f0"
+  primary-light: "#18191b"
+  primary-dark: "#f2f2f0"
+  primary-foreground-light: "#ffffff"
+  primary-foreground-dark: "#151619"
+  secondary-light: "#f1f2f4"
+  secondary-dark: "#222327"
+  secondary-foreground-light: "#18191b"
+  secondary-foreground-dark: "#f2f2f0"
+  muted-light: "#f1f2f4"
+  muted-dark: "#1f2024"
+  muted-foreground-light: "#55585e"
+  muted-foreground-dark: "#a1a4aa"
+  subtle-foreground-light: "#55585e"
+  subtle-foreground-dark: "#a1a4aa"
+  accent-light: "#f3f4f6"
+  accent-dark: "#1f2024"
+  accent-foreground-light: "#18191b"
+  accent-foreground-dark: "#f2f2f0"
+  destructive-light: "#cf2f2f"
+  destructive-dark: "#e5534b"
+  border-light: "#dcdee2"
+  border-dark: "#2c2d33"
+  input-light: "#d4d6da"
+  input-dark: "#34363c"
+  ring-light: "#2f6fd0"
+  ring-dark: "#4f8fe6"
+  link-light: "#2f6fd0"
+  link-dark: "#4f8fe6"
+  rule-light: "#eceef0"
+  rule-dark: "#1f2024"
+  band-light: "#eff0f3"
+  band-dark: "#222328"
+  selected-light: "rgb(47 111 208 / 0.1)"
+  selected-dark: "rgb(79 143 230 / 0.15)"
+  track-light: "#dfe1e5"
+  track-dark: "#3a3c42"
+  chart-1-light: "#2f6fd0"
+  chart-1-dark: "#4f8fe6"
+  chart-2-light: "#1f8a4c"
+  chart-2-dark: "#4caf7d"
+  chart-3-light: "#a86b00"
+  chart-3-dark: "#d9a441"
+  chart-4-light: "#cf2f2f"
+  chart-4-dark: "#e5534b"
+  chart-5-light: "#55585e"
+  chart-5-dark: "#a1a4aa"
+  canvas-light: "#f2f3f5"
+  canvas-dark: "#0d0e10"
+  canvas-dot-light: "#cfd2d7"
+  canvas-dot-dark: "#2f3137"
+  sidebar-light: "#eceef1"
+  sidebar-dark: "#09090b"
+  sidebar-foreground-light: "#3a3c41"
+  sidebar-foreground-dark: "#c4c6ca"
+  sidebar-primary-light: "#2f6fd0"
+  sidebar-primary-dark: "#4f8fe6"
+  sidebar-primary-foreground-light: "#ffffff"
+  sidebar-primary-foreground-dark: "#09090b"
+  sidebar-accent-light: "#e0e2e6"
+  sidebar-accent-dark: "#1b1c20"
+  sidebar-accent-foreground-light: "#18191b"
+  sidebar-accent-foreground-dark: "#f2f2f0"
+  sidebar-border-light: "#dcdee2"
+  sidebar-border-dark: "#2c2d33"
+  sidebar-ring-light: "#2f6fd0"
+  sidebar-ring-dark: "#4f8fe6"
+  destructive-foreground-light: "#c22727"
+  destructive-foreground-dark: "#ef6a62"
+  success-light: "#1f8a4c"
+  success-dark: "#4caf7d"
+  success-foreground-light: "#1a7a43"
+  success-foreground-dark: "#4caf7d"
+  info-light: "#2f6fd0"
+  info-dark: "#4f8fe6"
+  info-foreground-light: "#2a62b8"
+  info-foreground-dark: "#6aa0ec"
+  warning-light: "#b07a14"
+  warning-dark: "#d9a441"
+  warning-foreground-light: "#946000"
+  warning-foreground-dark: "#d9a441"
+  invert-light: "#18191b"
+  invert-dark: "#f2f2f0"
+  invert-foreground-light: "#ffffff"
+  invert-foreground-dark: "#151619"
+  project-1-light: "#5a62cf"
+  project-1-dark: "#8a90f0"
+  project-2-light: "#8a4fd6"
+  project-2-dark: "#b48af2"
+  project-3-light: "#c63d8b"
+  project-3-dark: "#ec7ab8"
+  project-4-light: "#138a80"
+  project-4-dark: "#3cc3b6"
+  project-5-light: "#1d84a8"
+  project-5-dark: "#4fb6dc"
+  project-6-light: "#6f7d1c"
+  project-6-dark: "#aebd4a"
+  project-7-light: "#9a6438"
+  project-7-dark: "#d29a6c"
   code-keyword-light: "#b0322a"
+  code-keyword-dark: "#ff7b72"
   code-string-light: "#0a3d75"
-  code-function-light: "#6639ba"
-  code-type-light: "#953800"
+  code-string-dark: "#a5d6ff"
+  code-constant-light: "#1f55ad"
+  code-constant-dark: "#79c0ff"
   code-property-light: "#1a6640"
-  tone-inputs-light: "oklch(50% 0.134 242.749)"
-  tone-session-light: "oklch(51.1% 0.096 186.391)"
-  tone-agents-light: "oklch(51.1% 0.262 276.966)"
-  tone-on-fail-light: "oklch(51.4% 0.222 16.935)"
+  code-property-dark: "#7ee787"
+  code-comment-light: "#55585e"
+  code-comment-dark: "#a1a4aa"
+  code-function-light: "#6639ba"
+  code-function-dark: "#d2a8ff"
+  code-type-light: "#953800"
+  code-type-dark: "#ffa657"
+  code-surface-light: "rgb(24 25 27 / 0.03)"
+  code-surface-dark: "rgb(255 255 255 / 0.03)"
+  doc-code-tint-light: "rgb(24 25 27 / 0.045)"
+  doc-code-tint-dark: "rgb(255 255 255 / 0.055)"
+  overlay-light: "rgb(15 16 18 / 0.16)"
+  overlay-dark: "rgb(0 0 0 / 0.5)"
   # Fixed values both themes share.
   white: "#fff"
   black: "#000"
+  shadow-ink-xs: "rgb(0 0 0 / 0.05)"
+  shadow-ink-sm-1: "rgb(0 0 0 / 0.06)"
+  shadow-ink-sm-2: "rgb(0 0 0 / 0.08)"
+  shadow-ink-md-1: "rgb(0 0 0 / 0.1)"
+  shadow-ink-md-2: "rgb(0 0 0 / 0.16)"
+  shadow-ink-lg-1: "rgb(0 0 0 / 0.12)"
+  shadow-ink-lg-2: "rgb(0 0 0 / 0.24)"
+  grid-edge-light: "rgba(0,0,0,0.03)"
+  grid-edge-dark: "rgba(255,255,255,0.06)"
+  scrub-shadow: "#0008"
+  icon-tile-shadow: "rgb(0 0 0 / 0.14)"
   grid-dirty-amber: "oklch(76.9% 0.188 70.08)"
   grid-new-green: "oklch(72.3% 0.219 149.579)"
 typography:
-  document-title:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "1.3125rem"
+  interface:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+    fontVariation: "opsz auto"
+  interface-name:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.875rem"
+    fontWeight: 500
+    lineHeight: "1.25rem"
+  interface-heading:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.875rem"
     fontWeight: 600
-    lineHeight: "1.8125rem"
+    lineHeight: "1.25rem"
+  interface-text:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+  label:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: "1.125rem"
+  dialog-title:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1rem"
+    fontWeight: 600
+    lineHeight: "1.375rem"
+  text-title:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1.375rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
+  mono-id:
+    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: "1.125rem"
+  mono-title:
+    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
+    fontSize: "0.8125rem"
+    fontWeight: 500
+    lineHeight: "1.125rem"
+  code:
+    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+  doc-title:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1.75rem"
+    fontWeight: 600
+    lineHeight: "2.125rem"
     letterSpacing: "-0.025em"
-  doc-h1:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "1.875rem"
-    fontWeight: 600
-    lineHeight: "2.4375rem"
-  doc-h2:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "1.5rem"
-    fontWeight: 600
-    lineHeight: "1.9375rem"
-  doc-h3:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "1.25rem"
-    fontWeight: 600
-    lineHeight: "1.625rem"
   doc-body:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "1rem"
     fontWeight: 400
+    lineHeight: "1.4375rem"
+  doc-h1:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1.25rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
+  doc-h2:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1.0625rem"
+    fontWeight: 600
     lineHeight: "1.5rem"
-  doc-id:
-    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: "1.25rem"
-  doc-code:
-    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.85em"
-    fontWeight: 400
-    lineHeight: 1.5
-  workflow-title:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "1.3125rem"
+  doc-h3:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1rem"
     fontWeight: 600
-    lineHeight: "1.8125rem"
-    letterSpacing: "-0.025em"
-  heading:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "0.875rem"
+    lineHeight: "1.4375rem"
+  doc-inline-code:
+    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
+    fontSize: "max(0.75rem, 0.8125em)"
+    fontWeight: 400
+  panel-prose:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: "1.125rem"
+  panel-prose-h1:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.9375rem"
     fontWeight: 600
     lineHeight: "1.25rem"
-  body:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
+  panel-prose-h2:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "0.875rem"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: "1.25rem"
-  row-id:
-    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.875rem"
-    fontWeight: 400
+  panel-prose-h3:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.8125rem"
+    fontWeight: 600
     lineHeight: "1.25rem"
-  task-lead:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "0.875rem"
-    fontWeight: 500
-    lineHeight: "1.3125rem"
-  grid-header:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "0.75rem"
+  field-mobile:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1rem"
     fontWeight: 400
-    lineHeight: "1rem"
-  button-small:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
+  shortcut-hint:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    letterSpacing: "0.1em"
+  vendored-button-small:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "0.8rem"
     fontWeight: 500
-  small:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
-    fontSize: "0.75rem"
-    fontWeight: 400
-    lineHeight: "1rem"
-  badge-tiny:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
+  vendored-badge-sm:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "0.625rem"
     fontWeight: 500
     lineHeight: 1
-  badge-micro:
-    fontFamily: '"SF Pro", system-ui, sans-serif'
+  vendored-badge-xs:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "0.6rem"
     fontWeight: 500
     lineHeight: 1
-  code:
-    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: "1.5rem"
-  mono-small:
-    fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.75rem"
-    fontWeight: 400
-    lineHeight: "1rem"
+  vendored-drag-badge:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "10px"
+    lineHeight: 1
 rounded:
+  hairline: "1px"
   mark: "2px"
-  inset-kbd: "3px"
+  minimap-node: "3px"
   sm: "4px"
   inset-button: "5px"
   md: "6px"
   lg: "8px"
-  doc-code: "10px"
-  xl: "12px"
-  2xl: "14.4px"
-  3xl: "17.6px"
-  4xl: "20.8px"
+  doc-code: "8px"
+  xl: "10px"
+  2xl: "12px"
+  3xl: "16px"
+  4xl: "20px"
+  dot: "50%"
   full: "9999px"
 spacing:
   "0.5": "2px"
   "1": "4px"
+  "1.5": "6px"
   "2": "8px"
+  "2.5": "10px"
   "3": "12px"
   "4": "16px"
   "5": "20px"
   "6": "24px"
-  "7": "28px"
   "8": "32px"
-  "9": "36px"
   "10": "40px"
-  "12": "48px"
-  "14": "56px"
-  "16": "64px"
+  "11": "44px"
 components:
   button-default:
-    backgroundColor: "{colors.ink-dark}"
-    textColor: "{colors.window-dark}"
-    typography: "{typography.body}"
+    backgroundColor: "{colors.primary-light}"
+    textColor: "{colors.primary-foreground-light}"
+    typography: "{typography.interface-name}"
     rounded: "{rounded.lg}"
     padding: "0 10px"
     height: "32px"
   button-outline:
-    backgroundColor: "{colors.document-dark}"
-    textColor: "{colors.ink-dark}"
+    backgroundColor: "{colors.background-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface-name}"
     rounded: "{rounded.lg}"
     padding: "0 10px"
     height: "32px"
   button-ghost-hover:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.ink-dark}"
+    backgroundColor: "{colors.muted-light}"
+    textColor: "{colors.foreground-light}"
     rounded: "{rounded.lg}"
   button-small:
-    typography: "{typography.button-small}"
+    typography: "{typography.interface-name}"
     rounded: "{rounded.md}"
     padding: "0 10px"
     height: "28px"
   input:
-    backgroundColor: "{colors.document-dark}"
-    textColor: "{colors.ink-dark}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface}"
     rounded: "{rounded.lg}"
     padding: "4px 10px"
     height: "32px"
+  work-area:
+    backgroundColor: "{colors.background-light}"
+    rounded: "{rounded.xl}"
   sidebar-row:
-    textColor: "{colors.ink-dark}"
-    typography: "{typography.body}"
+    textColor: "{colors.sidebar-foreground-light}"
+    typography: "{typography.interface}"
     rounded: "{rounded.md}"
-    padding: "8px"
-    height: "32px"
+    padding: "0 8px"
+    height: "28px"
   sidebar-row-active:
-    backgroundColor: "{colors.selection-dark}"
-    textColor: "{colors.ink-dark}"
-  document-tab:
-    textColor: "{colors.dim-ink-dark}"
-    typography: "{typography.body}"
-    padding: "0 16px"
+    backgroundColor: "{colors.selected-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface-name}"
+  page-header:
+    typography: "{typography.interface-heading}"
+    padding: "0 12px 0 16px"
     height: "44px"
-  document-tab-active:
-    textColor: "{colors.ink-dark}"
-  panel:
-    backgroundColor: "{colors.sidebar-panel-dark}"
-    width: "420px"
-  group-band:
-    backgroundColor: "{colors.band-dark}"
-    textColor: "{colors.ink-dark}"
-    typography: "{typography.body}"
-    padding: "0 24px"
+  view-tab:
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.interface}"
+    rounded: "{rounded.full}"
+    padding: "0 12px"
+    height: "26px"
+  view-tab-active:
+    backgroundColor: "{colors.selected-light}"
+    textColor: "{colors.foreground-light}"
+  list-head:
+    backgroundColor: "{colors.background-light}"
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.label}"
+    padding: "0 16px"
+    height: "32px"
+  section-band:
+    backgroundColor: "{colors.band-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface-heading}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
     height: "36px"
   list-row:
-    textColor: "{colors.ink-dark}"
-    typography: "{typography.row-id}"
-    padding: "8px 24px"
-    height: "36px"
-  filter-chip:
-    backgroundColor: "{colors.document-dark}"
-    textColor: "{colors.ink-dark}"
-    typography: "{typography.body}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface-name}"
+    padding: "0 16px"
+    height: "40px"
+  list-row-hover:
+    backgroundColor: "{colors.accent-light}"
+  list-row-current:
+    backgroundColor: "{colors.selected-light}"
+  id-chip:
+    backgroundColor: "{colors.band-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.mono-id}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
+    height: "24px"
+  property-card:
+    backgroundColor: "{colors.card-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.interface}"
     rounded: "{rounded.lg}"
-    height: "28px"
-  workflow-card:
-    backgroundColor: "{colors.card-dark}"
-    textColor: "{colors.ink-dark}"
-    rounded: "{rounded.lg}"
+  property-card-header:
+    typography: "{typography.interface-heading}"
     padding: "0 12px"
-    width: "300px"
-    height: "72px"
-  canvas-controls:
-    backgroundColor: "{colors.card-dark}"
+    height: "40px"
+  workflow-card:
+    backgroundColor: "{colors.card-light}"
+    textColor: "{colors.card-foreground-light}"
+    typography: "{typography.interface}"
     rounded: "{rounded.lg}"
-    padding: "0 4px"
-    height: "36px"
+    width: "360px"
+    height: "56px"
+  canvas-toolbar:
+    backgroundColor: "{colors.background-light}"
+    textColor: "{colors.muted-foreground-light}"
+    padding: "0 12px"
+    height: "40px"
   code-block:
-    backgroundColor: "{colors.code-surface-dark}"
-    textColor: "{colors.doc-ink-dark}"
-    typography: "{typography.doc-code}"
+    backgroundColor: "{colors.code-surface-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.code}"
     rounded: "{rounded.doc-code}"
     padding: "16px 20px"
+  inline-code:
+    backgroundColor: "{colors.doc-code-tint-light}"
+    typography: "{typography.doc-inline-code}"
+    rounded: "{rounded.sm}"
+    padding: "0 2px"
+  search-dialog:
+    backgroundColor: "{colors.popover-light}"
+    rounded: "{rounded.xl}"
+    width: "672px"
+  search-item:
+    typography: "{typography.interface}"
+    rounded: "{rounded.md}"
+    padding: "0 12px"
+    height: "36px"
   tooltip:
-    backgroundColor: "{colors.ink-dark}"
-    textColor: "{colors.document-dark}"
-    typography: "{typography.small}"
+    backgroundColor: "{colors.foreground-light}"
+    textColor: "{colors.background-light}"
+    typography: "{typography.label}"
     rounded: "{rounded.md}"
     padding: "6px 12px"
   kbd:
-    backgroundColor: "{colors.muted-dark}"
-    textColor: "{colors.dim-ink-dark}"
-    typography: "{typography.small}"
+    backgroundColor: "{colors.muted-light}"
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.label}"
     rounded: "{rounded.sm}"
     height: "20px"
-  status-mark:
-    rounded: "{rounded.mark}"
-    size: "8px"
+  doc-footer:
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.label}"
+    padding: "0 16px"
+    height: "28px"
 ---
 
 # Design System: theway dashboard
 
 ## Overview
 
-**Creative North Star: "The Title Block"**
+**Creative North Star: "The Inset Panel"**
 
-The dashboard is a desktop app in Conductor's mould, opened in a browser beside Claude Code sessions. A sidebar on the left, a document in the centre, and a full-height panel on the right that holds the document's facts and its working lists (Tasks, Details, Series, the selected step, Problems, Used by). The name comes from the engineering drawing's title block, the world the user chose: every document states its facts in one fixed place, the panel header and its Details tab, so the centre stays free for reading and editing.
+The dashboard is a desktop tool for a developer who keeps it open beside Claude Code sessions. It is built in Linear's layout and look: the sidebar sits straight on the app's cool ground with no border, and all the work happens in one inset panel with rounded corners, a hairline and a soft shadow, a step lighter than the ground. Across that panel's top runs a 44px header (the page's icon and path, its actions at the right), then small pill tabs for the page's views; under them the page, and on an item's page a docked panel of stacked property cards at the right.
 
-It is built for Operate: dense, quiet chrome, warm near-black greys, hierarchy from weight and ink before size. Colour carries state (amber In progress, green Ready or Valid, red Invalid or errors) and the one blue goes to links, focus and the text caret. The stock shadcn card dashboard is the anti-reference: no cards on the page ground, no shadows on panels, no decorative colour. Documents are the one place the scale opens up: a spec, notes or a prompt reads at Notion's size in a warm ink, while the interface around it stays at 14px.
+Two modes share the panel. Lists, editors and the canvas are for operating: one-line 40px rows, sections that open with a tinted band, a sticky column head, IDs as small mono chips, the hover fill keeping the place. Documents are for reading: a 28px title, then 16/23 body text in one 36rem column on the panel's left edge, about 70 characters a line. Everything is calm and dense: hierarchy comes from weight (400, 500, 600) and from the ink against the secondary ink, inside two interface sizes (14 and 13px). Nothing is revealed only on hover: IDs, actions, the pin and the canvas's "+" are seen at rest.
 
-Dark is designed first and light is the same system on a near-white ground. The theme follows the system setting unless the user picks Light or Dark in Settings (`data-theme` on `html`).
+Colour is restrained. One clinical blue marks selection, the active item, focus and links. Red, amber and green belong to the statuses. Seven muted project hues tint each project's folder mark and the workflow card tiles, so a project is recognised wherever it shows; nothing else is coloured. Dark and light are equally finished and follow the system setting unless the user picks one (`data-theme` on `html`).
 
 **Key Characteristics:**
 
-- Three columns: a 272px sidebar (a 48px rail of icons when collapsed), the document, a 420px panel (320 to 640px, resizable) docked from 1280px.
-- A 44px top row on every page; the panel's header is level with it.
-- Conductor's type scale for the interface: 14/20 body, 12/16 small; system font, Geist Mono for IDs and code.
-- Notion's scale for documents: 16/24 text in a 708px column, headings 30, 24 and 20, under a 21/29 title block; code blocks and tables break out to 64rem.
-- Lists capped at 64rem (80rem for the lists of files), on the left; grouped lists separated by sticky, collapsible bands one surface step above the page, not by gaps or dividers.
-- Hairline rules separate regions; shadows only on things that float.
-- An 8px CSS square marks status everywhere it appears.
+- The sidebar on the ground, 244px, no border; the work area one inset panel with 10px corners and an 8px margin.
+- A 44px header and a 40px row of pill tabs on every item page; one 16px gutter for header, tabs, title, document and canvas.
+- Inter for the interface at 14px (13px for secondary labels), Geist Mono 13px for every ID and all code; both served by the dashboard itself.
+- Lists of one-line 40px rows under a 32px sticky column head, grouped by 36px rounded bands on the band's tint.
+- Documents at 16/23 in a 36rem column, under a 28/34 title that stays put across the page's views.
+- Facts in stacked property cards at the right: hairline, 8px corners, a 40px header on a half-strength band tint.
+- Flat panels; shadows only on the work area, cards and what floats.
 
 ## Colors
 
-Warm near-black greys in dark, warm near-white greys in light (hue about 65, after Conductor's), three state colours and one blue. Values live as CSS custom properties in `src/dashboard/client/styles/globals.css` (`:root` for light, the dark block twice: under `prefers-color-scheme: dark` and under `:root[data-theme="dark"]`), mapped to Tailwind colours by `@theme inline`. The band and document tokens (`--band`, `--doc-foreground`, `--doc-code-tint`, `--read-width`, `--read-wide`, `--doc-code-radius`) sit in their own `:root` / dark triplets further down the same file.
+Cool neutrals around a near-white panel in light and a near-black panel in dark, one blue, three status colours and seven project hues. Every value is a CSS custom property in `src/dashboard/client/styles/globals.css`: `:root` for light, the dark block twice (under `prefers-color-scheme: dark` for `:root:not([data-theme="light"])`, and under `:root[data-theme="dark"]`), mapped to Tailwind colours by `@theme inline`. The document tokens (`--read-width`, `--read-wide`, `--doc-code-radius`, `--doc-foreground`, `--doc-code-tint`) and the dialog dim (`--overlay`) sit in their own triplets further down the same file. The frontmatter lists each token as `<token>-light` and `<token>-dark`.
 
 ### Primary
 
-- **Link Blue** (dark `#6aa7ff`, light `#2563c9`): `--link`, `--ring`, `--info`, `--sidebar-primary`, `--sidebar-ring`, `--chart-1`. Links in the interface, focus rings and outlines, the text caret, the text selection (`--link` at 32% through `color-mix`), the code view's selection and matches (`--ring` at 30 to 35%), the live editor's task boxes (`accent-color`). Light `--info-foreground` is the darker `#1f55ad` (also `--code-constant`). Links inside a document are not blue (see Document ink).
+- **Clinical Blue** (light `#2f6fd0`, dark `#4f8fe6`): `--link`, `--ring`, `--sidebar-primary`, `--sidebar-ring`, `--info`, `--chart-1`. Links, focus rings, the text caret, the chosen sidebar row's icon, the hover and drag tint of a resize edge, the selected workflow card's border and its 15% halo, the dashed outline of a step being added. As a tint it is `--selected` (light at 10%, dark at 15%): the chosen sidebar row, the chosen pill tab, the current row of a list. Text selection is `--link` at 30% through `color-mix`; the code view's selection, selection matches and search matches are `--ring` at 28%, 16% and 22% (40% for the current match, a 45% outline). `--info-foreground` (light `#2a62b8`, dark `#6aa0ec`) is the vendored badge's info text.
 
 ### Secondary
 
-State colours, used for state only:
+The status colours, for status only (`StatusMark`, `StatusPill`, `ChangeProgress`):
 
-- **Progress Amber** (dark `#e3a43f`; light `#ca7a00` for fills and `#8f5407` for text): `--warning` fills (the progress bar, the status mark, the Next task's 2px inset edge, 5% tint and checkbox rule, a warning's icon and tint), and `--warning-foreground` is amber text (the In progress status pill, "Next", the In progress count on All projects). In dark the two are one colour; in light the fill is the brighter one, which would not pass as text. `--chart-3` is the text amber.
-- **Done Green** (dark `#45b97c`, light `#1a7044`): `--success`, `--success-foreground`, `--chart-2`. Ready to archive, Valid, a full progress bar, the counts on Now's Ready to archive chips.
-- **Invalid Red** (dark `#ef6a5b`, light `#c2392c`): `--destructive`, `--chart-4`. Invalid, errors, destructive actions, the on-fail edge (60%) and its pill's rule (40%). Light `--destructive-foreground` is `#b02f23` for red text; in dark it equals `--destructive`.
+- **Invalid Red** (light `#cf2f2f`, dark `#e5534b`): `--destructive`, `--chart-4`. The Invalid icon, a progress ring while invalid, error borders and underlines, the lint dot, the `N errors` badge's tint, a destructive button's 10% (dark 20%) fill, the sidebar's red dot. Text in red is `--destructive-foreground` (light `#c22727`, dark `#ef6a62`).
+- **Progress Amber** (light `#b07a14`, dark `#d9a441`): `--warning`. The In progress icon (a ring half filled) and a warning notice's icon. Amber text is `--warning-foreground` (light `#946000`, dark `#d9a441`); `--chart-3` is `#a86b00` / `#d9a441`.
+- **Done Green** (light `#1f8a4c`, dark `#4caf7d`): `--success`, `--chart-2`. The Ready to archive and Archived check discs (Archived in the secondary ink), a full progress ring, a valid file's check. Green text is `--success-foreground` (light `#1a7a43`, dark `#4caf7d`).
 
 ### Tertiary
 
-- **Brand Amber** (dark `#f5a74b`, light `#b4650f`): `--brand`, only the logo's route mark, on a 15% tint of itself.
-- **Step tones**: `--tone-inputs`, `--tone-session`, `--tone-agents`, `--tone-on-fail`, the icon tints of the workflow canvas's card kinds. Identity, not state, and none of them amber. Light uses Tailwind's `sky-700`, `teal-700`, `indigo-600`, `rose-700`; dark uses `sky-400`, `teal-400`, `indigo-300`, `rose-400` (the oklch values in the frontmatter).
-- **Code syntax** (`--code-*`, after GitHub's): keyword `--code-keyword`, string `--code-string`, constant `--code-constant`, function `--code-function`, type `--code-type`, property `--code-property`, and comment `--code-comment` (the dim ink, `#a6a4a1` / `#67635f`, in italic). Each colours a fixed class (`.code-keyword` … `.code-comment`) that `src/dashboard/client/lib/code-languages.ts` gives to groups of syntax tags, so the read view's code blocks, the live editor's fenced code and the YAML code view share one palette. Fenced code is coloured for Go, TypeScript, TSX, JavaScript, JSX, JSON, YAML, Shell and Diff; YAML's plain values stay in the text colour (the YAML parser gives them no colour tag).
+- **Project hues** (`--project-1` to `--project-7`: indigo, violet, pink, teal, cyan, olive, brown; light `#5a62cf`, `#8a4fd6`, `#c63d8b`, `#138a80`, `#1d84a8`, `#6f7d1c`, `#9a6438`; dark `#8a90f0`, `#b48af2`, `#ec7ab8`, `#3cc3b6`, `#4fb6dc`, `#aebd4a`, `#d29a6c`). `lib/project-hue.ts` hashes a project's label to one of them, so the same project has the same hue in the sidebar, in a row's project column and in All projects: its folder mark is drawn in the hue and filled with it at 18%. The workflow card tiles borrow four of them: inputs teal (`project-4`), a session step violet (`project-2`), an agents step indigo (`project-1`), an on-fail pink (`project-3`), each at 20% fill with a 30% inset ring. None is the blue or a status colour.
+- **Code syntax** (`--code-*`, after GitHub's): keyword (`#b0322a` / `#ff7b72`), string (`#0a3d75` / `#a5d6ff`), constant (`#1f55ad` / `#79c0ff`), function (`#6639ba` / `#d2a8ff`), type (`#953800` / `#ffa657`), property (`#1a6640` / `#7ee787`), comment in the secondary ink and italic. `lib/code-languages.ts` gives each class (`.code-keyword` … `.code-comment`) to groups of syntax tags, so documents' code blocks and the YAML code view share one palette.
 
 ### Neutral
 
-| Role                                                       | Token                                         | Dark      | Light     |
-| ---------------------------------------------------------- | --------------------------------------------- | --------- | --------- |
-| Window ground (`body`)                                     | `--ground`                                    | `#151311` | `#f3f1ef` |
-| Document                                                   | `--background`                                | `#161412` | `#ffffff` |
-| Sidebar and panel                                          | `--sidebar`                                   | `#1a1816` | `#f8f6f4` |
-| Workflow canvas                                            | `--canvas`                                    | `#161412` | `#f8f6f4` |
-| Canvas dots                                                | `--canvas-dot`                                | `#2e2c2a` | `#d7d4d1` |
-| Cards, canvas controls, minimap                            | `--card`                                      | `#1e1c1b` | `#ffffff` |
-| Group bands                                                | `--band`                                      | `#1e1c1b` | `#f6f4f2` |
-| Menus, dialogs, palette                                    | `--popover`                                   | `#211f1d` | `#ffffff` |
-| Muted fill (kbd, table heads, chip labels)                 | `--muted`                                     | `#242220` | `#f2f0ee` |
-| Secondary fill                                             | `--secondary`                                 | `#272523` | `#eeecea` |
-| Hover and selection                                        | `--accent`, `--sidebar-accent`                | `#272523` | `#ebe9e7` |
-| Rules                                                      | `--border`, `--sidebar-border`                | `#302e2c` | `#e6e4e2` |
-| Input rules, scrollbar thumb, split lines, link underlines | `--input`                                     | `#363432` | `#d7d4d1` |
-| Third ink                                                  | `--subtle-foreground`                         | `#918d8a` | `#6f6b67` |
-| Dim ink                                                    | `--muted-foreground`, `--chart-5`             | `#a6a4a1` | `#67635f` |
-| Ink                                                        | `--foreground`, `--primary`                   | `#eeecea` | `#1a1816` |
-| On ink                                                     | `--primary-foreground`, `--invert-foreground` | `#151311` | `#ffffff` |
+| Role                                            | Token                                                                                                              | Light     | Dark                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------- | --------------------- |
+| App ground (`body`), the sidebar                | `--ground`, `--sidebar`                                                                                            | `#eceef1` | `#09090b`             |
+| The work area's panel, documents                | `--background`                                                                                                     | `#ffffff` | `#151619`             |
+| Cards (property cards, workflow cards, minimap) | `--card`                                                                                                           | `#ffffff` | `#1a1b1f`             |
+| Menus, dialogs, the search palette              | `--popover`                                                                                                        | `#ffffff` | `#1d1e22`             |
+| Workflow canvas                                 | `--canvas`                                                                                                         | `#f2f3f5` | `#0d0e10`             |
+| Canvas dots                                     | `--canvas-dot`                                                                                                     | `#cfd2d7` | `#2f3137`             |
+| Section bands, ID chips                         | `--band`                                                                                                           | `#eff0f3` | `#222328`             |
+| Hover fill                                      | `--accent`                                                                                                         | `#f3f4f6` | `#1f2024`             |
+| Sidebar hover                                   | `--sidebar-accent`                                                                                                 | `#e0e2e6` | `#1b1c20`             |
+| Muted and secondary fills (kbd, ghost hover)    | `--muted`, `--secondary`                                                                                           | `#f1f2f4` | `#1f2024` / `#222327` |
+| Hairline (regions, cards, column head)          | `--border`, `--sidebar-border`                                                                                     | `#dcdee2` | `#2c2d33`             |
+| Light rule (between card rows, tasks)           | `--rule`                                                                                                           | `#eceef0` | `#1f2024`             |
+| Input rule, scrollbar thumb                     | `--input`                                                                                                          | `#d4d6da` | `#34363c`             |
+| Progress ring track                             | `--track`                                                                                                          | `#dfe1e5` | `#3a3c42`             |
+| Secondary ink (every dim text, placeholders)    | `--muted-foreground`, `--subtle-foreground`, `--chart-5`                                                           | `#55585e` | `#a1a4aa`             |
+| Sidebar ink                                     | `--sidebar-foreground`                                                                                             | `#3a3c41` | `#c4c6ca`             |
+| Ink                                             | `--foreground`, `--card-foreground`, `--popover-foreground`, `--doc-foreground`                                    | `#111214` | `#f2f2f0`             |
+| Ink of controls                                 | `--primary`, `--secondary-foreground`, `--accent-foreground`, `--sidebar-accent-foreground`, `--invert`, `--brand` | `#18191b` | `#f2f2f0`             |
+| On ink                                          | `--primary-foreground`, `--invert-foreground`, `--sidebar-primary-foreground`                                      | `#ffffff` | `#151619` / `#09090b` |
 
-`--primary` is the ink, not a colour: a default button, a checked checkbox, radio and switch, and the active tab's underline are all ink.
+`--primary` is the ink, not a colour: a default button, a checked checkbox, radio and switch are filled with the ink (`--foreground`, an unlayered rule over the vendored `data-checked` utilities), and the logo tile is the ink with the panel's colour on it. `--brand`, `--invert`, `--info` and `--chart-*` serve the vendored ReUI badge and alert; the dashboard's own components do not use them.
 
-**Three inks.** The ink is what is read first (IDs, names, values); the dim ink is the text under and beside it (a row's description, its project, its counts, inactive tabs); the third ink is what labels the page without being read each time: the sidebar's group labels, the lists' column headers, the collapse hint and placeholders. The third ink is at least 4.5:1 on every ground it stands on (4.69:1 on the light window ground, the least).
+**Two inks.** The ink is what is read first (a row's name, a title, a value); the secondary ink is everything under and beside it (an age, a count, a path, a column title, a placeholder, an inactive tab). The sidebar's labels sit a step under the ink (`--sidebar-foreground`), the chosen row's in the ink.
 
-**Document ink.** A document's text, headings, bold and table cells use `--doc-foreground`, a warm off-white in dark (`#f0efed`) and a warm ink in light (`#37352f`), after Notion. Inline code sits on `--doc-code-tint` (white at 5.5% in dark, warm grey `rgb(135 131 120)` at 15% in light); code blocks on the fainter `--code-surface` (white at 3%, the same warm grey at 7%). Links in a document are the text colour at 500 with a `--input` underline.
+**Document surfaces.** A document's text is the ink (`--doc-foreground` is `var(--foreground)`). Inline code sits on `--doc-code-tint` (light `rgb(24 25 27 / 0.045)`, dark `rgb(255 255 255 / 0.055)`); a code block on the fainter `--code-surface` (light `rgb(24 25 27 / 0.03)`, dark `rgb(255 255 255 / 0.03)`).
 
-Fixed values shared by both themes:
+Fixed values both themes share:
 
-- `#000` at 10% (`bg-black/10`): the dim behind dialogs, alert dialogs and sheets.
-- `#fff` (`text-white`): text on the vendored solid badge variants (`info`, `success`, `warning`, `destructive`); the dashboard uses the `-light` and `outline` variants instead.
-- Shadow inks: `#000` at 3% to 28% in the shadow scale and the data grid's sticky edges (`rgba(0,0,0,0.03)`), `#fff` at 6% for those edges in dark, `#0008` as the drop shadow of the number field's scrub cursor, `rgb(0 0 0 / 0.14)` under the vendored elevated icon tile, and `shadow-black/5` / `shadow-white/5` inside the vendored frame.
-- The data grid's row states: `amber-500` and `green-500` at 5% (dirty, new) and `--destructive` at 5% (deleted).
-- Canvas mixes: edges are `--muted-foreground` at 50%; the minimap's mask is `--background` at 55%.
+- `--overlay`, the dim under a dialog, the search and a sheet: light `rgb(15 16 18 / 0.16)`, dark `rgb(0 0 0 / 0.5)`, with no blur (an unlayered rule over the vendored `bg-black/10` and `backdrop-blur-xs`).
+- Shadow inks: `#000` at 5% to 24% in the shadow scale (Elevation & Depth); the dialog's 1px ring is the ink at 10%.
+- Vendored values kept as shipped: `#fff` text on the ReUI badge's solid variants (`text-white`; the dashboard uses `destructive-light`); the data grid's sticky edges `rgba(0,0,0,0.03)` and in dark `rgba(255,255,255,0.06)`, and its dirty and new row tints `amber-500` and `green-500` at 5%; the number field's scrub cursor shadow `#0008`; the icon tile's `rgb(0 0 0 / 0.14)`; the frame's `shadow-black/5` and `shadow-white/5`.
 
 ### Named Rules
 
-**The State Is Colour Rule.** Amber, green and red mean In progress, Ready or Valid, and Invalid or error. Nothing decorative takes them, and the pinned star is ink, not amber.
+**The One Blue Rule.** Selection, the active item, focus and links are blue, and nothing else is: primary buttons, checked controls and the logo are ink.
 
-**The Ink Is Primary Rule.** Primary actions, checked controls and the active tab are drawn in the ink. The blue is kept for links, focus and the caret.
+**The Status Is Colour Rule.** Red, amber and green mean Invalid, In progress and done. Nothing decorative takes them; the pinned star is ink.
+
+**The Project Hue Rule.** A project hue marks a project (its folder) or a workflow step's kind (its tile), always as a small mark or a 20% tint, never as text, a fill behind text or a border.
 
 ## Typography
 
-**Interface Font:** `"SF Pro", system-ui, sans-serif` (`--font-sans`, also `--font-heading`): SF Pro on macOS, the system font elsewhere. Nothing is downloaded for it.
-**Code Font:** `"Geist Mono Variable", ui-monospace, monospace` (`--font-mono`), served by the dashboard at `/fonts/geist-mono.woff2` (weights 100 to 900, embedded by `scripts/embed-fonts.ts`).
+**Interface Font:** Inter Variable (`--font-sans`, also `--font-heading`: `"Inter Variable", system-ui, sans-serif`), weights 100 to 900 with optical sizes (`font-optical-sizing: auto` on `html`), served at `/fonts/inter.woff2` from `@fontsource-variable/inter`.
+**Code Font:** Geist Mono Variable (`--font-mono`: `"Geist Mono Variable", ui-monospace, monospace`), served at `/fonts/geist-mono.woff2`. Both are embedded by `scripts/embed-fonts.ts`; nothing loads from another host.
 
-**Character:** a native app's system face for everything you read and click, and a monospace for what you would type: IDs, paths, counts beside a row, code, YAML.
+**Character:** a neutral, screen-made sans for everything read and clicked, and a monospace for what would be typed: IDs, file names, paths, code, YAML.
 
-Base: 16px root (`text-base` 1rem). Text inputs are `text-base` below 768px and `text-sm` from 768px.
+Base: 16px root. Text fields are `text-base` (16px) below 768px and 14px from 768px. Tabular figures are set only where numbers line up (counts, ages and dates in a column, progress, the zoom, a version's time), never on the body: Inter's tabular hyphen is as wide as a digit and spaces out IDs and hyphenated words.
 
 ### Hierarchy
 
-The interface:
+The interface (`@theme` in `globals.css`):
 
-- **Title** (600, `text-title` 1.3125rem/1.8125rem, 21/29px, tracking -0.025em): the title on the gutter, in the interface's ink (`--foreground`) on every page (a workflow's name above its canvas, a file's name above its code or its history, a change's description above `change.yaml`), and a document's title (below).
-- **Heading** (600, `text-heading` 0.875rem/1.25rem): a list page's title in its top row, set apart by weight, not size. A dialog's title is the same size and weight (`text-sm` 600, in place of the vendored 16px).
-- **Body** (400 or 500, `text-sm` 0.875rem/1.25rem): every tab, button, menu item, panel line, field, band label and row text.
-- **Row ID** (400, Geist Mono `text-sm`): the first line of every row of the five lists: a change's, a series' or a project's ID, a group's name, a workflow's or a prompt's name. The row's text (description, "series of N", the project's path) sits under it in body dim ink, on one line.
-- **Task lead** (500, `text-md` 0.875rem/1.3125rem, 14/21): the lead of each task in the panel; its detail is `text-sm` 14/20 in the dim ink.
-- **Small** (400 or 500, `text-xs` 0.75rem/1rem): ages beside rows, the result line, the collapse hint (third ink), tooltips, kbd, badges, the zoom percentage, secondary lines.
-- **Mono small** (Geist Mono `text-xs`, `tabular-nums`): `done/total` on change rows, the counts and Last archived date on All projects, every count of the sidebar, per-value counts in filter menus, the version tag, the step prompt's file name.
-- **Grid header** (400, `text-xs`, the third ink): the column headers of every list's data grid. A column that sorts keeps the vendored header button and its arrow; a column that does not shows its title as text, not as a button.
-- **Small button** (500, 0.8rem): the vendored `sm` button and toggle size, used by the filter bar's Filter button.
-- **Badge micro and tiny** (500, 0.6rem and 0.625rem, line height 1): the vendored badge's `xs` and `sm` sizes. The dashboard's badges use the default size (`text-xs`). The vendored ReUI filters also carry a 10px "+" on the drag copy of their advanced builder, which the dashboard's filter bar does not use.
-- **Code** (Geist Mono, 0.875rem/1.5rem): the YAML code view. Inline code in task text is Geist Mono `text-xs` on `--muted` with a 4px radius and 4px side padding.
+- **Interface** (400, `text-sm` 0.875rem/1.25rem, 14/20): every label, row, field, menu item, button and tab; the body's default size.
+- **Name** (500, 14/20): a row's name, a state's title, a notice's title, buttons, the chosen sidebar row.
+- **Heading** (600, 14/20): the page's title in the header (its `h1`), a section band's label, a property card's title, the logo's "theway".
+- **Interface text** (`text-md`, 0.875rem/1.25rem): multi-line text in the interface (a task's lead at 500 and its detail, a card's free text at most 62 characters a line). It has the same values as `text-sm`.
+- **Label** (400, `text-xs` 0.8125rem/1.125rem, 13/18): column titles, counts in the sidebar, the series chip (`series · 7`), the project column, the footer, tooltips, kbd, badges, the canvas's on-fail label, notes under a list.
+- **Dialog title** (600, `text-heading` 1rem/1.375rem, 16/22): a dialog's title (`DIALOG_TITLE`); the search palette's input is the same size at 400.
+- **Mono ID** (Geist Mono 400, 13/18): every ID and file name set inline, in the ID chip, the search palette, an input's name, a step's name on its card, the footer's file name. An item page whose title is an ID sets it in the header at 500.
+- **Code** (Geist Mono 400, 0.8125rem/1.25rem, 13/20): the code view (a workflow's YAML, a prompt's source, `change.yaml`) and a document's code blocks. The code view's Markdown headings are bold (700), its one use of that weight.
+- `--text-title` (1.375rem/1.75rem, 22/28) is defined on the scale and used by no component today.
 
-Documents (the read view, the live editor, the step prompt's preview), from `--text-doc*` in `globals.css`:
+Documents (the live editor, read-only or editing; `@theme static`, `--text-doc*`):
 
-- **Document title** (the interface's Title: 600, `text-title` 21/29, tracking -0.025em, in `--doc-foreground`): a change's description and a prompt's name, above the document, in the document column. The same title on the gutter (a code tab, a History tab) takes the interface's ink. It is smaller than the document's own h1, which it does not compete with.
-- **Document ID** (Geist Mono `text-sm`, dim ink): a change's ID 8px under its title.
-- **h1** (600, 1.875rem/2.4375rem, 30/39), **h2** (600, 1.5rem/1.9375rem, 24/31, no rule), **h3** (600, 1.25rem/1.625rem, 20/26); h4 is the body size at 600, h5 and h6 the same in dim ink.
-- **Body** (400, `text-doc` 1rem/1.5rem, 16/24): paragraphs, lists, quotes, table cells. Bold is 600.
-- **Code** (Geist Mono at 85% of the text, 13.6px): inline code, code blocks (line height 1.5, tab size 4) and the live editor's table source lines; a code block's language label is Geist Mono `text-xs` dim ink.
+- **Document title** (600, `text-doc-title` 1.75rem/2.125rem, 28/34, tracking -0.025em, `text-pretty`): an item's description above every one of its views (`ItemHeading`), whole on as many lines as it takes. An item with no description, or one that only repeats its ID, has none: its ID stands once, in the header.
+- **Body** (400, `text-doc` 1rem/1.4375rem, 16/23, 144%): paragraphs, list items, quotes, table cells. Bold and table headers are 600.
+- **h1** (600, 1.25rem/1.75rem, 20/28), **h2** (600, 1.0625rem/1.5rem, 17/24), **h3** (600, 1rem/1.4375rem, 16/23); h4 to h6 are the body at 600, h5 and h6 in the secondary ink. A document's headings never outrank the title above it.
+- **Inline code** (Geist Mono at `max(0.75rem, 0.8125em)`, 13px in the 16px body); a table's source lines in the editor take the same mono step.
+- **Code block** (Geist Mono `text-xs` on 20px lines); its language label at the right of its first fence line in `text-xs`.
 
-Weights: 400, 500 and 600, in the interface and in documents; the code view's Markdown headings use `bold`. Numbers that line up (counts, progress, line counts, task numbers, table cells) use `tabular-nums`. The logo's "theway" is 600 `text-sm` with tracking -0.025em.
+Panel prose (a step's prompt read in the panel, `PANEL_PROSE` in `step-prompt.tsx`): the same styles at the interface's size, body 0.8125rem/1.125rem (13/18), h1 0.9375rem/1.25rem (15/20), h2 0.875rem/1.25rem (14/20), h3 0.8125rem/1.25rem (13/20), at most 62 characters a line.
+
+Vendored sizes, kept as shipped: the shadcn small button and toggle set `text-[0.8rem]`, which an unlayered rule resets to 14px; the ReUI badge's `xs` and `sm` sizes (0.6rem and 0.625rem) are not used, the dashboard's badges take the default `text-xs`; the ReUI filters' advanced builder draws a 10px "+" on its drag copy, which the filter bar does not open; the data grid's header button is `text-[0.8125rem]` (13px), overridden to `text-xs`; the menus' shortcut hints are `text-xs` with `tracking-widest` (0.1em).
 
 ### Named Rules
 
-**The Weight Before Size Rule.** In the interface, hierarchy comes from 600 against 400 and ink against dim ink, inside two sizes (14 and 12). The workflow's and the document's titles are the interface's one larger size (21px).
+**The Two Sizes Rule.** The interface is 14px and 13px, nothing else. Hierarchy inside it comes from 600, 500 and 400 and from the ink against the secondary ink. Only a dialog's title (16px) and a document's title (28px) are larger.
 
-**The Document Scale Rule.** Documents read at Notion's scale (16, 20, 24 and 30) and nothing else does; the chrome around a document stays at 14px. A document's title, like a workflow's, is the interface's one larger size, not a size of the document scale.
+**The One Mono Rule.** Every ID and every line of code is Geist Mono 13px, wherever it stands; an ID is never set in the sans, and never at another size.
+
+**The Reading Scale Rule.** Documents read at 16/23 with headings 20, 17 and 16 under a 28px title; the interface around them stays at 14px.
 
 ## Layout
 
-The window is three columns at full height (`h-svh`) with no page scroll; each region scrolls itself.
+The window is the shell at full height (`h-svh`) with no page scroll; each region scrolls itself.
 
-- **Sidebar:** 17rem (272px) on `--sidebar`, open by default from 1024px (kept per browser after a toggle). Collapsed, it folds to a 3rem (48px) rail of icons (`collapsible="icon"`) that keeps its own toggle; labels, counts, the logo and the version tag hide. Below 768px (`use-mobile`) it is a sheet, opened from a button at the left of the top row. Rows are 32px (`h-8`) with 2px gaps; group labels are 28px.
-- **Centre:** the document on `--background`. Every page starts with a 44px top row (`h-11`, rule below) holding the page title or the document's tabs.
-- **Panel:** docked at the right from 1280px, 420px by default, resizable from 320 to 640px by its left edge or the arrow keys (16px a step), its width (in pixels, the same in a window of any size) and hidden state kept per browser. Below 1280px it opens over the page as a sheet, `min(420px, 90vw)` wide, on `--sidebar` as when docked. Its header row is 44px; under it a top and a bottom pane in a vertical split (see Components), each with a 40px tab row.
-- **List pages** (Now, a project or group page, All projects, Workflows, Prompts): 24px gutters (`px-6`), which the top row's title and actions, the filter bar, the rows and a document's footer all keep. The filter bar sits under the top row (`px-6 py-3`), the result line under it, then the list. Every list is a data grid whose columns resize by their header's edge (`columnsResizable`, at least 72px), under one 32px header row per page, which scrolls with the list: above the first band on Now and a project or group page, where the page's grids share their column widths, and at the top of the grid on All projects, Workflows and Prompts. Every list ends with 32px of room under its last row (`pb-8`, one component, `ListFoot` in `components/list-grid.tsx`), which holds the collapse hint of a grouped list.
-- **List width:** a list's columns are capped, the cap on the left, against the 24px gutter: `--read-wide` (64rem) between the gutters on Now, a project or group page and All projects, 80rem on Workflows and Prompts. The first column takes the room the others leave up to the cap; the room past it stays empty (an empty last column of the grid), and band fills, the header's rule and a row's hover fill cross it to the page's edge. Change rows keep their other columns at the right of the cap: the project 200px from 1280px and 140px below (shown from 768px), the progress 172px (12px of left padding, a 96px bar from 640px, then `done/total` in 56px; 84px below 640px), the age or archive date 96px under "Updated". A list that shows no open change has no progress column (see Header row): the first column takes its room, and the project and the date keep their widths and their place against the cap. All projects' columns are In progress 96px, Not started 96px, Last archived 112px and the actions 108px. On the Workflows and Prompts grids the name is at least 200px, and the grid scrolls sideways when the columns are wider than the page.
-- **Document pages:** the reading column is the whole width between 24px gutters (`px-6`). Prose keeps its measure, at most `--read-width` (44.25rem, 708px, Notion's text column), centred; code blocks and tables take up to `--read-wide` (64rem), also centred, so hiding the sidebar or the panel gives them room. Above a Markdown view (a change's spec, notes and other Markdown files, an archived change, a prompt's Preview tab) the page's title block is the document's title, one component (`ColumnTitle` in `components/doc-title.tsx`): in the prose measure, 40px under the top row (`pt-10`), inside the scroll root so it scrolls with the document, which starts 24px under it (`pt-6 pb-10`). A change's block is its description and ID; a prompt's is its caption, name and description, so its name stands one caption line lower. The live editor uses the same widths per line, with 24px padding and 64px at the foot.
-- **Code tabs:** a file shown as code (a workflow's YAML tab, a prompt's Prompt tab, a change's `change.yaml` tab) has one layout, one component (`components/code-tab.tsx`): the page's title block on the 24px gutter, 16px under the top row and 12px over a 1px rule (`px-6 pt-4 pb-3`, one component, `GutterTitle` in `components/doc-title.tsx`), not in the document column and never scrolling, its h1 in the interface's ink (`--foreground`) and its description at most 36rem (576px) wide (`max-w-xl`) on every page; under the rule the page's notices, each a full-width strip with its own rule below; then the code view on the whole width, its line numbers against the centre's left edge; then the footer with the file's name and its line count. Only the title block differs between the pages: a workflow's and a prompt's caption, name and description, a change's description and ID. Markdown tabs (a change's spec and notes, a prompt's Preview, an archived change) keep the document column and its title, in the document's ink (`--doc-foreground`), its description as wide as the column.
-- **History tabs:** a workflow's and a prompt's History tab is one component (`HistoryTab` in `components/history.tsx`): the same gutter title block (the interface's ink, the description at most 36rem) without the rule, the page's notices, the toolbar and the version's code or diff on the whole width, then the footer with the file's name. So the gutter title stands on a workflow's Editor (floating on the canvas, or above a file that cannot be drawn), YAML and History tabs, a prompt's Prompt and History tabs and a change's `change.yaml` tab; the document-column title on a prompt's Preview tab, a change's Markdown tabs and an archived change. No page pads a title block of its own, and none chooses its ink or its description's width: the block takes them from where it stands.
-- **Page states:** a page whose address names nothing (a project, a group, a workflow, a prompt, a change) is one component (`PageUnknown` in `components/page-states.tsx`): the name in the top row, then one centred line (`No project <name>`, the name in mono) over an outline button back to the list it would be in (All projects, Workflows, Prompts, the change's project). A failed load in a page's centre is one component (`PageLoadError` in `shell/load-error.tsx`): a destructive alert with the error and a Retry button, on the page's 24px gutters, 16px under what stands above it. On Now, when no project's changes could be loaded, the load error stands alone, without the empty state.
-- **Workflow canvas:** the whole centre, with the workflow's heading floating at its top-left (`px-6 pt-4`) and the drawing 24px under it. Cards are one column, 64px apart; an on-fail card stands 160px to the right of its step and 40px higher. The canvas opens at 100%, so its text is read at its size: the drawing's top 24px under the heading, centred across the canvas when it fits between 16px margins; a drawing too tall or too wide shows its top and left and is panned. Fit scales it down in 10% steps until it stands between the heading, the 16px side margins and a 68px band kept free at the bottom for the controls, no further than 50%; manual zoom runs 50 to 200% in 10% steps.
+- **Sidebar:** 15.25rem (244px) on `--ground`, the inset variant with no border, open by default from 1024px (kept per browser once toggled). Collapsed it folds to a 3rem (48px) rail of icons; below 768px it is a sheet 18rem (288px) wide, opened by a button at the header's left. Rows are 28px (`h-7`) with 1px between them; the workspace row (36px) holds the logo (a 20px ink tile with a 12px route mark, then "theway" at 600) and the Search and New icon buttons; then the Now and Search rows (Search with its ⌘K hint); then the foldable Pinned and Recent sections and All projects, and the Library (Workflows, Prompts), each section opened by a `text-xs` 500 label with a 12px caret; the footer carries `theway <version>` in `text-xs`, Documentation, Settings and the collapse toggle.
+- **Work area:** one panel, `m-2` (8px) from the window's edges (no left margin from 768px, where the sidebar is), on `--background`, 10px corners (`rounded-xl`), a hairline and `shadow-sm`. Its top is the page's header, rendered into the shell's header slot so it spans the page and its docked panel.
+- **Header:** 44px (`h-11`), 16px gutter at the left and 12px at the right: the page's 16px icon in the secondary ink, its path (each parent in the secondary ink, a 14px chevron between), then its title at 600 (an ID in Geist Mono 13px at 500), then the actions at the right (icon buttons, the item's status while its panel is not shown, the panel toggle). In a narrow header the path is cut first.
+- **View tabs:** a 40px row under the header (`h-10`, `px-4`, a hairline under it): pill tabs 26px tall, 12px across, 8px apart, the chosen one on the blue tint in the ink; a dot marks a view with unsaved edits.
+- **Docked panel:** from 1280px an item page's panel docks at the right, 420px by default, resizable from 320 to 640px by its edge (a 1px hairline that tints blue at 60% on hover and full blue while dragged or focused), its width in pixels and its hidden state kept per browser. Below 1280px it opens over the page as a sheet `min(420px, 90vw)` wide, its close button in a 44px strip level with the header. Its content is `PropertyCards`: cards stacked 12px apart on a 12px inset, scrolling together.
+- **Lists** (Now, a project's and a group's page, the archive, All projects, Workflows, Prompts): a filter bar under the header (`px-4 py-2`, a hairline under it: the 28px search field, 208px wide from 640px, the filter chips, Filter and Clear, and while narrowed `N of M` at the right), then the list on the panel's whole width. A 32px column head sticks at the top; section bands stick under it (`top-8`). Rows are 40px; their cells (an age, a date, progress, a count) are 14px in the secondary ink. The fixed columns at a row's right are 80px for progress, 48px for an age, 96px for a date or a count, 128px for the project (192px from 1280px, hidden below 768px) and 80px for actions. A row's name stops at 60 characters from 1024px. On Workflows and Prompts the columns of the data grid resize by their header's edge (an 8px tick at rest, the full line in blue on hover), capped at 80rem plus the gutters; Model and Applies to hide below 1024px. Every list ends with 32px of room (`ListFoot`), which holds a sectioned list's Alt-click hint.
+- **Item pages** (a change, a workflow, a prompt): header, view tabs, the page's notices (full-width strips with a hairline under each), the item's title (`ItemHeading`: 32px under the tabs, 16px over the view, in the prose measure, never scrolling; a hairline closes it off once the view under it is scrolled), then the view, then a 28px footer (`h-7`, a hairline above, `text-xs` secondary ink: the file's name in mono, its details after a `·`, the save state at the right).
+- **Reading column:** one 16px gutter for everything (`DOC_COLUMN` `px-4`, the editor's `.cm-content` 1rem, the canvas's side margin 16px), so header, tabs, title, document and canvas share one left edge. Prose, code blocks and tables keep one measure, `--read-width` (36rem, 576px, about 70 characters), on the column's left edge; a table no wider than its columns scrolls in its own box past the measure. `--read-wide` (64rem) is defined and no list uses it today. The editor pads 24px above and 64px under the document.
+- **Workflow canvas:** under the item title and a 40px toolbar strip (`h-10`, hairlines above and below: Undo and Redo at the left; zoom out, the zoom in a 48px tabular output, zoom in, a separator and Fit at the right). Cards are one 360 × 56px column, 40px apart, joined by 1px lines with a round 20px "+" centred on each and under the last card; an on-fail card (232px wide) stands 112px right of its step, level with it. The drawing opens at 100% with its top 24px under the canvas's top and 16px side margins; Fit scales down in 10% steps to fit between 24px top and bottom and 16px sides; zoom runs 50 to 200%. The minimap (160 × 100px, 16px from the corner) shows at the bottom right only while the drawing overflows the view and the room right of the drawing holds it.
+- **States:** one shape (`StateBlock`): left-aligned on the 16px gutter, an optional 16px icon, a title in the ink at 500, text in the secondary ink at most 60 characters a line, one optional action 8px under it; 24px under what is above it on a whole page, 12px in a list or a pane. A notice is the same shape on its side, with its action at the right.
 
-Breakpoints: 640px (progress bars on rows), 768px (sidebar becomes a sheet, the project column shows), 1024px (sidebar open by default), 1280px (panel docks, the project column widens). The build is checked at 768, 1280, 1440 and 1920px.
+Breakpoints: 640px (`sm`: the search field's width, the count column), 768px (the sidebar leaves the sheet, the project column shows, fields drop to 14px), 1024px (`lg`: the sidebar opens by default, names stop at 60 characters and ID chips show whole, the files' extra columns show), 1280px (`xl`: the panel docks, the project column widens). The build is approved at 768, 1440 and 1920px; 768 is the least window width it is designed for.
 
-Spacing is Tailwind's 4px scale (`--spacing` 0.25rem). Padding, margins and gaps mostly use 4, 8, 12, 16, 20, 24, 28 and 32px; larger steps are 36px (band and row height), 40px (a document title's top padding, a member row's indent, the archived page foot), 48px (empty grid states), 64px (between canvas cards). 2px appears only as a hairline offset or inside a control (`gap-0.5` between sidebar rows, in the canvas controls, between a chip value's marks). Panel rows are `px-4 py-2`; task rows `px-3 py-4` with a rule between them. A document's rhythm is Notion's: 8px under a paragraph, 12px between list items, 32, 24 and 16px above an h1, h2 and h3 and 8px under them, 24px list indent.
+Spacing is Tailwind's 4px scale (`--spacing` 0.25rem): mostly 4, 8, 12 and 16px, then 24 and 32px between blocks. 2px appears only inside controls and between tight marks (sidebar rows 1px apart, `gap-0.5` in the canvas toolbar and a row's actions, a chip value's marks, a canvas card's two lines). 6px is the step menu button's inset on a card and the vendored field label's margin; 10px is the vendored buttons' and fields' side padding. Larger steps are layout heights: 28px (sidebar rows, the footer), 32px (the column head, a list's foot), 36px (a band), 40px (rows, view tabs, card headers, the canvas toolbar), 44px (the header).
 
 ## Elevation & Depth
 
-Flat by default: regions are told apart by ground tone (window, document, sidebar/panel, band) and 1px rules (`--border`). Shadows appear only on what floats over the page.
+Flat by default: regions are told apart by tone (ground, panel, band, card) and 1px hairlines. Shadows are soft and few, kept to the work area, the cards and what floats.
 
 ### Shadow Vocabulary
 
-- **xs** (`0 1px 2px 0 rgb(0 0 0 / 0.06)`): the canvas's round "+" buttons, icon tiles, the data grid's column-resize indicator.
-- **sm** (`0 1px 2px 0 rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 0 0 / 0.1)`): the active segmented tab, the floating sidebar variant.
-- **md** (`0 2px 4px -1px rgb(0 0 0 / 0.12), 0 8px 16px -4px rgb(0 0 0 / 0.18)`): popovers, menus, select lists, the canvas's controls pill and minimap.
-- **lg** (`0 4px 8px -2px rgb(0 0 0 / 0.14), 0 16px 40px -8px rgb(0 0 0 / 0.28)`): sheets and submenus.
-- **Next-task edge** (`inset 2px 0 0 var(--warning)`): not a shadow but a 2px amber edge on the next task.
+- **xs** (`0 1px 2px 0 rgb(0 0 0 / 0.05)`): property cards, the canvas's round "+" buttons.
+- **sm** (`0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08)`): the work area's panel, workflow cards.
+- **md** (`0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16)`): menus, popovers, select lists, the minimap, the code view's tooltips.
+- **lg** (`0 4px 8px -2px rgb(0 0 0 / 0.12), 0 16px 40px -8px rgb(0 0 0 / 0.24)`): sheets, submenus, and dialogs, which add a 1px ring of the ink at 10% (`0 0 0 1px` of `color-mix(in oklab, var(--foreground) 10%, transparent)`).
 
-Dialogs dim the page with `#000` at 10% and a 4px backdrop blur where supported. Menus, popovers and dialogs carry a 1px ring of the ink at 10% (`ring-foreground/10`) with their shadow.
+Focus is a ring, not a shadow: a 2px `--ring` ring (inset on rows, bands and card rows), a 3px ring of `--ring` at 50% on buttons and fields, and on a workflow card a 2px `--ring` outline 2px off its edge. A selected workflow card adds a 3px ring of `--ring` at 15%.
 
 ### Named Rules
 
-**The Flat Panel Rule.** The sidebar, the document, the panel, the bands and the workflow cards never cast shadows; a rule and a tone step separate them.
+**The Flat Ground Rule.** The sidebar, the bands, the rows and the documents never cast shadows; the work area, the cards and what floats over them do.
 
 ## Shapes
 
-Conductor's radius scale (`@theme inline`, `--radius` 0.5rem):
+Small, even corners on a 0.5rem base (`--radius`), set in `@theme inline`:
 
-- **sm 4px** (`rounded-sm`, also bare `rounded`): kbd, inline code (task text and documents), the copy button, avatar-letter tiles, the logo tile, focusable links, the checkbox (`rounded-[4px]`).
-- **md 6px** (`rounded-md`, `calc(var(--radius) - 2px)`): sidebar rows, tooltips, segmented tab triggers, filter menu items, Now's Ready to archive chips; `sm` buttons and toggles use `min(var(--radius-md), 10px)` or `min(var(--radius-md), 12px)`, which both resolve to 6px; icon tiles use `min(var(--radius-md), size / 3)`.
-- **lg 8px** (`rounded-lg`, `var(--radius)`): buttons, inputs, workflow cards, the canvas's add-step placeholder, the canvas controls and minimap, the outer corners of a filter chip, segmented tab lists, the split grips.
-- **Document code 10px** (`--doc-code-radius` 0.625rem): code blocks in a document, after Notion; the one radius off the scale, kept to documents.
-- **xl 12px** (`rounded-xl`): dialogs, the command palette, empty states.
-- **2px** (`rounded-[2px]`): the status mark, the Problems dot, the tooltip arrow, minimap nodes.
-- **3px and 5px**: kbd and buttons inside an input group (`calc(var(--radius) - 5px)`, `calc(var(--radius) - 3px)`).
-- **full**: switches, avatars, the canvas's round "+" and on-fail pill, progress bars, the sidebar row's state bar.
-- `--radius-2xl`, `-3xl`, `-4xl` (1.8, 2.2 and 2.6 times `--radius`) are defined by the shadcn theme and unused.
+- **sm 4px** (`rounded-sm`, `rounded`, `rounded-[4px]`): inline code, kbd, the `Next` and `required` chips, badges, the checkbox, a focusable path link, the canvas's on-fail label.
+- **md 6px** (`rounded-md`, `calc(var(--radius) - 2px)`): section bands, ID chips, sidebar rows, menu items, tooltips, search palette items, the workflow card's 28px tile, the code view's search fields, buttons and tooltips; the vendored `sm` and `xs` buttons, toggles and the small select use `min(var(--radius-md), 10px)` or `min(var(--radius-md), 12px)`, both 6px.
+- **lg 8px** (`rounded-lg`, `var(--radius)`): buttons, inputs, menus, property cards, workflow cards, the add-step placeholder, the minimap; a document's code blocks (`--doc-code-radius` 0.5rem).
+- **xl 10px** (`rounded-xl`, 0.625rem): the work area's panel, dialogs, the search palette, the vendored empty state, the error boundary's card.
+- **full**: pill tabs, the round "+", progress bars, switches, radios, the unsaved and broken-file dots.
+- **Small marks**: 2px for the code view's search match and the tooltip's arrow; 3px for the minimap's nodes; 1px for the two bars of the code view's drawn close cross; 50% for the lint dot.
+- **Vendored insets**: 5px (`calc(var(--radius) - 3px)`) and 3px (`calc(var(--radius) - 5px)`) for buttons and kbd inside an input group; the icon tile's `min(var(--radius-md), size / 3)`.
+- `--radius-2xl` (12px), `--radius-3xl` (16px) and `--radius-4xl` (20px) are on the scale and unused.
 
-Rows in lists, bands, the top row, panel panes and document tabs are square: they sit edge to edge. Borders are 1px; the status mark's is 1.5px; a blockquote's left rule is 3px (`--input`).
+Rows, column heads, the header, the view tab row, the canvas toolbar and the footer are square: they run edge to edge inside the panel. Borders are 1px; a blockquote's left rule is 1px of `--border`; status icons and canvas lines are drawn at 1.5px and 1px.
 
 ## Components
 
 ### Buttons
 
-Quiet, compact, ink on neutral.
+Quiet, compact, ink on neutral (shadcn's button, as shipped).
 
-- **Shape:** 8px radius; heights 32px (default), 28px (`sm`, 0.8rem text), 24px (`xs`, `text-xs`), square icon sizes 24, 28, 32 and 36px.
-- **Default:** ink fill with the on-ink text, 80% on hover.
-- **Outline:** a `--border` rule on the document ground (dark: `--input` rule on `--input` at 30%), muted on hover. The most used variant with Ghost.
-- **Ghost:** no fill; muted on hover (dark: muted at 50%).
-- **Destructive:** red text on red at 10% (dark 20%), 20% (dark 30%) on hover.
-- **Focus:** `--ring` border and a 3px ring of `--ring` at 50%. Press nudges the button down 1px.
+- **Shape:** 8px corners; 32px default, 28px `sm`, 24px `xs`, square icon buttons of 24, 28, 32 and 36px.
+- **Default:** the ink fill with the on-ink text, 80% on hover.
+- **Outline:** a hairline on the panel (dark: `--input` rule on `--input` at 30%), muted on hover. With Ghost, the most used.
+- **Ghost:** no fill, muted on hover (dark: muted at 50%); the header's and the rows' icon buttons in the secondary ink.
+- **Destructive:** red text on red at 10% (dark 20%).
+- **Focus:** a `--ring` border and a 3px ring of `--ring` at 50%. A press nudges the button 1px down.
 
 ### Chips and badges
 
-- **Style:** the ReUI badge, 20px tall, `text-xs` 500, 4px radius. The dashboard uses `outline` (a rule, no fill), `secondary`, and the tinted `destructive-light` (the state colour at 10% with a 15% rule; dark 15% and 25%).
-- **Status pill** (panel header): no fill, the status mark then its label in the state colour, `text-sm` 500.
-- **Ready to archive chips** (Now): a project's name and its count in green 500, `text-sm`, 1px rule, 6px radius, `px-3 py-1`, accent on hover.
+- **ID chip** (`IdChip`): Geist Mono 13px at 400 in the ink, on `--band`, 6px corners, 24px tall, 8px inside. When it does not fit it is cut in the middle (`CutName`), its distinct tail kept, never under 10 characters (or the tail, 3 head characters and the ellipsis); from 1024px it shows whole. One chip for every ID set inline: rows, the panel's Details and Series.
+- **Row chip** (`RowChip`): plain `text-xs` in the secondary ink after a name (`series · 7`, `default`), no box.
+- **Project chip:** the project's 12px folder mark in its hue, then its name in `text-xs` ink, cut in the middle, no outline.
+- **Badge:** the ReUI badge, 20px, `text-xs` 500, 4px corners; the dashboard uses `destructive-light` for `N errors` (the Invalid icon, red text on a red tint) and `outline`.
+- **Status pill:** the status icon and its label at 500 in the status's text colour, flat; Not started and Archived in the secondary ink.
+- **Small chips** (`Next` on a task, `required` on an input): 16px or 18px tall, a hairline, 4px corners, `text-xs`.
 
-### Filter bar
+### Lists
 
-The ReUI `filters` bar, the same on every list page.
-
-- **Row:** the search field (28px tall, 208px from 640px), then the chips, then an outline `sm` **Filter** button that opens a searchable menu of fields, then **Clear**, which removes the chips and keeps the search.
-- **Chip** (`Field is value ×`): a button group of joined 28px segments on the document ground (dark: `--input` at 30%) with 1px rules and 8px outer corners: the field's icon and label at 500, the condition ("is", "is not") in dim ink, the values with their marks, and a remove button in dim ink. Segments take the accent on hover.
-- **Value menu:** 256px wide, a search, then one checkbox per value with its count in Geist Mono `text-xs` dim ink at the right; at most 288px tall, scrolling.
-- **Result line:** `N of M <nouns>` in `text-xs` dim ink, in a `role="status"` region, only while the list is narrowed.
-- **Empty state:** one alert row naming the search and the filters in use, with an outline **Clear filters** button.
-
-### Grouped lists
-
-- **Band:** each status group (and each archive month) opens with a full-width 36px band on `--band`, sticky under the top row. One button holds a 16px chevron in dim ink (turned 90° while open), the status mark, the label in `text-sm` 500 and its count in 400 dim ink. Hover takes the accent at 50%; focus shows a 2px inset ring. Collapsed state is kept per page and group in this browser; Alt-click (⌥ on macOS) toggles every group, and a `text-xs` hint under the list says so. Ready to archive and older archive months start collapsed. An archive month counts the month: `12 of 98` when the page lists only its newest.
-- **Header row:** one per list page, 32px with a 1px rule below, above the first band (or the first row), not sticky: the columns' titles in the grid header style (`text-xs`, third ink), each on the edge its cells keep (a right-aligned title ends where its values end), and the columns' resize lines. Change lists title their columns Change, Project, Progress and Updated, archive bands included (an archived change shows its archive date under Updated, and nothing under Progress). A list that shows no open change as a row (a project or group with only archived changes, the whole archive with `?archive`, Now filtered to Archived or holding only Ready to archive, which it counts by project) has no Progress column at all: no title, no cells, no resize line. The column comes back with the first open row. On a page of bands the header row is a grid of its own that shares the bands' column sizes; each band's grid keeps its column headers for assistive technology only.
-- **Row:** a grid row, at least 36px tall, with the 24px gutters and no divider; its head (the ID over the text) is the link, and a click elsewhere in the row follows it. Hover fills with the accent at 40%, focus with the accent and a 2px inset ring, both to the page's edge. The ID in Geist Mono `text-sm` ink over the text in `text-sm` dim ink, each on one line, truncating, then the right-hand columns (Layout). Actions (pin, menu) stay visible at rest. Workflows and Prompts rows are the same row: the file's name in mono (the `default` badge beside it) over its description.
-- **Opening row:** a series on Now or a group on All projects is one row with a 14px chevron (right when closed, down when open) hanging in the 24px gutter, 5px before its ID, so every row's ID starts on the gutter's edge, opening or not. Its members are indented 40px from that edge, along a 1px `--border` guide line under the chevron, 12px from the left.
-- **Progress:** a 96px × 4px bar on `--border`, filled amber while in progress (`--warning`, the brighter fill amber in light), green when every task is done, red while invalid; `done/total` after it in mono. The column stands 12px off the rule at its left.
+- **Column head** (`ListHead`): 32px, the column titles in `text-xs` secondary ink over a hairline, sticky at the top of the list on the panel.
+- **Section band** (`SectionBand`): a 36px bar with 6px corners on `--band`, on an 8px inset of the panel (8px above, 4px under), sticky under the column head: the status icon, the label at 600, the count in the secondary ink, and a 14px caret at the right that turns while the section is closed. Hover is the accent at 60%; focus a 2px inset ring. Alt-click toggles every section; a `text-xs` hint under the list says so.
+- **Row** (`ListRow`): 40px, one line, 16px gutters, no rule between rows: a 16px margin slot (a series' or a group's 14px chevron), the 14px status icon, the name at 500 in the ink (cut at 60 characters from 1024px), the ID chip and row chips, then the fixed columns in the secondary ink, the last ending on the gutter. The whole row opens it; hover fills it with the accent, keyboard focus adds a 2px inset ring; the current row (in its siblings' list) is on the blue tint. A member of an opened row is indented 24px. Actions (pin, menu), at most two, stay visible at rest.
+- **Progress** (`ChangeProgress`): `done/total` in the secondary ink, tabular, then a 14px ring (2px stroke on `--track`) that fills in the ink, green when every task is done, red while invalid.
+- **Status icon** (`StatusMark`): 14px SVG, 1.5px stroke: a grey dashed ring for Not started, an amber ring half filled for In progress, a red disc with a cross for Invalid, a green disc with a check for Ready to archive, the same check on a grey disc for Archived.
 
 ### Cards / Containers
 
-- **Workflow card:** the only card. 300 × 72px (an on-fail card 232px wide), `--card` fill, 1px rule, 8px radius, 12px side padding, no shadow. A 24px first row holds a 24px icon tile tinted in its `--tone-*` and the name in `text-sm` 500 (mono for a code step) on the row's whole width; a 20px second row holds the `N errors` badge, one muted `text-xs` description line from the card's left edge, and the outline badges (`agents · opus`, `matrix · 5`) at its right end. Hover fills with the accent; selected has a border of the ink at 60% and a 4px ring of the ink at 10%; a card with errors has a red border (its selected ring red at 20%); an on-fail card has a dashed `--input` border. Focus shows a 2px `--ring` outline offset 2px. Its accessible name is its label and badges, described by its second row.
-- **Add-step placeholder:** the card's size, a dashed ink border, `--card` at 50%, a 16px plus in dim ink.
-- **Everything else is not a card:** lists, panels and documents sit on their ground with rules.
+- **Property card** (`PropertyCard`): the facts of an item, stacked in the panel. A hairline, 8px corners, `--card`, shadow xs; a 40px header on `--band` at 50% (title at 600, its count in the secondary ink, an action at the right), then its rows on a 12px gutter, each above a rule (a hairline over key/value rows and free text, the lighter `--rule` over list rows): key/value rows with a 100px key column in the secondary ink, free text at most 62 characters a line, or rows that open something (the whole row, hover fill, inset ring). Cards: the status and progress, Tasks, Details, Series, a prompt's Inputs, Used by, Problems.
+- **Workflow card:** 360 × 56px (on-fail 232px), `--card`, a hairline, 8px corners, shadow sm. At its left a 28px tile with 6px corners tinted by its kind's hue, holding the step's number in Geist Mono `text-xs` 600 (or the card's icon); then the title in the ink on an 18px line and, under it, the step's name in mono `text-xs` with its `N errors` badge, and its meta (`agents · opus`, `matrix · 5`) at the right in `text-xs`. Hover fills with the accent; selected is a blue border with a 3px blue halo at 15%; errors give a red border; an on-fail card has a dashed border in the secondary ink at 50%.
+- **Add-step placeholder:** the card's size, a dashed blue outline, `--card` at 60%, a 14px plus.
 
 ### Workflow canvas
 
 Built on React Flow (`@xyflow/react`), its base styles in their own CSS layer.
 
-- **Ground:** `--canvas` with a dot grid, 16px apart, 1.5px dots in `--canvas-dot`.
-- **Edges:** smooth-step lines, 1.5px, `--muted-foreground` at 50%, with small closed arrowheads. Connection handles are hidden: steps are not joined by hand.
-- **Add a step:** a round 20px outline "+" on `--card` (dark: on the accent) with shadow xs, shown at rest on every line between two cards and under the last one, centred between the card above and the arrowhead.
-- **On-fail:** a dashed (5 5) edge in red at 60% to the on-fail card, with a 20px pill at its bend: `on fail · tries N` in `text-xs` red on `--card`, a red rule at 40%, fully rounded.
-- **Controls:** a floating 36px pill at the bottom centre, 16px from the edge: `--card`, 1px rule, 8px radius, shadow md, holding undo, redo, zoom out, the percentage (`text-xs` tabular, 48px), zoom in and Fit (down to 50%), with 16px vertical separators.
-- **Minimap:** shown when the drawing overflows the view, at the bottom right: 160 × 100px, `--card`, 1px rule, 8px radius, shadow md; nodes in `--input` (the selected one in the dim ink) with 2px corners, the area outside the view masked by `--background` at 55%. On a canvas narrower than 640px it sits above the controls.
-- **Attribution:** React Flow's link at the bottom left, on the 24px gutter, `text-xs` in the dim ink on no background.
+- **Ground:** `--canvas` with a dot grid, 16px apart, 1.25px dots in `--canvas-dot`.
+- **Lines:** smooth-step, 1px, the secondary ink at 75%. An on-fail line is dashed (4 4) with `on fail · tries N` in `text-xs` secondary ink on the canvas colour, 4px corners.
+- **Add a step:** a round 20px "+" on `--card`, shadow xs, shown at rest on every line and under the last card.
+- **Minimap:** 160 × 100px, `--card`, a hairline, 8px corners, shadow md; nodes in `--border` (the selected one in `--ring`) with 3px corners, the area outside the view masked by `--canvas` at 70%.
+- **Fade and attribution:** cards and lines fade out over the canvas's last 40px (clear under 24px); React Flow's attribution sits there on the 16px gutter in `text-xs` secondary ink, on no background.
 
 ### Documents
 
-- **Read view:** the live editor, read-only: Markdown at the document scale (Typography) and widths (Layout), in `--doc-foreground`. A heading is exposed as a heading of its level. List markers are dim ink; a blockquote is dim ink with a 3px `--input` left rule and 16px padding; a horizontal rule is `--border`.
-- **Inline code:** 85% Geist Mono on `--doc-code-tint`, `0.2em 0.4em` padding, 4px radius, in the text colour.
-- **Code block:** on `--code-surface`, 10px radius, `16px 20px` padding, 85% mono at line height 1.5, syntax colours from `--code-*`. Its lines wrap, in the read view and the live editor alike: nothing scrolls sideways, and a wrapped line continues 2ch further in than it starts (a hanging indent, as a list item's later lines hang past its marker), so a continuation never reads as a new line. Its fence lines stay, in dim ink; the language is named at the right of the first one, in mono `text-xs` dim ink.
-- **Table:** in a wrapper that scrolls sideways (focusable in the read view, so it scrolls from the keyboard); full width of its room, a 1px `--border` around and between cells, cells `0.5em 0.75em` aligned to the top, the header row on `--muted` at 600, tabular numbers. In the live editor, inline code in a cell may break anywhere.
-- **Live editor:** CodeMirror with the same scale, colours, widths and blocks as the read view; a blank line is 8px; task boxes are 13px in `--link`; fence lines are dim ink. A paragraph flows as one, its source line breaks joined, except the paragraph the cursor is in while the editor has the focus, which shows as written.
-- **Footer:** a 28px bar under a document (`h-7`, rule above, `px-6`), `text-xs` dim ink: the file's name in mono, its details after a `·`, the save state at the right. A code tab and a change's Markdown file give the draft's line count (`121 lines`, `tabular-nums`), an archived change its archive date.
+- **Live editor** (CodeMirror, read-only or editing): the document scale (Typography) in the reading column (Layout), the caret blue. A paragraph flows as one; list levels indent 1.5em each with hanging markers in the secondary ink; 8px between list items; a blank line is 8px; 24px above an h1, 16px above an h2, 8px above an h3 and h4 to h6.
+- **Inline code:** the mono step in the text's colour on `--doc-code-tint`, 4px corners, `0 2px` padding, its tint repeated on each line it wraps to (`box-decoration-break: clone`); code of at most 32 characters (backticks included) never wraps.
+- **Code block:** on `--code-surface`, 8px corners, 16px top and bottom, 20px sides, 13/20 mono; its lines wrap with a 2ch hanging indent; its fence lines stay in the secondary ink, the language at the right of the first.
+- **Table:** ruled like a chart: no box and no vertical rule, a hairline under the header row (600), a light rule between rows, cells `0.5rem 0.75rem`, aligned to the top, at most the reading measure (wider ones scroll in their own box).
+- **Quote:** a 1px `--border` rule at its left, 16px in, the secondary ink. **Link:** blue, underlined at 40% of the blue, fully on hover. **Task box:** 13px, `accent-color` blue.
+- **Code view** (YAML, a prompt's source, `change.yaml`): Geist Mono 13/20 on the panel; line numbers in the secondary ink in a quiet gutter with no rule (16px in, 2.5rem least), the active line's number in the ink and the active line on the accent at 60%; errors underlined in a wavy red with a 6px red dot in their own gutter; its search panel (⌘F / Ctrl+F) in the interface's controls: 28px fields and buttons, 6px corners, hairlines.
 
 ### Inputs / Fields
 
-- **Style:** 32px tall, transparent fill, `--input` rule, 8px radius, `text-sm` text (`text-base` below 768px), the placeholder in the third ink (a select's too). The filter bar's search is 28px tall.
-- **Focus:** `--ring` border and a 3px ring of `--ring` at 50%.
-- **Error:** red border and a red ring at 20% (dark 40%).
-- **Checkbox:** 16px, 4px radius, a dim-ink rule; checked fills with the ink and shows a check in the document colour. Radios and switches fill with the ink when on.
+- **Style:** 32px, transparent, an `--input` rule, 8px corners, 14px text (16px below 768px), placeholders in the secondary ink. The filter bar's search field is 28px.
+- **Focus:** a `--ring` border and a 3px ring of `--ring` at 50%. **Error:** a red border and a red ring at 20% (dark 40%).
+- **Checkbox:** 16px, 4px corners, a rule in the secondary ink; checked fills with the ink and shows the check in the panel's colour. Radios and switches fill with the ink when on.
+- **Filter chip** (`Field is value ×`): joined 26px segments with a hairline outline and no fill, 14px: the field, the condition in the secondary ink, the values with their marks, a remove button. The value menu is 256px wide, a search then a checkbox per value with its count in mono `text-xs`, at most 288px tall.
 
 ### Navigation
 
-- **Sidebar rows:** 32px, `text-sm`, 6px radius, 8px padding, hover on `--sidebar-accent`; the active row is `--sidebar-accent` and 500. A row's 16px icon stands in a 20px slot, the size of a project's letter tile, so every icon shares one centre line and every label one edge. Group labels (Pinned, Recent, Library) are `text-xs` 500 in the third ink. A row's count is Geist Mono `text-xs` dim ink with tabular numbers, right-aligned in a slot at least 24px wide that ends on one edge for every row, a group's projects included; a group's chevron stands in the 24px slot left of its count. A 2px rounded bar at the row's left edge carries state (red when a project has broken files). In the icon rail, rows show only their icon.
-- **Document tabs** (the centre's top row): `text-sm`, 16px side padding, full row height. Inactive tabs are dim and turn to ink on hover; the active tab is ink, 500, with a 2px ink underline. Focus shows a 2px inset ring.
-- **Panel tabs:** the same underlined style in a 40px row, 8px side padding, the underline on the row's rule; a tab may carry a count in dim ink (Series, Problems), never one the panel's header already shows. A pane's content shows a 2px `--ring` outline inside its edge when it takes the keyboard focus.
-- **Command palette** (⌘K / Ctrl+K): a 12px-radius dialog on `--popover`, opened a third of the way down.
-- **Mobile:** below 768px the sidebar is a sheet and the panel is always a sheet.
-
-### Panel split and resize edges
-
-- **Split:** the panel's top and bottom panes are a vertical react-resizable-panels split. The separator is a 1px `--input` line with a 4 × 24px grip in the dim ink, seen at rest; it tints to the ink at 40% on hover and 60% while dragged, and shows a 1px `--ring` ring on focus. It resizes by pointer or keyboard and resets on double-click. The top pane keeps at least 20%; the bottom pane collapses to its 40px tab row, by dragging or by a chevron at its right, and a tab chosen there opens it again. The layout is kept per kind of panel (change, change details, workflow, workflow step, prompt). The top pane's default share is 60% (a workflow: 70%, or 50% while a step's prompt shows).
-- **Panel edge:** the panel's left edge carries the same 1px `--input` line and 4 × 24px grip at rest, tinting to the ink at 40% on hover.
-- **Markdown editor split:** the source and preview columns are split by the same visible grip.
-- **Step prompt pane:** a 40px row with the prompt's `<name>.md` in mono `text-xs` dim ink, "Shared by N workflows" when it is, and **Open prompt** at the right; under it, the prompt's front matter as fields and its body read-only at the document scale.
-
-### Status mark
-
-The signature element. An 8px square (`size-2`) with a 2px radius and a 1.5px border, drawn in CSS:
-
-- **Not started:** hollow, dim ink rule.
-- **In progress:** amber rule, left half filled amber (`linear-gradient(90deg, var(--warning) 50%, transparent 50%)`).
-- **Ready to archive:** filled green.
-- **Invalid:** filled red.
-- **Archived:** filled dim ink at 60%.
-
-It appears on group bands, in the Status filter's values, in the panel's status pill, in the file status pill (Valid or N errors) and, before `Valid`, in the Status cells of the Workflows and Prompts lists (a file with errors shows the `N errors` badge there).
+- **Sidebar rows:** 28px, 14px at 400 in the sidebar's ink, 6px corners, 8px inside; hover on `--sidebar-accent`; the chosen row on the blue tint, at 500 in the ink, its 16px icon blue. A project's row leads with its folder mark in its hue; counts are `text-xs` secondary ink, tabular, on the row's right edge. A red 6px dot before the Workflows or Prompts count marks files with errors.
+- **Pill tabs** (`ViewTabs`): see Layout. Hover turns a tab's text to the ink; focus is a 2px ring.
+- **Search palette** (⌘K / Ctrl+K): a dialog a fifth of the way down, at most 672px wide, 10px corners, on `--popover`; a 48px input row at 16px with an Esc kbd; groups of 36px items with 6px corners, the chosen one on the ink at 8%; IDs in mono `text-xs`.
+- **Tooltip:** the ink with the panel's colour on it, `text-xs`, 6px corners, `6px 12px`, a 2px-cornered arrow.
+- **Kbd:** 20px, `bg-muted`, `text-xs` 500 in the secondary ink, 4px corners.
 
 ### Task row
 
-The panel's Tasks list: a 12px mono number line (with "Next" in the text amber at 500), the lead in `text-md` 500 ink, the detail in `text-sm` dim ink, clamped to 3 lines with Show more. The next task is shown in full with a 2px amber inset edge and an amber 5% tint. The checkbox and the drag grip sit level with the lead's first line; the grip and the row's menu are visible at rest. Done tasks fold to "N done".
+The Tasks card: each task above a light rule, `py-3`, its drag grip and checkbox and its menu visible at rest; a number line in mono `text-xs` secondary ink (with a `Next` chip on the first task not done), the lead in `text-md` at 500, the detail in `text-md` secondary ink clamped to three lines with Show more. Done tasks fold under a 32px `N done` row.
 
 ### Motion
 
-- Hover and state changes: 150ms `cubic-bezier(0.4, 0, 0.2, 1)` (Tailwind's default), mostly `transition-colors`, including the split grips.
-- Overlays: fade and zoom from `tw-animate-css`, 100ms for dialogs, menus and popovers, 150ms for sheet opacity; the sidebar's width 200ms linear.
-- Bands: the chevron turns 90° (`transition-transform`) when a group opens. Row chevrons swap between right and down without motion.
-- Canvas: fit, zoom and pan change the viewport at once, with no animation.
+- Hover and state changes: Tailwind's 150ms default, almost only `transition-colors`; the bands' and rows' carets turn with `transition-transform`.
+- Overlays: fade and zoom from `tw-animate-css`, 100ms for dialogs, menus and popovers, 150ms for a sheet's dim; the sidebar's width 200ms linear.
+- A load shows nothing for 400ms, then a turning ring (`motion-safe:animate-spin`). Skeleton cells pulse.
+- The canvas's fit, zoom and pan move at once, with no animation.
 - Reduced motion: transitions are limited to opacity and colours, and overlays no longer scale, slide or rotate.
 
 ## Do's and Don'ts
 
 ### Do
 
-- **Do** take colours from the tokens (`bg-background`, `text-muted-foreground`, `border-border`), never literal hex, so both themes follow.
-- **Do** keep amber, green and red for state, and draw the status mark with `StatusMark`.
-- **Do** set interface hierarchy with 600 against 400 and ink against dim ink, inside `text-sm` and `text-xs`; only a workflow's title and a document's title use `text-title`.
-- **Do** keep the third ink (`text-subtle-foreground`) for what labels the page (group labels, column headers, hints, placeholders), and the dim ink for a row's own text.
-- **Do** fill with `--warning` and write amber text with `--warning-foreground`.
-- **Do** set documents with the `--text-doc*` scale and `--doc-foreground`, prose at most `--read-width` (708px) and code blocks and tables up to `--read-wide` (64rem).
-- **Do** keep every page's top row at 44px so it lines up with the panel's header.
-- **Do** put a document's facts in the panel header and its Details tab, not above the title.
-- **Do** separate groups of a list with one sticky `--band` band, not with gaps or dividers, and keep its collapsed state per page.
-- **Do** start every list row with its ID or name in Geist Mono `text-sm` on the gutter's edge, over its text in dim ink, and use the shared filter bar on every list page.
-- **Do** cap a list's columns (`LIST_CAP`) and let its bands, its header's rule and its rows' hover run to the page's edge.
-- **Do** show focus with `--ring`: a 2px ring on custom rows and tabs, the component's 3px ring at 50% on buttons and fields.
-- **Do** use Geist Mono `text-xs` with `tabular-nums` for counts and `done/total`.
+- **Do** take every colour from the tokens (`bg-background`, `text-muted-foreground`, `border-border`), never a literal, so both themes follow.
+- **Do** keep the blue for selection, the active item, focus and links, and the status colours for status.
+- **Do** set the interface in `text-sm` and `text-xs` only, with 600, 500 and 400 and the two inks carrying the hierarchy.
+- **Do** set every ID in the `IdChip` (or Geist Mono `text-xs` where it is not a chip), and cut long names in the middle with `CutName`.
+- **Do** build every list from `list-kit`: the sticky column head, `SectionBand`, 40px `ListRow`s, fixed `COLUMN` widths.
+- **Do** keep one 16px gutter for header, tabs, title, document and canvas, and prose, code and tables to `--read-width` on the left edge.
+- **Do** put an item's facts in `PropertyCard`s in the panel, and its title in `ItemHeading`, the same on every view.
+- **Do** show every empty, not-found, error and loading state with `StateBlock` (`EmptyNote`, `StateLoading`, `Notice`).
+- **Do** use `tabular-nums` only where numbers line up.
 
 ### Don't
 
-- **Don't** use the blue for primary buttons, active tabs, checked controls or document links; those are ink.
-- **Don't** put cards, frames or shadows on the page ground; the workflow card is the only card.
-- **Don't** add interface text sizes beyond 12, 14 and the 21px title, or document sizes beyond 16, 20, 24 and 30; never go under 12px outside the vendored badge sizes.
-- **Don't** hide IDs, actions, grips or the canvas's "+" behind hover; they are visible at rest.
-- **Don't** show counts that repeat what the page already shows.
-- **Don't** show the command to run next; the user removed it from every page.
-- **Don't** use the brand amber anywhere but the logo.
+- **Don't** colour a primary button, a checked control or the logo blue; they are ink.
+- **Don't** use a project hue as text, a fill behind text or a border, or give it to anything but a project's mark or a step tile.
+- **Don't** add interface sizes beyond 14 and 13px, or document sizes beyond 28, 20, 17 and 16px.
+- **Don't** set tabular figures on body text; they space out hyphens in IDs and words.
+- **Don't** hide IDs, actions, the pin or the canvas's "+" behind hover, or cut a title to a hover tooltip.
+- **Don't** number section bands, draw rules between list rows, add zebra stripes or vertical column rules.
+- **Don't** put shadows on the sidebar, bands, rows or documents.
 - **Don't** load fonts, scripts or images from another host; the CSP allows only the dashboard's own.
