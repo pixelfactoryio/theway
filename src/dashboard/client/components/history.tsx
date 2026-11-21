@@ -81,7 +81,7 @@ export function useHistoryTab({
     <PropertyCard title="Versions" meta={versions.data === undefined ? undefined : list.length}>
       {versions.data === undefined ? null : list.length === 0 ? (
         <div className="border-t border-rule">
-          <EmptyNote>No version yet. A version is kept each time the dashboard saves this file.</EmptyNote>
+          <EmptyNote>No version yet. A version is kept each time the dashboard saves or restores this file.</EmptyNote>
         </div>
       ) : (
         <ul aria-label="Versions" className="flex flex-col">

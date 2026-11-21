@@ -66,7 +66,7 @@ export function StateLoading({
     <StateBlock
       role="status"
       size={size}
-      icon={<LoaderCircleIcon aria-hidden="true" className="animate-spin text-muted-foreground" />}
+      icon={<LoaderCircleIcon aria-hidden="true" className="text-muted-foreground motion-safe:animate-spin" />}
     >
       {children}
     </StateBlock>

@@ -36,15 +36,29 @@ const MUTED = { color: "var(--muted-foreground)" }
 /** Geist Mono a step under the text it sits in (13px in 16px body text), never under 12px. */
 const MONO = { fontFamily: "var(--font-mono)", fontSize: "max(0.75rem, 0.8125em)" }
 /**
- * Inline code: the mono step, in the text's colour, on a faint tint that keeps inside its line (no vertical padding),
- * so a sentence full of paths still reads as a sentence.
+ * Inline code: the mono step, in the text's colour, on a faint tint that keeps inside its line (no vertical padding,
+ * 2px at its sides so it stays close to the punctuation around it), so a sentence full of paths still reads as a
+ * sentence. A token that wraps (one longer than `WHOLE_CODE`) keeps its tint and sides on each of its lines.
  */
 const INLINE_CODE = {
   ...MONO,
-  padding: "0.1em 0.3em",
+  padding: "0 2px",
   borderRadius: "var(--radius-sm)",
   backgroundColor: "var(--doc-code-tint)",
+  boxDecorationBreak: "clone",
+  WebkitBoxDecorationBreak: "clone",
 }
+
+/** The longest inline code (its backticks included) kept whole on one line: about a third of the reading measure. */
+const WHOLE_CODE = 32
+
+/** The widget buffers on each side of inline code's hidden backticks (an empty widget), and those right beside it. */
+const CODE_BUFFERS = [
+  ".cm-widgetBuffer:has(+ .cm-lp-inline-code)",
+  ".cm-widgetBuffer:has(+ span:empty + .cm-widgetBuffer + .cm-lp-inline-code)",
+  ".cm-lp-inline-code + .cm-widgetBuffer",
+  ".cm-lp-inline-code + .cm-widgetBuffer + span:empty + .cm-widgetBuffer",
+].join(", ")
 /** A heading of the document's scale: 600, its size and line height from the `--text-doc-*` tokens. */
 const HEADING = (level: string, space: string) => ({
   fontSize: `var(--text-doc-${level})`,
@@ -84,10 +98,10 @@ const THEME = EditorView.theme({
     lineHeight: "var(--text-doc--line-height)",
     overflow: "auto",
   },
-  // The column's 24px gutters; each line on its left edge, at most `--read-width` wide, code blocks and tables too (a
+  // The column's 16px gutters, the panel's; each line on its left edge, at most `--read-width` wide, code blocks and tables too (a
   // table fits its columns, and one wider than the measure scrolls in its own box).
   // `minWidth: 0` keeps the content to the column, so a table wider than its room scrolls in its own box.
-  ".cm-content": { padding: "1.5rem 1.5rem 4rem", minWidth: "0", caretColor: "var(--link)" },
+  ".cm-content": { padding: "1.5rem 1rem 4rem", minWidth: "0", caretColor: "var(--link)" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--link)" },
   ".cm-line": { padding: "0", maxWidth: "var(--read-width)", boxSizing: "border-box" },
   ".cm-lp-blank": { lineHeight: "0.5rem" },
@@ -132,6 +146,12 @@ const THEME = EditorView.theme({
   ".cm-lp-em": { fontStyle: "italic" },
   ".cm-lp-strike": { textDecoration: "line-through" },
   ".cm-lp-inline-code": INLINE_CODE,
+  // Hidden backticks stand beside inline code as empty widgets between two widget buffers, and the buffers are images,
+  // around which a line may always break: without them, a line never breaks between an opening bracket and the code
+  // after it, nor between the code and the punctuation after it. The syntax is hidden only off the selection's lines,
+  // so the cursor never stands by these buffers.
+  [CODE_BUFFERS]: { display: "none" },
+  ".cm-lp-inline-code-whole": { whiteSpace: "nowrap" },
   ".cm-lp-link": {
     color: "var(--link)",
     textDecoration: "underline",
@@ -156,7 +176,7 @@ const THEME = EditorView.theme({
   ".cm-lp-task:disabled": { cursor: "default" },
   ...ITEM_STYLES,
   // A table ruled like a chart: no box and no vertical rule; a hairline under the header row (600) and a light rule
-  // between rows, the first column on the text's edge, one size (the body's) with tabular numbers.
+  // between rows, the first column on the text's edge, one size (the body's).
   // Words break between words, not anywhere as wrapped lines do: a column too narrow for a word scrolls instead.
   ".cm-lp-tablewrap": {
     maxWidth: "var(--read-width)",
@@ -173,7 +193,6 @@ const THEME = EditorView.theme({
     borderCollapse: "collapse",
     fontSize: "inherit",
     lineHeight: "var(--text-doc--line-height)",
-    fontVariantNumeric: "tabular-nums",
   },
   ".cm-lp-tablewrap th, .cm-lp-tablewrap td": {
     borderBottom: "1px solid var(--rule)",
@@ -222,6 +241,13 @@ const MARK: Record<MarkKind, Decoration> = {
   number: Decoration.mark({ class: "cm-lp-number" }),
   label: Decoration.mark({ class: "cm-lp-label" }),
 }
+
+/** Inline code no longer than `WHOLE_CODE`: never cut across two lines, at a hyphen or anywhere. */
+const WHOLE_CODE_MARK = Decoration.mark({ class: "cm-lp-inline-code cm-lp-inline-code-whole" })
+
+/** A mark's decoration: inline code short enough to stay whole keeps to one line. */
+const markOf = (m: { kind: MarkKind; from: number; to: number }): Decoration =>
+  m.kind === "code" && m.to - m.from <= WHOLE_CODE ? WHOLE_CODE_MARK : MARK[m.kind]
 
 const HIDE = Decoration.replace({})
 
@@ -541,7 +567,7 @@ function decorations(view: EditorView): DecorationSet {
     ...plan.lines.map((l) => LINE[l.kind].range(l.from)),
     ...plan.items.map((i) => ITEM(i.depth, i.first).range(i.from)),
     ...plan.marks.map((m) =>
-      m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : MARK[m.kind].range(m.from, m.to),
+      m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : markOf(m).range(m.from, m.to),
     ),
     ...plan.hidden.map((h) => HIDE.range(h.from, h.to)),
     ...plan.widgets.map((w) => widgetDecoration(w, state.readOnly).range(w.from, w.to)),

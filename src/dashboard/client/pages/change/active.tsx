@@ -28,7 +28,14 @@ import { apiPath, queryKeys, useLabel, useWrites } from "@/data/queries"
 import type { SyncedFile } from "@/drafts/draft-set"
 import { useDrafts } from "@/drafts/use-drafts"
 import { alertLines } from "@/lib/alert-lines"
-import { type ChangeDetail, ChangeDetailSchema, type ChangeTab, changeTabs, shownTab } from "@/lib/changes"
+import {
+  type ChangeDetail,
+  ChangeDetailSchema,
+  type ChangeTab,
+  changeTabs,
+  ownDescription,
+  shownTab,
+} from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
 import { StateNotice } from "@/shell/state"
@@ -211,9 +218,15 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     body = (
       <DocTab footer={footer}>
         {draft !== null ? (
-          <LiveMarkdown key={name} store={draft.store} name={name} title={description} className="h-auto" />
+          <LiveMarkdown
+            key={name}
+            store={draft.store}
+            name={name}
+            title={ownDescription(description, data.id)}
+            className="h-auto"
+          />
         ) : (
-          <MarkdownView key={name} text={fileText(name)} name={name} title={description} />
+          <MarkdownView key={name} text={fileText(name)} name={name} title={ownDescription(description, data.id)} />
         )}
       </DocTab>
     )
@@ -289,7 +302,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     </div>
   )
 
-  const descriptionPane = <DescriptionField description={description} edit={descriptionEdit} />
+  const descriptionPane = <DescriptionField description={description} id={shown.id} edit={descriptionEdit} />
 
   return (
     <>

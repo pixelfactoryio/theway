@@ -136,6 +136,15 @@ export function ageOf(iso: string, now: number): string {
   return `${Math.floor(s / size)}${unit}`
 }
 
+/**
+ * A change's description as a title or a row's name shows it: `null` when it has none, it is blank, or it only repeats
+ * the change's ID (`description: add-x` in `add-x`), so the ID is never shown twice.
+ */
+export const ownDescription = (description: string | null | undefined, id: string): string | null =>
+  description === null || description === undefined || description.trim() === "" || description.trim() === id
+    ? null
+    : description
+
 /** The browser's local date of an ISO time, `YYYY-MM-DD`. */
 export const localDate = (iso: string): string => localTime(iso).slice(0, 10)
 

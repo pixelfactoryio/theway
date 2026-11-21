@@ -138,14 +138,14 @@ test("no steps: Inputs alone read-only, Inputs and the '+' editable; the bounds 
   })
 })
 
-test("a canvas opens at 100%, its top 24px under the pane's top and its left 24px from the pane's left", () => {
+test("a canvas opens at 100%, its top 24px under the pane's top and its left 16px from the pane's left", () => {
   const bounds = { x: 0, y: 0, width: 300, height: 500 }
-  // Room for it all: its left 24px from the pane's left, its top 24px under the pane's top.
+  // Room for it all: its left 16px from the pane's left, its top 24px under the pane's top.
   expect(openView(bounds)).toEqual({ x: KEEP.side, y: KEEP.top, zoom: 1 })
-  expect(KEEP.top).toBe(24)
+  expect(KEEP).toEqual({ top: 24, side: 16, bottom: 24 })
   // Too tall: still 100%, from its top.
   expect(openView(bounds)).toEqual({ x: KEEP.side, y: KEEP.top, zoom: 1 })
-  // Too wide: still 100%, its left edge 24px from the pane's left.
+  // Too wide: still 100%, its left edge 16px from the pane's left.
   expect(openView({ x: 0, y: 0, width: 900, height: 100 })).toEqual({
     x: KEEP.side,
     y: KEEP.top,
@@ -153,7 +153,7 @@ test("a canvas opens at 100%, its top 24px under the pane's top and its left 24p
   })
 })
 
-test("fit: between 50% and 100% for height and width, the top 24px under the pane's top, its left 24px from the pane's left", () => {
+test("fit: between 50% and 100% for height and width, the top 24px under the pane's top, its left 16px from the pane's left", () => {
   const bounds = { x: 0, y: 0, width: 300, height: 500 }
   // Room for it all at 100%: on the pane's left edge.
   expect(fitView(bounds, { width: 800, height: 900 })).toEqual({ x: KEEP.side, y: KEEP.top, zoom: 1 })
@@ -161,8 +161,8 @@ test("fit: between 50% and 100% for height and width, the top 24px under the pan
   expect(fitView(bounds, { width: 800, height: KEEP.top + 450 + KEEP.bottom }).zoom).toBe(0.9)
   expect(fitView(bounds, { width: 800, height: KEEP.top + 300 + KEEP.bottom }).zoom).toBe(0.6)
   expect(fitView(bounds, { width: 800, height: 100 }).zoom).toBe(0.5)
-  // Too wide: the width's step wins; too wide at 0.5, its left edge 24px from the pane's left.
-  expect(fitView({ x: 0, y: 0, width: 700, height: 100 }, { width: 600, height: 900 }).zoom).toBe(0.7)
+  // Too wide: the width's step wins (568 of 700 is 0.81); too wide at 0.5, its left edge 16px from the pane's left.
+  expect(fitView({ x: 0, y: 0, width: 700, height: 100 }, { width: 600, height: 900 }).zoom).toBe(0.8)
   expect(fitView({ x: 0, y: 0, width: 1400, height: 100 }, { width: 600, height: 900 })).toEqual({
     x: KEEP.side,
     y: KEEP.top,
@@ -175,7 +175,7 @@ test("zoom steps by 0.1 within 50% and 200%, shown as a whole percent", () => {
   expect([percent(1), percent(0.734), percent(2)]).toEqual(["100%", "73%", "200%"])
 })
 
-test("the drawing overflows when any edge of it leaves the pane; a box out of view pans in, 24px inside the pane", () => {
+test("the drawing overflows when any edge of it leaves the pane; a box out of view pans in, 24px inside its top and bottom, 16px inside its sides", () => {
   const bounds = { x: 0, y: 0, width: 300, height: 500 }
   const pane = { width: 800, height: 600 }
   expect(overflows(bounds, { x: 10, y: 10, zoom: 1 }, pane)).toBe(false)
@@ -186,8 +186,8 @@ test("the drawing overflows when any edge of it leaves the pane; a box out of vi
     dx: 0,
     dy: pane.height - KEEP.bottom - 632,
   })
-  expect(revealDelta({ left: -50, right: 250, top: -10, bottom: 62 }, pane)).toEqual({ dx: 74, dy: 34 })
-  expect(revealDelta({ left: 700, right: 1000, top: 100, bottom: 172 }, pane)).toEqual({ dx: -224, dy: 0 })
+  expect(revealDelta({ left: -50, right: 250, top: -10, bottom: 62 }, pane)).toEqual({ dx: 66, dy: 34 })
+  expect(revealDelta({ left: 700, right: 1000, top: 100, bottom: 172 }, pane)).toEqual({ dx: -216, dy: 0 })
 })
 
 test("the minimap shows only where the room right of the drawing holds it with its 16px margins", () => {

@@ -7,7 +7,7 @@ import { COLUMN, IdName, type ListColumn, ListRow, ListRows, ProjectChip, RowChi
 import { StatusMark } from "@/components/status"
 import { GROUP_TITLE, type Group, useNow } from "@/components/workspace-rows"
 import { useLabel } from "@/data/queries"
-import { ageOf, rowStatus, type ActiveChange, type Status } from "@/lib/changes"
+import { ageOf, ownDescription, rowStatus, type ActiveChange, type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
 import { to } from "@/lib/routes"
 import { type Archived, archiveMonths, changesOf, countOf, type Located } from "@/lib/workspace"
@@ -42,7 +42,10 @@ export function changeColumns({
 const cellsOf = (columns: readonly ListColumn[], content: Record<string, ReactNode>) =>
   columns.map((column) => ({ column, content: content[column.id] ?? null }))
 
-/** An open change's row: its description first (its ID in its place when it has none), then its ID. */
+/**
+ * An open change's row: its description first, then its ID; its ID alone in the description's place when it has none
+ * or the description only repeats the ID.
+ */
 function ChangeRow({
   r,
   change,
@@ -56,13 +59,13 @@ function ChangeRow({
   member: boolean
   now: number
 }) {
-  const description = change.description ?? ""
+  const description = ownDescription(change.description, change.id)
   return (
     <ListRow
       head={{ href: to.change(r.key, change.id) }}
       icon={<StatusMark status={change.status} />}
-      meta={description !== "" ? <RowId>{change.id}</RowId> : undefined}
-      title={description !== "" ? description : undefined}
+      meta={description !== null ? <RowId>{change.id}</RowId> : undefined}
+      title={description ?? undefined}
       member={member}
       cells={cellsOf(columns, {
         project: <ProjectChip label={r.label} />,
@@ -70,7 +73,7 @@ function ChangeRow({
         updated: ageOf(change.updated, now),
       })}
     >
-      {description !== "" ? description : <IdName>{change.id}</IdName>}
+      {description ?? <IdName>{change.id}</IdName>}
     </ListRow>
   )
 }
@@ -127,6 +130,7 @@ export function ChangeRows({
           )
         const id = `${r.key}/${item.id}`
         const expanded = open.has(id)
+        const description = ownDescription(item.description, item.id)
         return [
           <ListRow
             key={id}
@@ -134,11 +138,11 @@ export function ChangeRows({
             icon={<StatusMark status={item.status} />}
             meta={
               <>
-                {item.description !== null ? <RowId>{item.id}</RowId> : null}
+                {description !== null ? <RowId>{item.id}</RowId> : null}
                 <RowChip wide>series · {item.count}</RowChip>
               </>
             }
-            title={item.description ?? undefined}
+            title={description ?? undefined}
             cells={cellsOf(columns, {
               project: <ProjectChip label={r.label} />,
               progress:
@@ -148,7 +152,7 @@ export function ChangeRows({
               updated: ageOf(item.updated, now),
             })}
           >
-            {item.description ?? <IdName>{item.id}</IdName>}
+            {description ?? <IdName>{item.id}</IdName>}
           </ListRow>,
           ...(expanded
             ? item.children.map((c) => (

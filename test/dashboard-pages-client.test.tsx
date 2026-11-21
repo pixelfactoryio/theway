@@ -70,14 +70,14 @@ test("an item's page states its title once, above every view, its ID or file nam
   // The title: in the reading column, at the reading scale's title size, outside the view's scroll root.
   const html = renderToStaticMarkup(<ItemHeading title="Split the client" />)
   expect(html).toMatch(
-    /^<div class="shrink-0 [^"]*\bpt-8 pb-4\b[^"]*\bpx-6\b[^"]*"><div class="w-full max-w-\(--read-width\)">/,
+    /^<div class="shrink-0 [^"]*\bpt-8 pb-4\b[^"]*\bpx-4\b[^"]*"><div class="w-full max-w-\(--read-width\)">/,
   )
   // A hairline under it only once the view under it is scrolled.
   expect(html).toContain("border-transparent")
   expect(html).toContain("[&amp;:has(~[data-scrolled])]:border-border")
-  // At most two lines, the whole title on hover.
+  // Whole, on as many lines as it takes: nothing of it is left to a hover.
   expect(html).toContain(
-    '<h2 title="Split the client" class="line-clamp-2 text-doc-title font-semibold tracking-tight text-pretty text-foreground">Split the client</h2>',
+    '<h2 class="text-doc-title font-semibold tracking-tight text-pretty text-foreground">Split the client</h2>',
   )
   // An item with no description has no title: its ID or file name stands once, in the header's path.
   expect(renderToStaticMarkup(<ItemHeading title={null} />)).toBe("")

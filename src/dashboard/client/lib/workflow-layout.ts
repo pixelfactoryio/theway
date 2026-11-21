@@ -142,8 +142,8 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
   return { nodes, edges, bounds: { x: left, y: top, width: right - left, height: bottom - top } }
 }
 
-/** The room kept free around the drawing in the view: 24px on every side. */
-export const KEEP = { top: 24, side: 24, bottom: 24 } as const
+/** The room kept free around the drawing in the view: 24px above and below, 16px at its sides (the panel's gutter). */
+export const KEEP = { top: 24, side: 16, bottom: 24 } as const
 
 /** A view of the canvas: React Flow's viewport, the flow's origin at (`x`, `y`) on the pane, scaled by `zoom`. */
 export type View = { x: number; y: number; zoom: number }
@@ -159,7 +159,7 @@ const fitScale = (box: number, area: number): number =>
   Math.max(ZOOM.min, Math.floor(Math.min(1, area / box) * 10 + 1e-9) / 10)
 
 /**
- * The view of `bounds` at `zoom`: its top 24px under the pane's top, its left edge 24px from the pane's left, on the
+ * The view of `bounds` at `zoom`: its top 24px under the pane's top, its left edge 16px from the pane's left, on the
  * title's edge.
  */
 const viewAt = (bounds: Bounds, zoom: number): View => ({
@@ -169,7 +169,7 @@ const viewAt = (bounds: Bounds, zoom: number): View => ({
 })
 
 /**
- * The view a canvas opens with: `bounds` at 100%, its top 24px under the pane's top and its left 24px from the pane's
+ * The view a canvas opens with: `bounds` at 100%, its top 24px under the pane's top and its left 16px from the pane's
  * left. A drawing too tall or too wide for the pane shows its top and its left, and is panned.
  */
 export function openView(bounds: Bounds): View {
@@ -178,7 +178,7 @@ export function openView(bounds: Bounds): View {
 
 /**
  * The view that fits `bounds` in a pane `width` × `height`: the scale fits its height between the pane's top + 24px
- * and its bottom - 24px, and its width between 24px margins (`fitScale` of each, the smaller), placed as `openView`
+ * and its bottom - 24px, and its width between 16px margins (`fitScale` of each, the smaller), placed as `openView`
  * places it (a drawing too tall or too wide at 0.5 shows its top and its left).
  */
 export function fitView(bounds: Bounds, pane: { width: number; height: number }): View {
@@ -212,7 +212,7 @@ export function minimapClears(bounds: Bounds, view: View, pane: { width: number 
 
 /**
  * How far to pan so a box (`top`…`bottom`, `left`…`right`, in pane pixels) shows whole: inside 24px at the top and
- * sides and bottom. `{ dx: 0, dy: 0 }` when it already shows.
+ * bottom, 16px at the sides. `{ dx: 0, dy: 0 }` when it already shows.
  */
 export function revealDelta(
   box: { left: number; top: number; right: number; bottom: number },

@@ -401,9 +401,11 @@
   }
   html {
     @apply font-sans;
-    /* Inter's optical sizes, and tabular figures wherever a number shows. */
+    /*
+     * Inter's optical sizes. Tabular figures are set only where numbers line up (counts, progress, ages and dates in a
+     * column, a version's time): Inter's tabular hyphen is as wide as a digit, which spaces out IDs and hyphenated words.
+     */
     font-optical-sizing: auto;
-    font-variant-numeric: tabular-nums;
   }
   body {
     @apply bg-ground text-sm text-foreground antialiased;

@@ -27,11 +27,11 @@ export function PropertyCard({
 }) {
   return (
     <section className="shrink-0 overflow-hidden rounded-lg border bg-card shadow-xs">
-      <h3 className="flex h-10 items-center gap-2 bg-band/50 px-3 font-semibold">
+      <h2 className="flex h-10 items-center gap-2 bg-band/50 px-3 font-semibold">
         <span className="min-w-0 truncate">{title}</span>
         {meta !== undefined ? <span className="shrink-0 font-normal text-muted-foreground">{meta}</span> : null}
         {action !== undefined ? <span className="ml-auto flex shrink-0 items-center gap-1">{action}</span> : null}
-      </h3>
+      </h2>
       {children}
     </section>
   )

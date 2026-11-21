@@ -1,6 +1,6 @@
 import { FolderIcon } from "lucide-react"
 
-import { ChangeHeading, UNREADABLE } from "@/components/change-header"
+import { ChangeHeading, SameAsId, UNREADABLE } from "@/components/change-header"
 import { ChangePanel, ChangeStatus } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
@@ -9,7 +9,7 @@ import { LinesAlert } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown-view"
 import { TaskList } from "@/components/task-list"
 import { useLabel } from "@/data/queries"
-import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
+import { type ChangeDetail, changeTabs, ownDescription, shownTab } from "@/lib/changes"
 import { to } from "@/lib/routes"
 
 /**
@@ -58,7 +58,15 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
           projectKey={projectKey}
           change={data}
           tasks={markdown ? <Tasks change={data} card /> : null}
-          description={data.description ?? <span className="text-muted-foreground">–</span>}
+          description={
+            data.description === null || data.description.trim() === "" ? (
+              <span className="text-muted-foreground">–</span>
+            ) : ownDescription(data.description, data.id) === null ? (
+              <SameAsId />
+            ) : (
+              data.description
+            )
+          }
         />
       }
     >
@@ -71,7 +79,12 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
         }
       >
         {file !== undefined ? (
-          <MarkdownView key={file.name} text={file.text} name={file.name} title={data.description} />
+          <MarkdownView
+            key={file.name}
+            text={file.text}
+            name={file.name}
+            title={ownDescription(data.description, data.id)}
+          />
         ) : (
           <div className={`${DOC_COLUMN} pt-6 pb-10`}>
             <div className={PROSE_COLUMN}>

@@ -6,7 +6,7 @@ import { COLUMN, IdChip, IdName, type ListColumn, ListRow, ListRows } from "@/co
 import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { StatusMark, StatusPill } from "@/components/status"
 import { useChangeLists, useLabel } from "@/data/queries"
-import { type ChangeDetail, localDate, memberOf, type SeriesMember } from "@/lib/changes"
+import { type ChangeDetail, localDate, memberOf, ownDescription, type SeriesMember } from "@/lib/changes"
 import { to } from "@/lib/routes"
 
 /** A member's page, `null` for a member with neither an active ID nor an archive reference. */
@@ -18,8 +18,8 @@ const PROGRESS: ListColumn = { id: "progress", title: "Progress", className: COL
 
 /**
  * One ordinal of the Series card, a row of the list kit: its status icon, its description then its ID's chip, both cut
- * as the panel narrows (the chip alone, in the name's place, for a member whose description is not known: an archived
- * one), and its progress, `Archived` or `–` at the right; the current change's row shows the current change itself
+ * as the panel narrows, the chip in the middle so its distinct tail stays (the chip alone, in the name's place, for a
+ * member whose description is not known, an archived one, or only repeats its ID), and its progress, `Archived` or `–` at the right; the current change's row shows the current change itself
  * and is marked as the current one. An ordinal with no change gives its would-be ID's chip alone, in the secondary ink.
  */
 function SeriesRow({
@@ -47,7 +47,7 @@ function SeriesRow({
         }
       : member
   const href = memberHref(projectKey, shown)
-  const lead = current !== null ? current.description : description
+  const lead = ownDescription(current !== null ? current.description : description, shown.id)
   if (shown.status === null || href === null) {
     return (
       <li className="flex h-9 items-center gap-3 border-b border-rule px-4">
@@ -126,13 +126,9 @@ export function ChangePanel({
             <IdChip>{change.id}</IdChip>
           </PropertyRow>
           {archived ? (
-            <PropertyRow label="Archived">
-              <span className="tabular-nums">{change.archived}</span>
-            </PropertyRow>
+            <PropertyRow label="Archived">{change.archived}</PropertyRow>
           ) : (
-            <PropertyRow label="Updated">
-              <span className="tabular-nums">{localDate(change.updated)}</span>
-            </PropertyRow>
+            <PropertyRow label="Updated">{localDate(change.updated)}</PropertyRow>
           )}
         </PropertyList>
       </PropertyCard>

@@ -7,6 +7,7 @@ import {
   inlineCode,
   isLinkTarget,
   localDate,
+  ownDescription,
   seriesProgress,
   seriesStatus,
   shownTab,
@@ -77,6 +78,15 @@ test("the search keeps changes; a narrowed series lists the kept members and kee
   ).toEqual([["add-s-02"], 2, "in-progress", { done: 2, total: 5 }, "First"])
   expect(changeCount(rows)).toBe(1)
   expect(activeRows(ACTIVE, "zzz")).toEqual([])
+})
+
+test("a description that only repeats its ID is not shown as one, so the ID shows once", () => {
+  expect(ownDescription("Split the client", "add-split")).toBe("Split the client")
+  expect(ownDescription("add-split", "add-split")).toBeNull()
+  expect(ownDescription(" add-split ", "add-split")).toBeNull()
+  expect(ownDescription("  ", "add-split")).toBeNull()
+  expect(ownDescription(null, "add-split")).toBeNull()
+  expect(ownDescription(undefined, "add-split")).toBeNull()
 })
 
 test("Updated is the local date", () => {

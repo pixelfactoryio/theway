@@ -107,7 +107,7 @@ const THEME = EditorView.theme({
     display: "inline-flex",
     alignItems: "center",
     gap: "0.25rem",
-    fontSize: "0.75rem",
+    fontSize: "var(--text-xs)",
     color: "var(--muted-foreground)",
   },
   ".cm-panel.cm-search input[type=checkbox]": { margin: "0", accentColor: "var(--ring)" },

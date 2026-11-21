@@ -3,6 +3,7 @@ import { ChevronRightIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
+import { nameTail } from "@/lib/name-tail"
 import { CutName } from "@/shell/cut-name"
 import { ProjectMark } from "@/shell/project-mark"
 
@@ -28,10 +29,10 @@ export const COLUMN = {
   project: "w-32 hidden md:flex xl:w-48",
   progress: "w-20",
   /** An age (`5m`, `3d`). */
-  updated: "w-12",
+  updated: "w-12 tabular-nums",
   /** An age or a date (`2026-11-03`), on a list that holds archived changes. */
-  date: "w-24",
-  count: "w-24 hidden sm:flex",
+  date: "w-24 tabular-nums",
+  count: "w-24 hidden sm:flex tabular-nums",
   actions: "w-20",
 } as const
 
@@ -93,8 +94,11 @@ export function NavList({ children }: { children: ReactNode }) {
  */
 export type RowHead = { href: string } | { onToggle: () => void; expanded: boolean }
 
-/** What holds a row's lead (a link): a lead that is an ID's chip (`IdName`) keeps the chip's 10 characters. */
-export const ID_LEAD = "has-[[data-id-chip]]:min-w-[10ch]"
+/**
+ * What holds a row's lead (a link): a lead that is an ID's chip (`IdName`) keeps room for the chip's least characters
+ * (`idChipLeast`, at most a 12-character tail, 3 of the head and the ellipsis).
+ */
+export const ID_LEAD = "has-[[data-id-chip]]:min-w-[calc(16ch+1rem)]"
 
 const HEAD = `min-w-0 truncate font-medium text-foreground outline-none after:absolute after:inset-0 lg:max-w-[60ch] ${ID_LEAD}`
 
@@ -172,33 +176,46 @@ export function ListRow({
   )
 }
 
-/** The longest ID a 10-character chip holds whole, past its 8px sides. */
-const SHORT_ID = 8
+/** The fewest characters a chip shows: an ID this long or shorter is never cut. */
+const SHORT_ID = 10
+
+/** The characters of an ID's head a cut chip keeps before its ellipsis and its tail. */
+const HEAD_KEPT = 3
+
+/**
+ * The fewest characters of `id` its chip shows: the whole ID when it is short, else at least 10, and enough for its
+ * tail (`nameTail`), the head's first characters and the ellipsis, so a cut ID still names itself.
+ */
+export const idChipLeast = (id: string): number =>
+  Math.min(id.length, Math.max(SHORT_ID, nameTail(id).length + HEAD_KEPT + 1))
 
 /**
  * An ID, the one chip of every ID set inline (a row's, a row led by its ID, the panel's Details and Series): Geist Mono
- * 14px at 400 in the ink, on the band's tint, 6px corners, 24px tall. It is cut at its end, never under 10 characters:
- * under 1024px the name beside it gives way first; from 1024px, where a name stops at 60 characters, it shows whole.
+ * 13px at 400 in the ink, on the band's tint, 6px corners, 24px tall, as every other ID in mono. When it does not fit
+ * it is cut in the middle (`CutName`), its distinct tail kept, so `add-agent-runner` and `add-agent-store` still differ
+ * when cut; it never shows fewer characters than `idChipLeast`: under 1024px the name beside it gives way first; from
+ * 1024px, where a name stops at 60 characters, it shows whole.
  */
-export function IdChip({ children, className }: { children: ReactNode; className?: string }) {
-  // An ID that fits in 10 characters with the chip's room is never cut, and its chip is no wider than it.
-  const short = typeof children === "string" && children.length <= SHORT_ID
+export function IdChip({ children, className }: { children: string; className?: string }) {
+  // An ID that fits in 10 characters is never cut, and its chip is no wider than it.
+  const short = children.length <= SHORT_ID
   return (
     <span
       data-id-chip=""
+      style={short ? undefined : { minWidth: `calc(${idChipLeast(children)}ch + 1rem)` }}
       className={cn(
-        "inline-block h-6 max-w-full truncate rounded-md bg-band px-2 align-middle font-mono text-sm leading-6 font-normal text-foreground",
-        short ? "shrink-0" : "min-w-[10ch]",
+        "inline-flex h-6 max-w-full items-center overflow-hidden rounded-md bg-band px-2 align-middle font-mono text-xs font-normal text-foreground",
+        short && "shrink-0",
         className,
       )}
     >
-      {children}
+      <CutName name={children} />
     </span>
   )
 }
 
 /** An ID after a row's name (`IdChip`): under 1024px it is cut down to 10 characters as the name gives way. */
-export function RowId({ children }: { children: ReactNode }) {
+export function RowId({ children }: { children: string }) {
   return <IdChip className="lg:max-w-none lg:shrink-0">{children}</IdChip>
 }
 
@@ -206,7 +223,7 @@ export function RowId({ children }: { children: ReactNode }) {
  * A row whose name is its ID (a series, an archived change, a file with no description): the ID's chip (`IdChip`) in
  * the name's place, so the names of a list still start on one edge.
  */
-export function IdName({ children }: { children: ReactNode }) {
+export function IdName({ children }: { children: string }) {
   return <IdChip>{children}</IdChip>
 }
 

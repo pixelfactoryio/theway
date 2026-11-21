@@ -7,11 +7,11 @@ import { useWide } from "@/shell/panel"
 import { type Crumb, PageHeader } from "@/shell/top-bar"
 
 /**
- * A document's reading column, the same on every document page: the whole width between 24px gutters. Within it, prose
- * code blocks and tables keep one measure (`PROSE_COLUMN`, a table no wider than its columns), all on the column's left
- * edge.
+ * A document's reading column, the same on every document page: the whole width between the panel's 16px gutters, the
+ * header's and the views' own, so the page has one left edge. Within it, prose code blocks and tables keep one measure
+ * (`PROSE_COLUMN`, a table no wider than its columns), all on the column's left edge.
  */
-export const DOC_COLUMN = "px-6"
+export const DOC_COLUMN = "px-4"
 
 /** The measure of prose in the reading column, on its left edge: at most `--read-width` (about 70 characters a line). */
 export const PROSE_COLUMN = "w-full max-w-(--read-width)"
@@ -22,7 +22,7 @@ export type FrameTab = { value: string; label: string; href: string; dirty?: boo
 /**
  * An item page's title, under its views and above every one of them, so it stands at the same place whichever view is
  * shown: in the reading column, 32px under the views and 16px over the view, at the reading scale's title size (28/34
- * at 600, over a document's 20px h1), at most two lines (the whole title on hover), then what the page puts under it
+ * at 600, over a document's 20px h1), whole on as many lines as it takes, then what the page puts under it
  * (the reasons a change cannot be read). An item with no description has no title (`title` `null` or blank): its ID or
  * file name stands once, in the header's path, and only what the page puts under it shows. It never scrolls; the view
  * under it does, and once that view is scrolled (its scroll root `data-scrolled`, `DocTab`), a hairline closes the
@@ -37,12 +37,7 @@ export function ItemHeading({ title, children }: { title: string | null; childre
     >
       <div className={PROSE_COLUMN}>
         {shown !== null ? (
-          <h2
-            title={shown}
-            className="line-clamp-2 text-doc-title font-semibold tracking-tight text-pretty text-foreground"
-          >
-            {shown}
-          </h2>
+          <h2 className="text-doc-title font-semibold tracking-tight text-pretty text-foreground">{shown}</h2>
         ) : null}
         {children}
       </div>
@@ -80,7 +75,7 @@ export function DocFrame({
   icon?: LucideIcon
   /** The page's path before its title. */
   parents?: readonly Crumb[]
-  /** The title is an ID or a file name: Geist Mono 12px. */
+  /** The title is an ID or a file name: Geist Mono 13px. */
   mono?: boolean
   lead?: ReactNode
   actions?: ReactNode
