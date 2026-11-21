@@ -75,7 +75,7 @@ export function DocFrame({
   icon?: LucideIcon | ReactElement
   /** The page's path before its title. */
   parents?: readonly Crumb[]
-  /** The title is an ID or a file name: Geist Mono 13px. */
+  /** The title is an ID or a file name: Geist Mono `text-xs` (14px). */
   mono?: boolean
   lead?: ReactNode
   actions?: ReactNode

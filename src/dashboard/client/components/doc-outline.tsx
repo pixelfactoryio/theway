@@ -96,12 +96,13 @@ function DocOutline({ entries, view }: { entries: readonly OutlineEntry[]; view:
                 aria-current={here ? "location" : undefined}
                 onClick={() => go(e)}
                 className={cn(
-                  "-ml-px line-clamp-2 w-full border-l-2 border-transparent py-1 pr-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+                  "-ml-px block w-full border-l-2 border-transparent py-1 pr-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
                   e.level - top === 0 ? "pl-3" : e.level - top === 1 ? "pl-6" : "pl-9",
                   here && "border-ring font-medium text-foreground",
                 )}
               >
-                {e.text}
+                {/* Clamped inside the button's padding, so no part of a third line shows under the second. */}
+                <span className="line-clamp-2">{e.text}</span>
               </button>
             </li>
           )

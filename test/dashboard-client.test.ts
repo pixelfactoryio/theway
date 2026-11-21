@@ -296,10 +296,14 @@ test("the lint gutter's error mark is a destructive dot drawn in CSS, with no im
   expect(text).not.toMatch(/data:image|url\(/)
 })
 
-test("the code view sets code in Geist Mono at 13px on a 20px line, with a quiet gutter and its search in the interface's words", () => {
+test("the code view sets code in Geist Mono on the scale's text-xs (14px on a 20px line), with a quiet gutter and its search in the interface's words", () => {
   const text = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
-  expect(text).toContain('fontSize: "0.8125rem"')
-  expect(text).toContain('".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.25rem" }')
+  expect(text).toContain('fontSize: "var(--text-xs)" }')
+  expect(text).toContain(
+    '".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "var(--text-xs--line-height)" }',
+  )
+  // No size off the scale: the search panel and the diagnostics take the interface's tokens.
+  expect(text).not.toContain("0.8125rem")
   expect(text).toContain(
     '".cm-gutters": { backgroundColor: "var(--background)", color: "var(--muted-foreground)", border: "none" }',
   )

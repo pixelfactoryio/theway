@@ -55,13 +55,13 @@ import { SettingsMenu } from "@/shell/theme"
 const DOCS = "https://pixelfactoryio.github.io/theway/docs/cli/#dashboard"
 
 /**
- * A sidebar row: 28px, the sidebar's ink (a step under the content's), 13px at 400 whether chosen or not; the chosen
+ * A sidebar row: 28px, the sidebar's ink (a step under the content's), `text-sm` (15px) at 400 whether chosen or not; the chosen
  * one on the blue tint in the ink, its icon blue.
  */
 const ROW =
   "h-7 gap-2 px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent data-active:bg-selected data-active:font-medium data-active:text-foreground"
 
-/** A row's count: 12px, the secondary ink, tabular, ending on the row's right edge. */
+/** A row's count: `text-xs` (14px), the secondary ink, tabular, ending on the row's right edge. */
 const COUNT = "ml-auto shrink-0 text-xs text-muted-foreground tabular-nums group-data-[collapsible=icon]:hidden"
 
 /** A row's 16px icon in the secondary ink, blue on the chosen row. */

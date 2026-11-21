@@ -69,7 +69,7 @@ export type Crumb = { label: string; href: string }
 /**
  * A page's header: its icon, its path (`parents`, then its title, the page's `h1`), then `actions` at the right; and,
  * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `lead` stands right after the title (a pin's
- * star). The title is the interface's 13px at 500 (an ID, with `mono`, Geist Mono 12px); the path before it is
+ * star). The title is the interface's `text-sm` (15px) at 600 (an ID, with `mono`, Geist Mono `text-xs`, 14px, at 500); the path before it is
  * secondary. In a narrow header the path is cut first, the title last.
  */
 export function PageHeader({

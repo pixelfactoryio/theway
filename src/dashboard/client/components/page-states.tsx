@@ -31,7 +31,7 @@ export function PageLoading({
 
 /**
  * A page whose subject does not exist, the same on every page: its header, then, in the one state shape, the
- * not-found icon, `message` (an ID in it in mono at 12px) and a button back to `back.href`.
+ * not-found icon, `message` (an ID in it in mono at `text-xs`, 14px) and a button back to `back.href`.
  */
 export function PageUnknown({
   title,

@@ -38,7 +38,7 @@ import {
 } from "@/lib/live-preview"
 
 const MUTED = { color: "var(--muted-foreground)" }
-/** Geist Mono a step under the text it sits in (13px in 16px body text), never under 12px. */
+/** Geist Mono a step under the text it sits in (13.8px in the 17px body text), never under 12px. */
 const MONO = { fontFamily: "var(--font-mono)", fontSize: "max(0.75rem, 0.8125em)" }
 /**
  * Inline code: the mono step, in the text's colour, on a faint tint that keeps inside its line (no vertical padding,
@@ -101,7 +101,7 @@ const SECTION_RULE = {
 const FIRST_HEADING = { paddingTop: "0", backgroundImage: "none" }
 
 /**
- * The document's scale and rhythm: body 16/23 in the document's colour, about 70 characters a line; a blank line
+ * The document's scale and rhythm: body 17/24 (`text-doc`) in the document's colour, about 65 characters a line; a blank line
  * between two blocks 8px tall. A heading has more room above it than under it (with the blank line before it, 40px
  * above h1, 44px above h2 with its rule, 32px above h3, 8px under each), so it reads with the text it opens; 8px from
  * one list item to the next.
@@ -136,12 +136,12 @@ const THEME = EditorView.theme({
   ".cm-lp-title-gap + .cm-lp-blank": { lineHeight: "0" },
   ".cm-lp-title-gap + .cm-line, .cm-lp-title-gap + .cm-lp-blank + .cm-line": FIRST_HEADING,
   ".cm-lp-quote": { borderLeft: "1px solid var(--border)", paddingLeft: "1rem", ...MUTED },
-  // A code block: on a faint tint of the page, 13px mono on 20px lines, 16px by 20px inside its 8px corners. Its lines
+  // A code block: on a faint tint of the page, `text-xs` mono (14px) on 20px lines, 16px by 20px inside its 8px corners. Its lines
   // wrap: a wrapped line continues 2ch further in than it starts, as a list item's later lines hang past its marker.
   ".cm-lp-code": {
     fontFamily: "var(--font-mono)",
     fontSize: "var(--text-xs)",
-    lineHeight: "1.25rem",
+    lineHeight: "var(--text-xs--line-height)",
     backgroundColor: "var(--code-surface)",
     padding: `0 1.25rem 0 calc(1.25rem + ${CODE_HANG})`,
     textIndent: `-${CODE_HANG}`,
@@ -183,10 +183,11 @@ const THEME = EditorView.theme({
   ".cm-lp-done, .cm-lp-number": MUTED,
   ".cm-lp-number": { display: "inline-block", minWidth: "1.25em", textIndent: "0" },
   ".cm-lp-bullet": { ...MUTED, display: "inline-block", width: `${INDENT}em`, textIndent: "0" },
+  // The task's checkbox, 0.8em of the text it sits in (13.6px in the 17px body), so it grows with the text.
   ".cm-lp-task": {
-    width: "13px",
-    height: "13px",
-    margin: "0 8px 0 0",
+    width: "0.8em",
+    height: "0.8em",
+    margin: "0 0.5rem 0 0",
     verticalAlign: "middle",
     accentColor: "var(--link)",
     cursor: "pointer",
@@ -227,7 +228,7 @@ const THEME = EditorView.theme({
   ".cm-lp-tablewrap code": { ...INLINE_CODE, overflowWrap: "anywhere" },
   ".cm-lp-tablewrap code.cm-lp-inline-code-whole": { whiteSpace: "nowrap" },
   // A code block, drawn while no selection line touches it (`CodeBlockWidget`): 8px corners on a faint tint of the page,
-  // its language and Copy in a 32px head over a light rule, then 13px mono on 20px lines, 12px by 16px inside, never
+  // its language and Copy in a 32px head over a light rule, then `text-xs` mono (14px) on 20px lines, 12px by 16px inside, never
   // wrapped: a line wider than the text scrolls in the block. A block in a list starts at its item's text.
   ".cm-lp-codeblock": { maxWidth: "var(--read-width)", padding: "0.25rem 0", cursor: "text" },
   ".cm-lp-codebox": {
@@ -268,7 +269,7 @@ const THEME = EditorView.theme({
     whiteSpace: "pre",
     fontFamily: "var(--font-mono)",
     fontSize: "var(--text-xs)",
-    lineHeight: "1.25rem",
+    lineHeight: "var(--text-xs--line-height)",
     tabSize: "4",
     "&:focus-visible": { outline: "2px solid var(--ring)", outlineOffset: "-2px" },
   },

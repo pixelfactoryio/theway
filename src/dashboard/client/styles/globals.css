@@ -405,7 +405,9 @@
     @apply font-sans;
     /*
      * The root size grows with the window: 16px (the browser's default) up to 1280px wide, 17px at 1920, 18px from 2560,
-     * as a share of the reader's own default so a larger default still scales. Every size and space is in rem.
+     * as a share of the reader's own default so a larger default still scales. Every size and space is in rem, and the
+     * few given in pixels to a script (the canvas's cards, a grid's columns, the docked panel) are multiplied by the
+     * root's scale (`hooks/use-root-scale.ts`).
      */
     font-size: clamp(100%, 87.5% + 0.15625vw, 112.5%);
     /*
@@ -456,8 +458,8 @@
 }
 
 /*
- * The shipped small button and toggle (and the triggers rendered as them) set 12.8px, off the type scale: 14px, as
- * every control. Unlayered, so the rule wins over the shipped utility.
+ * The shipped small button and toggle (and the triggers rendered as them) set 12.8px, off the type scale: `text-sm`
+ * (15px), as every control. Unlayered, so the rule wins over the shipped utility.
  */
 .text-\[0\.8rem\] {
   font-size: var(--text-sm);
@@ -507,7 +509,7 @@
 
 /*
  * React Flow's attribution on the workflow canvas, kept as its docs ask (removing it is for its subscribers): the theme's
- * secondary ink at 12px, on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
+ * secondary ink at `text-xs` (14px), on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
  * fade out over the canvas's last 40px (clear under 24px), so the credit never sits on a card.
  */
 .react-flow__attribution {
@@ -527,10 +529,10 @@
 }
 
 /*
- * Reading a document: one column on the page's left edge (36rem, about 70 characters of 16px Inter a line) for text,
+ * Reading a document: one column on the page's left edge (36rem, about 65 characters of 17px Inter a line) for text,
  * code blocks and tables, and the wider room of the change lists (64rem); the document's text in the ink; inline code
  * on a fainter tint than a code block's, so a path does not outweigh its sentence; code blocks with 8px corners. The interface around a document
- * stays at 14px.
+ * stays at 15px (`text-sm`).
  */
 :root {
   --read-width: 36rem;
