@@ -26,6 +26,7 @@ import {
 import { NewFileButton } from "@/components/new-file"
 import { StatusMark } from "@/components/status"
 import { useLabel, useProjects } from "@/data/queries"
+import { useRootScale } from "@/hooks/use-root-scale"
 import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
@@ -44,8 +45,20 @@ const LAYOUT = {
   columnsResizeMode: "onChange",
 } as const
 export const PAGE = { pageIndex: 0, pageSize: 1000 }
-/** No column is dragged narrower than its header's word. */
-export const COLUMN_DEFAULTS = { minSize: 72 }
+/**
+ * No column is dragged narrower than its header's word. Column sizes are pixels at the 16px root, multiplied by the
+ * root's scale (`scaled`) so a column grows with the text it holds.
+ */
+const COLUMN_MIN = 72
+
+/** A column with its `size` and `minSize` multiplied by the root's `scale`. */
+function scaled<Row extends FileRow>(
+  column: ColumnDef<DataGridFeatures, Row>,
+  scale: number,
+): ColumnDef<DataGridFeatures, Row> {
+  const size = (px: number | undefined) => (px === undefined ? undefined : Math.round(px * scale))
+  return { ...column, size: size(column.size), minSize: size(column.minSize) }
+}
 
 /**
  * The grid's column under the filter bar: the page's width, edge to edge; the grid scrolls inside it, its rows one list
@@ -120,12 +133,13 @@ function FileGrid<Row extends FileRow>({
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
   const columnVisibility = useLarge() ? {} : NARROW_HIDDEN
+  const scale = useRootScale()
   // By file: the grid's sort keeps this order among the rows its column ties.
   const data = useMemo(() => [...rows].sort(byFile), [rows])
 
   const columns = useMemo<ColumnDef<DataGridFeatures, Row>[]>(() => {
     const { lead, extra } = columnsOf(label)
-    return [
+    const sized: ColumnDef<DataGridFeatures, Row>[] = [
       {
         // The row's status icon, where a list's rows hold theirs (`list-kit`): past the 16px gutter and the margin slot.
         id: "status",
@@ -152,14 +166,16 @@ function FileGrid<Row extends FileRow>({
         // The list's 16px right gutter.
         meta: { headerClassName: "pe-4", cellClassName: "pe-4", skeleton: cellSkeleton("w-24") },
       },
-      ...spareColumn<Row>(spare),
     ]
-  }, [columnsOf, label, spare])
+    // The spare column is measured in pixels: it is not scaled.
+    return [...sized.map((column) => scaled(column, scale)), ...spareColumn<Row>(spare)]
+  }, [columnsOf, label, spare, scale])
+  const defaultColumn = useMemo(() => ({ minSize: Math.round(COLUMN_MIN * scale) }), [scale])
 
   const table = useTable({
     features: dataGridFeatures,
     columns,
-    defaultColumn: COLUMN_DEFAULTS,
+    defaultColumn,
     data,
     getRowId: rowId,
     state: isLoading ? { sorting, columnVisibility } : { sorting, columnVisibility, pagination: PAGE },

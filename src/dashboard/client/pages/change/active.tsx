@@ -1,7 +1,7 @@
 import { undo } from "@codemirror/commands"
 import { EditorState } from "@codemirror/state"
 import { useQueryClient } from "@tanstack/react-query"
-import { FileCodeIcon, FolderIcon, Trash2Icon, XIcon } from "lucide-react"
+import { FileCodeIcon, Trash2Icon, XIcon } from "lucide-react"
 import { useCallback, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react"
 import { useLocation } from "wouter"
 
@@ -38,6 +38,7 @@ import {
 } from "@/lib/changes"
 import { lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
+import { ProjectMark } from "@/shell/project-mark"
 import { StateNotice } from "@/shell/state"
 
 /** The files a change page holds a draft of: its Markdown files, then its `change.yaml` when it has one. */
@@ -309,7 +310,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       <DocFrame
         title={data.id}
         mono
-        icon={FolderIcon}
+        icon={<ProjectMark label={project} className="size-4" />}
         parents={[{ label: project, href: to.project(projectKey) }]}
         label="Change files"
         value={current.slug}

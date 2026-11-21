@@ -31,7 +31,7 @@ import { Shortcut } from "@/shell/shortcut"
 import { chooseTheme } from "@/shell/theme"
 
 /**
- * A group of the palette: its heading in 12px secondary ink on the rows' 12px inset. Its rows are the palette's rows
+ * A group of the palette: its heading in `text-xs` (14px) secondary ink on the rows' 12px inset. Its rows are the palette's rows
  * (`PaletteRow`).
  */
 const GROUP =

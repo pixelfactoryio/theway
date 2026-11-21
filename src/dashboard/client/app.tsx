@@ -26,7 +26,8 @@ import { useScrollMemory } from "@/shell/scroll"
 import { SearchOpen } from "@/shell/search"
 import { DialogOpen } from "@/shell/dialogs"
 import { useGlobalKeys, type ShellDialog } from "@/shell/keys"
-import { PANEL_WIDTH, PanelArea, PanelProvider, usePanelState, useWide } from "@/shell/panel"
+import { rootScale } from "@/hooks/use-root-scale"
+import { PANEL_WIDTH, PanelArea, PanelProvider, rem, usePanelState, useWide } from "@/shell/panel"
 import { useRecordStart } from "@/shell/settings"
 import { useStored } from "@/shell/storage"
 import { HeaderSlot } from "@/shell/top-bar"
@@ -36,7 +37,7 @@ const SIDEBAR_KEY = "theway-sidebar"
 
 const SIDEBAR = sidebarCodec(() => window.matchMedia("(min-width: 1024px)").matches)
 
-/** The `localStorage` key of the docked panel's width, in pixels. */
+/** The `localStorage` key of the docked panel's width, in pixels at the 16px root. */
 const PANEL_WIDTH_KEY = "theway-panel-width"
 
 const PANEL_PIXELS = panelWidthCodec(PANEL_WIDTH.min, PANEL_WIDTH.max, PANEL_WIDTH.default)
@@ -109,8 +110,9 @@ function Shell() {
   const dialogs = useMemo(() => ({ dialog, open: setDialog }), [dialog])
   const [location] = useLocation()
   const panel = usePanelState()
-  // From 1280px a page's open panel docks at the page's right, resizable. Its width is kept in pixels: a share of
-  // the window would give another width in a window of another size.
+  // From 1280px a page's open panel docks at the page's right, resizable. Its width is kept in pixels at the 16px
+  // root and given in rem: a share of the window would give another width in a window of another size, while rem
+  // grows with the text the panel holds.
   const { name: panelName, open: panelOpen, setSlot } = panel
   const docked = useWide() && panelName !== null && panelOpen
   const [panelWidth, setPanelWidth] = useStored(PANEL_WIDTH_KEY, PANEL_PIXELS)
@@ -123,7 +125,8 @@ function Shell() {
     requestAnimationFrame(() => {
       const size = dockedPanel.current?.getSize()
       if (size === undefined) return
-      setPanelWidth(Math.min(PANEL_WIDTH.max, Math.max(PANEL_WIDTH.min, Math.round(size.inPixels))))
+      const width = Math.round(size.inPixels / rootScale())
+      setPanelWidth(Math.min(PANEL_WIDTH.max, Math.max(PANEL_WIDTH.min, width)))
     })
   }
   useScrollMemory()
@@ -168,9 +171,9 @@ function Shell() {
                       <ResizablePanel
                         id="panel"
                         panelRef={dockedPanel}
-                        defaultSize={panelWidth}
-                        minSize={PANEL_WIDTH.min}
-                        maxSize={PANEL_WIDTH.max}
+                        defaultSize={rem(panelWidth)}
+                        minSize={rem(PANEL_WIDTH.min)}
+                        maxSize={rem(PANEL_WIDTH.max)}
                         groupResizeBehavior="preserve-pixel-size"
                         className="flex min-h-0 flex-col"
                       >

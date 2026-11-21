@@ -35,6 +35,7 @@ import {
   locatedValues,
   togglePin,
 } from "@/lib/workspace"
+import { ProjectMark } from "@/shell/project-mark"
 import { recordedId, useRecordVisit } from "@/shell/settings"
 import { StateLoading } from "@/shell/state"
 import { PageBody, PageHeader } from "@/shell/top-bar"
@@ -130,7 +131,9 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
     <>
       <PageHeader
         title={entry?.label ?? ""}
-        icon={Icon}
+        icon={
+          entry === null ? Icon : <ProjectMark label={entry.label} group={id.startsWith("group:")} className="size-4" />
+        }
         parents={[
           { label: "All projects", href: to.projects() },
           ...(group !== undefined ? [{ label: group.name, href: to.group(group.id) }] : []),

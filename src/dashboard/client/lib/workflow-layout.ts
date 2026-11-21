@@ -6,8 +6,11 @@
 import type { Drawing } from "./workflow"
 
 /**
- * A card's size: 360px wide and 56px high: two lines (the title, 18px; the name and where it runs, 20px) 2px apart,
- * centred in the card, its step number in a 36px column at its left.
+ * The canvas's sizes are given in pixels at the 16px root and multiplied by the root's scale (`rootScale`): the cards
+ * hold text in rem, so they grow with it as the root grows with the window.
+ *
+ * A card's size: 360px wide and 56px high: two lines (the title and the name with where it runs, each a `text-sm`
+ * line, 22px) 2px apart, centred in the card, its step number in a 28px tile at its left.
  */
 export const CARD = { width: 360, height: 56 } as const
 /** An on-fail card's width; it is as high as a card. */
@@ -69,24 +72,28 @@ export const INPUTS_ID = "inputs"
 /**
  * The layout of a drawing. `placeholder` is the index a step being added takes (its outlined card is drawn there,
  * moving the cards after it down), `null` for none; `editable` adds a "+" on each edge into a step or the placeholder,
- * and the round "+" under the last card (none while the placeholder stands there).
+ * and the round "+" under the last card (none while the placeholder stands there). `scale` is the root's scale
+ * (`rootScale`), which multiplies every size and space.
  */
-export function layoutDrawing(drawing: Drawing, placeholder: number | null, editable: boolean): Layout {
+export function layoutDrawing(drawing: Drawing, placeholder: number | null, editable: boolean, scale = 1): Layout {
   const nodes: LayoutNode[] = []
   const edges: LayoutEdge[] = []
   const total = drawing.steps.length
-  const column = { width: CARD.width, height: CARD.height }
+  const card = { width: CARD.width * scale, height: CARD.height * scale }
+  const gap = GAP * scale
+  const addSize = ADD_SIZE * scale
+  const column = { width: card.width, height: card.height }
   let y = 0
   let previous: string = INPUTS_ID
   nodes.push({ id: INPUTS_ID, kind: "inputs", x: 0, y, ...column })
-  y += CARD.height + GAP
+  y += card.height + gap
 
   /** A card of the column at the current height, joined to the one before it. */
   const place = (node: LayoutNode, add: number | null) => {
     nodes.push(node)
     edges.push({ id: `${previous}->${node.id}`, source: previous, target: node.id, kind: "flow", add })
     previous = node.id
-    y += node.height + GAP
+    y += node.height + gap
   }
   const placeholderAt = (at: number) => {
     if (placeholder !== at) return
@@ -105,10 +112,10 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
         id,
         kind: "on-fail",
         index: step.index,
-        x: CARD.width + ON_FAIL_GAP,
+        x: card.width + ON_FAIL_GAP * scale,
         y: top,
-        width: ON_FAIL_WIDTH,
-        height: CARD.height,
+        width: ON_FAIL_WIDTH * scale,
+        height: card.height,
       })
       edges.push({
         id: `${stepId(step.index)}->${id}`,
@@ -125,11 +132,11 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
       id: "add",
       kind: "add",
       at: total,
-      x: (CARD.width - ADD_SIZE) / 2,
+      x: (card.width - addSize) / 2,
       // The column's last gap is not a line between cards: the "+" stands at a line's clearance under the last card.
-      y: y - GAP + ADD_CLEARANCE,
-      width: ADD_SIZE,
-      height: ADD_SIZE,
+      y: y - gap + ADD_CLEARANCE * scale,
+      width: addSize,
+      height: addSize,
     }
     nodes.push(node)
     edges.push({ id: `${previous}->add`, source: previous, target: "add", kind: "flow", add: null })
@@ -142,7 +149,10 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
   return { nodes, edges, bounds: { x: left, y: top, width: right - left, height: bottom - top } }
 }
 
-/** The room kept free around the drawing in the view: 24px above and below, 16px at its sides (the panel's gutter). */
+/**
+ * The room kept free around the drawing in the view: 24px above and below, 16px at its sides (the panel's gutter), at
+ * the 16px root; each view function takes the root's `scale`.
+ */
 export const KEEP = { top: 24, side: 16, bottom: 24 } as const
 
 /** A view of the canvas: React Flow's viewport, the flow's origin at (`x`, `y`) on the pane, scaled by `zoom`. */
@@ -162,9 +172,9 @@ const fitScale = (box: number, area: number): number =>
  * The view of `bounds` at `zoom`: its top 24px under the pane's top, its left edge 16px from the pane's left, on the
  * title's edge.
  */
-const viewAt = (bounds: Bounds, zoom: number): View => ({
-  x: KEEP.side - bounds.x * zoom,
-  y: KEEP.top - bounds.y * zoom,
+const viewAt = (bounds: Bounds, zoom: number, scale: number): View => ({
+  x: KEEP.side * scale - bounds.x * zoom,
+  y: KEEP.top * scale - bounds.y * zoom,
   zoom,
 })
 
@@ -172,8 +182,8 @@ const viewAt = (bounds: Bounds, zoom: number): View => ({
  * The view a canvas opens with: `bounds` at 100%, its top 24px under the pane's top and its left 16px from the pane's
  * left. A drawing too tall or too wide for the pane shows its top and its left, and is panned.
  */
-export function openView(bounds: Bounds): View {
-  return viewAt(bounds, 1)
+export function openView(bounds: Bounds, scale = 1): View {
+  return viewAt(bounds, 1, scale)
 }
 
 /**
@@ -181,12 +191,12 @@ export function openView(bounds: Bounds): View {
  * and its bottom - 24px, and its width between 16px margins (`fitScale` of each, the smaller), placed as `openView`
  * places it (a drawing too tall or too wide at 0.5 shows its top and its left).
  */
-export function fitView(bounds: Bounds, pane: { width: number; height: number }): View {
+export function fitView(bounds: Bounds, pane: { width: number; height: number }, scale = 1): View {
   const zoom = Math.min(
-    fitScale(bounds.height, pane.height - KEEP.top - KEEP.bottom),
-    fitScale(bounds.width, pane.width - 2 * KEEP.side),
+    fitScale(bounds.height, pane.height - (KEEP.top + KEEP.bottom) * scale),
+    fitScale(bounds.width, pane.width - 2 * KEEP.side * scale),
   )
-  return viewAt(bounds, zoom)
+  return viewAt(bounds, zoom, scale)
 }
 
 /** Whether part of `bounds` lies outside the pane `width` × `height` seen through `view`. */
@@ -198,16 +208,16 @@ export function overflows(bounds: Bounds, view: View, pane: { width: number; hei
   return left < 0 || top < 0 || right > pane.width || bottom > pane.height
 }
 
-/** The minimap's size, and its margin from the pane's edges. */
+/** The minimap's size, and its margin from the pane's edges, at the 16px root. */
 export const MINIMAP = { width: 160, height: 100, margin: 16 } as const
 
 /**
  * Whether the minimap, at the pane's bottom right, clears the drawing seen through `view`: the room right of the
  * drawing holds it with its margins. A drawing panned past the pane's right edge leaves no room.
  */
-export function minimapClears(bounds: Bounds, view: View, pane: { width: number }): boolean {
+export function minimapClears(bounds: Bounds, view: View, pane: { width: number }, scale = 1): boolean {
   const right = (bounds.x + bounds.width) * view.zoom + view.x
-  return pane.width - right >= MINIMAP.width + 2 * MINIMAP.margin
+  return pane.width - right >= (MINIMAP.width + 2 * MINIMAP.margin) * scale
 }
 
 /**
@@ -217,13 +227,17 @@ export function minimapClears(bounds: Bounds, view: View, pane: { width: number 
 export function revealDelta(
   box: { left: number; top: number; right: number; bottom: number },
   pane: { width: number; height: number },
+  scale = 1,
 ): { dx: number; dy: number } {
+  const side = KEEP.side * scale
+  const above = KEEP.top * scale
+  const below = KEEP.bottom * scale
   let dx = 0
   let dy = 0
-  if (box.left < KEEP.side) dx = KEEP.side - box.left
-  else if (box.right > pane.width - KEEP.side) dx = pane.width - KEEP.side - box.right
-  if (box.top < KEEP.top) dy = KEEP.top - box.top
-  else if (box.bottom > pane.height - KEEP.bottom) dy = pane.height - KEEP.bottom - box.bottom
+  if (box.left < side) dx = side - box.left
+  else if (box.right > pane.width - side) dx = pane.width - side - box.right
+  if (box.top < above) dy = above - box.top
+  else if (box.bottom > pane.height - below) dy = pane.height - below - box.bottom
   return { dx, dy }
 }
 

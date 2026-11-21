@@ -73,7 +73,7 @@ export function CardLines({ lines }: { lines: readonly string[] }) {
   )
 }
 
-/** A field's note under its control (an input's description, why a control is disabled): 12px, the secondary ink. */
+/** A field's note under its control (an input's description, why a control is disabled): `text-xs` (14px), the secondary ink. */
 export function FieldNote({ children }: { children: ReactNode }) {
   return <p className="text-xs text-muted-foreground">{children}</p>
 }
@@ -143,7 +143,7 @@ export function DraftText({
   )
 }
 
-/** A control of a card's row: 6px corners, 8px across, the interface's 13px at every width. */
+/** A control of a card's row: 6px corners, 8px across, the interface's `text-sm` (15px) at every width. */
 const CONTROL = "rounded-md px-2 text-sm md:text-sm"
 
 /** A select option. */

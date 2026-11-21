@@ -48,9 +48,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ReorderMenu } from "@/components/reorder-menu"
 import { AddButton, Card, CardChip, CardName, kindOf, Placeholder } from "@/components/workflow-card"
 import type { DraftStore } from "@/drafts/draft-store"
+import { useRootScale } from "@/hooks/use-root-scale"
 import { type Drawing, sameSelection, type Selection } from "@/lib/workflow"
 import {
   addCentre,
+  type Bounds,
   fitView,
   layoutDrawing,
   type LayoutEdge,
@@ -61,6 +63,7 @@ import {
   overflows,
   percent,
   revealDelta,
+  type View,
   zoomStep,
 } from "@/lib/workflow-layout"
 import { MOD, modKey } from "@/shell/platform"
@@ -433,7 +436,12 @@ function Flow({
   const wrapper = useRef<HTMLDivElement>(null)
   const placeholder = edits?.placeholder ?? null
   const editable = edits !== null
-  const layout = useMemo(() => layoutDrawing(drawing, placeholder, editable), [drawing, placeholder, editable])
+  // The cards hold text in rem: their sizes follow the root's, which grows with the window.
+  const scale = useRootScale()
+  const layout = useMemo(
+    () => layoutDrawing(drawing, placeholder, editable, scale),
+    [drawing, placeholder, editable, scale],
+  )
   const nodes = useMemo(() => flowNodes(layout.nodes), [layout])
   const edges = useMemo(() => flowEdges(layout.edges), [layout])
   const canvas = useMemo<Canvas>(() => ({ drawing, selection, onSelect, edits }), [drawing, selection, onSelect, edits])
@@ -447,14 +455,14 @@ function Flow({
   const bounds = layout.bounds
   /** Shows the drawing through `view`: `openView` as the canvas opens, `fitView` on Fit. */
   const show = useCallback(
-    (view: typeof fitView) => {
+    (view: (bounds: Bounds, area: { width: number; height: number }) => View) => {
       const area = pane()
       if (area === null || area.height === 0) return
       void flow.setViewport(view(bounds, area))
     },
     [flow, pane, bounds],
   )
-  const fit = () => show(fitView)
+  const fit = () => show((b, area) => fitView(b, area, scale))
 
   /** Pans by (`dx`, `dy`) pane pixels, at the same zoom. */
   const panBy = useCallback(
@@ -474,9 +482,9 @@ function Flow({
     if (node === undefined || area === null) return
     const v = flow.getViewport()
     const top = node.y * v.zoom + v.y
-    const { dy } = revealDelta({ left: 0, right: 0, top, bottom: top + node.height * v.zoom }, area)
+    const { dy } = revealDelta({ left: 0, right: 0, top, bottom: top + node.height * v.zoom }, area, scale)
     panBy(0, dy)
-  }, [placeholder, layout, flow, pane, panBy])
+  }, [placeholder, layout, flow, pane, panBy, scale])
 
   /** Pans a focused card, menu or "+" into view, whole. */
   const reveal = (e: FocusEvent<HTMLDivElement>) => {
@@ -487,6 +495,7 @@ function Flow({
     const { dx, dy } = revealDelta(
       { left: r.left - area.left, right: r.right - area.left, top: r.top - area.top, bottom: r.bottom - area.top },
       area,
+      scale,
     )
     panBy(dx, dy)
   }
@@ -500,14 +509,14 @@ function Flow({
   useEffect(() => {
     if (!ready || !sized || opened.current) return
     opened.current = true
-    show(openView)
-  }, [ready, sized, show])
+    show((b) => openView(b, scale))
+  }, [ready, sized, show, scale])
 
   const zoom = useStore((s) => s.transform[2])
   const view = useStore((s) => ({ x: s.transform[0], y: s.transform[1], zoom: s.transform[2] }), sameView)
   const zoomBy = (delta: number) => void flow.zoomTo(zoomStep(zoom, delta))
   // The minimap stands at the bottom right while part of the drawing is out of view, only where it covers no card.
-  const minimap = overflows(layout.bounds, view, size) && minimapClears(layout.bounds, view, size)
+  const minimap = overflows(layout.bounds, view, size) && minimapClears(layout.bounds, view, size, scale)
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // A menu's content is portalled: its keys reach the canvas through React, not through the DOM.
@@ -595,7 +604,7 @@ function Flow({
             <MiniMap<FlowNode>
               ariaLabel="Minimap"
               pannable
-              style={{ width: MINIMAP.width, height: MINIMAP.height }}
+              style={{ width: MINIMAP.width * scale, height: MINIMAP.height * scale }}
               bgColor="var(--card)"
               maskColor="color-mix(in oklab, var(--canvas) 70%, transparent)"
               maskStrokeColor="var(--border)"

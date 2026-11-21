@@ -85,10 +85,10 @@ export function Card({
           {number}
         </span>
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-3">
-          <span className={cn("flex h-4.5 min-w-0 items-center", menu !== null && "pe-6")}>
+          <span className={cn("flex h-(--text-sm--line-height) min-w-0 items-center", menu !== null && "pe-6")}>
             <OneLine text={title} tooltipClassName="max-w-sm" className="min-w-0 flex-1 text-sm" />
           </span>
-          <span id={line} className="flex h-5 min-w-0 items-center gap-2 text-muted-foreground">
+          <span id={line} className="flex h-(--text-sm--line-height) min-w-0 items-center gap-2 text-muted-foreground">
             <span className="flex min-w-0 items-center gap-2 truncate">{name}</span>
             <ErrorsBadge count={errors} />
             {meta != null && meta !== "" ? <span className="ml-auto shrink-0 text-xs">{meta}</span> : null}
@@ -101,7 +101,7 @@ export function Card({
 }
 
 /**
- * A step's name on its card's second line: Geist Mono 12px, cut at its end; `fixed` keeps it whole while the text after
+ * A step's name on its card's second line: Geist Mono `text-xs` (14px), cut at its end; `fixed` keeps it whole while the text after
  * it gives way (an input's name before its description).
  */
 export function CardName({ children, fixed = false }: { children: string; fixed?: boolean }) {
@@ -112,10 +112,13 @@ export function CardName({ children, fixed = false }: { children: string; fixed?
   )
 }
 
-/** A small chip on a card's second line (`required`): 12px, the secondary ink, a hairline outline, 4px corners. */
+/**
+ * A small chip on a card's second line (`required`): `text-xs` (14px) on its 20px line, the secondary ink, a hairline
+ * outline, 4px corners.
+ */
 export function CardChip({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex h-4.5 shrink-0 items-center rounded-sm border px-1 text-xs whitespace-nowrap">
+    <span className="inline-flex h-(--text-xs--line-height) shrink-0 items-center rounded-sm border px-1 text-xs whitespace-nowrap">
       {children}
     </span>
   )

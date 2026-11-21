@@ -19,7 +19,7 @@ export function ColumnLabel({ children }: { children: ReactNode }) {
 }
 
 /**
- * A sortable header's button in the headers' size and ink (12px, the secondary ink, at 400), without its 1px border,
+ * A sortable header's button in the headers' size and ink (`text-xs`, 14px, the secondary ink, at 400), without its 1px border,
  * so its title starts on its cells' edge: the shipped header steps back by the button's padding alone.
  */
 export const SORT_HEADER = "border-0 text-xs font-normal text-muted-foreground"

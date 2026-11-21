@@ -1,5 +1,5 @@
 import { type LucideIcon, SearchXIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import type { ReactElement, ReactNode } from "react"
 import { Link } from "wouter"
 
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,7 @@ export function PageLoading({
   mono,
 }: {
   title: string
-  icon?: LucideIcon
+  icon?: LucideIcon | ReactElement
   parents?: readonly Crumb[]
   /** The title is an item's ID or file name, in mono as its page's header gives it. */
   mono?: boolean
@@ -31,7 +31,7 @@ export function PageLoading({
 
 /**
  * A page whose subject does not exist, the same on every page: its header, then, in the one state shape, the
- * not-found icon, `message` (an ID in it in mono at 12px) and a button back to `back.href`.
+ * not-found icon, `message` (an ID in it in mono at `text-xs`, 14px) and a button back to `back.href`.
  */
 export function PageUnknown({
   title,
@@ -42,7 +42,7 @@ export function PageUnknown({
   back,
 }: {
   title: string
-  icon?: LucideIcon
+  icon?: LucideIcon | ReactElement
   /** The path before the title, as the page's own header gives it. */
   parents?: readonly Crumb[]
   /** The title is an item's ID or file name, in mono as its page's header gives it. */

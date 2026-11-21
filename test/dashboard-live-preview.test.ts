@@ -3,7 +3,9 @@ import { markdownLanguage } from "@codemirror/lang-markdown"
 import { Text } from "@codemirror/state"
 import {
   activeLines,
+  codeBlocks,
   decorationPlan,
+  outlineOf,
   type Plan,
   softBreaks,
   type Span,
@@ -258,4 +260,46 @@ test("a title line is the first line, an h1 restating the title; no other line o
   expect(titleLine(doc("## Add the acme importer"), "Add the acme importer")).toBeNull()
   expect(titleLine(doc("Intro\n# Add the acme importer"), "Add the acme importer")).toBeNull()
   expect(titleLine(doc("# Add the acme importer"), null)).toBeNull()
+})
+
+/** The code blocks of `source` with the lines `active` (from 1) active: lines, label, depth and code. */
+function blocks(source: string, active: number[] = []) {
+  const doc = Text.of(source.split("\n"))
+  return codeBlocks(doc, markdownLanguage.parser.parse(source), new Set(active)).map((b) => ({
+    lines: `${doc.lineAt(b.from).number}-${doc.lineAt(b.to).number}`,
+    label: b.label,
+    depth: b.depth,
+    code: b.lines.map((l) => doc.sliceString(l.from, l.to)),
+  }))
+}
+
+test("a fenced code block off the active lines is drawn as a block: its label, its code without its fences", () => {
+  expect(blocks("a\n\n```go title=x\nfunc f() {\n\treturn\n}\n```\n\nb")).toEqual([
+    { lines: "3-7", label: "go", depth: 0, code: ["func f() {", "\treturn", "}"] },
+  ])
+  expect(blocks("```\nx\n```")).toEqual([{ lines: "1-3", label: null, depth: 0, code: ["x"] }])
+  expect(blocks("```ts\nx\n```", [2])).toEqual([])
+})
+
+test("a code block in a list keeps its depth and drops the fence's indentation; one in a quote stays as source", () => {
+  expect(blocks("- a\n\n  ```sh\n  echo hi\n    more\n  ```")).toEqual([
+    { lines: "3-6", label: "sh", depth: 1, code: ["echo hi", "  more"] },
+  ])
+  expect(blocks("> ```\n> x\n> ```")).toEqual([])
+})
+
+test("an unclosed code block runs to the end of the document", () => {
+  expect(blocks("```\nx\ny")).toEqual([{ lines: "1-3", label: null, depth: 0, code: ["x", "y"] }])
+})
+
+test("the outline lists h1 to h3 without their marks, skipping code and a first line that restates the title", () => {
+  const source = "# The Title\n\n## One `a`\n\n```md\n## not\n```\n\n### **Two** [x](y)\n\n#### deep\n\nThree\n-----"
+  const doc = Text.of(source.split("\n"))
+  const tree = markdownLanguage.parser.parse(source)
+  expect(outlineOf(doc, tree, "the title")).toEqual([
+    { level: 2, text: "One a", line: 3 },
+    { level: 3, text: "Two x", line: 9 },
+    { level: 2, text: "Three", line: 13 },
+  ])
+  expect(outlineOf(doc, tree, null)[0]).toEqual({ level: 1, text: "The Title", line: 1 })
 })
