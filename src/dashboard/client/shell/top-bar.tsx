@@ -1,6 +1,14 @@
 import { cn } from "cn"
 import { ChevronRightIcon, type LucideIcon } from "lucide-react"
-import { createContext, Fragment, type ReactNode, useContext, useEffect } from "react"
+import {
+  createContext,
+  Fragment,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+} from "react"
 import { createPortal } from "react-dom"
 import { Link } from "wouter"
 
@@ -74,7 +82,8 @@ export function PageHeader({
   tabs,
 }: {
   title: string
-  icon?: LucideIcon
+  /** A Lucide icon, drawn in the secondary ink, or a mark of its own (a project's, in its hue). */
+  icon?: LucideIcon | ReactElement
   parents?: readonly Crumb[]
   mono?: boolean
   lead?: ReactNode
@@ -87,7 +96,11 @@ export function PageHeader({
       <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
         <ShowSidebar />
         <nav aria-label="Location" className="flex min-w-0 items-center gap-2">
-          {Icon !== undefined ? <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /> : null}
+          {Icon === undefined ? null : isValidElement(Icon) ? (
+            Icon
+          ) : (
+            <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+          )}
           {parents.map((p) => (
             <Fragment key={p.href}>
               <Link

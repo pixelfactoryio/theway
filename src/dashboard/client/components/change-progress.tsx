@@ -5,7 +5,7 @@ import type { Status } from "@/lib/changes"
 
 /**
  * A change's progress: `done/total` in the secondary ink, tabular, then a 14px ring that fills as its tasks are done:
- * red while invalid, green once every task is done, the ink otherwise. The progressbar is named "Tasks done" and reads
+ * red while invalid, green once every task is done, the accent otherwise. The progressbar is named "Tasks done" and reads
  * its value as `done of total`: the visible count and the ring are presentational.
  */
 export function ChangeProgress({
@@ -21,7 +21,7 @@ export function ChangeProgress({
 }) {
   const share = total === 0 ? 0 : done / total
   const stroke =
-    status === "invalid" ? "stroke-destructive" : total > 0 && done === total ? "stroke-success" : "stroke-foreground"
+    status === "invalid" ? "stroke-destructive" : total > 0 && done === total ? "stroke-success" : "stroke-primary"
   return (
     <ProgressPrimitive.Root
       value={share * 100}

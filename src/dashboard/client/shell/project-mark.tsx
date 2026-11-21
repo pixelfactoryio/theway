@@ -21,7 +21,7 @@ export function ProjectMark({
     <Icon
       aria-hidden="true"
       fill="currentColor"
-      fillOpacity={0.18}
+      fillOpacity={0.3}
       className={cn("size-3.5 shrink-0", projectHue(label), className)}
     />
   )

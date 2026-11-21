@@ -1,5 +1,3 @@
-import { FolderIcon } from "lucide-react"
-
 import { ChangeHeading, SameAsId, UNREADABLE } from "@/components/change-header"
 import { ChangePanel, ChangeStatus } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
@@ -11,6 +9,7 @@ import { TaskList } from "@/components/task-list"
 import { useLabel } from "@/data/queries"
 import { type ChangeDetail, changeTabs, ownDescription, shownTab } from "@/lib/changes"
 import { to } from "@/lib/routes"
+import { ProjectMark } from "@/shell/project-mark"
 
 /**
  * The tasks of an archived change, read-only; the reasons it cannot be read instead when it has any, as a row of the
@@ -38,7 +37,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
     <DocFrame
       title={data.id}
       mono
-      icon={FolderIcon}
+      icon={<ProjectMark label={project} className="size-4" />}
       parents={[
         { label: project, href: to.project(projectKey) },
         { label: "Archive", href: to.project(projectKey, { archive: true }) },

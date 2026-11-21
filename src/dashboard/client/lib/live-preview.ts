@@ -99,7 +99,8 @@ function children(node: SyntaxNode, name: string): SyntaxNode[] {
 /**
  * The decorations of the live preview of `doc` for the parts of `tree` within `ranges` (the visible ranges): a syntax
  * mark is hidden, and a list marker, task box or thematic break replaced by a widget, only off the `active` lines; line
- * and range styles apply everywhere. Fenced code keeps its fences; tables and raw HTML stay as source. A blank line
+ * and range styles apply everywhere. Fenced code's lines are styled for when they show as source (`codeBlocks` draws a block off them); tables and raw HTML stay as
+ * source. A blank line
  * outside code is styled as one, active or not, so the space between blocks does not change as the cursor moves.
  */
 export function decorationPlan(
@@ -450,4 +451,81 @@ export function titleLine(doc: Text, title: string | null): Span | null {
   const heading = H1_LINE.exec(line.text)?.[1]
   if (heading === undefined || !restatesTitle(heading, title)) return null
   return { from: line.from, to: line.to }
+}
+
+/**
+ * A fenced code block drawn as a block: its whole lines, its language label (the info string's first word, `null`
+ * without one), the list depth it sits at (0 outside a list), and each line of its code as a range with the fence's
+ * indentation left out.
+ */
+export type CodeBlock = Span & { label: string | null; depth: number; lines: Span[] }
+
+/**
+ * The fenced code blocks of `tree` that no active line touches, each over its whole lines, to draw as blocks: at the top
+ * level or in a list (a block in a blockquote stays as source, its lines carrying the quote's marks).
+ */
+export function codeBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>): CodeBlock[] {
+  const blocks: CodeBlock[] = []
+  tree.iterate({
+    enter: (ref) => {
+      if (SOURCE.has(ref.name) || ref.name === "Table" || ref.name === "CodeBlock") return false
+      if (ref.name === "Blockquote") return false
+      if (ref.name !== "FencedCode") return undefined
+      const node = ref.node
+      const first = doc.lineAt(node.from)
+      const last = doc.lineAt(Math.max(node.from, node.to - 1))
+      for (let n = first.number; n <= last.number; n++) if (active.has(n)) return false
+      let depth = 0
+      for (let p = node.parent; p !== null; p = p.parent)
+        if (p.name === "BulletList" || p.name === "OrderedList") depth++
+      const marks = children(node, "CodeMark")
+      const closed = marks.length > 1 && doc.lineAt((marks.at(-1) as SyntaxNode).from).number > first.number
+      const end = closed ? last.number - 1 : last.number
+      // The fence's own indentation, which each line of its code may repeat.
+      const indent = node.from - first.from
+      const lines: Span[] = []
+      for (let n = first.number + 1; n <= end; n++) {
+        const line = doc.line(n)
+        let from = line.from
+        while (from < line.to && from - line.from < indent && /^[ \t]$/.test(doc.sliceString(from, from + 1))) from++
+        lines.push({ from, to: line.to })
+      }
+      const info = node.getChild("CodeInfo")
+      const label = info === null ? null : (doc.sliceString(info.from, info.to).trim().split(/\s+/)[0] ?? null)
+      blocks.push({ from: first.from, to: last.to, label: label === "" ? null : label, depth, lines })
+      return false
+    },
+  })
+  return blocks
+}
+
+/** A heading of a document's outline: its level (1 to 3), its text without its marks, and its line (from 1). */
+export type OutlineEntry = { level: 1 | 2 | 3; text: string; line: number }
+
+/** A heading's inline marks left out of its outline entry: emphasis, code spans and link brackets. */
+const MARKS = /[*_`]|\[|\]\([^)]*\)/g
+
+/**
+ * The outline of `doc`: its ATX and Setext headings of levels 1 to 3, in order, but a first line that restates the
+ * page's `title` (`titleLine`), which the page states above the document.
+ */
+export function outlineOf(doc: Text, tree: Tree, title: string | null): OutlineEntry[] {
+  const hidden = titleLine(doc, title)
+  const entries: OutlineEntry[] = []
+  tree.iterate({
+    enter: (ref) => {
+      if (SOURCE.has(ref.name) || ref.name === "FencedCode" || ref.name === "CodeBlock" || ref.name === "Table")
+        return false
+      const level = /^(?:ATX|Setext)Heading([1-3])$/.exec(ref.name)?.[1]
+      if (level === undefined) return undefined
+      const line = doc.lineAt(ref.from)
+      if (hidden !== null && line.from === hidden.from) return false
+      let text = doc.sliceString(ref.from, line.to)
+      text = ref.name.startsWith("ATX") ? text.replace(/^ {0,3}#+[ \t]*/, "").replace(/[ \t]+#+[ \t]*$/, "") : text
+      text = text.replace(MARKS, "").trim()
+      if (text !== "") entries.push({ level: Number(level) as 1 | 2 | 3, text, line: line.number })
+      return false
+    },
+  })
+  return entries
 }

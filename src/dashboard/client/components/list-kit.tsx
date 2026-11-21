@@ -27,11 +27,11 @@ export type ListColumn = {
 /** The widths of the columns the change lists and All projects share. */
 export const COLUMN = {
   project: "w-32 hidden md:flex xl:w-48",
-  progress: "w-20",
+  progress: "w-24",
   /** An age (`5m`, `3d`). */
-  updated: "w-12 tabular-nums",
+  updated: "w-16 tabular-nums",
   /** An age or a date (`2026-11-03`), on a list that holds archived changes. */
-  date: "w-24 tabular-nums",
+  date: "w-28 tabular-nums",
   count: "w-24 hidden sm:flex tabular-nums",
   actions: "w-20",
 } as const
