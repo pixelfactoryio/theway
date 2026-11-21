@@ -10,6 +10,7 @@ import { NONCE, secureHeaders } from "hono/secure-headers"
 import css from "./generated/app.css.txt" with { type: "text" }
 import js from "./generated/app.js.txt" with { type: "text" }
 import geistMono from "./generated/geist-mono.woff2.txt" with { type: "text" }
+import inter from "./generated/inter.woff2.txt" with { type: "text" }
 import { version } from "../../package.json" with { type: "json" }
 import { fileStore } from "../core/store/files"
 import { escaped } from "../core/text"
@@ -37,6 +38,9 @@ const JSON_TYPE = "application/json; charset=utf-8"
 
 /** The code font, embedded as base64 text and decoded once. */
 const GEIST_MONO = Uint8Array.from(Buffer.from(geistMono, "base64"))
+
+/** The interface font, embedded as base64 text and decoded once. */
+const INTER = Uint8Array.from(Buffer.from(inter, "base64"))
 
 /** The largest body a write route takes, in bytes. */
 export const MAX_BODY = 1048576
@@ -172,6 +176,7 @@ export function createApp(
   app.get("/app.js", (c) => c.body(js, 200, { "Content-Type": "text/javascript; charset=utf-8" }))
   app.get("/app.css", (c) => c.body(css, 200, { "Content-Type": "text/css; charset=utf-8" }))
   app.get("/fonts/geist-mono.woff2", (c) => c.body(GEIST_MONO, 200, { "Content-Type": "font/woff2" }))
+  app.get("/fonts/inter.woff2", (c) => c.body(INTER, 200, { "Content-Type": "font/woff2" }))
   // The page declares no icon: a browser's own request for one gets an empty answer, not a 404.
   app.get("/favicon.ico", () => new Response(null, { status: 204 }))
 
