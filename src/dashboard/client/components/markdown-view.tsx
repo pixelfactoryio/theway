@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view"
 import { cn } from "cn"
 import { useEffect, useRef } from "react"
 
-import { liveExtensions } from "@/components/live-markdown"
+import { liveExtensions, setTitle } from "@/components/live-markdown"
 import { lineSeparatorOf } from "@/lib/files"
 
 /** The view's inner room: a page's, the live editor's own gutters; a panel's, 16px on every side. */
@@ -14,24 +14,28 @@ const INSET: Record<"page" | "panel", Extension> = {
 
 /**
  * A Markdown file, read-only, as the live editor shows it with no line active: formatted, task boxes that cannot be
- * ticked, a link opening in a new tab on a click. A new `text` replaces the whole document, so a preview follows its
- * draft.
+ * ticked, a link opening in a new tab on a click; a first line that restates the page's `title` is left out. A new
+ * `text` replaces the whole document, so a preview follows its draft.
  */
 export function MarkdownView({
   text,
   name,
+  title = null,
   inset = "page",
   className,
 }: {
   text: string
   /** The view's accessible name. */
   name: string
+  /** The page's title (`ItemHeading`'s), `null` when the page states none. */
+  title?: string | null
   inset?: "page" | "panel"
   className?: string
 }) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const latest = useRef(text)
+  const latestTitle = useRef(title)
 
   // Before the mount below, so a new view takes the current text.
   useEffect(() => {
@@ -42,12 +46,20 @@ export function MarkdownView({
   }, [text])
 
   useEffect(() => {
+    latestTitle.current = title
+    view.current?.dispatch({ effects: setTitle.of(title) })
+  }, [title])
+
+  useEffect(() => {
     if (host.current === null) return
     const doc = latest.current
     const v = new EditorView({
       state: EditorState.create({
         doc,
-        extensions: [...liveExtensions({ name, separator: lineSeparatorOf(doc), readOnly: true }), INSET[inset]],
+        extensions: [
+          ...liveExtensions({ name, separator: lineSeparatorOf(doc), readOnly: true, title: latestTitle.current }),
+          INSET[inset],
+        ],
       }),
       parent: host.current,
     })

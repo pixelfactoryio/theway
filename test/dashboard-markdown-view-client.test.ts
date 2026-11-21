@@ -8,8 +8,10 @@ import {
   linkMark,
   liveExtensions,
   setFocused,
+  setTitle,
   softBreaks,
   tables,
+  titleHidden,
 } from "../src/dashboard/client/components/live-markdown"
 
 const realDocument = (globalThis as { document?: unknown }).document
@@ -87,6 +89,35 @@ test("a read-only link is an anchor to its target in a new tab; an editable one 
     attributes: { href: "https://x", target: "_blank", rel: "noopener noreferrer" },
   })
   expect(linkMark("https://x", false).spec).toEqual({ class: "cm-lp-link", attributes: { "data-href": "https://x" } })
+})
+
+/** The ranges `state` hides as a restated title. */
+function hiddenTitle(state: EditorState): { from: number; to: number }[] {
+  const out: { from: number; to: number }[] = []
+  state.field(titleHidden).between(0, state.doc.length, (from, to) => {
+    out.push({ from, to })
+  })
+  return out
+}
+
+test("a first h1 restating the page's title is hidden: always read-only, off its line while editing", () => {
+  page()
+  const doc = "# Spec: Add the acme importer\n\nBody"
+  const of = (readOnly: boolean, title: string | null) =>
+    EditorState.create({ doc, extensions: liveExtensions({ name: "spec.md", separator: "\n", readOnly, title }) })
+  expect(hiddenTitle(of(true, "Add the acme importer"))).toEqual([{ from: 0, to: 29 }])
+  expect(hiddenTitle(of(true, "Something else"))).toEqual([])
+  expect(hiddenTitle(of(true, null))).toEqual([])
+  // A title given later, as a page passes it.
+  expect(hiddenTitle(of(true, null).update({ effects: setTitle.of("Add the acme importer") }).state)).toEqual([
+    { from: 0, to: 29 },
+  ])
+  // Editing: hidden unfocused or with the selection off line 1; shown with the focus on line 1.
+  const editing = of(false, "Add the acme importer")
+  expect(hiddenTitle(editing)).toEqual([{ from: 0, to: 29 }])
+  const onLine1 = editing.update({ effects: setFocused.of(true) }).state
+  expect(hiddenTitle(onLine1)).toEqual([])
+  expect(hiddenTitle(onLine1.update({ selection: { anchor: doc.length } }).state)).toEqual([{ from: 0, to: 29 }])
 })
 
 test("the editable set is unchanged: editable, with history", () => {

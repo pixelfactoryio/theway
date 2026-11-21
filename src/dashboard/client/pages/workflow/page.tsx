@@ -1,35 +1,33 @@
-import { CodeIcon, HistoryIcon, InfoIcon, WorkflowIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { WorkflowIcon } from "lucide-react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "wouter"
 
 import { CodeTab } from "@/components/code-tab"
 import type { CodeViewHandle } from "@/components/code-view"
+import { DocFooter } from "@/components/doc-footer"
+import { DocFrame, ItemHeading } from "@/components/doc-frame"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { fileStatus, ProblemsCard, StatusCard } from "@/components/fact-cards"
 import { useFileDraft } from "@/components/file-draft"
+import { UNKNOWN_FILE } from "@/components/file-page"
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { HistoryTab, useHistoryTab } from "@/components/history"
-import { LineList, STRIP, UNKNOWN_FILE } from "@/components/file-page"
-import { DocFrame } from "@/components/doc-frame"
-import { DocFooter } from "@/components/doc-footer"
-import { DocTitle, GutterTitle } from "@/components/doc-title"
+import { RowChip } from "@/components/list-kit"
+import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { usePanelOpen } from "@/components/record-panel"
-import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
-import { Alert, AlertDescription, AlertTitle } from "@/components/reui/alert"
-import { Badge } from "@/components/reui/badge"
-import { DetailRow, DocPanel } from "@/components/doc-panel"
 import { StatusPill } from "@/components/status"
+import { StepPicker } from "@/components/step-picker"
+import { StepPrompt, StepPromptUses, useSaveKey } from "@/components/step-prompt"
 import { CopyPath } from "@/components/title-block"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { StepPicker } from "@/components/step-picker"
 import { type CanvasEdits, WorkflowCanvas } from "@/components/workflow-canvas"
 import { applyEdit, type HistoryMode, type Write } from "@/components/workflow-fields"
 import { WorkflowEditPanel } from "@/components/workflow-panel"
 import { StepPanel, WorkflowPanel } from "@/components/workflow-read-panels"
 import { StepEditPanel } from "@/components/workflow-step-panel"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
-import { appliesTo, errorCount, type PromptRow } from "@/lib/files"
 import { alertLines } from "@/lib/alert-lines"
+import { appliesTo, type PromptRow } from "@/lib/files"
 import { to } from "@/lib/routes"
 import {
   type Drawing,
@@ -43,7 +41,11 @@ import {
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
 import { PageLoadError } from "@/shell/load-error"
-import { PageBody, PageHeader } from "@/shell/top-bar"
+import { StateBlock, StateNotice } from "@/shell/state"
+import { type Crumb, PageBody, PageHeader } from "@/shell/top-bar"
+
+/** The path above every workflow's page. */
+const PARENTS: readonly Crumb[] = [{ label: "Workflows", href: to.workflows() }]
 
 /** The step picker open in the panel: adding a step at `at`, or changing the prompt of step `index`. */
 type Picker = { mode: "add"; at: number } | { mode: "change"; index: number }
@@ -60,17 +62,19 @@ function keptSelection(selection: Selection | null, drawing: Drawing | null): Se
 /** In place of the canvas when the file cannot be drawn. */
 function CannotDraw({ reason, openYaml }: { reason: string; openYaml: () => void }) {
   return (
-    <Empty className="min-h-0 flex-1 rounded-none bg-muted">
-      <EmptyHeader>
-        <EmptyTitle>This file cannot be drawn</EmptyTitle>
-        <EmptyDescription className="font-mono text-xs">{reason}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" onClick={openYaml}>
-          Open YAML
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <div className="min-h-0 flex-1">
+      <StateBlock
+        size="page"
+        title="This file cannot be drawn"
+        action={
+          <Button variant="outline" size="sm" onClick={openYaml}>
+            Open YAML
+          </Button>
+        }
+      >
+        <span className="font-mono text-xs">{reason}</span>
+      </StateBlock>
+    </div>
   )
 }
 
@@ -186,9 +190,12 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     return (
       <PageUnknown
         title={name}
+        mono
+        icon={WorkflowIcon}
+        parents={PARENTS}
         message={
           <>
-            No workflow <code className="font-mono">{name}</code>
+            No workflow <code className="font-mono text-xs">{name}</code>
           </>
         }
         back={{ label: "Back to Workflows", href: to.workflows() }}
@@ -198,7 +205,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   if (projects.isError || fileFailed || prompts.isError) {
     return (
       <>
-        <PageHeader title={name} />
+        <PageHeader title={name} mono icon={WorkflowIcon} parents={PARENTS} />
         <PageBody>
           {projects.isError ? (
             <PageLoadError what="the projects" error={projects.error} retry={() => void projects.refetch()} />
@@ -218,7 +225,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     drawn === null ||
     draft.store === null
   ) {
-    return <PageLoading title={name} />
+    return <PageLoading title={name} mono icon={WorkflowIcon} parents={PARENTS} />
   }
 
   const step = kept !== null && kept.kind !== "inputs" ? (drawing?.steps[kept.index] ?? null) : null
@@ -257,7 +264,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
     : null
   const removeSelected = (index: number) => edits?.onRemove(index)
 
-  const panel =
+  const inspector: ReactNode =
     editable && picker !== null ? (
       <StepPicker
         title={picker.mode === "add" ? "Add a step" : "Change the prompt"}
@@ -277,7 +284,6 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         project={project}
         workflowRunsOn={drawing.runsOn}
         onFailCard={kept?.kind === "on-fail"}
-        tone={kept?.kind === "on-fail" ? "on-fail" : step.target}
         write={write}
         onChange={() => openPicker({ mode: "change", index: step.index })}
         onRemove={() => removeSelected(step.index)}
@@ -302,29 +308,64 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       : null
   const promptRow = promptName !== null ? findPrompt(promptRows, project, promptName) : null
   const details = (
-    <dl className="flex flex-col py-2">
-      <DetailRow label="Applies to">{appliesTo(project, label)}</DetailRow>
-      <DetailRow label="Steps">
-        <span className="tabular-nums">{drawing === null ? "–" : drawing.steps.length}</span>
-      </DetailRow>
-      <DetailRow label="Runs on">{(drawing === null ? null : stepsRunOn(drawing)) ?? "–"}</DetailRow>
-      <DetailRow label="File">
-        <CopyPath value={data.path} name="the file path" />
-      </DetailRow>
-    </dl>
+    <PropertyCard title="Details">
+      <PropertyList>
+        <PropertyRow label="Applies to">{appliesTo(project, label)}</PropertyRow>
+        <PropertyRow label="Steps">
+          <span className="tabular-nums">{drawing === null ? "–" : drawing.steps.length}</span>
+        </PropertyRow>
+        <PropertyRow label="Runs on">{(drawing === null ? null : stepsRunOn(drawing)) ?? "–"}</PropertyRow>
+        <PropertyRow label="File">
+          <CopyPath value={data.path} name="the file path" />
+        </PropertyRow>
+      </PropertyList>
+    </PropertyCard>
   )
 
-  // On the Editor tab the heading stands over the canvas's top, as on a design canvas; elsewhere above the view.
-  const heading = (
-    <DocTitle caption={`Workflows · ${appliesTo(project, label)}`} title={name} description={drawing?.description} />
+  // The right column: the versions on History; else the problems, then the selected card's cards (the picker, the
+  // step and its prompt and the workflows that use it) or the workflow's cards and its details.
+  const shownStatus = fileStatus(errors.length)
+  const panel = (
+    <PropertyCards>
+      <StatusCard {...shownStatus} action={isDefault ? <RowChip>default</RowChip> : undefined} />
+      {history ? (
+        historyTab.panel
+      ) : (
+        <>
+          {errors.length > 0 ? <ProblemsCard lines={lines} /> : null}
+          {inspector}
+          {promptRow !== null && !(editable && picker !== null) ? (
+            <>
+              <StepPrompt key={`${promptRow.project ?? ""}/${promptRow.name}`} row={promptRow} />
+              <StepPromptUses row={promptRow} current={{ workflow: name, project }} />
+            </>
+          ) : null}
+          {step === null && !(editable && picker !== null) ? details : null}
+        </>
+      )}
+    </PropertyCards>
   )
-  const notices = <DraftNotices draft={draft} lines={lines} history={history} />
+
+  const notices = (
+    <>
+      <DraftNotices draft={draft} lines={lines} history={history} />
+      {!yamlTab && !history && drawing !== null && anchors ? (
+        <StateNotice tone="info" title="This file uses YAML anchors">
+          Edit it on the YAML tab.
+        </StateNotice>
+      ) : null}
+    </>
+  )
   const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+  const fileName = `${name}.yaml`
 
   return (
     <>
       <DocFrame
-        title={`${name} · Workflows`}
+        title={name}
+        mono
+        icon={WorkflowIcon}
+        parents={PARENTS}
         label="Workflow views"
         value={history ? "history" : yamlTab ? "yaml" : "editor"}
         tabs={[
@@ -332,23 +373,19 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
             value: "editor",
             label: "Editor",
             href: to.file("workflows", project, name),
-            Icon: WorkflowIcon,
             dirty: draft.dirty && !yamlTab && !history,
           },
           {
             value: "yaml",
             label: "YAML",
             href: to.file("workflows", project, name, "yaml"),
-            Icon: CodeIcon,
             dirty: draft.dirty && yamlTab,
           },
-          {
-            value: "history",
-            label: "History",
-            href: to.file("workflows", project, name, "history"),
-            Icon: HistoryIcon,
-          },
+          { value: "history", label: "History", href: to.file("workflows", project, name, "history") },
         ]}
+        status={<StatusPill {...shownStatus} />}
+        notices={notices}
+        heading={<ItemHeading title={drawing?.description ?? null} />}
         panelName={
           history
             ? "Versions"
@@ -360,76 +397,14 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
                 ? `Step ${step.index + 1}`
                 : "Workflow"
         }
-        panel={
-          <DocPanel
-            key={promptRow !== null ? "prompt" : "workflow"}
-            remember={promptRow !== null ? "workflow-step" : "workflow"}
-            topShare={promptRow !== null ? "50%" : "70%"}
-            label="Workflow"
-            header={
-              <>
-                <StatusPill
-                  status={errors.length === 0 ? "ready" : "invalid"}
-                  label={errors.length === 0 ? "Valid" : errorCount(errors.length)}
-                />
-                {isDefault ? <Badge variant="outline">default</Badge> : null}
-              </>
-            }
-            top={
-              history
-                ? [{ value: "versions", label: "Versions", content: historyTab.panel }]
-                : [
-                    {
-                      value: "inspector",
-                      label: step !== null ? `Step ${step.index + 1} · ${step.name}` : "Workflow",
-                      content: panel,
-                    },
-                    {
-                      value: "problems",
-                      label: "Problems",
-                      count: errors.length > 0 ? errors.length : undefined,
-                      content: <LineList variant="panel" lines={lines} />,
-                    },
-                  ]
-            }
-            bottom={
-              promptRow !== null && !history
-                ? [
-                    {
-                      value: "prompt",
-                      label: "Prompt",
-                      content: <StepPrompt key={`${promptRow.project ?? ""}/${promptRow.name}`} row={promptRow} />,
-                    },
-                    { value: "used-by", label: "Used by", content: <StepPromptUses row={promptRow} /> },
-                  ]
-                : [{ value: "details", label: "Details", content: details }]
-            }
-          />
-        }
+        panel={panel}
       >
         {yamlTab ? (
-          <CodeTab
-            ref={code}
-            title={heading}
-            notices={notices}
-            draft={draft.store}
-            errors={errors}
-            file={`${name}.yaml`}
-            status={status}
-          />
+          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} />
         ) : history ? (
-          <HistoryTab title={heading} notices={notices} main={historyTab.main} file={`${name}.yaml`} status={status} />
+          <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (
           <>
-            {"reason" in drawn ? <GutterTitle>{heading}</GutterTitle> : null}
-            {notices}
-            {drawing !== null && anchors ? (
-              <Alert className={STRIP}>
-                <InfoIcon aria-hidden="true" />
-                <AlertTitle>This file uses YAML anchors</AlertTitle>
-                <AlertDescription>Edit it on the YAML tab.</AlertDescription>
-              </Alert>
-            ) : null}
             {"reason" in drawn ? (
               <CannotDraw
                 reason={drawn.reason}
@@ -443,10 +418,9 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
                 onSelect={select}
                 store={draft.store}
                 edits={edits}
-                header={heading}
               />
             )}
-            <DocFooter file={`${name}.yaml`} status={status} />
+            <DocFooter file={fileName} status={status} />
           </>
         )}
       </DocFrame>

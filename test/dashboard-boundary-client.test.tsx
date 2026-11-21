@@ -47,18 +47,18 @@ test("the page fallback shows the error and Try again", () => {
   expect(html).toContain("This page failed to render")
   expect(html).toContain("boom")
   expect(html).toContain("Try again")
-  // A page's alert stands on the page's 24px gutters.
-  expect(html).toMatch(/<div data-slot="alert" role="alert" class="[^"]*\bmx-6 my-4 w-auto"/)
+  // A page's error is the one state shape, an alert on the panel's 16px gutter, 24px under the header.
+  expect(html).toMatch(/<div data-slot="state" role="alert" class="flex items-start gap-3 px-4 pt-6 pb-3"/)
 })
 
-test("every failed load in a page's centre is the one page alert; only the sidebar and a panel place their own", () => {
+test("every failed load in a page's centre is the one page alert; only a panel places its own, the sidebar none", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const own = readdirSync(client, { recursive: true, withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith(".tsx"))
     .map((e) => relative(client, join(e.parentPath, e.name)).split(sep).join("/"))
     .filter((file) => !/^(components\/(ui|reui)|hooks)\//.test(file) && file !== "shell/load-error.tsx")
     .filter((file) => readFileSync(join(client, file), "utf-8").includes("<LoadError"))
-  expect(own.sort()).toEqual(["components/step-prompt.tsx", "shell/app-sidebar.tsx"])
+  expect(own.sort()).toEqual(["components/step-prompt.tsx"])
 })
 
 test("the root fallback shows the error and Reload", () => {

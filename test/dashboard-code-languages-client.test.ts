@@ -22,7 +22,7 @@ test("the reading widths and the code colours are tokens of the stylesheet, ligh
     join(import.meta.dirname, "..", "src", "dashboard", "client", "styles", "globals.css"),
     "utf-8",
   )
-  expect(css).toContain("--read-width: 44.25rem;")
+  expect(css).toContain("--read-width: 36rem;")
   expect(css).toContain("--read-wide: 64rem;")
   for (const token of ["--code-function", "--code-type", "--code-surface"])
     expect([token, css.split(`${token}: `).length - 1]).toEqual([token, 3])

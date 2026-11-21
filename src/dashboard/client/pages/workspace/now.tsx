@@ -1,20 +1,20 @@
-import type { ColumnSizingState } from "@tanstack/react-table"
-import { useMemo, useState } from "react"
+import { Clock3Icon } from "lucide-react"
+import { useMemo } from "react"
 
-import { BandGrid } from "@/components/band-grid"
 import { EmptyNote } from "@/components/empty-note"
 import { FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { CollapseHint } from "@/components/group-band"
-import { LIST_CAP, ListFoot, useSpare } from "@/components/list-grid"
+import { ListFoot } from "@/components/list-grid"
+import { ListHead, NavList } from "@/components/list-kit"
 import {
   archiveGroups,
+  changeColumns,
   projectField,
   STATUS_VALUES,
   statusField,
   statusGroups,
-  useChangeGrid,
 } from "@/components/workspace-bands"
-import { Groups, ScrollBody, useProjectsGate } from "@/components/workspace-rows"
+import { ScrollBody, Sections, useProjectsGate } from "@/components/workspace-rows"
 import { useChangeLists } from "@/data/queries"
 import { isNarrowed, NO_FILTER, passesAll, picks } from "@/lib/list-filter"
 import {
@@ -28,8 +28,8 @@ import {
   located,
   locatedValues,
   noneLoaded,
-  treeRows,
 } from "@/lib/workspace"
+import { StateLoading } from "@/shell/state"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 const NOW_FIELDS = ["project", "status"] as const
@@ -44,19 +44,17 @@ export function NowPage() {
   const keys = list.map((p) => p.key)
   const { lists, failed, pending } = useChangeLists(keys)
   const [filter, setFilter] = useListFilter("now", NOW_FIELDS)
-  const [sizing, setSizing] = useState<ColumnSizingState>({})
-  const { spare, sizer } = useSpare(LIST_CAP.changes)
   const searched = located(lists, list, filter.q)
   const kept = searched.filter((r) => passesAll(r, filter.rules, locatedValues))
   // The progress column stands only over an open change listed as a row: the archive has none, and Ready to archive
   // is counted by project here.
   const progress = listsOpenRow(kept, true)
-  const grid = useChangeGrid(sizing, setSizing, { project: true, progress, spare })
   // The archive is listed only once Status is Archived; its count is in the Status menu all along.
   const withArchive = picks(filter.rules, "status", "archived")
   const archiveAll = archivesOf(lists, keys)
   const archiveSearched = archivesMatching(archiveAll, filter.q)
   const archived = withArchive ? archiveSearched.filter((r) => passesAll(r, filter.rules, archivedValues)) : []
+  const columns = changeColumns({ project: true, progress, dates: archived.length > 0 })
   const fields = [
     projectField(
       list.filter((p) => p.active > 0 || (withArchive && (lists.get(p.key)?.archived.length ?? 0) > 0)),
@@ -64,20 +62,14 @@ export function NowPage() {
     ),
     statusField(STATUS_VALUES, countsOf("status", filter.rules, searched, archiveSearched, true)),
   ]
-  const groups = [
-    ...statusGroups(kept, {
-      readyByProject: true,
-      body: (rows, label) => <BandGrid {...grid.band(treeRows(rows), label)} />,
-    }),
-    ...archiveGroups(archived, (rows, label) => <BandGrid {...grid.band(rows, label)} />),
-  ]
+  const groups = [...statusGroups(kept, { readyByProject: true, columns }), ...archiveGroups(archived, columns)]
   const open = located(lists, list, "").reduce((n, r) => n + changesOf(r), 0)
   const settled = projects !== null && !pending
   // With no list loaded, the load error stands alone: nothing is known to be empty.
   const unread = noneLoaded(failed.length, lists.size)
   return (
     <>
-      <PageHeader title="Now" />
+      <PageHeader title="Now" icon={Clock3Icon} />
       <PageBody>
         <FilterBar
           fields={fields}
@@ -90,25 +82,29 @@ export function NowPage() {
           noun="change"
         />
         <ScrollBody>
-          {sizer}
           {gate}
           {failed.length > 0 ? (
-            <EmptyNote tone="error" inset="page">
-              Could not load the changes of {countOf(failed.length, "project")}.
-            </EmptyNote>
+            <EmptyNote tone="error">Could not load the changes of {countOf(failed.length, "project")}.</EmptyNote>
           ) : null}
           {groups.length > 0 ? (
             <>
-              <BandGrid {...grid.head} />
-              <Groups page="now" groups={groups} />
+              <ListHead name="Change" columns={columns} />
+              <NavList>
+                <Sections page="now" groups={groups} />
+              </NavList>
               <ListFoot>
                 <CollapseHint />
               </ListFoot>
             </>
-          ) : !settled || unread ? null : isNarrowed(filter) ? (
+          ) : unread ? null : !settled ? (
+            // The projects' own loading line is the gate's; then the lists'.
+            gate === null ? (
+              <StateLoading size="page" />
+            ) : null
+          ) : isNarrowed(filter) ? (
             <NoMatch nouns="changes" filter={filter} fields={fields} onClear={() => setFilter(NO_FILTER)} />
           ) : (
-            <EmptyNote inset="page">Nothing open.</EmptyNote>
+            <EmptyNote size="page">Nothing open.</EmptyNote>
           )}
         </ScrollBody>
       </PageBody>

@@ -33,6 +33,20 @@ export function useWide(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches)
 }
 
+/** Tailwind's `lg`: 1024px. */
+const LARGE = "(min-width: 64rem)"
+
+const subscribeLarge = (onChange: () => void): (() => void) => {
+  const query = window.matchMedia(LARGE)
+  query.addEventListener("change", onChange)
+  return () => query.removeEventListener("change", onChange)
+}
+
+/** Whether the window is 1024px wide or wider (Tailwind's `lg`), following it as it changes. */
+export function useLarge(): boolean {
+  return useSyncExternalStore(subscribeLarge, () => window.matchMedia(LARGE).matches)
+}
+
 type PanelState = {
   /** The element a page's panel renders into, `null` until mounted. */
   slot: HTMLElement | null
@@ -89,7 +103,8 @@ export function usePanelName(): string | null {
 }
 
 /**
- * The shown page's panel below 1280px: over the page as a sheet. Nothing when the page has none, or from 1280px, where
+ * The shown page's panel below 1280px: over the page as a sheet, the sheet's close button in a 40px strip above the
+ * panel's content. Nothing when the page has none, or from 1280px, where
  * the shell docks it at the right of the page.
  */
 export function PanelArea() {
@@ -101,12 +116,13 @@ export function PanelArea() {
       <SheetContent
         side="right"
         // Under the sheet's own side variant, which sets its width and its cap.
-        className="gap-0 bg-sidebar p-0 data-[side=right]:w-[min(420px,90vw)] data-[side=right]:sm:max-w-none"
+        className="gap-0 bg-background p-0 data-[side=right]:w-[min(420px,90vw)] data-[side=right]:sm:max-w-none"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>{name}</SheetTitle>
         </SheetHeader>
-        <aside ref={setSlot} aria-label={name} className="flex h-full min-h-0 flex-col" />
+        {/* 44px over the panel's content, level with the page's header: the sheet's close button stands there. */}
+        <aside ref={setSlot} aria-label={name} className="flex h-full min-h-0 flex-col pt-11" />
       </SheetContent>
     </Sheet>
   )

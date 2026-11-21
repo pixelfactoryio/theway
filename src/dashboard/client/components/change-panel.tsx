@@ -1,27 +1,37 @@
-import { cn } from "cn"
 import type { ReactNode } from "react"
-import { Link } from "wouter"
 
 import { ChangeProgress } from "@/components/change-progress"
-import { DetailRow, DocPanel, type PaneTab } from "@/components/doc-panel"
+import { StatusCard } from "@/components/fact-cards"
+import { COLUMN, IdChip, IdName, type ListColumn, ListRow, ListRows } from "@/components/list-kit"
+import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { StatusMark, StatusPill } from "@/components/status"
-import { OneLine } from "@/components/text"
-import { useLabel } from "@/data/queries"
-import { type ChangeDetail, localDate, memberOf, type SeriesMember } from "@/lib/changes"
+import { useChangeLists, useLabel } from "@/data/queries"
+import { type ChangeDetail, localDate, memberOf, ownDescription, type SeriesMember } from "@/lib/changes"
 import { to } from "@/lib/routes"
 
 /** A member's page, `null` for a member with neither an active ID nor an archive reference. */
 const memberHref = (key: string, m: { active: string | null; archived: string | null }): string | null =>
   m.active !== null ? to.change(key, m.active) : m.archived !== null ? to.archived(key, m.archived) : null
 
-/** One ordinal of the series list; the current change's row shows the current change itself. */
+/** The Series card's one column: a member's progress, or Archived. */
+const PROGRESS: ListColumn = { id: "progress", title: "Progress", className: COLUMN.progress, align: "end" }
+
+/**
+ * One ordinal of the Series card, a row of the list kit: its status icon, its description then its ID's chip, both cut
+ * as the panel narrows, the chip in the middle so its distinct tail stays (the chip alone, in the name's place, for a
+ * member whose description is not known, an archived one, or only repeats its ID), and its progress, `Archived` or `–` at the right; the current change's row shows the current change itself
+ * and is marked as the current one. An ordinal with no change gives its would-be ID's chip alone, in the secondary ink.
+ */
 function SeriesRow({
   projectKey,
   member,
+  description,
   current,
 }: {
   projectKey: string
   member: SeriesMember
+  /** The member's description, from the project's change list, `null` when it has none or it is not known. */
+  description: string | null
   current: ChangeDetail | null
 }) {
   const shown: SeriesMember =
@@ -36,35 +46,44 @@ function SeriesRow({
           total: current.ref === null ? current.total : null,
         }
       : member
-  const classes = cn("flex h-8 min-w-0 items-center gap-3 px-4 text-sm", current !== null && "bg-accent")
   const href = memberHref(projectKey, shown)
+  const lead = ownDescription(current !== null ? current.description : description, shown.id)
   if (shown.status === null || href === null) {
     return (
-      <li className={classes} aria-current={current !== null ? "true" : undefined}>
-        <span className="text-muted-foreground tabular-nums">{member.ordinal}</span>
+      <li className="flex h-9 items-center gap-3 border-b border-rule px-4">
+        <span className="w-4 shrink-0" />
+        <span className="w-3.5 shrink-0" />
+        <IdChip className="text-muted-foreground">{shown.id}</IdChip>
       </li>
     )
   }
   const right =
-    shown.status === "archived"
-      ? "Archived"
-      : shown.status === "invalid"
-        ? "–"
-        : `${shown.done ?? 0}/${shown.total ?? 0}`
+    shown.status === "archived" ? (
+      "Archived"
+    ) : shown.status === "invalid" ? (
+      "–"
+    ) : (
+      <span className="tabular-nums">
+        {shown.done ?? 0}/{shown.total ?? 0}
+      </span>
+    )
   return (
-    <li className={classes} aria-current={current !== null ? "true" : undefined}>
-      <StatusMark status={shown.status} />
-      <Link href={href} className="min-w-0 flex-1 underline-offset-4 hover:underline">
-        <OneLine text={shown.id} />
-      </Link>
-      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{right}</span>
-    </li>
+    <ListRow
+      head={{ href }}
+      icon={<StatusMark status={shown.status} />}
+      current={current !== null}
+      meta={lead !== null ? <IdChip>{shown.id}</IdChip> : undefined}
+      cells={[{ column: PROGRESS, content: right }]}
+    >
+      {lead ?? <IdName>{shown.id}</IdName>}
+    </ListRow>
   )
 }
 
 /**
- * The change page's side panel: the status and progress in its header; Tasks on top (`tasks`, the page's list); then
- * Details (`description` first) and, for a member of a series, Series.
+ * The change page's panel, after Linear's item page: stacked property cards. First the status and the progress; then
+ * Tasks (`tasks`, the page's list), Details (`description` first) and, for a member of a series, Series, which lists
+ * its members and opens them. `tasks` is `null` when the page shows the tasks in its centre.
  */
 export function ChangePanel({
   projectKey,
@@ -74,73 +93,77 @@ export function ChangePanel({
 }: {
   projectKey: string
   change: ChangeDetail
-  /** The Tasks pane, `null` when the page shows the tasks in its centre: Details and Series then fill the panel. */
   tasks: ReactNode | null
   description: ReactNode
 }) {
   const archived = change.archived !== null
-  const invalid = change.status === "invalid"
   const project = useLabel()(projectKey)
   const ordinal = memberOf(change.id)?.ordinal
-  const top: PaneTab[] = [{ value: "tasks", label: "Tasks", content: tasks }]
-  const bottom: PaneTab[] = [
-    {
-      value: "details",
-      label: "Details",
-      content: (
-        <dl className="flex flex-col py-2">
-          <DetailRow label="Description">{description}</DetailRow>
-          <DetailRow label="Project">
-            <span className="block truncate">{project}</span>
-          </DetailRow>
-          <DetailRow label="ID">
-            <span className="block truncate font-mono text-xs leading-5">{change.id}</span>
-          </DetailRow>
-          {archived ? (
-            <DetailRow label="Archived">
-              <span className="tabular-nums">{change.archived}</span>
-            </DetailRow>
-          ) : (
-            <DetailRow label="Updated">
-              <span className="tabular-nums">{localDate(change.updated)}</span>
-            </DetailRow>
-          )}
-        </dl>
-      ),
-    },
-  ]
-  if (change.series !== null) {
-    const series = change.series
-    bottom.push({
-      value: "series",
-      label: "Series",
-      count: series.members.length,
-      content: (
-        <ol className="flex flex-col py-1">
-          {series.members.map((m) => (
-            <SeriesRow
-              key={m.ordinal}
-              projectKey={projectKey}
-              member={m}
-              current={m.ordinal === ordinal ? change : null}
-            />
-          ))}
-        </ol>
-      ),
-    })
-  }
+  // The project's change list, which the sidebar has loaded: the descriptions of the series' open members.
+  const list = useChangeLists([projectKey]).lists.get(projectKey)
+  const describe = (m: SeriesMember): string | null =>
+    m.active !== null ? (list?.active.find((a) => a.id === m.active)?.description ?? null) : null
   return (
-    <DocPanel
-      remember={tasks === null ? "change-details" : "change"}
-      label="Change"
-      header={
-        <>
-          <StatusPill status={change.status} />
-          {!invalid ? <ChangeProgress done={change.done} total={change.total} status={change.status} /> : null}
-        </>
-      }
-      top={tasks === null ? bottom : top}
-      bottom={tasks === null ? undefined : bottom}
-    />
+    <PropertyCards>
+      <StatusCard
+        status={change.status}
+        action={
+          change.status !== "invalid" ? (
+            <ChangeProgress done={change.done} total={change.total} status={change.status} />
+          ) : undefined
+        }
+      />
+      {tasks !== null ? (
+        <PropertyCard title="Tasks" meta={<span className="tabular-nums">{change.total}</span>}>
+          {tasks}
+        </PropertyCard>
+      ) : null}
+      <PropertyCard title="Details">
+        <PropertyList>
+          <PropertyRow label="Description">{description}</PropertyRow>
+          <PropertyRow label="Project">{project}</PropertyRow>
+          <PropertyRow label="ID">
+            <IdChip>{change.id}</IdChip>
+          </PropertyRow>
+          {archived ? (
+            <PropertyRow label="Archived">{change.archived}</PropertyRow>
+          ) : (
+            <PropertyRow label="Updated">{localDate(change.updated)}</PropertyRow>
+          )}
+        </PropertyList>
+      </PropertyCard>
+      {change.series !== null ? (
+        <PropertyCard title="Series" meta={<span className="tabular-nums">{change.series.members.length}</span>}>
+          <div className="border-t border-rule [&_li:last-child]:border-b-0">
+            <ListRows label="Series">
+              {change.series.members.map((m) => (
+                <SeriesRow
+                  key={m.ordinal}
+                  projectKey={projectKey}
+                  member={m}
+                  description={describe(m)}
+                  current={m.ordinal === ordinal ? change : null}
+                />
+              ))}
+            </ListRows>
+          </div>
+        </PropertyCard>
+      ) : null}
+    </PropertyCards>
+  )
+}
+
+/**
+ * The status and the progress, as the page's header gives them while the panel is not shown: the status, then the
+ * progress (none while invalid).
+ */
+export function ChangeStatus({ change }: { change: ChangeDetail }) {
+  return (
+    <>
+      <StatusPill status={change.status} />
+      {change.status !== "invalid" ? (
+        <ChangeProgress done={change.done} total={change.total} status={change.status} />
+      ) : null}
+    </>
   )
 }

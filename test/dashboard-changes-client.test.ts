@@ -7,6 +7,7 @@ import {
   inlineCode,
   isLinkTarget,
   localDate,
+  ownDescription,
   seriesProgress,
   seriesStatus,
   shownTab,
@@ -58,6 +59,7 @@ test("series of two or more active changes group under one row; the default orde
   expect(rows.map((r) => r.id)).toEqual(["add-z", "add-lone-01", "add-s", "add-a", "add-b"])
   const series = rows.find((r) => r.kind === "series")
   expect(series).toMatchObject({
+    description: "First",
     status: "in-progress",
     progress: { done: 2, total: 5 },
     updated: "2026-03-01T00:00:00.000Z",
@@ -71,14 +73,20 @@ test("the search keeps changes; a narrowed series lists the kept members and kee
   const rows = activeRows(ACTIVE, "SECOND")
   expect(rows.map((r) => r.id)).toEqual(["add-s"])
   const s = rows[0]
-  expect(s?.kind === "series" ? [s.children.map((m) => m.id), s.count, s.status, s.progress] : null).toEqual([
-    ["add-s-02"],
-    2,
-    "in-progress",
-    { done: 2, total: 5 },
-  ])
+  expect(
+    s?.kind === "series" ? [s.children.map((m) => m.id), s.count, s.status, s.progress, s.description] : null,
+  ).toEqual([["add-s-02"], 2, "in-progress", { done: 2, total: 5 }, "First"])
   expect(changeCount(rows)).toBe(1)
   expect(activeRows(ACTIVE, "zzz")).toEqual([])
+})
+
+test("a description that only repeats its ID is not shown as one, so the ID shows once", () => {
+  expect(ownDescription("Split the client", "add-split")).toBe("Split the client")
+  expect(ownDescription("add-split", "add-split")).toBeNull()
+  expect(ownDescription(" add-split ", "add-split")).toBeNull()
+  expect(ownDescription("  ", "add-split")).toBeNull()
+  expect(ownDescription(null, "add-split")).toBeNull()
+  expect(ownDescription(undefined, "add-split")).toBeNull()
 })
 
 test("Updated is the local date", () => {

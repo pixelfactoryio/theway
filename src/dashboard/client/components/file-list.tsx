@@ -1,6 +1,7 @@
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { cn } from "cn"
+import { FileTextIcon, WorkflowIcon } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useLocation } from "wouter"
 
@@ -9,10 +10,9 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
-import { NoFile, StatusCell, Wrapped } from "@/components/files-table"
+import { ErrorsCell, NoFile, StatusCell } from "@/components/files-table"
 import {
   cellSkeleton,
-  ColumnLabel,
   GridFrame,
   LIST_CAP,
   LIST_FRAME,
@@ -30,14 +30,15 @@ import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import { PageLoadError } from "@/shell/load-error"
+import { useLarge } from "@/shell/panel"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
  * Columns resized by dragging a header's edge, live; wider than the page, the grid scrolls sideways. The header row
- * scrolls with the rows, which keep the lists' look: no divider between them.
+ * sticks at the top of the list while its rows scroll; no rule between rows or columns, the hover fill keeps the place.
  */
 const LAYOUT = {
-  headerSticky: false,
+  headerSticky: true,
   rowBorder: false,
   columnsResizable: true,
   columnsResizeMode: "onChange",
@@ -46,16 +47,50 @@ export const PAGE = { pageIndex: 0, pageSize: 1000 }
 /** No column is dragged narrower than its header's word. */
 export const COLUMN_DEFAULTS = { minSize: 72 }
 
-/** The grid's column under the filter bar: the page's width, edge to edge; the grid scrolls inside it. */
+/**
+ * The grid's column under the filter bar: the page's width, edge to edge; the grid scrolls inside it, its rows one list
+ * for J/K and the arrows.
+ */
 const COLUMN = cn("flex min-h-0 w-full flex-1 flex-col", LIST_FRAME)
+
+/** The columns hidden under 1024px, so the list never scrolls sideways there: a prompt's Model, and Applies to. */
+const NARROW_HIDDEN = { model: false, applies: false }
+
+/** Each kind's icon, as the sidebar shows it. */
+export const KIND_ICON = { workflows: WorkflowIcon, prompts: FileTextIcon } as const
 
 /** A row of a file list: a workflow's or a prompt's. */
 type FileRow = { name: string; project: string | null; description: string | null; errors: string[] }
 
-/** A list's columns, given a project's label: those before Applies to (the name's), and those between it and Status. */
+/**
+ * A list's columns, given a project's label: `lead` (the name's) and `extra` (the kind's own), in that order, after the
+ * status icon and before the column every file list ends with, Applies to, whose value seldom differs.
+ */
 export type FileColumns<Row extends FileRow> = {
   lead: ColumnDef<DataGridFeatures, Row>[]
   extra: ColumnDef<DataGridFeatures, Row>[]
+}
+
+/** The status column's width: the 16px gutter, the 16px margin slot and 12px, then the 14px icon. */
+const STATUS_WIDTH = 58
+
+/** The name column's edge: 8px after the status icon, as a list's name stands after its icon. */
+const NAME_META = { headerClassName: "ps-2", cellClassName: "ps-2" }
+
+/**
+ * A name column's cell with the file's `N errors` badge after it, on the same line: the page's cell, then the badge
+ * (nothing for a valid file).
+ */
+function withErrors<Row extends FileRow>(
+  cell: ColumnDef<DataGridFeatures, Row>["cell"],
+): ColumnDef<DataGridFeatures, Row>["cell"] {
+  if (typeof cell !== "function") return cell
+  return (context) => (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="min-w-0">{cell(context)}</span>
+      <ErrorsCell errors={context.row.original.errors} />
+    </span>
+  )
 }
 
 /** The filter bar's values of a list: each field's values over every row, and a value's label. */
@@ -84,32 +119,38 @@ function FileGrid<Row extends FileRow>({
   const [, navigate] = useLocation()
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
+  const columnVisibility = useLarge() ? {} : NARROW_HIDDEN
   // By file: the grid's sort keeps this order among the rows its column ties.
   const data = useMemo(() => [...rows].sort(byFile), [rows])
 
   const columns = useMemo<ColumnDef<DataGridFeatures, Row>[]>(() => {
     const { lead, extra } = columnsOf(label)
     return [
-      ...lead,
+      {
+        // The row's status icon, where a list's rows hold theirs (`list-kit`): past the 16px gutter and the margin slot.
+        id: "status",
+        header: () => <span className="sr-only">Status</span>,
+        cell: ({ row }) => <StatusCell errors={row.original.errors} />,
+        size: STATUS_WIDTH,
+        minSize: STATUS_WIDTH,
+        enableSorting: false,
+        enableResizing: false,
+        meta: { headerClassName: "ps-11! pe-0", cellClassName: "ps-11! pe-0", skeleton: cellSkeleton("size-3.5") },
+      },
+      ...lead.map((column, i) =>
+        i === 0 ? { ...column, cell: withErrors(column.cell), meta: { ...column.meta, ...NAME_META } } : column,
+      ),
+      ...extra,
       {
         id: "applies",
         accessorFn: (row) => appliesTo(row.project, label),
         header: ({ column }) => <DataGridColumnHeader title="Applies to" column={column} className={SORT_HEADER} />,
-        cell: ({ row }) => <Wrapped>{appliesTo(row.original.project, label)}</Wrapped>,
+        cell: ({ row }) => appliesTo(row.original.project, label),
         sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
-        size: 130,
+        size: 150,
         enableSorting: true,
-        meta: { skeleton: cellSkeleton("w-24") },
-      },
-      ...extra,
-      {
-        id: "status",
-        header: () => <ColumnLabel>Status</ColumnLabel>,
-        cell: ({ row }) => <StatusCell errors={row.original.errors} />,
-        size: 120,
-        enableSorting: false,
-        // The lists' 24px right gutter.
-        meta: { headerClassName: "pe-6", cellClassName: "pe-6", skeleton: cellSkeleton("w-16") },
+        // The list's 16px right gutter.
+        meta: { headerClassName: "pe-4", cellClassName: "pe-4", skeleton: cellSkeleton("w-24") },
       },
       ...spareColumn<Row>(spare),
     ]
@@ -121,7 +162,7 @@ function FileGrid<Row extends FileRow>({
     defaultColumn: COLUMN_DEFAULTS,
     data,
     getRowId: rowId,
-    state: isLoading ? { sorting } : { sorting, pagination: PAGE },
+    state: isLoading ? { sorting, columnVisibility } : { sorting, columnVisibility, pagination: PAGE },
     manualPagination: true,
     onSortingChange: setSorting,
   })
@@ -137,7 +178,7 @@ function FileGrid<Row extends FileRow>({
       onRowClick={(row) => navigate(to.file(kind, row.project, row.name))}
     >
       <GridFrame>
-        <DataGridScrollArea className={SCROLL_AREA}>
+        <DataGridScrollArea className={SCROLL_AREA} data-nav-list="">
           <DataGridTable />
           <ListFoot />
         </DataGridScrollArea>
@@ -171,8 +212,8 @@ function barFields<Row, F extends string>(
 
 /**
  * `#/workflows` or `#/prompts`: every file of the kind, the global ones and each project's own, under a filter bar,
- * in a grid of the name, Applies to, the kind's own columns and Status. `options` and `columns` should keep their
- * identity between renders.
+ * in a grid of one-line rows: the status icon, the name (with its `N errors`), the kind's own columns, then Applies
+ * to. `options` and `columns` should keep their identity between renders.
  */
 export function FileListPage<Row extends FileRow, F extends string>({
   kind,
@@ -221,7 +262,11 @@ export function FileListPage<Row extends FileRow, F extends string>({
     [fields, options, all, searched, filter.rules, valuesOf, fieldLabel, fieldIcon],
   )
   const top = (
-    <PageHeader title={nouns.charAt(0).toUpperCase() + nouns.slice(1)} actions={<NewFileButton kind={kind} />} />
+    <PageHeader
+      title={nouns.charAt(0).toUpperCase() + nouns.slice(1)}
+      icon={KIND_ICON[kind]}
+      actions={<NewFileButton kind={kind} />}
+    />
   )
 
   if (query.isError || projects.isError) {

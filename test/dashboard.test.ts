@@ -152,6 +152,7 @@ test("the page and the stylesheet load nothing from another host", async () => {
     ...[...css.matchAll(/@import\s+(?:url\()?\s*["']?([^"');\s]*)/g)].map((m) => m[1] as string),
   ]
   expect(targets).toContain("/fonts/geist-mono.woff2")
+  expect(targets).toContain("/fonts/inter.woff2")
   const foreign = [...refs, ...targets].filter((r) => /^(?:[a-z]+:)?\/\//i.test(r))
   expect(foreign).toEqual([])
 })
@@ -162,6 +163,7 @@ test("the assets are served with their types and the fonts are the packages' fil
     "/app.js": "text/javascript; charset=utf-8",
     "/app.css": "text/css; charset=utf-8",
     "/fonts/geist-mono.woff2": "font/woff2",
+    "/fonts/inter.woff2": "font/woff2",
   }
   for (const [path, type] of Object.entries(types)) {
     const res = await get(home, path)
@@ -169,6 +171,7 @@ test("the assets are served with their types and the fonts are the packages' fil
   }
   for (const [path, file] of [
     ["/fonts/geist-mono.woff2", "geist-mono/files/geist-mono-latin-wght-normal.woff2"],
+    ["/fonts/inter.woff2", "inter/files/inter-latin-wght-normal.woff2"],
   ] as const) {
     const bytes = Buffer.from(await (await get(home, path)).arrayBuffer())
     expect(bytes.equals(readFileSync(join(REPO, "node_modules", "@fontsource-variable", file)))).toBe(true)
@@ -190,12 +193,13 @@ function ranges(text: string): string {
     .join(",")
 }
 
-test("/app.css holds the code font's @font-face rule, and only it", async () => {
+test("/app.css holds the interface and code fonts' @font-face rules, and only them", async () => {
   const css = await (await get(temp(), "/app.css")).text()
   const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1] as string)
   const prop = (face: string, name: string) => new RegExp(`${name}:\\s*([^;]+)`).exec(face)?.[1]?.trim() ?? ""
   const expected = [
     { family: "Geist Mono Variable", url: "/fonts/geist-mono.woff2", weight: "100 900", pkg: "geist-mono" },
+    { family: "Inter Variable", url: "/fonts/inter.woff2", weight: "100 900", pkg: "inter" },
   ]
   expect(faces).toHaveLength(expected.length)
   for (const e of expected) {
@@ -557,15 +561,15 @@ test("the built CLI serves the page with no file beside it", async () => {
   })
   const line = await new Promise<string>((done) => child.stdout.on("data", (d) => done(String(d))))
   const url = /http:\/\/127\.0\.0\.1:\d+\//.exec(line)?.[0] as string
-  for (const path of ["", "app.js", "app.css", "fonts/geist-mono.woff2"]) {
+  for (const path of ["", "app.js", "app.css", "fonts/geist-mono.woff2", "fonts/inter.woff2"]) {
     expect([path, (await fetch(url + path)).status]).toEqual([path, 200])
   }
   child.kill("SIGTERM")
   await new Promise((done) => child.on("exit", done))
 })
 
-test("the build writes the code font's licence", () => {
-  for (const name of ["geist-mono-OFL.txt"]) {
+test("the build writes the fonts' licences", () => {
+  for (const name of ["geist-mono-OFL.txt", "inter-OFL.txt"]) {
     expect(readFileSync(join(REPO, "dist", "licenses", name), "utf-8")).toContain("SIL OPEN FONT LICENSE")
   }
 })

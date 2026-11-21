@@ -72,10 +72,7 @@
       "model": "opus",
       "matrix": {
         "key": "lens",
-        "values": [
-          "prompts/conformance.md",
-          "prompts/correctness.md"
-        ]
+        "values": ["prompts/conformance.md", "prompts/correctness.md"]
       },
       "with": {
         "change": "${{ inputs.change }}",

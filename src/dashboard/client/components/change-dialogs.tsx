@@ -3,6 +3,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -12,7 +13,10 @@ import { DIALOG_TITLE } from "@/components/ui-classes"
 import type { Confirm } from "@/drafts/use-drafts"
 import { saveWithErrors } from "@/lib/edit"
 
-/** The page's confirmations: Discard, Reload, Save with errors, and leaving the page. */
+/**
+ * The page's confirmations: Discard, Reload, Save with errors, and leaving the page. Each says what it asks in its
+ * title, what follows in one line under it, and names its actions; the safe one first, the one asked for last.
+ */
 export function ChangeDialogs({
   confirm,
   setConfirm,
@@ -37,6 +41,19 @@ export function ChangeDialogs({
           <>
             <AlertDialogHeader>
               <AlertDialogTitle className={DIALOG_TITLE}>Discard unsaved changes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirm.kind === "discard" ? (
+                  <>
+                    Your unsaved edits to <span className="font-mono text-xs text-foreground">{confirm.name}</span> are
+                    dropped.
+                  </>
+                ) : (
+                  <>
+                    Your unsaved edits to <span className="font-mono text-xs text-foreground">{confirm.name}</span> are
+                    dropped and the file is loaded as it is on disk.
+                  </>
+                )}
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep editing</AlertDialogCancel>
@@ -55,6 +72,7 @@ export function ChangeDialogs({
           <>
             <AlertDialogHeader>
               <AlertDialogTitle className={DIALOG_TITLE}>{saveWithErrors(confirm.n)}</AlertDialogTitle>
+              <AlertDialogDescription>The file is written as it is, errors included.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -71,7 +89,8 @@ export function ChangeDialogs({
         ) : confirm?.kind === "leave" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogTitle className={DIALOG_TITLE}>Unsaved changes</AlertDialogTitle>
+              <AlertDialogTitle className={DIALOG_TITLE}>Leave with unsaved changes?</AlertDialogTitle>
+              <AlertDialogDescription>Save them before you leave, or discard them.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Keep editing</AlertDialogCancel>
@@ -84,7 +103,7 @@ export function ChangeDialogs({
               >
                 Discard
               </Button>
-              <AlertDialogAction onClick={() => onLeaveSave(confirm.proceed)}>Save</AlertDialogAction>
+              <AlertDialogAction onClick={() => onLeaveSave(confirm.proceed)}>Save and leave</AlertDialogAction>
             </AlertDialogFooter>
           </>
         ) : null}

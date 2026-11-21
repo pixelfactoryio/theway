@@ -1,8 +1,11 @@
 import { Component, type ReactNode } from "react"
 
+import { CircleAlertIcon } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { PageLoadError } from "@/shell/load-error"
+import { Logo } from "@/shell/logo"
+import { StateBlock } from "@/shell/state"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 type BoundaryProps = {
@@ -49,19 +52,31 @@ export function PageError({ error, reset }: { error: Error; reset: () => void })
   )
 }
 
-/** The dashboard failed to render outside a page: the error, full height, and a Reload. */
+/**
+ * The dashboard failed to render outside a page: the shell's frame without its sidebar (the app's ground, the inset
+ * panel, a header with the logo), and in the one state shape the error and Reload.
+ */
 export function RootError({ error }: { error: Error }) {
   return (
-    <Empty className="flex h-svh items-center justify-center">
-      <EmptyHeader>
-        <EmptyTitle>The dashboard failed to render</EmptyTitle>
-        <EmptyDescription>{error.message}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Reload
-        </Button>
-      </EmptyContent>
-    </Empty>
+    <div className="flex h-svh flex-col bg-ground p-2">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-xs">
+        <div className="flex h-11 shrink-0 items-center pr-3 pl-4">
+          <Logo />
+        </div>
+        <StateBlock
+          role="alert"
+          size="page"
+          icon={<CircleAlertIcon aria-hidden="true" className="text-destructive" />}
+          title="The dashboard failed to render"
+          action={
+            <Button variant="outline" size="xs" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+          }
+        >
+          {error.message}
+        </StateBlock>
+      </main>
+    </div>
   )
 }

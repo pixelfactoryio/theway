@@ -1,228 +1,184 @@
-import type { ColumnDef, ColumnSizingState, OnChangeFn } from "@tanstack/react-table"
 import { CircleDotIcon, FolderIcon } from "lucide-react"
-import { type ReactNode, useMemo } from "react"
-import { Link, useLocation } from "wouter"
+import { type ReactNode, useState } from "react"
 
-import type { BandGridProps } from "@/components/band-grid"
 import { ChangeProgress } from "@/components/change-progress"
 import type { BarField } from "@/components/filter-bar"
-import { ColumnLabel, HEADER_LAST_END, spareColumn } from "@/components/list-grid"
-import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid"
+import { COLUMN, IdName, type ListColumn, ListRow, ListRows, ProjectChip, RowChip, RowId } from "@/components/list-kit"
 import { StatusMark } from "@/components/status"
-import { GROUP_TITLE, type Group, HeadLink, HeadToggle, NoProgress, RowHead, useNow } from "@/components/workspace-rows"
+import { GROUP_TITLE, type Group, useNow } from "@/components/workspace-rows"
 import { useLabel } from "@/data/queries"
-import { useBelowSm } from "@/hooks/use-below-sm"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { ageOf, rowStatus, type Status } from "@/lib/changes"
+import { ageOf, ownDescription, rowStatus, type ActiveChange, type Status } from "@/lib/changes"
 import { type Project } from "@/lib/projects"
 import { to } from "@/lib/routes"
-import { type Archived, archiveMonths, changesOf, type Located, type TreeRow } from "@/lib/workspace"
-import { useWide } from "@/shell/panel"
+import { type Archived, archiveMonths, changesOf, countOf, type Located } from "@/lib/workspace"
 
-/** A row of a change grid: an open change, a series or a series' member, or an archived change. */
-export type ChangeGridRow = TreeRow | Archived
+/** A row of a change list: an open change or series, or an archived change. */
+export type ChangeListRow = Located | Archived
 
-const isArchived = (r: ChangeGridRow): r is Archived => "a" in r
-
-const changeRowId = (r: ChangeGridRow): string => (isArchived(r) ? `${r.key}/${r.a.dir}` : `${r.key}/${r.row.id}`)
-
-const subRowsOf = (r: ChangeGridRow): ChangeGridRow[] | undefined => (isArchived(r) ? undefined : r.subRows)
-
-/** A row's 96px progress bar hides below `sm`; its `done/total` stays, right-aligned in a 56px column. */
-const TRACK = "hidden sm:flex"
-const LABEL = "w-14 shrink-0 text-right"
+const isArchived = (r: ChangeListRow): r is Archived => "a" in r
 
 /**
- * The change and progress columns' widths: the progress holds its 12px left padding and `ChangeProgress` whole (96px
- * bar, 8px gap, 56px count) from `sm` up, its count alone below; the change column's minimum lets a band fit a 390px
- * screen there.
+ * The columns of a page's change lists: the project (`project`: a list over several projects), the progress
+ * (`progress`: the page lists an open change as a row; archived changes have none) and Updated, an open change's age
+ * or an archived change's archive date, wide enough for a date when the page lists archived changes (`dates`).
  */
-const WIDTHS = { wide: { change: 240, progress: 172 }, narrow: { change: 160, progress: 84 } } as const
-
-/** The project column's width: 200px where the panel docks (1280px), 140px below. */
-const PROJECT = { wide: 200, narrow: 140 } as const
-
-/**
- * The change columns: the head (`RowHead`), the project (`project`), the progress (`progress`) and the age, an
- * archived change's archive date. The head links to the change, or opens a series; a member hangs on its series' guide
- * line. `spare` is the room past the list's cap, left empty at the right.
- */
-function changeColumns({
+export function changeColumns({
   project,
   progress,
-  narrow,
-  wide,
-  spare,
-  now,
-  label,
+  dates,
 }: {
   project: boolean
   progress: boolean
-  narrow: boolean
-  wide: boolean
-  spare: number
-  now: number
-  label: (key: string) => string
-}): ColumnDef<DataGridFeatures, ChangeGridRow>[] {
-  const width = narrow ? WIDTHS.narrow : WIDTHS.wide
+  dates: boolean
+}): ListColumn[] {
   return [
-    {
-      id: "change",
-      header: () => <ColumnLabel>Change</ColumnLabel>,
-      cell: ({ row }) => {
-        const r = row.original
-        if (isArchived(r))
-          return (
-            <HeadLink href={to.archived(r.key, r.a.dir)}>
-              <RowHead id={r.a.id} />
-            </HeadLink>
-          )
-        const item = r.row
-        if (item.kind === "series")
-          return (
-            <HeadToggle
-              open={row.getIsExpanded()}
-              onToggle={() => row.toggleExpanded()}
-              head={(lead) => <RowHead lead={lead} id={item.id} text={`series of ${item.count}`} />}
-            />
-          )
-        const member = row.depth === 1
-        return (
-          <HeadLink href={to.change(r.key, item.id)} member={member}>
-            <RowHead id={item.id} text={item.change.description ?? undefined} member={member} />
-          </HeadLink>
-        )
-      },
-      size: width.change,
-      minSize: width.change,
-      enableSorting: false,
-      meta: { fillWidth: true, cellClassName: "relative" },
-    },
-    ...(project
-      ? [
-          {
-            id: "project",
-            header: () => <ColumnLabel>Project</ColumnLabel>,
-            cell: ({ row }) => (isArchived(row.original) ? label(row.original.key) : row.original.label),
-            size: wide ? PROJECT.wide : PROJECT.narrow,
-            enableSorting: false,
-            meta: { cellClassName: "text-muted-foreground" },
-          } satisfies ColumnDef<DataGridFeatures, ChangeGridRow>,
-        ]
-      : []),
-    ...(progress
-      ? [
-          {
-            id: "progress",
-            header: () => <ColumnLabel>Progress</ColumnLabel>,
-            cell: ({ row }) => {
-              const r = row.original
-              if (isArchived(r)) return <NoProgress />
-              const item = r.row
-              if (item.kind === "change")
-                return (
-                  <ChangeProgress
-                    done={item.change.done}
-                    total={item.change.total}
-                    status={item.change.status}
-                    trackClassName={TRACK}
-                    labelClassName={LABEL}
-                  />
-                )
-              return item.progress !== null ? (
-                <ChangeProgress
-                  done={item.progress.done}
-                  total={item.progress.total}
-                  status={item.status}
-                  trackClassName={TRACK}
-                  labelClassName={LABEL}
-                />
-              ) : (
-                <NoProgress />
-              )
-            },
-            size: width.progress,
-            enableSorting: false,
-            // 12px at the left, so the title and the bars stand off the column's rule, and none at the right: the
-            // column is exactly that much wider than `ChangeProgress`.
-            meta: { headerClassName: "ps-3 pe-0", cellClassName: "ps-3 pe-0" },
-          } satisfies ColumnDef<DataGridFeatures, ChangeGridRow>,
-        ]
-      : []),
-    {
-      id: "age",
-      header: () => <ColumnLabel>Updated</ColumnLabel>,
-      cell: ({ row }) => {
-        const r = row.original
-        if (isArchived(r)) return r.a.date
-        return ageOf(r.row.kind === "series" ? r.row.updated : r.row.change.updated, now)
-      },
-      size: 96,
-      enableSorting: false,
-      // Right-aligned against the 24px right gutter, with no left padding, so an archive date fits whole.
-      meta: {
-        headerClassName: `ps-0 ${HEADER_LAST_END}`,
-        cellClassName: "ps-0 pe-6 text-right text-xs text-muted-foreground tabular-nums",
-      },
-    },
-    ...spareColumn<ChangeGridRow>(spare),
+    ...(project ? [{ id: "project", title: "Project", className: COLUMN.project }] : []),
+    ...(progress ? [{ id: "progress", title: "Progress", className: COLUMN.progress, align: "end" as const }] : []),
+    { id: "updated", title: "Updated", className: dates ? COLUMN.date : COLUMN.updated, align: "end" },
   ]
 }
 
+/** The cells of a row, in `columns`' order, from each column's content. */
+const cellsOf = (columns: readonly ListColumn[], content: Record<string, ReactNode>) =>
+  columns.map((column) => ({ column, content: content[column.id] ?? null }))
+
 /**
- * The change grids of a page, all sized by the page's `columnSizing`, with the project column when `project` (hidden
- * below 768px), the progress column when `progress` (the page lists an open change as a row: archived changes have no
- * progress) and `spare` pixels left empty past the list's cap: `head`, the page's one header row, and `band`, a band's
- * rows from its rows and its name. A click in a row outside its head opens the change, or opens or closes a series.
+ * An open change's row: its description first, then its ID; its ID alone in the description's place when it has none
+ * or the description only repeats the ID.
  */
-export function useChangeGrid(
-  columnSizing: ColumnSizingState,
-  onColumnSizingChange: OnChangeFn<ColumnSizingState>,
-  { project, progress, spare }: { project: boolean; progress: boolean; spare: number },
-): {
-  head: BandGridProps<ChangeGridRow>
-  band: (rows: readonly ChangeGridRow[], label: string) => BandGridProps<ChangeGridRow>
-} {
-  const now = useNow()
-  const label = useLabel()
-  const mobile = useIsMobile()
-  const narrow = useBelowSm()
-  const wide = useWide()
-  const [, navigate] = useLocation()
-  const columns = useMemo(
-    () => changeColumns({ project, progress, narrow, wide, spare, now, label }),
-    [project, progress, narrow, wide, spare, now, label],
+function ChangeRow({
+  r,
+  change,
+  columns,
+  member,
+  now,
+}: {
+  r: Located
+  change: ActiveChange
+  columns: readonly ListColumn[]
+  member: boolean
+  now: number
+}) {
+  const description = ownDescription(change.description, change.id)
+  return (
+    <ListRow
+      head={{ href: to.change(r.key, change.id) }}
+      icon={<StatusMark status={change.status} />}
+      meta={description !== null ? <RowId>{change.id}</RowId> : undefined}
+      title={description ?? undefined}
+      member={member}
+      cells={cellsOf(columns, {
+        project: <ProjectChip label={r.label} />,
+        progress: <ChangeProgress done={change.done} total={change.total} status={change.status} />,
+        updated: ageOf(change.updated, now),
+      })}
+    >
+      {description ?? <IdName>{change.id}</IdName>}
+    </ListRow>
   )
-  const grid = (rows: readonly ChangeGridRow[], name: string): BandGridProps<ChangeGridRow> => ({
-    rows,
-    columns,
-    getRowId: changeRowId,
-    getSubRows: subRowsOf,
-    columnSizing,
-    onColumnSizingChange,
-    columnVisibility: project ? { project: !mobile } : undefined,
-    onRowClick: (row) => {
-      const r = row.original
-      if (isArchived(r)) navigate(to.archived(r.key, r.a.dir))
-      else if (r.row.kind === "series") row.toggleExpanded()
-      else navigate(to.change(r.key, r.row.id))
-    },
-    label: name,
-  })
-  return {
-    head: { ...grid([], "Columns"), part: "head" },
-    band: (rows, name) => ({ ...grid(rows, name), part: "rows" }),
-  }
 }
 
 /**
- * The status groups of `rows`: Invalid, In progress, Not started, then Ready to archive (as rows, or with
- * `readyByProject` as one count per project, which opens that project's page). Each band counts its rows, a series
- * once; Ready to archive by project counts its changes. Ready to archive starts collapsed.
+ * The rows of one section of a change list, named `label`: open changes, series (its first member's description, then
+ * its ID and its chip; a row that opens its members beneath it, indented, each like any other row) and archived
+ * changes (their ID: the archive has no description), under `columns`.
+ */
+export function ChangeRows({
+  rows,
+  label,
+  columns,
+}: {
+  rows: readonly ChangeListRow[]
+  label: string
+  columns: readonly ListColumn[]
+}) {
+  const now = useNow()
+  const projectLabel = useLabel()
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (id: string) =>
+    setOpen((was) => {
+      const next = new Set(was)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  return (
+    <ListRows label={label} nav={false}>
+      {rows.map((r) => {
+        if (isArchived(r))
+          return (
+            <ListRow
+              key={`${r.key}/${r.a.dir}`}
+              head={{ href: to.archived(r.key, r.a.dir) }}
+              icon={<StatusMark status="archived" />}
+              cells={cellsOf(columns, { project: <ProjectChip label={projectLabel(r.key)} />, updated: r.a.date })}
+            >
+              <IdName>{r.a.id}</IdName>
+            </ListRow>
+          )
+        const item = r.row
+        if (item.kind === "change")
+          return (
+            <ChangeRow
+              key={`${r.key}/${item.id}`}
+              r={r}
+              change={item.change}
+              columns={columns}
+              member={false}
+              now={now}
+            />
+          )
+        const id = `${r.key}/${item.id}`
+        const expanded = open.has(id)
+        const description = ownDescription(item.description, item.id)
+        return [
+          <ListRow
+            key={id}
+            head={{ onToggle: () => toggle(id), expanded }}
+            icon={<StatusMark status={item.status} />}
+            meta={
+              <>
+                {description !== null ? <RowId>{item.id}</RowId> : null}
+                <RowChip wide>series · {item.count}</RowChip>
+              </>
+            }
+            title={description ?? undefined}
+            cells={cellsOf(columns, {
+              project: <ProjectChip label={r.label} />,
+              progress:
+                item.progress !== null ? (
+                  <ChangeProgress done={item.progress.done} total={item.progress.total} status={item.status} />
+                ) : null,
+              updated: ageOf(item.updated, now),
+            })}
+          >
+            {description ?? <IdName>{item.id}</IdName>}
+          </ListRow>,
+          ...(expanded
+            ? item.children.map((c) => (
+                <ChangeRow key={`${r.key}/${c.id}`} r={r} change={c.change} columns={columns} member now={now} />
+              ))
+            : []),
+        ]
+      })}
+    </ListRows>
+  )
+}
+
+/**
+ * The status sections of `rows`: Invalid, In progress, Not started, then Ready to archive (as rows, or with
+ * `readyByProject` as one row per project with its count, which opens that project's page). Each band counts its rows,
+ * a series once; Ready to archive by project counts its changes. Ready to archive starts collapsed.
  */
 export function statusGroups(
   rows: readonly Located[],
-  { readyByProject, body }: { readyByProject: boolean; body: (rows: readonly Located[], label: string) => ReactNode },
+  {
+    readyByProject,
+    columns,
+  }: {
+    readyByProject: boolean
+    columns: readonly ListColumn[]
+  },
 ): Group[] {
   const groups: Group[] = []
   for (const status of ["invalid", "in-progress", "not-started"] as const) {
@@ -233,7 +189,7 @@ export function statusGroups(
       label: GROUP_TITLE[status],
       mark: <StatusMark status={status} />,
       count: kept.length,
-      body: body(kept, GROUP_TITLE[status]),
+      body: <ChangeRows rows={kept} label={GROUP_TITLE[status]} columns={columns} />,
     })
   }
   const ready = rows.filter((r) => rowStatus(r.row) === "ready")
@@ -249,32 +205,33 @@ export function statusGroups(
     count: readyByProject ? perProject.reduce((n, p) => n + p.n, 0) : ready.length,
     collapsed: true,
     body: readyByProject ? (
-      <div className="flex flex-wrap gap-2 px-6 py-3">
+      <ListRows label={GROUP_TITLE.ready} nav={false}>
         {perProject.map((p) => (
-          <Link
+          <ListRow
             key={p.key}
-            href={to.project(p.key)}
-            className="rounded-md border px-3 py-1 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            head={{ href: to.project(p.key) }}
+            icon={<StatusMark status="ready" />}
+            meta={<span className="shrink-0 text-muted-foreground tabular-nums">{countOf(p.n, "change")}</span>}
+            cells={cellsOf(columns, {})}
           >
             {p.label}
-            <span className="ml-2 font-medium text-success tabular-nums">{p.n}</span>
-          </Link>
+          </ListRow>
         ))}
-      </div>
+      </ListRows>
     ) : (
-      body(ready, GROUP_TITLE.ready)
+      <ChangeRows rows={ready} label={GROUP_TITLE.ready} columns={columns} />
     ),
   })
   return groups
 }
 
 /**
- * The archive months of `rows` (newest first), each a group of its rows in `body`'s grid; the first open, the older
- * ones collapsed. A band counts its month among `all`, the list `rows` is cut from: `12 of 98` when it lists fewer.
+ * The archive months of `rows` (newest first), each a section of its rows; the first open, the older ones collapsed.
+ * A band counts its month among `all`, the list `rows` is cut from: `12 of 98` when it lists fewer.
  */
 export function archiveGroups(
   rows: readonly Archived[],
-  body: (rows: readonly Archived[], label: string) => ReactNode,
+  columns: readonly ListColumn[],
   all: readonly Archived[] = rows,
 ): Group[] {
   return archiveMonths(rows, all).map((m, i) => ({
@@ -283,14 +240,14 @@ export function archiveGroups(
     mark: <StatusMark status="archived" />,
     count: m.rows.length < m.total ? `${m.rows.length} of ${m.total}` : m.total,
     collapsed: i > 0,
-    body: body(m.rows, m.month),
+    body: <ChangeRows rows={m.rows} label={m.month} columns={columns} />,
   }))
 }
 
 /** The Status field's values: the open changes' statuses, then Archived. */
 export const STATUS_VALUES = ["invalid", "in-progress", "not-started", "ready", "archived"] as const
 
-/** The Status field of a list: one value per status the page lists, each with its mark. */
+/** The Status field of a list: one value per status the page lists, each with its icon. */
 export const statusField = (statuses: readonly Status[], counts: ReadonlyMap<string, number>): BarField => ({
   id: "status",
   label: "Status",

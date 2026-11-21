@@ -1,81 +1,117 @@
-import { cn } from "cn"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
-import { Link } from "wouter"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LINE_TAB } from "@/components/ui-classes"
-import { TopRow, useDocumentTitle } from "@/shell/top-bar"
+import { ViewTabs } from "@/components/view-tabs"
+import { useWide } from "@/shell/panel"
+import { type Crumb, PageHeader } from "@/shell/top-bar"
 
 /**
- * A document's reading column, the same on every document page: the whole width between 24px gutters. Within it, prose
- * keeps its measure (`PROSE_COLUMN`) while code blocks and tables take up to `--read-wide` (64rem), all centred, so
- * hiding the sidebar or the panel gives code and tables room.
+ * A document's reading column, the same on every document page: the whole width between the panel's 16px gutters, the
+ * header's and the views' own, so the page has one left edge. Within it, prose code blocks and tables keep one measure
+ * (`PROSE_COLUMN`, a table no wider than its columns), all on the column's left edge.
  */
-export const DOC_COLUMN = "px-6"
+export const DOC_COLUMN = "px-4"
 
-/** The measure of prose in the reading column, centred: at most `--read-width` (708px, Notion's text column). */
-export const PROSE_COLUMN = "mx-auto w-full max-w-(--read-width)"
+/** The measure of prose in the reading column, on its left edge: at most `--read-width` (about 70 characters a line). */
+export const PROSE_COLUMN = "w-full max-w-(--read-width)"
 
-/** One tab of a document: a view of it with its own address, its icon, and a dot while it has unsaved edits. */
-export type FrameTab = { value: string; label: string; href: string; Icon: LucideIcon; dirty?: boolean }
+/** One view of an item: its own address, and a dot while it has unsaved edits. */
+export type FrameTab = { value: string; label: string; href: string; dirty?: boolean }
 
 /**
- * A document's page, after Conductor's: the top row holds the document's tabs (each a view with its own address) and
- * the panel's toggle; the content below; the panel `panel`, named `panelName`, in the shell's right column.
+ * An item page's title, under its views and above every one of them, so it stands at the same place whichever view is
+ * shown: in the reading column, 32px under the views and 16px over the view, at the reading scale's title size (28/34
+ * at 600, over a document's 20px h1), whole on as many lines as it takes, then what the page puts under it
+ * (the reasons a change cannot be read). An item with no description has no title (`title` `null` or blank): its ID or
+ * file name stands once, in the header's path, and only what the page puts under it shows. It never scrolls; the view
+ * under it does, and once that view is scrolled (its scroll root `data-scrolled`, `DocTab`), a hairline closes the
+ * title off from the text passing under it.
+ */
+export function ItemHeading({ title, children }: { title: string | null; children?: ReactNode }) {
+  const shown = title !== null && title.trim() !== "" ? title : null
+  if (shown === null && (children === undefined || children === null || children === false)) return null
+  return (
+    <div
+      className={`shrink-0 border-b border-transparent ${shown !== null ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
+    >
+      <div className={PROSE_COLUMN}>
+        {shown !== null ? (
+          <h2 className="text-doc-title font-semibold tracking-tight text-pretty text-foreground">{shown}</h2>
+        ) : null}
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * An item's page, the one frame of a change's, a workflow's and a prompt's page, after Linear's item page: the header
+ * holds the page's icon and path, its title (the item's ID or file name, `mono`), `lead` after it, then at the right
+ * `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
+ * views (`tabs`, each with its own address) are pills under it. Below: the page's `notices` (full-width strips), its
+ * `heading` (an `ItemHeading`, the same on every view), then the view; the panel `panel`, a `PropertyCards` stack named
+ * `panelName`, in the shell's right column.
  */
 export function DocFrame({
   title,
+  icon,
+  parents,
+  mono = false,
+  lead,
+  actions,
   tabs,
   value,
   label,
+  status,
   panelName,
   panel,
+  notices,
+  heading,
   children,
 }: {
-  /** The browser tab's title. */
+  /** The header's title, the page's `h1`, and the browser tab's title. */
   title: string
+  icon?: LucideIcon
+  /** The page's path before its title. */
+  parents?: readonly Crumb[]
+  /** The title is an ID or a file name: Geist Mono 13px. */
+  mono?: boolean
+  lead?: ReactNode
+  actions?: ReactNode
   tabs: FrameTab[]
   value: string
   label: string
+  status?: ReactNode
   panelName: string
   panel: ReactNode
+  notices?: ReactNode
+  heading: ReactNode
   children: ReactNode
 }) {
   const [open, setOpen] = usePanelOpen()
-  useDocumentTitle(title)
+  const wide = useWide()
+  const panelShown = wide && open
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <TopRow>
-        <Tabs value={value} className="min-w-0 flex-1 gap-0">
-          <TabsList
-            variant="line"
-            aria-label={label}
-            className="h-full min-w-0 flex-1 justify-start gap-1 overflow-x-auto rounded-none bg-transparent p-0 [scrollbar-width:none]"
-          >
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-                nativeButton={false}
-                render={<Link href={tab.href} />}
-                className={cn(LINE_TAB, "px-4")}
-              >
-                <tab.Icon className="size-3.5" aria-hidden="true" />
-                {tab.label}
-                {tab.dirty === true ? (
-                  <span role="img" aria-label="unsaved changes" className="size-1.5 rounded-full bg-foreground" />
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <div className="flex shrink-0 items-center">
-          <PanelToggle open={open} onOpenChange={setOpen} />
-        </div>
-      </TopRow>
+      <PageHeader
+        title={title}
+        icon={icon}
+        parents={parents}
+        mono={mono}
+        lead={lead}
+        actions={
+          <>
+            {actions}
+            {status !== undefined && !panelShown ? <div className="mr-2 flex items-center gap-3">{status}</div> : null}
+            <PanelToggle open={open} onOpenChange={setOpen} />
+          </>
+        }
+        tabs={<ViewTabs label={label} value={value} tabs={tabs} />}
+      />
       <RecordBody name={panelName} panel={panel}>
+        {notices}
+        {heading}
         {children}
       </RecordBody>
     </div>

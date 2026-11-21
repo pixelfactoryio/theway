@@ -1,9 +1,9 @@
 import { cn } from "cn"
-import { ListFilterIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react"
+import { PlusIcon, SearchIcon, XIcon } from "lucide-react"
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react"
 import { useLocation, useSearch } from "wouter"
 
-import { Alert, AlertAction, AlertTitle } from "@/components/reui/alert"
+import { EmptyNote } from "@/components/empty-note"
 import {
   createFilterQuery,
   createFilterRule,
@@ -183,8 +183,8 @@ function CountedValues({ field, value, onValueChange, commit, autoFocusProps, la
 
 const EDITORS: FilterEditorRegistry = { counted: CountedValues as unknown as AnyFilterEditor }
 
-/** The surface the shipped chip gives each of its segments. */
-const SEGMENT = "bg-background dark:bg-input/30"
+/** A chip's segment: no surface of its own, the hairline outline only, 26px, 13px. */
+const SEGMENT = "h-6.5 bg-transparent text-sm dark:bg-transparent"
 
 /**
  * A condition as a chip, `Field is value ×`: the shipped chip's field, condition and value segments (the ReUI
@@ -218,7 +218,7 @@ function Chip({ rule }: { rule: FilterRule<string[]> }) {
         if (!focused) focus(null)
       }}
     >
-      <ButtonGroupText className={cn(SEGMENT, "cursor-default gap-2 font-medium")}>
+      <ButtonGroupText className={cn(SEGMENT, "cursor-default gap-2 font-normal text-muted-foreground")}>
         {field.icon}
         {field.label}
       </ButtonGroupText>
@@ -259,7 +259,7 @@ function Chip({ rule }: { rule: FilterRule<string[]> }) {
       <Button
         variant="outline"
         size="icon-sm"
-        className={cn(SEGMENT, "text-muted-foreground")}
+        className={cn(SEGMENT, "w-6.5 text-muted-foreground")}
         aria-label={`Remove the ${field.label} filter`}
         disabled={isFilterLocked(actions)}
         onClick={() => actions.removeNode(rule.id)}
@@ -304,9 +304,10 @@ const chipText = ({ options, values }: { options: FilterOption<unknown>[]; value
   values.map((v) => options.find((o) => o.value === v)?.label ?? String(v)).join(", ")
 
 /**
- * A list's filter bar: the search, then the ReUI filter chips (`Field is value`), "Filter" to add one through a
- * searchable menu of the fields and a menu of their values with counts, and Clear; under it, while the list is
- * narrowed, the result line (`N of M <noun>s`) in a status region. The filter lives in the address (`useListFilter`).
+ * A list's filter bar, one row under the page's header ending on a hairline: the search, then the ReUI filter chips
+ * (`Field is value`), "Filter" to add one through a searchable menu of the fields and a menu of their values with
+ * counts, and Clear; at its right, while the list is narrowed, the result (`N of M <noun>s`) in a status region. The
+ * filter lives in the address (`useListFilter`).
  */
 export function FilterBar({
   fields,
@@ -357,8 +358,8 @@ export function FilterBar({
   const narrowed = isNarrowed(filter)
   const result = narrowed && shown !== null && total !== null ? resultText(shown, total, noun) : ""
   return (
-    <div className="shrink-0">
-      <div className="flex flex-wrap items-start gap-2 px-6 py-3">
+    <div className="flex shrink-0 items-start gap-2 border-b px-4 py-2">
+      <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2">
         <SearchField
           label={searchLabel}
           value={filter.q}
@@ -391,7 +392,10 @@ export function FilterBar({
           </CountsContext.Provider>
         ) : null}
       </div>
-      <p role="status" className={result === "" ? "sr-only" : "px-6 pb-3 text-xs text-muted-foreground tabular-nums"}>
+      <p
+        role="status"
+        className={result === "" ? "sr-only" : "flex h-7 shrink-0 items-center text-muted-foreground tabular-nums"}
+      >
         {result}
       </p>
     </div>
@@ -399,8 +403,8 @@ export function FilterBar({
 }
 
 /**
- * The empty state of a list its filter keeps nothing of: one line naming the active filters, with Clear filters.
- * `nouns` is the rows' plural noun.
+ * The empty state of a list its filter keeps nothing of, in the one empty state: one line naming the active filters,
+ * with Clear filters. `nouns` is the rows' plural noun.
  */
 export function NoMatch({
   nouns,
@@ -419,18 +423,15 @@ export function NoMatch({
     value: (id, v) => field(id)?.options.find((o) => o.value === v)?.label ?? v,
   })
   return (
-    <div className="px-6 py-3">
-      <Alert role="note">
-        <ListFilterIcon aria-hidden="true" className="text-muted-foreground" />
-        <AlertTitle className="font-normal">
-          No {nouns} match {text}
-        </AlertTitle>
-        <AlertAction>
-          <Button variant="outline" size="sm" onClick={onClear}>
-            Clear filters
-          </Button>
-        </AlertAction>
-      </Alert>
-    </div>
+    <EmptyNote
+      size="page"
+      action={
+        <Button variant="outline" size="sm" onClick={onClear}>
+          Clear filters
+        </Button>
+      }
+    >
+      No {nouns} match {text}
+    </EmptyNote>
   )
 }

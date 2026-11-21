@@ -1,19 +1,11 @@
+import { cn } from "cn"
 import { useState, type ReactNode } from "react"
 
 import { type CodeLanguage, CodeView, DiffView } from "@/components/code-view"
 import { DocFooter } from "@/components/doc-footer"
-import { GutterTitle } from "@/components/doc-title"
+import { EmptyNote } from "@/components/empty-note"
 import type { FileDraft } from "@/components/file-draft"
-import { Badge } from "@/components/reui/badge"
-import {
-  Timeline,
-  TimelineContent,
-  TimelineHeader,
-  TimelineIndicator,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineTitle,
-} from "@/components/reui/timeline"
+import { PropertyCard } from "@/components/property-card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,11 +17,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { DIALOG_TITLE } from "@/components/ui-classes"
+import { DIALOG_TITLE, PILL_TAB } from "@/components/ui-classes"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
 import { DIFF_LAYOUT } from "@/lib/preferences"
@@ -38,6 +29,12 @@ import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
 const LAYOUT_KEY = "theway-diff-layout"
+
+/** A layout toggle, as a pill tab: the pressed one on the blue tint. */
+const LAYOUT_PILL = cn(
+  PILL_TAB,
+  "border hover:bg-transparent aria-pressed:border-transparent aria-pressed:bg-selected aria-pressed:text-foreground",
+)
 
 /** The versions panel's selection: Current, or a version's id. */
 const CURRENT = "current"
@@ -79,55 +76,42 @@ export function useHistoryTab({
   const time = version === null ? null : localTime(version.at)
   const same = text.data !== undefined && text.data.text === saved
 
+  const rows = [null, ...list]
   const panel = (
-    <div className="flex flex-col gap-4 p-4">
+    <PropertyCard title="Versions" meta={versions.data === undefined ? undefined : list.length}>
       {versions.data === undefined ? null : list.length === 0 ? (
-        <Empty className="p-0">
-          <EmptyHeader>
-            <EmptyTitle>No version yet</EmptyTitle>
-            <EmptyDescription>A version is kept each time the dashboard saves this file.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <div className="border-t border-rule">
+          <EmptyNote>No version yet. A version is kept each time the dashboard saves or restores this file.</EmptyNote>
+        </div>
       ) : (
-        <Timeline value={0}>
-          {[null, ...list].map((v, i) => {
+        <ul aria-label="Versions" className="flex flex-col">
+          {rows.map((v) => {
             const id = v === null ? CURRENT : v.id
             const on = id === selected
             return (
-              <TimelineItem key={id} step={i + 1} className="ms-8">
-                <TimelineHeader>
-                  <TimelineSeparator className="bg-border group-data-[orientation=vertical]/timeline:w-px" />
-                  <TimelineTitle className="font-normal">
-                    <button
-                      type="button"
-                      aria-current={on || undefined}
-                      onClick={() => setChosen(id)}
-                      className={
-                        on
-                          ? "rounded-sm text-left text-sm font-medium tabular-nums outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                          : "rounded-sm text-left text-sm text-muted-foreground tabular-nums outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                      }
-                    >
-                      {v === null ? <Badge variant={on ? "secondary" : "outline"}>Current</Badge> : localTime(v.at)}
-                    </button>
-                  </TimelineTitle>
-                  <TimelineIndicator
-                    className={
-                      on
-                        ? "mt-1 size-3 border border-foreground bg-foreground"
-                        : "mt-1 size-3 border border-muted-foreground/40 bg-background"
-                    }
-                  />
-                </TimelineHeader>
-                {v !== null ? (
-                  <TimelineContent className="text-xs tabular-nums">{lineCounts(v.added, v.removed)}</TimelineContent>
-                ) : null}
-              </TimelineItem>
+              <li key={id} className="border-t border-rule">
+                <button
+                  type="button"
+                  aria-current={on || undefined}
+                  onClick={() => setChosen(id)}
+                  className={cn(
+                    "flex h-9 w-full items-center gap-2 px-3 text-left tabular-nums transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                    on && "bg-selected hover:bg-selected",
+                  )}
+                >
+                  <span className={cn("min-w-0 flex-1 truncate", on ? "text-foreground" : "text-sidebar-foreground")}>
+                    {v === null ? "Current" : localTime(v.at)}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {v === null ? "as saved" : lineCounts(v.added, v.removed)}
+                  </span>
+                </button>
+              </li>
             )
           })}
-        </Timeline>
+        </ul>
       )}
-    </div>
+    </PropertyCard>
   )
 
   const versionName = time === null ? "Current text" : `Version of ${time}`
@@ -138,13 +122,7 @@ export function useHistoryTab({
   } else if (text.data === undefined) body = null
   else if (!show) body = <CodeView text={text.data.text} language={language} name={versionName} errors={[]} />
   else if (same) {
-    body = (
-      <Empty>
-        <EmptyHeader>
-          <EmptyTitle>Same as the current file.</EmptyTitle>
-        </EmptyHeader>
-      </Empty>
-    )
+    body = <EmptyNote size="page">Same as the current file.</EmptyNote>
   } else {
     body = (
       <DiffView
@@ -161,23 +139,29 @@ export function useHistoryTab({
     <PageLoadError what="the versions" error={versions.error} retry={() => void versions.refetch()} />
   ) : versions.data === undefined ? null : (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-6 py-2">
-        <span className="text-sm font-medium tabular-nums">{time ?? "Current"}</span>
+      <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-1">
+        <span className="font-medium tabular-nums">{time === null ? "Current" : `Version of ${time}`}</span>
+        {version !== null ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {lineCounts(version.added, version.removed)}
+          </span>
+        ) : null}
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Switch
               id="history-show-changes"
+              size="sm"
               checked={show && !isCurrent}
               disabled={isCurrent}
               onCheckedChange={setShow}
             />
-            <Label htmlFor="history-show-changes" className="font-normal">
+            <Label htmlFor="history-show-changes" className="leading-5 font-normal text-muted-foreground">
               Show changes
             </Label>
           </div>
           <ToggleGroup
-            variant="outline"
             aria-label="Diff layout"
+            spacing={2}
             value={[layout]}
             disabled={isCurrent || !show}
             onValueChange={(next: string[]) => {
@@ -187,10 +171,19 @@ export function useHistoryTab({
               setLayout(picked)
             }}
           >
-            <ToggleGroupItem value="unified">Unified</ToggleGroupItem>
-            <ToggleGroupItem value="split">Split</ToggleGroupItem>
+            <ToggleGroupItem value="unified" className={LAYOUT_PILL}>
+              Unified
+            </ToggleGroupItem>
+            <ToggleGroupItem value="split" className={LAYOUT_PILL}>
+              Split
+            </ToggleGroupItem>
           </ToggleGroup>
-          <Button disabled={isCurrent || text.data === undefined || same} onClick={() => setConfirm(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isCurrent || text.data === undefined || same}
+            onClick={() => setConfirm(true)}
+          >
             Restore
           </Button>
         </div>
@@ -228,32 +221,13 @@ export function useHistoryTab({
 }
 
 /**
- * A file's History tab, the same on every page that keeps versions (a workflow, a prompt): the page's title block on
- * the 24px gutter, the page's notices, the main area of `useHistoryTab` on the whole width, then the footer with the
- * file's name and its save state.
+ * A file's History tab, the same on every page that keeps versions (a workflow, a prompt): the main area of
+ * `useHistoryTab` on the whole width (its 40px bar over the difference), then the footer with the file's name and its
+ * save state. The page's frame (`DocFrame`) gives its notices and its title above it.
  */
-export function HistoryTab({
-  title,
-  notices,
-  main,
-  file,
-  status,
-}: {
-  /** The page's title block, as it passes it: a `DocTitle`. */
-  title: ReactNode
-  /** The strips between the title and the versions: a conflict, a failed save. */
-  notices?: ReactNode
-  /** `useHistoryTab`'s main area. */
-  main: ReactNode
-  /** The file's name, in the footer. */
-  file: string
-  /** The footer's save state. */
-  status: ReactNode
-}) {
+export function HistoryTab({ main, file, status }: { main: ReactNode; file: string; status: ReactNode }) {
   return (
     <>
-      <GutterTitle>{title}</GutterTitle>
-      {notices}
       {main}
       <DocFooter file={file} status={status} />
     </>

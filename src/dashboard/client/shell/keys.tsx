@@ -1,3 +1,4 @@
+import { Clock3Icon, FileTextIcon, LayoutGridIcon, type LucideIcon, WorkflowIcon } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 
@@ -7,12 +8,12 @@ import { ALT, MOD } from "@/shell/platform"
 /** The dialog the shell shows over the page: the shortcut sheet or a New file dialog. */
 export type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
 
-/** The pages G and a key goes to, as the shortcuts, the sheet and the search list them. */
-export const GO_TO: readonly { key: string; label: string; href: () => string }[] = [
-  { key: "n", label: "Now", href: () => to.now() },
-  { key: "a", label: "All projects", href: () => to.projects() },
-  { key: "w", label: "Workflows", href: () => to.workflows() },
-  { key: "p", label: "Prompts", href: () => to.prompts() },
+/** The pages G and a key goes to, as the shortcuts, the sheet and the search list them, with the sidebar's icon. */
+export const GO_TO: readonly { key: string; label: string; icon: LucideIcon; href: () => string }[] = [
+  { key: "n", label: "Now", icon: Clock3Icon, href: () => to.now() },
+  { key: "a", label: "All projects", icon: LayoutGridIcon, href: () => to.projects() },
+  { key: "w", label: "Workflows", icon: WorkflowIcon, href: () => to.workflows() },
+  { key: "p", label: "Prompts", icon: FileTextIcon, href: () => to.prompts() },
 ]
 
 /** Every shortcut of the dashboard, as the sheet lists them: by the place they work in. */

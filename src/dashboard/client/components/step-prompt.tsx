@@ -1,13 +1,14 @@
+import { LockIcon } from "lucide-react"
 import { useEffect } from "react"
 import { Link } from "wouter"
 
-import { DetailRow } from "@/components/doc-panel"
-import { Dash, InputsList } from "@/components/file-page"
+import { Dash } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown-view"
+import { UsedByCard } from "@/components/fact-cards"
+import { PropertyCard, PropertyList, PropertyRow } from "@/components/property-card"
 import { Button } from "@/components/ui/button"
-import { UsedByList } from "@/components/used-by-list"
 import { useFile, useLabel } from "@/data/queries"
-import { promptReading, type PromptRow, workflowCount } from "@/lib/files"
+import { promptReading, type PromptRow, quoted } from "@/lib/files"
 import { to } from "@/lib/routes"
 import { modKey } from "@/shell/platform"
 import { LoadError } from "@/shell/load-error"
@@ -26,52 +27,99 @@ export function useSaveKey(save: () => void): void {
 }
 
 /**
- * A step's prompt in the workflow panel, read-only: a row with its file name, how many workflows share it and Open
- * prompt (its own page, where it is edited); then, scrolling in the pane, its header as fields (description, model,
- * inputs) and its body rendered at the document scale.
+ * A prompt's body at the panel's reading scale: the document's styles at the interface's size (13px at 18px, headings
+ * 15, 14 and 13px at 600, inline code never under 12px), at most 62 characters a line, on the card's 12px inset.
  */
-export function StepPrompt({ row }: { row: PromptRow }) {
-  const file = useFile("prompts", row.project, row.name)
-  const sharedBy = workflowCount(file.data?.usedBy ?? row.usedBy)
-  const reading = file.data !== undefined ? promptReading(file.data.text, row) : null
+const PANEL_PROSE =
+  "[--read-width:62ch] [--text-doc--line-height:1.125rem] [--text-doc-h1--line-height:1.25rem] [--text-doc-h1:0.9375rem] [--text-doc-h2--line-height:1.25rem] [--text-doc-h2:0.875rem] [--text-doc-h3--line-height:1.25rem] [--text-doc-h3:0.8125rem] [--text-doc:0.8125rem] [&_.cm-content]:px-3! [&_.cm-content]:py-3! [&_.cm-line]:mx-0!"
+
+/** The inputs of a prompt's header: the name in mono, then `required`, its default or `optional`, its description. */
+function PromptInputs({ inputs }: { inputs: NonNullable<ReturnType<typeof promptReading>["fields"]>["inputs"] }) {
+  if (inputs.length === 0) return <Dash />
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-xs text-muted-foreground">
-        <span className="min-w-0 truncate font-mono">{row.name}.md</span>
-        {sharedBy > 1 ? <span className="shrink-0">Shared by {sharedBy} workflows</span> : null}
-        <Button
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          className="ml-auto"
-          render={<Link href={to.file("prompts", row.project, row.name)} />}
-        >
-          Open prompt
-        </Button>
-      </div>
-      {file.isError ? (
-        <LoadError what="this prompt" error={file.error} retry={() => void file.refetch()} className="m-3 w-auto" />
-      ) : reading !== null ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {reading.fields !== null ? (
-            <dl aria-label="Prompt header" className="flex flex-col border-b py-2">
-              <DetailRow label="Description">{reading.fields.description ?? <Dash />}</DetailRow>
-              <DetailRow label="Model">{reading.fields.model ?? <Dash />}</DetailRow>
-              <DetailRow label="Inputs">
-                <InputsList inputs={reading.fields.inputs} />
-              </DetailRow>
-            </dl>
-          ) : null}
-          <MarkdownView text={reading.body} name={`${row.name}.md`} inset="panel" />
-        </div>
-      ) : null}
-    </div>
+    <ul className="flex flex-col gap-2">
+      {inputs.map((input) => (
+        <li key={input.name} className="flex min-w-0 flex-col">
+          <span className="flex flex-wrap items-center gap-x-2">
+            <code className="font-mono text-xs">{input.name}</code>
+            <span className="text-xs text-muted-foreground">
+              {input.required ? "required" : input.default !== null ? `default ${quoted(input.default)}` : "optional"}
+            </span>
+          </span>
+          {input.description !== "" ? <span className="text-muted-foreground">{input.description}</span> : null}
+        </li>
+      ))}
+    </ul>
   )
 }
 
-/** The workflows that use a step's prompt, each linking to it. */
-export function StepPromptUses({ row }: { row: PromptRow }) {
+/**
+ * A step's prompt, read-only, as a card: `Read-only` and Open prompt (its own page, where it is edited) in its header;
+ * its file, its header's description, model and inputs as rows; then its body rendered at the panel's reading scale.
+ */
+export function StepPrompt({ row }: { row: PromptRow }) {
+  const file = useFile("prompts", row.project, row.name)
+  const reading = file.data !== undefined ? promptReading(file.data.text, row) : null
+  return (
+    <PropertyCard
+      title="Prompt"
+      action={
+        <>
+          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+            <LockIcon aria-hidden="true" className="size-3" />
+            Read-only
+          </span>
+          <Button
+            variant="outline"
+            size="xs"
+            nativeButton={false}
+            render={<Link href={to.file("prompts", row.project, row.name)} />}
+          >
+            Open prompt
+          </Button>
+        </>
+      }
+    >
+      {file.isError ? (
+        <div className="border-t border-rule p-3">
+          <LoadError what="this prompt" error={file.error} retry={() => void file.refetch()} />
+        </div>
+      ) : reading !== null ? (
+        <>
+          <PropertyList>
+            <PropertyRow label="File">
+              <code className="font-mono text-xs">{row.name}.md</code>
+            </PropertyRow>
+            {reading.fields !== null ? (
+              <>
+                <PropertyRow label="Description">{reading.fields.description ?? <Dash />}</PropertyRow>
+                <PropertyRow label="Model">{reading.fields.model ?? <Dash />}</PropertyRow>
+                <PropertyRow label="Inputs">
+                  <PromptInputs inputs={reading.fields.inputs} />
+                </PropertyRow>
+              </>
+            ) : null}
+          </PropertyList>
+          {reading.body.trim() !== "" ? (
+            <div className="border-t border-rule">
+              <MarkdownView text={reading.body} name={`${row.name}.md`} inset="panel" className={PANEL_PROSE} />
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </PropertyCard>
+  )
+}
+
+/** The workflows that use a step's prompt, as the Used by card: `this workflow` marks the page's own. */
+export function StepPromptUses({
+  row,
+  current,
+}: {
+  row: PromptRow
+  current: { workflow: string; project: string | null }
+}) {
   const file = useFile("prompts", row.project, row.name)
   const label = useLabel()
-  return <UsedByList uses={file.data?.usedBy ?? []} label={label} />
+  return <UsedByCard uses={file.data?.usedBy ?? []} label={label} current={current} />
 }
