@@ -3,7 +3,7 @@ import { cn } from "cn"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
 
 /**
- * A key cap: 20px, 12px Inter in the secondary ink, a hairline outline on the panel's colour, 4px corners, so it stays
+ * A key cap: 20px, `text-xs` (14px) Inter in the secondary ink, a hairline outline on the panel's colour, 4px corners, so it stays
  * a cap on a highlighted row as on the sidebar's ground. In a tooltip, the shipped inverted cap.
  */
 const CAP = "border bg-background font-normal in-data-[slot=tooltip-content]:border-transparent"

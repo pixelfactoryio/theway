@@ -134,7 +134,8 @@ const columns = (): FileColumns<PromptRow> => ({
       header: ({ column }) => <DataGridColumnHeader title="Kind" column={column} className={SORT_HEADER} />,
       cell: ({ row }) => KIND_LABEL[kindOf(row.original)],
       sortFn: (a, b) => compareText(KIND_LABEL[kindOf(a.original)], KIND_LABEL[kindOf(b.original)]),
-      size: 120,
+      // The longest kind, "Reference file", whole between the cell's 12px sides.
+      size: 128,
       enableSorting: true,
       meta: { skeleton: cellSkeleton("w-24") },
     },

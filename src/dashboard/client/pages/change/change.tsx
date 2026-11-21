@@ -1,11 +1,10 @@
-import { FolderIcon } from "lucide-react"
-
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { useChange, useLabel } from "@/data/queries"
 import { to } from "@/lib/routes"
 import { ActiveChange } from "@/pages/change/active"
 import { ArchivedChange } from "@/pages/change/archived"
 import { PageLoadError } from "@/shell/load-error"
+import { ProjectMark } from "@/shell/project-mark"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** The errors of a `404` on a change's route. */
@@ -32,7 +31,12 @@ export function ChangePage({
   const name = dir ?? id ?? ""
 
   // The path and the mono ID a change's page gives in its header.
-  const head = { title: name, mono: true, icon: FolderIcon, parents: [{ label, href: to.project(projectKey) }] }
+  const head = {
+    title: name,
+    mono: true,
+    icon: <ProjectMark label={label} className="size-4" />,
+    parents: [{ label, href: to.project(projectKey) }],
+  }
   if (change.isPending) return <PageLoading {...head} />
   if (change.isError) {
     if (UNKNOWN.includes(change.error.message)) {

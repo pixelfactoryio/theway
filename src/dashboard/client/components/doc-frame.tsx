@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import type { ReactElement, ReactNode } from "react"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { ViewTabs } from "@/components/view-tabs"
@@ -72,10 +72,10 @@ export function DocFrame({
 }: {
   /** The header's title, the page's `h1`, and the browser tab's title. */
   title: string
-  icon?: LucideIcon
+  icon?: LucideIcon | ReactElement
   /** The page's path before its title. */
   parents?: readonly Crumb[]
-  /** The title is an ID or a file name: Geist Mono 13px. */
+  /** The title is an ID or a file name: Geist Mono `text-xs` (14px). */
   mono?: boolean
   lead?: ReactNode
   actions?: ReactNode

@@ -33,10 +33,10 @@ function ShownValue({
   )
 }
 
-/** A chip of a value list (a matrix's values): Geist Mono 12px, a hairline outline, 4px corners. */
+/** A chip of a value list (a matrix's values): Geist Mono `text-xs` (14px) on its 20px line, a hairline outline, 4px corners. */
 function ValueChip({ children }: { children: string }) {
   return (
-    <code className="inline-flex h-4.5 items-center rounded-sm border px-1 font-mono text-xs whitespace-nowrap">
+    <code className="inline-flex h-(--text-xs--line-height) items-center rounded-sm border px-1 font-mono text-xs whitespace-nowrap">
       {children}
     </code>
   )

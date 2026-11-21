@@ -51,7 +51,7 @@ export function TaskText({ text }: { text: string }) {
     <>
       {inlineCode(text).map((part, i) =>
         part.code ? (
-          <code key={i} className="rounded-sm bg-muted px-1 font-mono text-xs">
+          <code key={i} className="rounded-sm bg-muted px-1 font-mono text-xs wrap-anywhere">
             {part.text}
           </code>
         ) : (

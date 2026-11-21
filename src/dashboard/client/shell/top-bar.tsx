@@ -1,6 +1,14 @@
 import { cn } from "cn"
 import { ChevronRightIcon, type LucideIcon } from "lucide-react"
-import { createContext, Fragment, type ReactNode, useContext, useEffect } from "react"
+import {
+  createContext,
+  Fragment,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+} from "react"
 import { createPortal } from "react-dom"
 import { Link } from "wouter"
 
@@ -61,7 +69,7 @@ export type Crumb = { label: string; href: string }
 /**
  * A page's header: its icon, its path (`parents`, then its title, the page's `h1`), then `actions` at the right; and,
  * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `lead` stands right after the title (a pin's
- * star). The title is the interface's 13px at 500 (an ID, with `mono`, Geist Mono 12px); the path before it is
+ * star). The title is the interface's `text-sm` (15px) at 600 (an ID, with `mono`, Geist Mono `text-xs`, 14px, at 500); the path before it is
  * secondary. In a narrow header the path is cut first, the title last.
  */
 export function PageHeader({
@@ -74,7 +82,8 @@ export function PageHeader({
   tabs,
 }: {
   title: string
-  icon?: LucideIcon
+  /** A Lucide icon, drawn in the secondary ink, or a mark of its own (a project's, in its hue). */
+  icon?: LucideIcon | ReactElement
   parents?: readonly Crumb[]
   mono?: boolean
   lead?: ReactNode
@@ -87,7 +96,11 @@ export function PageHeader({
       <div className="flex h-11 shrink-0 items-center gap-2 pr-3 pl-4">
         <ShowSidebar />
         <nav aria-label="Location" className="flex min-w-0 items-center gap-2">
-          {Icon !== undefined ? <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" /> : null}
+          {Icon === undefined ? null : isValidElement(Icon) ? (
+            Icon
+          ) : (
+            <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+          )}
           {parents.map((p) => (
             <Fragment key={p.href}>
               <Link

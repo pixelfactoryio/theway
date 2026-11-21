@@ -199,3 +199,37 @@ test("the minimap shows only where the room right of the drawing holds it with i
     true,
   )
 })
+
+test("at a larger root every size and space of the drawing, the view's margins and the minimap's room grow by its scale", () => {
+  const scale = 1.125
+  const at1 = layoutDrawing(THREE, null, true)
+  const scaled = layoutDrawing(THREE, null, true, scale)
+  expect(scaled.nodes.map((n) => [n.id, n.x, n.y, n.width, n.height])).toEqual(
+    at1.nodes.map((n) => [n.id, n.x * scale, n.y * scale, n.width * scale, n.height * scale]),
+  )
+  expect(scaled.bounds).toEqual({
+    x: 0,
+    y: 0,
+    width: at1.bounds.width * scale,
+    height: at1.bounds.height * scale,
+  })
+  const bounds = { x: 0, y: 0, width: 300, height: 500 }
+  expect(openView(bounds, scale)).toEqual({ x: KEEP.side * scale, y: KEEP.top * scale, zoom: 1 })
+  expect(fitView(bounds, { width: 800, height: 900 }, scale)).toEqual({
+    x: KEEP.side * scale,
+    y: KEEP.top * scale,
+    zoom: 1,
+  })
+  const pane = { width: 800, height: 600 }
+  expect(revealDelta({ left: 10, right: 100, top: 100, bottom: 172 }, pane, scale)).toEqual({
+    dx: KEEP.side * scale - 10,
+    dy: 0,
+  })
+  const room = 400 + (MINIMAP.width + 2 * MINIMAP.margin) * scale
+  expect(minimapClears({ x: 0, y: 0, width: 400, height: 900 }, { x: 0, y: 0, zoom: 1 }, { width: room }, scale)).toBe(
+    true,
+  )
+  expect(minimapClears({ x: 0, y: 0, width: 400, height: 900 }, { x: 1, y: 0, zoom: 1 }, { width: room }, scale)).toBe(
+    false,
+  )
+})

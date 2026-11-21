@@ -1,10 +1,13 @@
-import { EditorState, type Extension, Prec } from "@codemirror/state"
+import { markdownLanguage } from "@codemirror/lang-markdown"
+import { EditorState, type Extension, Prec, Text } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { cn } from "cn"
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
+import { OutlinedDoc } from "@/components/doc-outline"
 import { liveExtensions, setTitle } from "@/components/live-markdown"
 import { lineSeparatorOf } from "@/lib/files"
+import { outlineOf } from "@/lib/live-preview"
 
 /** The view's inner room: a page's, the live editor's own gutters; a panel's, 16px on every side. */
 const INSET: Record<"page" | "panel", Extension> = {
@@ -14,8 +17,9 @@ const INSET: Record<"page" | "panel", Extension> = {
 
 /**
  * A Markdown file, read-only, as the live editor shows it with no line active: formatted, task boxes that cannot be
- * ticked, a link opening in a new tab on a click; a first line that restates the page's `title` is left out. A new
- * `text` replaces the whole document, so a preview follows its draft.
+ * ticked, a link opening in a new tab on a click; a first line that restates the page's `title` is left out. On a page
+ * (`inset` `page`), its outline stands at its right while the page has room (`OutlinedDoc`). A new `text` replaces the
+ * whole document, so a preview follows its draft.
  */
 export function MarkdownView({
   text,
@@ -70,5 +74,16 @@ export function MarkdownView({
     }
   }, [name, inset])
 
-  return <div ref={host} className={cn("h-auto min-h-0", className)} />
+  const outline = useMemo(() => {
+    if (inset !== "page") return []
+    const doc = Text.of(text.split(/\r\n?|\n/))
+    return outlineOf(doc, markdownLanguage.parser.parse(doc.toString()), title)
+  }, [text, title, inset])
+  const current = useCallback(() => view.current, [])
+
+  return (
+    <OutlinedDoc entries={outline} view={current}>
+      <div ref={host} className={cn("h-auto min-h-0", className)} />
+    </OutlinedDoc>
+  )
 }

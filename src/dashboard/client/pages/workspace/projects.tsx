@@ -249,7 +249,7 @@ export function ProjectsPage() {
   // A group opens as this browser last chose, else by default only while the list is narrowed.
   const isOpen = (id: string) => !choices.collapsed(id, !narrowed)
   /**
-   * A project's folder, after its name: plain 13px secondary text, nothing when it is not known. It takes only the room
+   * A project's folder, after its name: plain `text-xs` (14px) secondary text, nothing when it is not known. It takes only the room
    * the name leaves (no basis, growing up to its own width), so the name is never cut for it.
    */
   const path = (key: string) => {

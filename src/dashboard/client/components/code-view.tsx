@@ -35,16 +35,17 @@ const HIGHLIGHT = HighlightStyle.define([
 ])
 
 /**
- * The code view's look: Geist Mono 13px at 20px (1.54), the reading size of an editor beside the 13px interface; a
+ * The code view's look: Geist Mono `text-xs` (14px on 20px lines at the 16px root), the mono of every ID and code block; a
  * quiet gutter (line numbers in the secondary ink, no rule, the active line's number in the ink); the active line on a
  * faint fill; selections and search matches on the blue tint; an error underlined in red with a red dot in its own
- * gutter column; the search panel (Cmd/Ctrl+F) drawn with the interface's controls: 28px fields and buttons, 6px
- * corners, hairlines, its close button a drawn cross.
+ * gutter column; the search panel (Cmd/Ctrl+F) drawn with the interface's controls: `text-sm` (15px) 28px fields and
+ * buttons, `text-xs` (14px) labels, 6px corners, hairlines, its close button a drawn cross; a diagnostic at `text-xs`, as
+ * the shell's tooltip.
  */
 const THEME = EditorView.theme({
-  "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--foreground)", fontSize: "0.8125rem" },
+  "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--foreground)", fontSize: "var(--text-xs)" },
   "&.cm-focused": { outline: "none" },
-  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.25rem" },
+  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "var(--text-xs--line-height)" },
   ".cm-content": { padding: "0.75rem 0", caretColor: "var(--foreground)" },
   ".cm-line": { padding: "0 1.5rem 0 0.25rem" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--foreground)", borderLeftWidth: "1.5px" },
@@ -70,7 +71,7 @@ const THEME = EditorView.theme({
     gap: "0.5rem",
     padding: "0.5rem 3rem 0.5rem 1rem",
     fontFamily: "var(--font-sans)",
-    fontSize: "0.8125rem",
+    fontSize: "var(--text-sm)",
   },
   ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": { margin: "0" },
   ".cm-panel.cm-search br": { flexBasis: "100%", height: "0" },
@@ -83,7 +84,7 @@ const THEME = EditorView.theme({
     backgroundColor: "transparent",
     color: "var(--foreground)",
     fontFamily: "var(--font-sans)",
-    fontSize: "0.8125rem",
+    fontSize: "var(--text-sm)",
     outline: "none",
   },
   ".cm-panel.cm-search .cm-textfield:focus-visible": {
@@ -99,7 +100,7 @@ const THEME = EditorView.theme({
     border: "1px solid var(--border)",
     borderRadius: "calc(var(--radius) - 2px)",
     fontFamily: "var(--font-sans)",
-    fontSize: "0.8125rem",
+    fontSize: "var(--text-sm)",
     cursor: "pointer",
   },
   ".cm-panel.cm-search .cm-button:hover": { backgroundColor: "var(--accent)" },
@@ -159,7 +160,11 @@ const THEME = EditorView.theme({
     boxShadow: "var(--shadow-md)",
     overflow: "hidden",
   },
-  ".cm-tooltip-lint, .cm-diagnostic": { fontFamily: "var(--font-sans)", fontSize: "0.8125rem" },
+  ".cm-tooltip-lint, .cm-diagnostic": {
+    fontFamily: "var(--font-sans)",
+    fontSize: "var(--text-xs)",
+    lineHeight: "var(--text-xs--line-height)",
+  },
   ".cm-diagnostic": { padding: "0.375rem 0.75rem" },
   ".cm-diagnostic-error": { borderLeft: "none", color: "var(--destructive-foreground)" },
 })

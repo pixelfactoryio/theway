@@ -106,7 +106,7 @@ function WithFields({
   )
 }
 
-/** A card's sub-heading between its rows (`With`, `On fail`): 12px at 500, the secondary ink, on a light rule. */
+/** A card's sub-heading between its rows (`With`, `On fail`): `text-xs` (14px) at 500, the secondary ink, on a light rule. */
 function RowGroup({ children }: { children: string }) {
   return <div className="border-t border-rule px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground">{children}</div>
 }

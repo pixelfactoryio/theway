@@ -27,11 +27,12 @@ export function useSaveKey(save: () => void): void {
 }
 
 /**
- * A prompt's body at the panel's reading scale: the document's styles at the interface's size (13px at 18px, headings
- * 15, 14 and 13px at 600, inline code never under 12px), at most 62 characters a line, on the card's 12px inset.
+ * A prompt's body at the panel's reading scale: the document's styles at the interface's sizes, body `text-xs` (14/20),
+ * h1 and h2 `text-sm` (15/22, the panel's card titles) and h3 `text-xs` at 600, inline code never under 12px, at most
+ * 62 characters a line, on the card's 12px inset.
  */
 const PANEL_PROSE =
-  "[--read-width:62ch] [--text-doc--line-height:1.125rem] [--text-doc-h1--line-height:1.25rem] [--text-doc-h1:0.9375rem] [--text-doc-h2--line-height:1.25rem] [--text-doc-h2:0.875rem] [--text-doc-h3--line-height:1.25rem] [--text-doc-h3:0.8125rem] [--text-doc:0.8125rem] [&_.cm-content]:px-3! [&_.cm-content]:py-3! [&_.cm-line]:mx-0!"
+  "[--read-width:62ch] [--text-doc:var(--text-xs)] [--text-doc--line-height:var(--text-xs--line-height)] [--text-doc-h1:var(--text-sm)] [--text-doc-h1--line-height:var(--text-sm--line-height)] [--text-doc-h2:var(--text-sm)] [--text-doc-h2--line-height:var(--text-sm--line-height)] [--text-doc-h3:var(--text-xs)] [--text-doc-h3--line-height:var(--text-xs--line-height)] [&_.cm-content]:px-3! [&_.cm-content]:py-3! [&_.cm-line]:mx-0!"
 
 /** The inputs of a prompt's header: the name in mono, then `required`, its default or `optional`, its description. */
 function PromptInputs({ inputs }: { inputs: NonNullable<ReturnType<typeof promptReading>["fields"]>["inputs"] }) {

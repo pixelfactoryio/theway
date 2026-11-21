@@ -75,10 +75,10 @@ function TaskBody({
   )
   return (
     <>
-      <div className="mb-1 flex h-4 items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums">
+      <div className="mb-1 flex h-(--text-xs--line-height) items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums">
         <span>{n}</span>
         {next ? (
-          <span className="inline-flex h-4 items-center rounded-sm border px-1 font-sans font-medium text-foreground">
+          <span className="inline-flex h-(--text-xs--line-height) items-center rounded-sm border px-1 font-sans font-medium text-foreground">
             Next
           </span>
         ) : null}

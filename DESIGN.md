@@ -156,103 +156,103 @@ colors:
 typography:
   interface:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.875rem"
+    fontSize: "0.9375rem"
     fontWeight: 400
-    lineHeight: "1.25rem"
+    lineHeight: "1.375rem"
     fontVariation: "opsz auto"
   interface-name:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.875rem"
+    fontSize: "0.9375rem"
     fontWeight: 500
-    lineHeight: "1.25rem"
+    lineHeight: "1.375rem"
   interface-heading:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.875rem"
-    fontWeight: 600
-    lineHeight: "1.25rem"
-  interface-text:
-    fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: "1.25rem"
-  label:
-    fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.8125rem"
-    fontWeight: 400
-    lineHeight: "1.125rem"
-  dialog-title:
-    fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1rem"
+    fontSize: "0.9375rem"
     fontWeight: 600
     lineHeight: "1.375rem"
+  interface-text:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: "1.375rem"
+  label:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+  dialog-title:
+    fontFamily: '"Inter Variable", system-ui, sans-serif'
+    fontSize: "1.125rem"
+    fontWeight: 600
+    lineHeight: "1.5rem"
   text-title:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1.375rem"
+    fontSize: "1.5rem"
     fontWeight: 600
-    lineHeight: "1.75rem"
+    lineHeight: "2rem"
   mono-id:
     fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: "1.125rem"
+    lineHeight: "1.25rem"
   mono-title:
     fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 500
-    lineHeight: "1.125rem"
+    lineHeight: "1.25rem"
   code:
     fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: "1.25rem"
   doc-title:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1.75rem"
+    fontSize: "2rem"
     fontWeight: 600
-    lineHeight: "2.125rem"
+    lineHeight: "2.5rem"
     letterSpacing: "-0.025em"
   doc-body:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1rem"
+    fontSize: "1.0625rem"
     fontWeight: 400
-    lineHeight: "1.4375rem"
+    lineHeight: "1.5rem"
   doc-h1:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1.25rem"
+    fontSize: "1.625rem"
     fontWeight: 600
-    lineHeight: "1.75rem"
+    lineHeight: "2rem"
   doc-h2:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1.0625rem"
+    fontSize: "1.375rem"
     fontWeight: 600
-    lineHeight: "1.5rem"
+    lineHeight: "1.75rem"
   doc-h3:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "1rem"
+    fontSize: "1.1875rem"
     fontWeight: 600
-    lineHeight: "1.4375rem"
+    lineHeight: "1.625rem"
   doc-inline-code:
     fontFamily: '"Geist Mono Variable", ui-monospace, monospace'
     fontSize: "max(0.75rem, 0.8125em)"
     fontWeight: 400
   panel-prose:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 400
-    lineHeight: "1.125rem"
+    lineHeight: "1.25rem"
   panel-prose-h1:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "0.9375rem"
     fontWeight: 600
-    lineHeight: "1.25rem"
+    lineHeight: "1.375rem"
   panel-prose-h2:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.875rem"
+    fontSize: "0.9375rem"
     fontWeight: 600
-    lineHeight: "1.25rem"
+    lineHeight: "1.375rem"
   panel-prose-h3:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: "1.25rem"
   field-mobile:
@@ -261,7 +261,7 @@ typography:
     fontWeight: 400
   shortcut-hint:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
-    fontSize: "0.8125rem"
+    fontSize: "0.875rem"
     fontWeight: 400
     letterSpacing: "0.1em"
   vendored-button-small:
@@ -463,7 +463,7 @@ components:
 
 The dashboard is a desktop tool for a developer who keeps it open beside Claude Code sessions. It is built in Linear's layout and look: the sidebar sits straight on the app's cool ground with no border, and all the work happens in one inset panel with rounded corners, a hairline and a soft shadow, a step lighter than the ground. Across that panel's top runs a 44px header (the page's icon and path, its actions at the right), then small pill tabs for the page's views; under them the page, and on an item's page a docked panel of stacked property cards at the right.
 
-Two modes share the panel. Lists, editors and the canvas are for operating: one-line 40px rows, sections that open with a tinted band, a sticky column head, IDs as small mono chips, the hover fill keeping the place. Documents are for reading: a 28px title, then 16/23 body text in one 36rem column on the panel's left edge, about 70 characters a line. Everything is calm and dense: hierarchy comes from weight (400, 500, 600) and from the ink against the secondary ink, inside two interface sizes (14 and 13px). Nothing is revealed only on hover: IDs, actions, the pin and the canvas's "+" are seen at rest.
+Two modes share the panel. Lists, editors and the canvas are for operating: one-line 40px rows, sections that open with a tinted band, a sticky column head, IDs as small mono chips, the hover fill keeping the place. Documents are for reading: a 32px title, then 17/24 body text in one 36rem column on the panel's left edge, about 65 characters a line. Everything is calm and dense: hierarchy comes from weight (400, 500, 600) and from the ink against the secondary ink, inside two interface sizes (15 and 14px). Every size is given at the 16px root, which grows with the window to 18px. Nothing is revealed only on hover: IDs, actions, the pin and the canvas's "+" are seen at rest.
 
 Colour is restrained. One clinical blue marks selection, the active item, focus and links. Red, amber and green belong to the statuses. Seven muted project hues tint each project's folder mark and the workflow card tiles, so a project is recognised wherever it shows; nothing else is coloured. Dark and light are equally finished and follow the system setting unless the user picks one (`data-theme` on `html`).
 
@@ -471,9 +471,10 @@ Colour is restrained. One clinical blue marks selection, the active item, focus 
 
 - The sidebar on the ground, 244px, no border; the work area one inset panel with 10px corners and an 8px margin.
 - A 44px header and a 40px row of pill tabs on every item page; one 16px gutter for header, tabs, title, document and canvas.
-- Inter for the interface at 14px (13px for secondary labels), Geist Mono 13px for every ID and all code; both served by the dashboard itself.
+- Inter for the interface at 15px (14px for secondary labels), Geist Mono 14px for every ID and all code; both served by the dashboard itself.
 - Lists of one-line 40px rows under a 32px sticky column head, grouped by 36px rounded bands on the band's tint.
-- Documents at 16/23 in a 36rem column, under a 28/34 title that stays put across the page's views.
+- Documents at 17/24 in a 36rem column, under a 32/40 title that stays put across the page's views.
+- A root that grows with the window: 16px up to 1280px wide, 17px at 1920, 18px from 2560; every size grows with it.
 - Facts in stacked property cards at the right: hairline, 8px corners, a 40px header on a half-strength band tint.
 - Flat panels; shadows only on the work area, cards and what floats.
 
@@ -549,41 +550,43 @@ Fixed values both themes share:
 
 **Character:** a neutral, screen-made sans for everything read and clicked, and a monospace for what would be typed: IDs, file names, paths, code, YAML.
 
-Base: 16px root. Text fields are `text-base` (16px) below 768px and 14px from 768px. Tabular figures are set only where numbers line up (counts, ages and dates in a column, progress, the zoom, a version's time), never on the body: Inter's tabular hyphen is as wide as a digit and spaces out IDs and hyphenated words.
+Base: the root is `clamp(100%, 87.5% + 0.15625vw, 112.5%)` (`html` in `globals.css`): 16px (the browser's default) up to 1280px wide, 16.25px at 1440, 17px at 1920, 18px from 2560, as a share of the reader's own default. Every size below is given at the 16px root and grows with it: sizes are in rem, and the few a script takes in pixels (the canvas's cards, the file grids' columns, the docked panel's width) are multiplied by the root's scale (`hooks/use-root-scale.ts`). Text fields are `text-base` (16px) below 768px and `text-sm` (15px) from 768px. Tabular figures are set only where numbers line up (counts, ages and dates in a column, progress, the zoom, a version's time), never on the body: Inter's tabular hyphen is as wide as a digit and spaces out IDs and hyphenated words.
 
 ### Hierarchy
 
 The interface (`@theme` in `globals.css`):
 
-- **Interface** (400, `text-sm` 0.875rem/1.25rem, 14/20): every label, row, field, menu item, button and tab; the body's default size.
-- **Name** (500, 14/20): a row's name, a state's title, a notice's title, buttons, the chosen sidebar row.
-- **Heading** (600, 14/20): the page's title in the header (its `h1`), a section band's label, a property card's title, the logo's "theway".
-- **Interface text** (`text-md`, 0.875rem/1.25rem): multi-line text in the interface (a task's lead at 500 and its detail, a card's free text at most 62 characters a line). It has the same values as `text-sm`.
-- **Label** (400, `text-xs` 0.8125rem/1.125rem, 13/18): column titles, counts in the sidebar, the series chip (`series · 7`), the project column, the footer, tooltips, kbd, badges, the canvas's on-fail label, notes under a list.
-- **Dialog title** (600, `text-heading` 1rem/1.375rem, 16/22): a dialog's title (`DIALOG_TITLE`); the search palette's input is the same size at 400.
-- **Mono ID** (Geist Mono 400, 13/18): every ID and file name set inline, in the ID chip, the search palette, an input's name, a step's name on its card, the footer's file name. An item page whose title is an ID sets it in the header at 500.
-- **Code** (Geist Mono 400, 0.8125rem/1.25rem, 13/20): the code view (a workflow's YAML, a prompt's source, `change.yaml`) and a document's code blocks. The code view's Markdown headings are bold (700), its one use of that weight.
-- `--text-title` (1.375rem/1.75rem, 22/28) is defined on the scale and used by no component today.
+- **Interface** (400, `text-sm` 0.9375rem/1.375rem, 15/22): every label, row, field, menu item, button and tab; the body's default size.
+- **Name** (500, 15/22): a row's name, a state's title, a notice's title, buttons, the chosen sidebar row.
+- **Heading** (600, 15/22): the page's title in the header (its `h1`), a section band's label, a property card's title, the logo's "theway".
+- **Interface text** (`text-md`, 0.9375rem/1.375rem): multi-line text in the interface (a task's lead at 500 and its detail, a card's free text at most 62 characters a line). It has the same values as `text-sm`.
+- **Label** (400, `text-xs` 0.875rem/1.25rem, 14/20): column titles, counts in the sidebar, the series chip (`series · 7`), the project column, the footer, tooltips, kbd, badges, the canvas's on-fail label, notes under a list.
+- **Dialog title** (600, `text-heading` 1.125rem/1.5rem, 18/24): a dialog's title (`DIALOG_TITLE`); the search palette's input is the same size at 400.
+- **Mono ID** (Geist Mono 400, `text-xs` 14/20): every ID and file name set inline, in the ID chip, the search palette, an input's name, a step's name on its card, the footer's file name. An item page whose title is an ID sets it in the header at 500.
+- **Code** (Geist Mono 400, `text-xs` 0.875rem/1.25rem, 14/20): the code view (a workflow's YAML, a prompt's source, `change.yaml`) and a document's code blocks. The code view's search panel (Cmd/Ctrl+F) takes the interface's sizes: fields and buttons `text-sm`, labels and a diagnostic's tooltip `text-xs`. The code view's Markdown headings are bold (700), its one use of that weight.
+- `--text-title` (1.5rem/2rem, 24/32) is defined on the scale and used by no component today.
 
 Documents (the live editor, read-only or editing; `@theme static`, `--text-doc*`):
 
-- **Document title** (600, `text-doc-title` 1.75rem/2.125rem, 28/34, tracking -0.025em, `text-pretty`): an item's description above every one of its views (`ItemHeading`), whole on as many lines as it takes. An item with no description, or one that only repeats its ID, has none: its ID stands once, in the header.
-- **Body** (400, `text-doc` 1rem/1.4375rem, 16/23, 144%): paragraphs, list items, quotes, table cells. Bold and table headers are 600.
-- **h1** (600, 1.25rem/1.75rem, 20/28), **h2** (600, 1.0625rem/1.5rem, 17/24), **h3** (600, 1rem/1.4375rem, 16/23); h4 to h6 are the body at 600, h5 and h6 in the secondary ink. A document's headings never outrank the title above it.
-- **Inline code** (Geist Mono at `max(0.75rem, 0.8125em)`, 13px in the 16px body); a table's source lines in the editor take the same mono step.
+- **Document title** (600, `text-doc-title` 2rem/2.5rem, 32/40, tracking -0.025em, `text-pretty`): an item's description above every one of its views (`ItemHeading`), whole on as many lines as it takes. An item with no description, or one that only repeats its ID, has none: its ID stands once, in the header.
+- **Body** (400, `text-doc` 1.0625rem/1.5rem, 17/24, 141%): paragraphs, list items, quotes, table cells. Bold and table headers are 600.
+- **h1** (600, 1.625rem/2rem, 26/32), **h2** (600, 1.375rem/1.75rem, 22/28), **h3** (600, 1.1875rem/1.625rem, 19/26); h4 to h6 are the body at 600, h5 and h6 in the secondary ink. A document's headings never outrank the title above it.
+- **Inline code** (Geist Mono at `max(0.75rem, 0.8125em)`, 13.8px in the 17px body); a table's source lines in the editor take the same mono step.
 - **Code block** (Geist Mono `text-xs` on 20px lines); its language label at the right of its first fence line in `text-xs`.
 
-Panel prose (a step's prompt read in the panel, `PANEL_PROSE` in `step-prompt.tsx`): the same styles at the interface's size, body 0.8125rem/1.125rem (13/18), h1 0.9375rem/1.25rem (15/20), h2 0.875rem/1.25rem (14/20), h3 0.8125rem/1.25rem (13/20), at most 62 characters a line.
+Panel prose (a step's prompt read in the panel, `PANEL_PROSE` in `step-prompt.tsx`): the same styles at the interface's sizes, body `text-xs` 0.875rem/1.25rem (14/20), h1 and h2 `text-sm` 0.9375rem/1.375rem (15/22, the size of the panel's card titles), h3 `text-xs` (14/20) at 600, at most 62 characters a line.
 
-Vendored sizes, kept as shipped: the shadcn small button and toggle set `text-[0.8rem]`, which an unlayered rule resets to 14px; the ReUI badge's `xs` and `sm` sizes (0.6rem and 0.625rem) are not used, the dashboard's badges take the default `text-xs`; the ReUI filters' advanced builder draws a 10px "+" on its drag copy, which the filter bar does not open; the data grid's header button is `text-[0.8125rem]` (13px), overridden to `text-xs`; the menus' shortcut hints are `text-xs` with `tracking-widest` (0.1em).
+Vendored sizes, kept as shipped: the shadcn small button and toggle set `text-[0.8rem]`, which an unlayered rule resets to `text-sm` (15px); the ReUI badge's `xs` and `sm` sizes (0.6rem and 0.625rem) are not used, the dashboard's badges take the default `text-xs`; the ReUI filters' advanced builder draws a 10px "+" on its drag copy, which the filter bar does not open; the data grid's header button is `text-[0.8125rem]` (13px), overridden to `text-xs`; the menus' shortcut hints are `text-xs` with `tracking-widest` (0.1em).
 
 ### Named Rules
 
-**The Two Sizes Rule.** The interface is 14px and 13px, nothing else. Hierarchy inside it comes from 600, 500 and 400 and from the ink against the secondary ink. Only a dialog's title (16px) and a document's title (28px) are larger.
+**The Two Sizes Rule.** The interface is 15px and 14px, nothing else. Hierarchy inside it comes from 600, 500 and 400 and from the ink against the secondary ink. Only a dialog's title (18px) and a document's title (38px) are larger.
 
-**The One Mono Rule.** Every ID and every line of code is Geist Mono 13px, wherever it stands; an ID is never set in the sans, and never at another size.
+**The One Mono Rule.** Every ID and every line of code is Geist Mono 14px (`text-xs`), wherever it stands; an ID is never set in the sans, and never at another size.
 
-**The Reading Scale Rule.** Documents read at 16/23 with headings 20, 17 and 16 under a 28px title; the interface around them stays at 14px.
+**The Reading Scale Rule.** Documents read at 17/24 with headings 26, 22 and 19 under a 32px title; the interface around them stays at 15px.
+
+**The Growing Root Rule.** The root grows with the window (16px up to 1280px, 17px at 1920, 18px from 2560), and every size grows with it: a box that holds text is never fixed in pixels, or its pixels are multiplied by the root's scale.
 
 ## Layout
 
@@ -591,16 +594,16 @@ The window is the shell at full height (`h-svh`) with no page scroll; each regio
 
 - **Sidebar:** 15.25rem (244px) on `--ground`, the inset variant with no border, open by default from 1024px (kept per browser once toggled). Collapsed it folds to a 3rem (48px) rail of icons; below 768px it is a sheet 18rem (288px) wide, opened by a button at the header's left. Rows are 28px (`h-7`) with 1px between them; the workspace row (36px) holds the logo (a 20px ink tile with a 12px route mark, then "theway" at 600) and the Search and New icon buttons; then the Now and Search rows (Search with its ⌘K hint); then the foldable Pinned and Recent sections and All projects, and the Library (Workflows, Prompts), each section opened by a `text-xs` 500 label with a 12px caret; the footer carries `theway <version>` in `text-xs`, Documentation, Settings and the collapse toggle.
 - **Work area:** one panel, `m-2` (8px) from the window's edges (no left margin from 768px, where the sidebar is), on `--background`, 10px corners (`rounded-xl`), a hairline and `shadow-sm`. Its top is the page's header, rendered into the shell's header slot so it spans the page and its docked panel.
-- **Header:** 44px (`h-11`), 16px gutter at the left and 12px at the right: the page's 16px icon in the secondary ink, its path (each parent in the secondary ink, a 14px chevron between), then its title at 600 (an ID in Geist Mono 13px at 500), then the actions at the right (icon buttons, the item's status while its panel is not shown, the panel toggle). In a narrow header the path is cut first.
+- **Header:** 44px (`h-11`), 16px gutter at the left and 12px at the right: the page's 16px icon in the secondary ink, its path (each parent in the secondary ink, a 14px chevron between), then its title at 600 (an ID in Geist Mono `text-xs` at 500), then the actions at the right (icon buttons, the item's status while its panel is not shown, the panel toggle). In a narrow header the path is cut first.
 - **View tabs:** a 40px row under the header (`h-10`, `px-4`, a hairline under it): pill tabs 26px tall, 12px across, 8px apart, the chosen one on the blue tint in the ink; a dot marks a view with unsaved edits.
-- **Docked panel:** from 1280px an item page's panel docks at the right, 420px by default, resizable from 320 to 640px by its edge (a 1px hairline that tints blue at 60% on hover and full blue while dragged or focused), its width in pixels and its hidden state kept per browser. Below 1280px it opens over the page as a sheet `min(420px, 90vw)` wide, its close button in a 44px strip level with the header. Its content is `PropertyCards`: cards stacked 12px apart on a 12px inset, scrolling together.
-- **Lists** (Now, a project's and a group's page, the archive, All projects, Workflows, Prompts): a filter bar under the header (`px-4 py-2`, a hairline under it: the 28px search field, 208px wide from 640px, the filter chips, Filter and Clear, and while narrowed `N of M` at the right), then the list on the panel's whole width. A 32px column head sticks at the top; section bands stick under it (`top-8`). Rows are 40px; their cells (an age, a date, progress, a count) are 14px in the secondary ink. The fixed columns at a row's right are 80px for progress, 48px for an age, 96px for a date or a count, 128px for the project (192px from 1280px, hidden below 768px) and 80px for actions. A row's name stops at 60 characters from 1024px. On Workflows and Prompts the columns of the data grid resize by their header's edge (an 8px tick at rest, the full line in blue on hover), capped at 80rem plus the gutters; Model and Applies to hide below 1024px. Every list ends with 32px of room (`ListFoot`), which holds a sectioned list's Alt-click hint.
+- **Docked panel:** from 1280px an item page's panel docks at the right, 26.25rem (420px at the 16px root) by default, resizable from 20 to 40rem (320 to 640px) by its edge (a 1px hairline that tints blue at 60% on hover and full blue while dragged or focused), its width in pixels and its hidden state kept per browser. Below 1280px it opens over the page as a sheet `min(26.25rem, 90vw)` wide, its close button in a 44px strip level with the header. Its content is `PropertyCards`: cards stacked 12px apart on a 12px inset, scrolling together.
+- **Lists** (Now, a project's and a group's page, the archive, All projects, Workflows, Prompts): a filter bar under the header (`px-4 py-2`, a hairline under it: the 28px search field, 208px wide from 640px, the filter chips, Filter and Clear, and while narrowed `N of M` at the right), then the list on the panel's whole width. A 32px column head sticks at the top; section bands stick under it (`top-8`). Rows are 40px; their cells (an age, a date, progress, a count) are 14px in the secondary ink. The fixed columns at a row's right are 80px for progress, 48px for an age, 96px for a date or a count, 128px for the project (192px from 1280px, hidden below 1024px, so a row's name has the room at 768px) and 80px for actions. A row's name stops at 60 characters from 1024px. On Workflows and Prompts the columns of the data grid resize by their header's edge (an 8px tick at rest, the full line in blue on hover), capped at 80rem plus the gutters; Model and Applies to hide below 1024px. Every list ends with 32px of room (`ListFoot`), which holds a sectioned list's Alt-click hint.
 - **Item pages** (a change, a workflow, a prompt): header, view tabs, the page's notices (full-width strips with a hairline under each), the item's title (`ItemHeading`: 32px under the tabs, 16px over the view, in the prose measure, never scrolling; a hairline closes it off once the view under it is scrolled), then the view, then a 28px footer (`h-7`, a hairline above, `text-xs` secondary ink: the file's name in mono, its details after a `·`, the save state at the right).
-- **Reading column:** one 16px gutter for everything (`DOC_COLUMN` `px-4`, the editor's `.cm-content` 1rem, the canvas's side margin 16px), so header, tabs, title, document and canvas share one left edge. Prose, code blocks and tables keep one measure, `--read-width` (36rem, 576px, about 70 characters), on the column's left edge; a table no wider than its columns scrolls in its own box past the measure. `--read-wide` (64rem) is defined and no list uses it today. The editor pads 24px above and 64px under the document.
-- **Workflow canvas:** under the item title and a 40px toolbar strip (`h-10`, hairlines above and below: Undo and Redo at the left; zoom out, the zoom in a 48px tabular output, zoom in, a separator and Fit at the right). Cards are one 360 × 56px column, 40px apart, joined by 1px lines with a round 20px "+" centred on each and under the last card; an on-fail card (232px wide) stands 112px right of its step, level with it. The drawing opens at 100% with its top 24px under the canvas's top and 16px side margins; Fit scales down in 10% steps to fit between 24px top and bottom and 16px sides; zoom runs 50 to 200%. The minimap (160 × 100px, 16px from the corner) shows at the bottom right only while the drawing overflows the view and the room right of the drawing holds it.
+- **Reading column:** one 16px gutter for everything (`DOC_COLUMN` `px-4`, the editor's `.cm-content` 1rem, the canvas's side margin 16px), so header, tabs, title, document and canvas share one left edge. Prose, code blocks and tables keep one measure, `--read-width` (36rem, 576px at the 16px root, about 65 characters of the 17px body), on the column's left edge; a table no wider than its columns scrolls in its own box past the measure. `--read-wide` (64rem) is defined and no list uses it today. The editor pads 24px above and 64px under the document.
+- **Workflow canvas:** under the item title and a 40px toolbar strip (`h-10`, hairlines above and below: Undo and Redo at the left; zoom out, the zoom in a 48px tabular output, zoom in, a separator and Fit at the right). Every size and space of the drawing is given at the 16px root and multiplied by the root's scale, so the cards grow with their text. Cards are one 360 × 56px column, 40px apart, joined by 1px lines with a round 20px "+" centred on each and under the last card; an on-fail card (232px wide) stands 112px right of its step, level with it. The drawing opens at 100% with its top 24px under the canvas's top and 16px side margins; Fit scales down in 10% steps to fit between 24px top and bottom and 16px sides; zoom runs 50 to 200%. The minimap (160 × 100px, 16px from the corner) shows at the bottom right only while the drawing overflows the view and the room right of the drawing holds it.
 - **States:** one shape (`StateBlock`): left-aligned on the 16px gutter, an optional 16px icon, a title in the ink at 500, text in the secondary ink at most 60 characters a line, one optional action 8px under it; 24px under what is above it on a whole page, 12px in a list or a pane. A notice is the same shape on its side, with its action at the right.
 
-Breakpoints: 640px (`sm`: the search field's width, the count column), 768px (the sidebar leaves the sheet, the project column shows, fields drop to 14px), 1024px (`lg`: the sidebar opens by default, names stop at 60 characters and ID chips show whole, the files' extra columns show), 1280px (`xl`: the panel docks, the project column widens). The build is approved at 768, 1440 and 1920px; 768 is the least window width it is designed for.
+Breakpoints: 640px (`sm`: the search field's width, the count column), 768px (the sidebar leaves the sheet, fields drop to `text-sm`), 1024px (`lg`: the sidebar opens by default, the project column shows, names stop at 60 characters and ID chips show whole, the files' extra columns show), 1280px (`xl`: the panel docks, the project column widens). The build is approved at 768, 1440 and 1920px; 768 is the least window width it is designed for.
 
 Spacing is Tailwind's 4px scale (`--spacing` 0.25rem): mostly 4, 8, 12 and 16px, then 24 and 32px between blocks. 2px appears only inside controls and between tight marks (sidebar rows 1px apart, `gap-0.5` in the canvas toolbar and a row's actions, a chip value's marks, a canvas card's two lines). 6px is the step menu button's inset on a card and the vendored field label's margin; 10px is the vendored buttons' and fields' side padding. Larger steps are layout heights: 28px (sidebar rows, the footer), 32px (the column head, a list's foot), 36px (a band), 40px (rows, view tabs, card headers, the canvas toolbar), 44px (the header).
 
@@ -651,12 +654,12 @@ Quiet, compact, ink on neutral (shadcn's button, as shipped).
 
 ### Chips and badges
 
-- **ID chip** (`IdChip`): Geist Mono 13px at 400 in the ink, on `--band`, 6px corners, 24px tall, 8px inside. When it does not fit it is cut in the middle (`CutName`), its distinct tail kept, never under 10 characters (or the tail, 3 head characters and the ellipsis); from 1024px it shows whole. One chip for every ID set inline: rows, the panel's Details and Series.
+- **ID chip** (`IdChip`): Geist Mono `text-xs` (14px) at 400 in the ink, on `--band`, 6px corners, 24px tall, 8px inside. When it does not fit it is cut in the middle (`CutName`), its distinct tail kept, never under 10 characters (or the tail, 3 head characters and the ellipsis); from 1024px it shows whole. One chip for every ID set inline: rows, the panel's Details and Series.
 - **Row chip** (`RowChip`): plain `text-xs` in the secondary ink after a name (`series · 7`, `default`), no box.
 - **Project chip:** the project's 12px folder mark in its hue, then its name in `text-xs` ink, cut in the middle, no outline.
 - **Badge:** the ReUI badge, 20px, `text-xs` 500, 4px corners; the dashboard uses `destructive-light` for `N errors` (the Invalid icon, red text on a red tint) and `outline`.
 - **Status pill:** the status icon and its label at 500 in the status's text colour, flat; Not started and Archived in the secondary ink.
-- **Small chips** (`Next` on a task, `required` on an input): 16px or 18px tall, a hairline, 4px corners, `text-xs`.
+- **Small chips** (`Next` on a task, `required` on an input, a matrix value): as tall as their `text-xs` line (20px), a hairline, 4px corners, `text-xs`.
 
 ### Lists
 
@@ -669,7 +672,7 @@ Quiet, compact, ink on neutral (shadcn's button, as shipped).
 ### Cards / Containers
 
 - **Property card** (`PropertyCard`): the facts of an item, stacked in the panel. A hairline, 8px corners, `--card`, shadow xs; a 40px header on `--band` at 50% (title at 600, its count in the secondary ink, an action at the right), then its rows on a 12px gutter, each above a rule (a hairline over key/value rows and free text, the lighter `--rule` over list rows): key/value rows with a 100px key column in the secondary ink, free text at most 62 characters a line, or rows that open something (the whole row, hover fill, inset ring). Cards: the status and progress, Tasks, Details, Series, a prompt's Inputs, Used by, Problems.
-- **Workflow card:** 360 × 56px (on-fail 232px), `--card`, a hairline, 8px corners, shadow sm. At its left a 28px tile with 6px corners tinted by its kind's hue, holding the step's number in Geist Mono `text-xs` 600 (or the card's icon); then the title in the ink on an 18px line and, under it, the step's name in mono `text-xs` with its `N errors` badge, and its meta (`agents · opus`, `matrix · 5`) at the right in `text-xs`. Hover fills with the accent; selected is a blue border with a 3px blue halo at 15%; errors give a red border; an on-fail card has a dashed border in the secondary ink at 50%.
+- **Workflow card:** 360 × 56px at the 16px root (on-fail 232px), growing with the root, `--card`, a hairline, 8px corners, shadow sm. At its left a 28px tile with 6px corners tinted by its kind's hue, holding the step's number in Geist Mono `text-xs` 600 (or the card's icon); then the title in the ink on its `text-sm` line (22px) and, under it, on a line as tall, the step's name in mono `text-xs` with its `N errors` badge, and its meta (`agents · opus`, `matrix · 5`) at the right in `text-xs`. Hover fills with the accent; selected is a blue border with a 3px blue halo at 15%; errors give a red border; an on-fail card has a dashed border in the secondary ink at 50%.
 - **Add-step placeholder:** the card's size, a dashed blue outline, `--card` at 60%, a 14px plus.
 
 ### Workflow canvas
@@ -688,19 +691,19 @@ Built on React Flow (`@xyflow/react`), its base styles in their own CSS layer.
 - **Inline code:** the mono step in the text's colour on `--doc-code-tint`, 4px corners, `0 2px` padding, its tint repeated on each line it wraps to (`box-decoration-break: clone`); code of at most 32 characters (backticks included) never wraps.
 - **Code block:** on `--code-surface`, 8px corners, 16px top and bottom, 20px sides, 13/20 mono; its lines wrap with a 2ch hanging indent; its fence lines stay in the secondary ink, the language at the right of the first.
 - **Table:** ruled like a chart: no box and no vertical rule, a hairline under the header row (600), a light rule between rows, cells `0.5rem 0.75rem`, aligned to the top, at most the reading measure (wider ones scroll in their own box).
-- **Quote:** a 1px `--border` rule at its left, 16px in, the secondary ink. **Link:** blue, underlined at 40% of the blue, fully on hover. **Task box:** 13px, `accent-color` blue.
+- **Quote:** a 1px `--border` rule at its left, 16px in, the secondary ink. **Link:** blue, underlined at 40% of the blue, fully on hover. **Task box:** 0.8em of its text (13.6px in the 17px body), `accent-color` blue.
 - **Code view** (YAML, a prompt's source, `change.yaml`): Geist Mono 13/20 on the panel; line numbers in the secondary ink in a quiet gutter with no rule (16px in, 2.5rem least), the active line's number in the ink and the active line on the accent at 60%; errors underlined in a wavy red with a 6px red dot in their own gutter; its search panel (⌘F / Ctrl+F) in the interface's controls: 28px fields and buttons, 6px corners, hairlines.
 
 ### Inputs / Fields
 
-- **Style:** 32px, transparent, an `--input` rule, 8px corners, 14px text (16px below 768px), placeholders in the secondary ink. The filter bar's search field is 28px.
+- **Style:** 32px, transparent, an `--input` rule, 8px corners, `text-sm` text (16px below 768px), placeholders in the secondary ink. The filter bar's search field is 28px.
 - **Focus:** a `--ring` border and a 3px ring of `--ring` at 50%. **Error:** a red border and a red ring at 20% (dark 40%).
 - **Checkbox:** 16px, 4px corners, a rule in the secondary ink; checked fills with the ink and shows the check in the panel's colour. Radios and switches fill with the ink when on.
-- **Filter chip** (`Field is value ×`): joined 26px segments with a hairline outline and no fill, 14px: the field, the condition in the secondary ink, the values with their marks, a remove button. The value menu is 256px wide, a search then a checkbox per value with its count in mono `text-xs`, at most 288px tall.
+- **Filter chip** (`Field is value ×`): joined 26px segments with a hairline outline and no fill, `text-sm`: the field, the condition in the secondary ink, the values with their marks, a remove button. The value menu is 256px wide, a search then a checkbox per value with its count in mono `text-xs`, at most 288px tall.
 
 ### Navigation
 
-- **Sidebar rows:** 28px, 14px at 400 in the sidebar's ink, 6px corners, 8px inside; hover on `--sidebar-accent`; the chosen row on the blue tint, at 500 in the ink, its 16px icon blue. A project's row leads with its folder mark in its hue; counts are `text-xs` secondary ink, tabular, on the row's right edge. A red 6px dot before the Workflows or Prompts count marks files with errors.
+- **Sidebar rows:** 28px, `text-sm` at 400 in the sidebar's ink, 6px corners, 8px inside; hover on `--sidebar-accent`; the chosen row on the blue tint, at 500 in the ink, its 16px icon blue. A project's row leads with its folder mark in its hue; counts are `text-xs` secondary ink, tabular, on the row's right edge. A red 6px dot before the Workflows or Prompts count marks files with errors.
 - **Pill tabs** (`ViewTabs`): see Layout. Hover turns a tab's text to the ink; focus is a 2px ring.
 - **Search palette** (⌘K / Ctrl+K): a dialog a fifth of the way down, at most 672px wide, 10px corners, on `--popover`; a 48px input row at 16px with an Esc kbd; groups of 36px items with 6px corners, the chosen one on the ink at 8%; IDs in mono `text-xs`.
 - **Tooltip:** the ink with the panel's colour on it, `text-xs`, 6px corners, `6px 12px`, a 2px-cornered arrow.
@@ -736,7 +739,7 @@ The Tasks card: each task above a light rule, `py-3`, its drag grip and checkbox
 
 - **Don't** colour a primary button, a checked control or the logo blue; they are ink.
 - **Don't** use a project hue as text, a fill behind text or a border, or give it to anything but a project's mark or a step tile.
-- **Don't** add interface sizes beyond 14 and 13px, or document sizes beyond 28, 20, 17 and 16px.
+- **Don't** add interface sizes beyond 15 and 14px, or document sizes beyond 32, 26, 22, 19 and 17px.
 - **Don't** set tabular figures on body text; they space out hyphens in IDs and words.
 - **Don't** hide IDs, actions, the pin or the canvas's "+" behind hover, or cut a title to a hover tooltip.
 - **Don't** number section bands, draw rules between list rows, add zebra stripes or vertical column rules.

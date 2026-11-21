@@ -19,8 +19,14 @@ const HIDDEN_KEY = "theway-panel"
 
 const WIDE = "(min-width: 1280px)"
 
-/** The docked panel's width in pixels: its least, its most and its first. */
+/**
+ * The docked panel's width in pixels at the 16px root: its least, its most and its first. The panel is sized in rem
+ * (`rem`), so it grows with the text it holds as the root grows with the window.
+ */
 export const PANEL_WIDTH = { min: 320, max: 640, default: 420 } as const
+
+/** A width in pixels at the 16px root, as the rem size the panel group takes. */
+export const rem = (pixels: number): string => `${pixels / 16}rem`
 
 const subscribeWide = (onChange: () => void): (() => void) => {
   const query = window.matchMedia(WIDE)
@@ -116,7 +122,7 @@ export function PanelArea() {
       <SheetContent
         side="right"
         // Under the sheet's own side variant, which sets its width and its cap.
-        className="gap-0 bg-background p-0 data-[side=right]:w-[min(420px,90vw)] data-[side=right]:sm:max-w-none"
+        className="gap-0 bg-background p-0 data-[side=right]:w-[min(26.25rem,90vw)] data-[side=right]:sm:max-w-none"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>{name}</SheetTitle>

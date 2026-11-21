@@ -116,45 +116,46 @@
 }
 
 /*
- * The type scale. The interface has two sizes: 14px (`text-sm`, every label, row, field and button) and 13px
- * (`text-xs`, secondary labels, counts, column titles, chips, and the mono of IDs and code). Headings above them are
- * 16px (`text-heading`, a dialog's or a card's title in a reading view) and 22px (`text-title`, an item's title).
- * `text-md` is the 14px copy of multi-line text in the interface (a task, a description), at 20px leading.
+ * The type scale, at the 16px root (it grows with the window, see `html`). The interface has two sizes: 15px (`text-sm`,
+ * every label, row, field and button) and 14px (`text-xs`, secondary labels, counts, column titles, chips, and the mono
+ * of IDs and code). Headings above them are 18px (`text-heading`, a dialog's or a card's title in a reading view) and
+ * 24px (`text-title`, an item's title). `text-md` is the 15px copy of multi-line text in the interface (a task, a
+ * description), at 22px leading.
  */
 @theme {
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08);
   --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16);
   --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.12), 0 16px 40px -8px rgb(0 0 0 / 0.24);
-  --text-xs: 0.8125rem;
-  --text-xs--line-height: 1.125rem;
-  --text-sm: 0.875rem;
-  --text-sm--line-height: 1.25rem;
-  --text-md: 0.875rem;
-  --text-md--line-height: 1.25rem;
-  --text-heading: 1rem;
-  --text-heading--line-height: 1.375rem;
-  --text-title: 1.375rem;
-  --text-title--line-height: 1.75rem;
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.375rem;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.5rem;
+  --text-title--line-height: 2rem;
 }
 
 /*
- * A document read or edited: its page's title (`text-doc-title`, `ItemHeading`) 28/34, then body 16/23 (144%), h1
- * 20/28, h2 17/24, h3 16/23 at 600, so a document's own headings never outrank the title above it. Static: the live
- * editor's theme reads the heading sizes from script, where Tailwind does not see them, so every variable is always
- * emitted.
+ * A document read or edited: its page's title (`text-doc-title`, `ItemHeading`) 32/40, then body 17/24 (141%), h1
+ * 26/32, h2 22/28, h3 19/26 at 600, each step clearly over the one under it and none over the title above them.
+ * Static: the live editor's theme reads the heading sizes from script, where Tailwind does not see them, so every
+ * variable is always emitted.
  */
 @theme static {
-  --text-doc-title: 1.75rem;
-  --text-doc-title--line-height: 2.125rem;
-  --text-doc: 1rem;
-  --text-doc--line-height: 1.4375rem;
-  --text-doc-h1: 1.25rem;
-  --text-doc-h1--line-height: 1.75rem;
-  --text-doc-h2: 1.0625rem;
-  --text-doc-h2--line-height: 1.5rem;
-  --text-doc-h3: 1rem;
-  --text-doc-h3--line-height: 1.4375rem;
+  --text-doc-title: 2rem;
+  --text-doc-title--line-height: 2.5rem;
+  --text-doc: 1.0625rem;
+  --text-doc--line-height: 1.5rem;
+  --text-doc-h1: 1.625rem;
+  --text-doc-h1--line-height: 2rem;
+  --text-doc-h2: 1.375rem;
+  --text-doc-h2--line-height: 1.75rem;
+  --text-doc-h3: 1.1875rem;
+  --text-doc-h3--line-height: 1.625rem;
 }
 
 /* Reduced motion: overlays keep their fade but no longer scale, slide or rotate, and nothing turns or moves. */
@@ -180,8 +181,9 @@
  * AA on the panel, the ground and a band); `--sidebar-foreground` the sidebar's labels, receding under the ink (the
  * active row's label is in the ink); `--border` the hairline; `--rule` the lighter rule between rows; `--band` a
  * section band's tint; `--accent` a hover fill; `--selected` the blue tint of a selected or active item. The blue
- * (`--link`, `--ring`, `--sidebar-primary`) is for selection, the active item and links only; red, amber and green are
- * the statuses' (their `-foreground` step for text, AA on the panel and a band).
+ * (`--primary`, `--link`, `--ring`, `--sidebar-primary`) is the one accent: primary actions, selection, the active
+ * item, links and progress; red, amber and green are the statuses', saturated for marks and tints (their
+ * `-foreground` step for text, AA on the panel, a band and their own tint).
  */
 :root {
   --radius: 0.5rem;
@@ -193,7 +195,7 @@
   --card-foreground: #111214;
   --popover: #ffffff;
   --popover-foreground: #111214;
-  --primary: #18191b;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
   --secondary: #f1f2f4;
   --secondary-foreground: #18191b;
@@ -202,37 +204,37 @@
   --subtle-foreground: #55585e;
   --accent: #f3f4f6;
   --accent-foreground: #18191b;
-  --destructive: #cf2f2f;
+  --destructive: #d92d2d;
   --border: #dcdee2;
   --input: #d4d6da;
-  --ring: #2f6fd0;
-  --link: #2f6fd0;
+  --ring: #2563eb;
+  --link: #2563eb;
   --rule: #eceef0;
   --band: #eff0f3;
-  --selected: rgb(47 111 208 / 0.1);
+  --selected: rgb(37 99 235 / 0.12);
   --track: #dfe1e5;
-  --chart-1: #2f6fd0;
-  --chart-2: #1f8a4c;
-  --chart-3: #a86b00;
-  --chart-4: #cf2f2f;
+  --chart-1: #2563eb;
+  --chart-2: #14964a;
+  --chart-3: #c98300;
+  --chart-4: #d92d2d;
   --chart-5: #55585e;
   --canvas: #f2f3f5;
   --canvas-dot: #cfd2d7;
   --sidebar: #eceef1;
   --sidebar-foreground: #3a3c41;
-  --sidebar-primary: #2f6fd0;
+  --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e0e2e6;
   --sidebar-accent-foreground: #18191b;
   --sidebar-border: #dcdee2;
-  --sidebar-ring: #2f6fd0;
+  --sidebar-ring: #2563eb;
   --destructive-foreground: #c22727;
-  --success: #1f8a4c;
-  --success-foreground: #1a7a43;
-  --info: #2f6fd0;
-  --info-foreground: #2a62b8;
-  --warning: #b07a14;
-  --warning-foreground: #946000;
+  --success: #14964a;
+  --success-foreground: #157a3f;
+  --info: #2563eb;
+  --info-foreground: #2659d6;
+  --warning: #c98300;
+  --warning-foreground: #8f5600;
   --invert: #18191b;
   --invert-foreground: #ffffff;
   /* Project hues (`lib/project-hue.ts`): indigo, violet, pink, teal, cyan, olive, brown. */
@@ -266,8 +268,8 @@
     --card-foreground: #f2f2f0;
     --popover: #1d1e22;
     --popover-foreground: #f2f2f0;
-    --primary: #f2f2f0;
-    --primary-foreground: #151619;
+    --primary: #3370e8;
+    --primary-foreground: #ffffff;
     --secondary: #222327;
     --secondary-foreground: #f2f2f0;
     --muted: #1f2024;
@@ -275,37 +277,37 @@
     --subtle-foreground: #a1a4aa;
     --accent: #1f2024;
     --accent-foreground: #f2f2f0;
-    --destructive: #e5534b;
+    --destructive: #ff5c52;
     --border: #2c2d33;
     --input: #34363c;
-    --ring: #4f8fe6;
-    --link: #4f8fe6;
+    --ring: #5b9bff;
+    --link: #5b9bff;
     --rule: #1f2024;
     --band: #222328;
-    --selected: rgb(79 143 230 / 0.15);
+    --selected: rgb(91 155 255 / 0.18);
     --track: #3a3c42;
-    --chart-1: #4f8fe6;
-    --chart-2: #4caf7d;
-    --chart-3: #d9a441;
-    --chart-4: #e5534b;
+    --chart-1: #5b9bff;
+    --chart-2: #3fcf7f;
+    --chart-3: #f2b42a;
+    --chart-4: #ff5c52;
     --chart-5: #a1a4aa;
     --canvas: #0d0e10;
     --canvas-dot: #2f3137;
     --sidebar: #09090b;
     --sidebar-foreground: #c4c6ca;
-    --sidebar-primary: #4f8fe6;
+    --sidebar-primary: #5b9bff;
     --sidebar-primary-foreground: #09090b;
     --sidebar-accent: #1b1c20;
     --sidebar-accent-foreground: #f2f2f0;
     --sidebar-border: #2c2d33;
-    --sidebar-ring: #4f8fe6;
-    --destructive-foreground: #ef6a62;
-    --success: #4caf7d;
-    --success-foreground: #4caf7d;
-    --info: #4f8fe6;
-    --info-foreground: #6aa0ec;
-    --warning: #d9a441;
-    --warning-foreground: #d9a441;
+    --sidebar-ring: #5b9bff;
+    --destructive-foreground: #ff6b61;
+    --success: #3fcf7f;
+    --success-foreground: #3fcf7f;
+    --info: #5b9bff;
+    --info-foreground: #6aa8ff;
+    --warning: #f2b42a;
+    --warning-foreground: #f2b42a;
     --invert: #f2f2f0;
     --invert-foreground: #151619;
     --project-1: #8a90f0;
@@ -336,8 +338,8 @@
   --card-foreground: #f2f2f0;
   --popover: #1d1e22;
   --popover-foreground: #f2f2f0;
-  --primary: #f2f2f0;
-  --primary-foreground: #151619;
+  --primary: #3370e8;
+  --primary-foreground: #ffffff;
   --secondary: #222327;
   --secondary-foreground: #f2f2f0;
   --muted: #1f2024;
@@ -345,37 +347,37 @@
   --subtle-foreground: #a1a4aa;
   --accent: #1f2024;
   --accent-foreground: #f2f2f0;
-  --destructive: #e5534b;
+  --destructive: #ff5c52;
   --border: #2c2d33;
   --input: #34363c;
-  --ring: #4f8fe6;
-  --link: #4f8fe6;
+  --ring: #5b9bff;
+  --link: #5b9bff;
   --rule: #1f2024;
   --band: #222328;
-  --selected: rgb(79 143 230 / 0.15);
+  --selected: rgb(91 155 255 / 0.18);
   --track: #3a3c42;
-  --chart-1: #4f8fe6;
-  --chart-2: #4caf7d;
-  --chart-3: #d9a441;
-  --chart-4: #e5534b;
+  --chart-1: #5b9bff;
+  --chart-2: #3fcf7f;
+  --chart-3: #f2b42a;
+  --chart-4: #ff5c52;
   --chart-5: #a1a4aa;
   --canvas: #0d0e10;
   --canvas-dot: #2f3137;
   --sidebar: #09090b;
   --sidebar-foreground: #c4c6ca;
-  --sidebar-primary: #4f8fe6;
+  --sidebar-primary: #5b9bff;
   --sidebar-primary-foreground: #09090b;
   --sidebar-accent: #1b1c20;
   --sidebar-accent-foreground: #f2f2f0;
   --sidebar-border: #2c2d33;
-  --sidebar-ring: #4f8fe6;
-  --destructive-foreground: #ef6a62;
-  --success: #4caf7d;
-  --success-foreground: #4caf7d;
-  --info: #4f8fe6;
-  --info-foreground: #6aa0ec;
-  --warning: #d9a441;
-  --warning-foreground: #d9a441;
+  --sidebar-ring: #5b9bff;
+  --destructive-foreground: #ff6b61;
+  --success: #3fcf7f;
+  --success-foreground: #3fcf7f;
+  --info: #5b9bff;
+  --info-foreground: #6aa8ff;
+  --warning: #f2b42a;
+  --warning-foreground: #f2b42a;
   --invert: #f2f2f0;
   --invert-foreground: #151619;
   --project-1: #8a90f0;
@@ -401,6 +403,13 @@
   }
   html {
     @apply font-sans;
+    /*
+     * The root size grows with the window: 16px (the browser's default) up to 1280px wide, 17px at 1920, 18px from 2560,
+     * as a share of the reader's own default so a larger default still scales. Every size and space is in rem, and the
+     * few given in pixels to a script (the canvas's cards, a grid's columns, the docked panel) are multiplied by the
+     * root's scale (`hooks/use-root-scale.ts`).
+     */
+    font-size: clamp(100%, 87.5% + 0.15625vw, 112.5%);
     /*
      * Inter's optical sizes. Tabular figures are set only where numbers line up (counts, progress, ages and dates in a
      * column, a version's time): Inter's tabular hyphen is as wide as a digit, which spaces out IDs and hyphenated words.
@@ -449,8 +458,8 @@
 }
 
 /*
- * The shipped small button and toggle (and the triggers rendered as them) set 12.8px, off the type scale: 14px, as
- * every control. Unlayered, so the rule wins over the shipped utility.
+ * The shipped small button and toggle (and the triggers rendered as them) set 12.8px, off the type scale: `text-sm`
+ * (15px), as every control. Unlayered, so the rule wins over the shipped utility.
  */
 .text-\[0\.8rem\] {
   font-size: var(--text-sm);
@@ -500,7 +509,7 @@
 
 /*
  * React Flow's attribution on the workflow canvas, kept as its docs ask (removing it is for its subscribers): the theme's
- * secondary ink at 12px, on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
+ * secondary ink at `text-xs` (14px), on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
  * fade out over the canvas's last 40px (clear under 24px), so the credit never sits on a card.
  */
 .react-flow__attribution {
@@ -520,10 +529,10 @@
 }
 
 /*
- * Reading a document: one column on the page's left edge (36rem, about 70 characters of 16px Inter a line) for text,
+ * Reading a document: one column on the page's left edge (36rem, about 65 characters of 17px Inter a line) for text,
  * code blocks and tables, and the wider room of the change lists (64rem); the document's text in the ink; inline code
  * on a fainter tint than a code block's, so a path does not outweigh its sentence; code blocks with 8px corners. The interface around a document
- * stays at 14px.
+ * stays at 15px (`text-sm`).
  */
 :root {
   --read-width: 36rem;

@@ -19,19 +19,19 @@ import { ProjectMark } from "@/shell/project-mark"
 export type ListColumn = {
   id: string
   title: string
-  /** Width and visibility classes, the same on the head's title and on every row's cell (`w-32 hidden md:flex`). */
+  /** Width and visibility classes, the same on the head's title and on every row's cell (`w-32 hidden lg:flex`). */
   className: string
   align?: "start" | "end"
 }
 
 /** The widths of the columns the change lists and All projects share. */
 export const COLUMN = {
-  project: "w-32 hidden md:flex xl:w-48",
-  progress: "w-20",
+  project: "w-32 hidden lg:flex xl:w-48",
+  progress: "w-24",
   /** An age (`5m`, `3d`). */
-  updated: "w-12 tabular-nums",
+  updated: "w-16 tabular-nums",
   /** An age or a date (`2026-11-03`), on a list that holds archived changes. */
-  date: "w-24 tabular-nums",
+  date: "w-28 tabular-nums",
   count: "w-24 hidden sm:flex tabular-nums",
   actions: "w-20",
 } as const
@@ -44,7 +44,7 @@ const cell = (column: ListColumn) =>
   )
 
 /**
- * A list's column head: 32px, its titles in 12px secondary ink over a hairline, sticky at the top of the list's scroll
+ * A list's column head: 32px, its titles in `text-xs` (14px) secondary ink over a hairline, sticky at the top of the list's scroll
  * root (the sections' bands stick under it). `name` titles the name column, which starts where rows' names do.
  */
 export function ListHead({ name, columns }: { name: string; columns: readonly ListColumn[] }) {
@@ -191,7 +191,7 @@ export const idChipLeast = (id: string): number =>
 
 /**
  * An ID, the one chip of every ID set inline (a row's, a row led by its ID, the panel's Details and Series): Geist Mono
- * 13px at 400 in the ink, on the band's tint, 6px corners, 24px tall, as every other ID in mono. When it does not fit
+ * `text-xs` (14px) at 400 in the ink, on the band's tint, 6px corners, 24px tall, as every other ID in mono. When it does not fit
  * it is cut in the middle (`CutName`), its distinct tail kept, so `add-agent-runner` and `add-agent-store` still differ
  * when cut; it never shows fewer characters than `idChipLeast`: under 1024px the name beside it gives way first; from
  * 1024px, where a name stops at 60 characters, it shows whole.
@@ -228,7 +228,7 @@ export function IdName({ children }: { children: string }) {
 }
 
 /**
- * A small label after a row's name (`series · 7`, `default`): plain 13px text in the secondary ink. A `wide` label shows
+ * A small label after a row's name (`series · 7`, `default`): plain `text-xs` (14px) text in the secondary ink. A `wide` label shows
  * from 1024px only, leaving its room to the name and the ID below that.
  */
 export function RowChip({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
@@ -239,7 +239,7 @@ export function RowChip({ children, wide = false }: { children: ReactNode; wide?
   )
 }
 
-/** A project in a row's project column: its coloured mark and its name, 13px in the ink, 22px tall, no outline. */
+/** A project in a row's project column: its coloured mark and its name, `text-xs` (14px) in the ink, 22px tall, no outline. */
 export function ProjectChip({ label }: { label: string }) {
   return (
     <span className="inline-flex h-5.5 max-w-full min-w-0 items-center gap-1 text-xs text-foreground">

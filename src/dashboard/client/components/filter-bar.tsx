@@ -183,7 +183,7 @@ function CountedValues({ field, value, onValueChange, commit, autoFocusProps, la
 
 const EDITORS: FilterEditorRegistry = { counted: CountedValues as unknown as AnyFilterEditor }
 
-/** A chip's segment: no surface of its own, the hairline outline only, 26px, 13px. */
+/** A chip's segment: no surface of its own, the hairline outline only, 26px, `text-sm` (15px). */
 const SEGMENT = "h-6.5 bg-transparent text-sm dark:bg-transparent"
 
 /**
