@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/pixelfactoryio/theway/compare/v0.23.1...v0.24.0) (2026-11-21)
+
+
+### Features
+
+* **dashboard:** rebuild every screen with a linear-style layout and type ([#162](https://github.com/pixelfactoryio/theway/issues/162)) ([f8ee7fd](https://github.com/pixelfactoryio/theway/commit/f8ee7fdfcd56553cb48f615fe9929cbadd064943))
+
 ## [0.23.1](https://github.com/pixelfactoryio/theway/compare/v0.23.0...v0.23.1) (2026-11-19)
 
 
