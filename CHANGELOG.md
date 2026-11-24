@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/pixelfactoryio/theway/compare/v0.24.0...v0.25.0) (2026-11-21)
+
+
+### Features
+
+* **dashboard:** keep text sizes on the scale and grow text boxes with the root ([#164](https://github.com/pixelfactoryio/theway/issues/164)) ([d4432c2](https://github.com/pixelfactoryio/theway/commit/d4432c2fc18227f872f27bdb08dcba96ea75ee3d))
+
 ## [0.24.0](https://github.com/pixelfactoryio/theway/compare/v0.23.1...v0.24.0) (2026-11-21)
 
 
