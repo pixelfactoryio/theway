@@ -8,6 +8,9 @@ import { ItemHeading } from "../src/dashboard/client/components/doc-frame"
 import { ListFoot } from "../src/dashboard/client/components/list-grid"
 import { PageUnknown } from "../src/dashboard/client/components/page-states"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
+import { changeCommands, workflowCommand } from "../src/dashboard/client/lib/copy-targets"
+import { SHORTCUTS } from "../src/dashboard/client/shell/keys"
+import { MOD } from "../src/dashboard/client/shell/platform"
 
 const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
 const read = (file: string) => readFileSync(join(client, file), "utf-8")
@@ -128,4 +131,26 @@ test("the document scale: body leading within 120 to 145%, headings under the pa
   const sizes = ["doc-title", "doc-h1", "doc-h2", "doc-h3"].map((l) => rem(`text-${l}`))
   expect(sizes).toEqual([...sizes].sort((a, b) => b - a))
   expect(rem("text-doc-h3") >= rem("text-doc")).toBe(true)
+})
+
+test("a change's header copies its run commands: the default workflow, agents, and archive", () => {
+  expect(changeCommands("add-x")).toEqual([
+    { label: "Run with the default workflow", command: "/theway:workflow add-x" },
+    { label: "Run with agents", command: "/theway:workflow --workflow agents add-x" },
+    { label: "Archive", command: "/theway:archive add-x" },
+  ])
+  // A workflow's command leaves its inputs to the user.
+  expect(workflowCommand("review")).toEqual({
+    label: "Run this workflow",
+    command: "/theway:workflow --workflow review",
+  })
+})
+
+test("the shortcut sheet lists C under Anywhere and the search's copy under Search", () => {
+  const group = (title: string) => SHORTCUTS.find((g) => g.title === title)?.rows ?? []
+  expect(group("Anywhere").find((r) => r.keys.join() === "C")).toEqual({
+    keys: ["C"],
+    action: "Copy the page's ID or name",
+  })
+  expect(group("Search")).toEqual([{ keys: [MOD, "C"], action: "Copy the highlighted entry's ID" }])
 })
