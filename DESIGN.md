@@ -616,7 +616,7 @@ Flat by default: regions are told apart by tone (ground, panel, band, card) and 
 
 - **xs** (`0 1px 2px 0 rgb(0 0 0 / 0.05)`): property cards, the canvas's round "+" buttons.
 - **sm** (`0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08)`): the work area's panel, workflow cards.
-- **md** (`0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16)`): menus, popovers, select lists, the minimap, the code view's tooltips.
+- **md** (`0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16)`): menus, popovers, select lists, toasts, the minimap, the code view's tooltips.
 - **lg** (`0 4px 8px -2px rgb(0 0 0 / 0.12), 0 16px 40px -8px rgb(0 0 0 / 0.24)`): sheets, submenus, and dialogs, which add a 1px ring of the ink at 10% (`0 0 0 1px` of `color-mix(in oklab, var(--foreground) 10%, transparent)`).
 
 Focus is a ring, not a shadow: a 2px `--ring` ring (inset on rows, bands and card rows), a 3px ring of `--ring` at 50% on buttons and fields, and on a workflow card a 2px `--ring` outline 2px off its edge. A selected workflow card adds a 3px ring of `--ring` at 15%.
@@ -652,6 +652,7 @@ Quiet, compact, neutral, the one primary action blue (shadcn's button, as shippe
 - **Ghost:** no fill, muted on hover (dark: muted at 50%); the header's and the rows' icon buttons in the secondary ink.
 - **Destructive:** red text on red at 10% (dark 20%).
 - **Focus:** a `--ring` border and a 3px ring of `--ring` at 50%. A press nudges the button 1px down.
+- **Copy** (`CopyButton`, ReUI's Icon Copy `c-button-42`): a 24px ghost icon button in the secondary ink with a 14px copy icon, which turns to a check for 1.5s after a copy; named and tooltipped "Copy {what}" ("Copy the change ID"), the tooltip "Copied" while the check shows. Always seen, never revealed on hover. The one copy control of the dashboard: after the header's title (outside its path, so the title is cut first), joined in a button group to a 24px "Copy a command" chevron whose menu gives each command's label over the command in mono `text-xs` secondary ink; after Details' ID chip; after a path (`CopyPath`, the path cut from its start); after a step's Uses.
 
 ### Chips and badges
 
@@ -667,6 +668,7 @@ Quiet, compact, neutral, the one primary action blue (shadcn's button, as shippe
 - **Column head** (`ListHead`): 32px, the column titles in `text-xs` secondary ink over a hairline, sticky at the top of the list on the panel.
 - **Section band** (`SectionBand`): a 36px bar with 6px corners on `--band`, on an 8px inset of the panel (8px above, 4px under), sticky under the column head: the status icon, the label at 600, the count in the secondary ink, and a 14px caret at the right that turns while the section is closed. Hover is the accent at 60%; focus a 2px inset ring. Alt-click toggles every group; a `text-xs` hint under the list says so ("⌥-click a band to collapse or expand every group").
 - **Row** (`ListRow`): 40px, one line, 16px gutters, no rule between rows: a 16px margin slot (a series' or a group's 14px chevron), the 14px status icon, the name at 500 in the ink (cut at 60 characters from 1024px), the ID chip and row chips, then the fixed columns in the secondary ink, the last ending on the gutter. The whole row opens it; hover fills it with the accent, keyboard focus adds a 2px inset ring; the current row (in its siblings' list) is on the blue tint. A member of an opened row is indented 24px. Actions (pin, menu), at most two, stay visible at rest.
+- **Row "…" menu:** a 28px ghost icon button in the secondary ink, in the list's last column (`ACTIONS_COLUMN`, 80px, untitled), seen at rest: on change lists and the Series card, Copy ID; a row with no menu (Ready to archive by project) keeps the empty cell, so its cells stay under their titles. The Workflows and Prompts grids end with a 48px actions column (4px, the button, the 16px gutter), not resizable, whose menu copies the name (and a workflow's run command); its button's click never opens the file.
 - **Progress** (`ChangeProgress`): `done/total` in `text-xs` (14px) secondary ink, tabular, then a 14px ring (2px stroke on `--track`) that fills in the blue (`--primary`), green when every task is done, red while invalid.
 - **Status icon** (`StatusMark`): 14px SVG, 1.5px stroke: a grey dashed ring for Not started, an amber ring half filled for In progress, a red disc with a cross for Invalid, a green disc with a check for Ready to archive, the same check on a grey disc for Archived.
 
@@ -711,6 +713,7 @@ Built on React Flow (`@xyflow/react`), its base styles in their own CSS layer.
 - **Search palette** (⌘K / Ctrl+K): a dialog a fifth of the way down, at most 672px wide, 10px corners, on `--popover`; a 48px input row at 16px with an Esc kbd; groups of 36px items with 6px corners, the chosen one on the ink at 8%; IDs in mono `text-xs`.
 - **Tooltip:** the ink with the panel's colour on it, `text-xs`, 6px corners, `6px 12px`, a 2px-cornered arrow.
 - **Kbd:** 20px, `bg-muted`, `text-xs` 500 in the secondary ink, 4px corners.
+- **Toast** (`Toaster`, Base UI's Toast): what a copy says, "Copied {what}" and the value. At the window's bottom right, 16px from both edges, 22rem wide at most; a menu's surface (`--popover`, a `--rule` hairline, 8px corners, shadow md, 12px by 16px inside); a 16px check in the secondary ink, the title in `text-sm` at 500, the value under it in Geist Mono `text-xs` secondary ink, one line cut with an ellipsis. It stays 2s; at most three show, 8px apart, the newest at the bottom.
 
 ### Task row
 
@@ -722,6 +725,7 @@ The Tasks card: each task above a light rule, `py-3`, its drag grip and checkbox
 - Overlays: fade and zoom from `tw-animate-css`, 100ms for dialogs, menus and popovers, 150ms for a sheet's dim. The sidebar folds and opens at once, with no width animation, so the work area never reflows frame by frame.
 - A load shows nothing for 400ms, then a turning ring (`motion-safe:animate-spin`). Skeleton cells pulse.
 - The canvas's fit, zoom and pan move at once, with no animation.
+- A toast fades in and rises 8px over 150ms, and leaves the same way; at once under reduced motion.
 - Reduced motion: transitions are limited to opacity and colours, and overlays no longer scale, slide or rotate.
 
 ## Do's and Don'ts
