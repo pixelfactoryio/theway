@@ -64,23 +64,28 @@ export function ErrorsBadge({ count }: { count: number }) {
 }
 
 /**
- * A status as the panel header shows it: a pill tinted in its colour (`-light` badge), its mark in the colour, its
- * label in the colour's text step (AA on the tint, light and dark); a status without colour on the band. `label`
+ * A status as the panel header shows it, flat: its mark in the colour and its label at 500 in the colour's text step
+ * (AA on the card, light and dark), no tint and no outline; a status without colour in the secondary ink. `label`
  * replaces the status's own, as a file's Valid or `N errors`.
  */
 export function StatusPill({ status, label }: { status: Status; label?: string }) {
   return (
-    <Badge variant={PILL[status]} size="xl" className="text-xs tabular-nums">
+    <span
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-2 text-xs font-medium whitespace-nowrap tabular-nums",
+        PILL[status],
+      )}
+    >
       <StatusMark status={status} />
       {label ?? STATUS_LABEL[status]}
-    </Badge>
+    </span>
   )
 }
 
 const PILL = {
-  "in-progress": "warning-light",
-  ready: "success-light",
-  invalid: "destructive-light",
-  "not-started": "secondary",
-  archived: "secondary",
+  "in-progress": "text-warning-foreground dark:text-warning",
+  ready: "text-success-foreground dark:text-success",
+  invalid: "text-destructive-foreground dark:text-destructive",
+  "not-started": "text-muted-foreground",
+  archived: "text-muted-foreground",
 } as const satisfies Record<Status, string>

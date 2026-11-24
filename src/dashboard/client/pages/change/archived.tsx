@@ -57,14 +57,13 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
           projectKey={projectKey}
           change={data}
           tasks={markdown ? <Tasks change={data} card /> : null}
+          // The description is the page's title: Details names it only when the title does not show it.
           description={
             data.description === null || data.description.trim() === "" ? (
               <span className="text-muted-foreground">–</span>
             ) : ownDescription(data.description, data.id) === null ? (
               <SameAsId />
-            ) : (
-              data.description
-            )
+            ) : null
           }
         />
       }

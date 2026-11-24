@@ -1,7 +1,9 @@
 import type { LucideIcon } from "lucide-react"
-import type { ReactElement, ReactNode } from "react"
+import { type ReactElement, type ReactNode, useState } from "react"
 
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
+import { Button } from "@/components/ui/button"
+import { useClampCut } from "@/components/use-clamp-cut"
 import { ViewTabs } from "@/components/view-tabs"
 import { useWide } from "@/shell/panel"
 import { type Crumb, PageHeader } from "@/shell/top-bar"
@@ -21,23 +23,65 @@ export type FrameTab = { value: string; label: string; href: string; dirty?: boo
 
 /**
  * An item page's title, under its views and above every one of them, so it stands at the same place whichever view is
- * shown: in the reading column, 32px under the views and 16px over the view, at the reading scale's title size (28/34
- * at 600, over a document's 20px h1), whole on as many lines as it takes, then what the page puts under it
- * (the reasons a change cannot be read). An item with no description has no title (`title` `null` or blank): its ID or
- * file name stands once, in the header's path, and only what the page puts under it shows. It never scrolls; the view
- * under it does, and once that view is scrolled (its scroll root `data-scrolled`, `DocTab`), a hairline closes the
- * title off from the text passing under it.
+ * shown: in the reading column, 32px under the views and 16px over the view, at the reading scale's title size (22/28
+ * at 600, which no heading of a document outranks), balanced over its lines and cut at three, with Show more to read
+ * it whole when that cuts it; then what the page puts under it (the reasons a change cannot be read). An item with no
+ * description has no title (`title` `null` or blank): its ID or file name stands once, in the header's path, and only
+ * what the page puts under it shows. With `onEdit` a click on the title edits it, and `field` stands in its place. It never scrolls; the view under it does, and once that view is scrolled (its
+ * scroll root `data-scrolled`, `DocTab`), a hairline closes the title off from the text passing under it.
  */
-export function ItemHeading({ title, children }: { title: string | null; children?: ReactNode }) {
+export function ItemHeading({
+  title,
+  field,
+  onEdit,
+  children,
+}: {
+  title: string | null
+  /** The title's field while it is edited (`MarkdownField`), in its place. */
+  field?: ReactNode
+  /** Edits the title in place: a click on it (or Enter on it). */
+  onEdit?: () => void
+  children?: ReactNode
+}) {
   const shown = title !== null && title.trim() !== "" ? title : null
-  if (shown === null && (children === undefined || children === null || children === false)) return null
+  const [more, setMore] = useState(false)
+  const editing = field !== undefined
+  const [clampRef, cut] = useClampCut(shown !== null && !more && !editing ? shown : null)
+  if (shown === null && !editing && (children === undefined || children === null || children === false)) return null
+  // Joined by hand: the class merger takes `text-doc-title` for a colour and would drop it.
+  const clamp = more ? "" : " line-clamp-3"
   return (
     <div
-      className={`shrink-0 border-b border-transparent ${shown !== null ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
+      className={`shrink-0 border-b border-transparent ${shown !== null || editing ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
     >
       <div className={PROSE_COLUMN}>
-        {shown !== null ? (
-          <h2 className="text-doc-title font-semibold tracking-tight text-pretty text-foreground">{shown}</h2>
+        {editing ? (
+          field
+        ) : shown !== null && onEdit !== undefined ? (
+          <h2 className="text-doc-title font-semibold tracking-tight text-balance text-foreground">
+            <button
+              ref={clampRef}
+              type="button"
+              aria-label={`${shown}. Edit the description`}
+              onClick={onEdit}
+              // Clamped, it is the clamp's box; whole, a block: either way it spans the column.
+              className={`w-full cursor-text rounded-sm text-left outline-none transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring${more ? " block" : clamp}`}
+            >
+              {shown}
+            </button>
+          </h2>
+        ) : shown !== null ? (
+          <h2
+            ref={clampRef}
+            className={`text-doc-title font-semibold tracking-tight text-balance text-foreground${clamp}`}
+          >
+            {shown}
+          </h2>
+        ) : null}
+        {!editing && shown !== null && (more || cut) ? (
+          <Button variant="link" size="xs" onClick={() => setMore(!more)} className="mt-1 h-auto px-0 text-link">
+            {more ? "Show less" : "Show more"}
+          </Button>
         ) : null}
         {children}
       </div>

@@ -118,6 +118,33 @@ export function useTaskFields({
   /** The field open now, for the event handlers. */
   const currentField = (): OpenField | null => live.current.field
 
+  /**
+   * Writes the open field's new text to the draft at once, as a document's text is: a refused text (an empty task, an
+   * empty description) shows its refusal and leaves the draft as it was; the first text of a new task adds it, and the
+   * field goes on as that task's own (its editor moves into the new row).
+   */
+  const writeField = (next: OpenField): void => {
+    const ids = live.current.ids
+    const r = fieldEdit(next, ids, false, newId)
+    if (r.kind === "error") {
+      setField(r.field)
+      return
+    }
+    if (r.kind === "close") {
+      // An add still empty stays open; a field whose row is gone closes.
+      setField(next.kind === "add" ? next : null)
+      return
+    }
+    const nextIds = r.nextIds
+    if (!runEdit(r.edit, nextIds === undefined ? undefined : () => nextIds)) {
+      setField(next)
+      return
+    }
+    const created = nextIds?.find((id) => !ids.includes(id))
+    if (created !== undefined) setField({ kind: "task", id: created, value: next.value, error: null })
+    else setField(next.kind === "add" ? next : { ...next, error: null })
+  }
+
   const actions: TaskListActions = {
     toggle: (index, done) => void runEdit({ kind: "done", index, done }),
     move: (from, to) => void runEdit({ kind: "move", from, to }, (list) => arrayMove(list, from, to)),
@@ -127,9 +154,8 @@ export function useTaskFields({
       }
     },
     open: openField,
-    change: setField,
-    apply: () => (field === null ? true : applyField(field, true)),
-    cancel: () => setField(null),
+    change: writeField,
+    close: () => setField(null),
   }
 
   const descriptionEdit: DescriptionEdit | null =
@@ -137,10 +163,17 @@ export function useTaskFields({
       ? null
       : {
           field: field?.kind === "description" ? field : null,
-          open: () => void openField({ kind: "description", value: description ?? "", error: null }),
-          change: (value) => setField({ kind: "description", value, error: null }),
-          apply: () => void (field !== null && applyField(field, true)),
-          cancel: () => setField(null),
+          open: (place) => void openField({ kind: "description", value: description ?? "", error: null, place }),
+          change: (value) => {
+            const f = live.current.field
+            writeField({
+              kind: "description",
+              value,
+              error: null,
+              place: f?.kind === "description" ? f.place : undefined,
+            })
+          },
+          close: () => setField(null),
         }
 
   return {

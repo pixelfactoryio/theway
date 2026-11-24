@@ -134,7 +134,7 @@ test("the groups are Changes, Workflows, Prompts, Projects with their hrefs; eac
       href: "/prompts/projects/-k/local?",
     },
   ])
-  // Projects by label, each with its path in mono.
+  // Projects by label, each with its path in mono and its count to do once its change list is loaded.
   expect(groups[3]?.entries).toEqual([
     {
       value: "project:-k",
@@ -142,10 +142,10 @@ test("the groups are Changes, Workflows, Prompts, Projects with their hrefs; eac
       name: "kt",
       mono: false,
       id: "/home/dev/kt",
-      detail: "2 active",
+      detail: "2 open",
       href: "/-k?",
     },
-    { value: "project:-z", kind: "project", name: "web", mono: false, id: null, detail: "3 active", href: "/-z?" },
+    { value: "project:-z", kind: "project", name: "web", mono: false, id: null, detail: "", href: "/-z?" },
   ])
 })
 

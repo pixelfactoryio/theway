@@ -54,7 +54,12 @@ export function NowPage() {
   const archiveAll = archivesOf(lists, keys)
   const archiveSearched = archivesMatching(archiveAll, filter.q)
   const archived = withArchive ? archiveSearched.filter((r) => passesAll(r, filter.rules, archivedValues)) : []
-  const columns = changeColumns({ project: true, progress, dates: archived.length > 0 })
+  const columns = changeColumns({
+    project: true,
+    progress,
+    dates: archived.length > 0,
+    archivedOnly: kept.length === 0 && archived.length > 0,
+  })
   const fields = [
     projectField(
       list.filter((p) => p.active > 0 || (withArchive && (lists.get(p.key)?.archived.length ?? 0) > 0)),

@@ -140,22 +140,22 @@
 }
 
 /*
- * A document read or edited: its page's title (`text-doc-title`, `ItemHeading`) 32/40, then body 17/24 (141%), h1
- * 26/32, h2 22/28, h3 19/26 at 600, each step clearly over the one under it and none over the title above them.
+ * A document read or edited: its page's title (`text-doc-title`, `ItemHeading`) 22/28, two steps over the body; then
+ * body 17/24 (141%), h1 22/28, h2 19/26, h3 17/24 at 600, each step over the one under it and none over the title.
  * Static: the live editor's theme reads the heading sizes from script, where Tailwind does not see them, so every
  * variable is always emitted.
  */
 @theme static {
-  --text-doc-title: 2rem;
-  --text-doc-title--line-height: 2.5rem;
+  --text-doc-title: 1.375rem;
+  --text-doc-title--line-height: 1.75rem;
   --text-doc: 1.0625rem;
   --text-doc--line-height: 1.5rem;
-  --text-doc-h1: 1.625rem;
-  --text-doc-h1--line-height: 2rem;
-  --text-doc-h2: 1.375rem;
-  --text-doc-h2--line-height: 1.75rem;
-  --text-doc-h3: 1.1875rem;
-  --text-doc-h3--line-height: 1.625rem;
+  --text-doc-h1: 1.375rem;
+  --text-doc-h1--line-height: 1.75rem;
+  --text-doc-h2: 1.1875rem;
+  --text-doc-h2--line-height: 1.625rem;
+  --text-doc-h3: 1.0625rem;
+  --text-doc-h3--line-height: 1.5rem;
 }
 
 /* Reduced motion: overlays keep their fade but no longer scale, slide or rotate, and nothing turns or moves. */

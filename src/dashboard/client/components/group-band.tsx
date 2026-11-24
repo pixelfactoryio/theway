@@ -77,12 +77,12 @@ export function SectionBand({
   )
 }
 
-/** The hint under a sectioned list, in its `ListFoot`: Alt and a click on a band toggles every section. */
+/** The hint under a sectioned list, in its `ListFoot`: Alt and a click on a band toggles every group. */
 export function CollapseHint() {
   return (
     <p className="px-4 pt-4 text-xs text-muted-foreground">
       <Shortcut keys={[ALT]} />
-      -click a band to collapse or expand every section
+      -click a band to collapse or expand every group
     </p>
   )
 }

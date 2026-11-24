@@ -49,21 +49,27 @@ import { ReorderMenu } from "@/components/reorder-menu"
 import { AddButton, Card, CardChip, CardName, kindOf, Placeholder } from "@/components/workflow-card"
 import type { DraftStore } from "@/drafts/draft-store"
 import { useRootScale } from "@/hooks/use-root-scale"
-import { type Drawing, sameSelection, type Selection } from "@/lib/workflow"
+import { type Drawing, type OnFailCard, sameSelection, type Selection, type StepCard } from "@/lib/workflow"
 import {
   addCentre,
   type Bounds,
+  CARD,
   fitView,
   layoutDrawing,
   type LayoutEdge,
   type LayoutNode,
   MINIMAP,
   minimapClears,
+  ON_FAIL_WIDTH,
+  onFailId,
   openView,
   overflows,
   percent,
   revealDelta,
+  stepId,
+  titleWidth,
   type View,
+  wrappedLines,
   zoomStep,
 } from "@/lib/workflow-layout"
 import { MOD, modKey } from "@/shell/platform"
@@ -155,6 +161,46 @@ function InputsNode() {
   )
 }
 
+/** A step card's title: what its prompt does, its name when it says nothing, "Invalid step" for an invalid one. */
+const stepTitle = (step: StepCard): string => (step.valid ? (step.description ?? step.name) : "Invalid step")
+
+/** An on-fail card's title: what its prompt does, else its name. */
+const onFailTitle = (card: OnFailCard): string => card.description ?? card.name
+
+/**
+ * A text's width in pixels at a card title's font (`text-sm`, 15px at the 16px root, at 400 in the interface's face),
+ * at the root's `scale`; measured again once the fonts have loaded. `null` without a 2D canvas.
+ */
+function useTitleMeasure(scale: number): ((text: string) => number) | null {
+  const [fonts, setFonts] = useState(0)
+  useEffect(() => {
+    let live = true
+    const loaded = () => {
+      if (live) setFonts((n) => n + 1)
+    }
+    void document.fonts.ready.then(loaded)
+    document.fonts.addEventListener("loadingdone", loaded)
+    return () => {
+      live = false
+      document.fonts.removeEventListener("loadingdone", loaded)
+    }
+  }, [])
+  return useMemo(() => {
+    void fonts
+    const context = document.createElement("canvas").getContext("2d")
+    if (context === null) return null
+    context.font = `400 ${15 * scale}px ${getComputedStyle(document.body).fontFamily}`
+    const widths = new Map<string, number>()
+    return (text: string) => {
+      const known = widths.get(text)
+      if (known !== undefined) return known
+      const width = context.measureText(text).width
+      widths.set(text, width)
+      return width
+    }
+  }, [scale, fonts])
+}
+
 /** A step's card: its number, what its prompt does, its name and where it runs; its menu when the canvas edits. */
 function StepNode({ data }: NodeProps<FlowNode>) {
   const { drawing, selection, onSelect, edits } = useCanvas()
@@ -170,7 +216,7 @@ function StepNode({ data }: NodeProps<FlowNode>) {
         label={`Step ${index + 1}: ${step.name}`}
         kind={kindOf(step.badge)}
         number={index + 1}
-        title={step.valid ? (step.description ?? step.name) : "Invalid step"}
+        title={stepTitle(step)}
         name={<CardName>{step.name}</CardName>}
         meta={metaOf(step.badge, step.matrix)}
         errors={step.errors.length}
@@ -229,7 +275,7 @@ function OnFailNode({ data }: NodeProps<FlowNode>) {
         label={`On fail of step ${index + 1}: ${card.name}`}
         kind="on-fail"
         number={<WrenchIcon />}
-        title={card.description ?? card.name}
+        title={onFailTitle(card)}
         name={<CardName>{card.name}</CardName>}
         meta={card.badge}
         errors={card.errors.length}
@@ -379,7 +425,10 @@ const flowEdges = (edges: LayoutEdge[]): FlowEdge[] =>
     type: e.kind,
     data: { layout: e },
     // A line between two cards says nothing the cards' order does not, and React Flow names it by its internal ids:
-    // out of the accessibility tree. Its "+" and its pill are drawn outside it.
+    // out of the accessibility tree, with no name and no role. React Flow reads a `null` name as none (its type says
+    // string). Its "+" and its pill are drawn outside it.
+    ariaLabel: null as unknown as string,
+    ariaRole: "presentation",
     domAttributes: { "aria-hidden": true },
   }))
 
@@ -438,9 +487,25 @@ function Flow({
   const editable = edits !== null
   // The cards hold text in rem: their sizes follow the root's, which grows with the window.
   const scale = useRootScale()
+  // Each card is as high as its title, which wraps whole: the lines of each, in its room less its 1px borders.
+  const measure = useTitleMeasure(scale)
+  const lines = useMemo(() => {
+    if (measure === null) return undefined
+    const counts = new Map<string, number>()
+    for (const step of drawing.steps) {
+      const room = titleWidth(CARD.width, editable) * scale - 2
+      counts.set(stepId(step.index), wrappedLines(stepTitle(step), room, measure))
+      if (step.onFail !== null)
+        counts.set(
+          onFailId(step.index),
+          wrappedLines(onFailTitle(step.onFail), titleWidth(ON_FAIL_WIDTH, false) * scale - 2, measure),
+        )
+    }
+    return (id: string) => counts.get(id) ?? 1
+  }, [drawing, editable, scale, measure])
   const layout = useMemo(
-    () => layoutDrawing(drawing, placeholder, editable, scale),
-    [drawing, placeholder, editable, scale],
+    () => layoutDrawing(drawing, placeholder, editable, scale, lines),
+    [drawing, placeholder, editable, scale, lines],
   )
   const nodes = useMemo(() => flowNodes(layout.nodes), [layout])
   const edges = useMemo(() => flowEdges(layout.edges), [layout])

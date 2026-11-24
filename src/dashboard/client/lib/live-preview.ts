@@ -502,6 +502,26 @@ export function codeBlocks(doc: Text, tree: Tree, active: ReadonlySet<number>): 
 /** A heading of a document's outline: its level (1 to 3), its text without its marks, and its line (from 1). */
 export type OutlineEntry = { level: 1 | 2 | 3; text: string; line: number }
 
+/**
+ * A prompt's header, YAML between a first line `---` and the next line `---`: the span from the document's start to
+ * the end of that closing line, shown as its source; `null` when the document does not open with one.
+ */
+export function frontMatter(doc: Text): Span | null {
+  if (
+    doc.lines < 2 ||
+    doc
+      .line(1)
+      .text.replace(/^\uFEFF/, "")
+      .trimEnd() !== "---"
+  )
+    return null
+  for (let n = 2; n <= doc.lines; n++) {
+    const line = doc.line(n)
+    if (line.text.trimEnd() === "---") return { from: 0, to: line.to }
+  }
+  return null
+}
+
 /** A heading's inline marks left out of its outline entry: emphasis, code spans and link brackets. */
 const MARKS = /[*_`]|\[|\]\([^)]*\)/g
 
@@ -511,6 +531,7 @@ const MARKS = /[*_`]|\[|\]\([^)]*\)/g
  */
 export function outlineOf(doc: Text, tree: Tree, title: string | null): OutlineEntry[] {
   const hidden = titleLine(doc, title)
+  const header = frontMatter(doc)
   const entries: OutlineEntry[] = []
   tree.iterate({
     enter: (ref) => {
@@ -520,6 +541,7 @@ export function outlineOf(doc: Text, tree: Tree, title: string | null): OutlineE
       if (level === undefined) return undefined
       const line = doc.lineAt(ref.from)
       if (hidden !== null && line.from === hidden.from) return false
+      if (header !== null && line.from <= header.to) return false
       let text = doc.sliceString(ref.from, line.to)
       text = ref.name.startsWith("ATX") ? text.replace(/^ {0,3}#+[ \t]*/, "").replace(/[ \t]+#+[ \t]*$/, "") : text
       text = text.replace(MARKS, "").trim()

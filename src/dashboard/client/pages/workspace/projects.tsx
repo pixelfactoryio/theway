@@ -7,6 +7,7 @@ import {
   MoreHorizontalIcon,
   PlusIcon,
   StarIcon,
+  XIcon,
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useMemo, useState } from "react"
 import { useLocation } from "wouter"
@@ -32,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollBody, useProjectsGate } from "@/components/workspace-rows"
 import { DIALOG_TITLE } from "@/components/ui-classes"
-import { useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
+import { type DashboardSettings, useChangeLists, useLabel, useSettings, useWrites } from "@/data/queries"
 import { isNarrowed, NO_FILTER, NONE, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import {
@@ -45,6 +46,7 @@ import {
   PROJECT_FIELDS,
   projectTree,
   projectValues,
+  regrouped,
   renamed,
   suggestions,
   togglePin,
@@ -54,6 +56,7 @@ import {
   withProjectIn,
 } from "@/lib/workspace"
 import { ProjectMark } from "@/shell/project-mark"
+import { StateNotice } from "@/shell/state"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /** A dialog asking for a group's name: `initial` filled in; `onName` with the trimmed name. */
@@ -137,9 +140,16 @@ export function ProjectsPage() {
   const [, navigate] = useLocation()
   const [naming, setNaming] = useState<Naming>(null)
   const [error, setError] = useState<string | null>(null)
+  /** The group last ungrouped, with the settings before it, for Undo; dropped by any other save. */
+  const [ungroupNote, setUngroupNote] = useState<{ id: string; name: string; before: DashboardSettings } | null>(null)
   const save = (f: Parameters<typeof edit>[0]) => {
     setError(null)
+    setUngroupNote(null)
     edit(f).catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+  }
+  const ungroup = (id: string, name: string) => {
+    save((s) => ungrouped(s, id))
+    setUngroupNote({ id, name, before: settings })
   }
   const label = useLabel()
   const valuesOf = (key: string, field: string) => projectValues(settings, key, field)
@@ -203,9 +213,7 @@ export function ProjectsPage() {
             >
               Rename group…
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => save((s) => ungrouped(s, e.id.slice("group:".length)))}>
-              Ungroup
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => ungroup(e.id.slice("group:".length), e.label)}>Ungroup</DropdownMenuItem>
           </>
         ) : (
           <>
@@ -287,6 +295,30 @@ export function ProjectsPage() {
           noun="project"
         />
         {error !== null ? <EmptyNote tone="error">Could not save: {error}</EmptyNote> : null}
+        {ungroupNote !== null ? (
+          <StateNotice
+            tone="info"
+            icon={<FoldersIcon aria-hidden="true" />}
+            title={`Group ${ungroupNote.name} ungrouped`}
+            action={
+              <>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    const { id, before } = ungroupNote
+                    save((s) => regrouped(s, before, id))
+                  }}
+                >
+                  Undo
+                </Button>
+                <Button variant="ghost" size="icon-xs" aria-label="Dismiss" onClick={() => setUngroupNote(null)}>
+                  <XIcon aria-hidden="true" />
+                </Button>
+              </>
+            }
+          />
+        ) : null}
         {suggested.map((s) => (
           <div key={s.key} role="note" className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
             <FoldersIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />

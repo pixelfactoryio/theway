@@ -6,7 +6,7 @@ import { Dash } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown-view"
 import { UsedByCard } from "@/components/fact-cards"
 import { PropertyCard, PropertyList, PropertyRow } from "@/components/property-card"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { useFile, useLabel } from "@/data/queries"
 import { promptReading, type PromptRow, quoted } from "@/lib/files"
 import { to } from "@/lib/routes"
@@ -70,14 +70,12 @@ export function StepPrompt({ row }: { row: PromptRow }) {
             <LockIcon aria-hidden="true" className="size-3" />
             Read-only
           </span>
-          <Button
-            variant="outline"
-            size="xs"
-            nativeButton={false}
-            render={<Link href={to.file("prompts", row.project, row.name)} />}
+          <Link
+            href={to.file("prompts", row.project, row.name)}
+            className={buttonVariants({ variant: "outline", size: "xs" })}
           >
             Open prompt
-          </Button>
+          </Link>
         </>
       }
     >

@@ -26,6 +26,7 @@ import {
   toDo,
   togglePin,
   treeRows,
+  regrouped,
   ungrouped,
   withGroup,
   withoutProject,
@@ -307,4 +308,27 @@ test("a change list draws the progress column only when it lists an open change 
 test("Now shows the load error alone only when no change list could be read", () => {
   // Some lists failed and none came back; none failed; some failed but others came back.
   expect([noneLoaded(1, 0), noneLoaded(0, 0), noneLoaded(1, 2)]).toEqual([true, false, false])
+})
+
+test("undoing an ungroup puts the group back at its place with its pins and recents, its projects not grouped since", () => {
+  const before = settings({
+    groups: [
+      { id: "a", name: "A", projects: ["-a"] },
+      { id: "g", name: "G", projects: ["-x", "-w"] },
+      { id: "z", name: "Z", projects: ["-z"] },
+    ],
+    pinned: ["project:-q", "group:g", "project:-r"],
+    recent: ["group:g"],
+  })
+  const after = withProjectIn(ungrouped(before, "g"), "a", "-w")
+  const back = regrouped(after, before, "g")
+  expect(back.groups.map((g) => [g.id, g.projects])).toEqual([
+    ["a", ["-a", "-w"]],
+    ["g", ["-x"]],
+    ["z", ["-z"]],
+  ])
+  expect(back.pinned).toEqual(["project:-q", "group:g", "project:-r"])
+  expect(back.recent).toEqual(["group:g"])
+  // Once back, a second undo changes nothing.
+  expect(regrouped(back, before, "g")).toBe(back)
 })

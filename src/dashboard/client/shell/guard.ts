@@ -1,7 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react"
-import { navigate as hashNavigate, useHashLocation } from "wouter/use-hash-location"
+import { navigate as hashNavigate } from "wouter/use-hash-location"
 
 import { locationAction, type Moving, positionOf, positionState, pushedPosition, reachedPosition } from "@/lib/location"
+import { linkHref } from "@/lib/routes"
 
 /**
  * The page holding unsaved changes: whether an address path leaves it, whether it has unsaved changes now, and how it
@@ -141,5 +142,5 @@ export function useGuardedLocation(): [string, typeof navigate] {
   return [useSyncExternalStore(subscribe, () => accepted), navigate]
 }
 
-/** Every rendered link's `href` keeps its `#`: wouter's `useHashLocation.hrefs`, which its types leave out. */
-useGuardedLocation.hrefs = (useHashLocation as typeof useHashLocation & { hrefs: (href: string) => string }).hrefs
+/** Every rendered link's `href` is the address its click goes to (`linkHref`), so it opens the same page in a new tab. */
+useGuardedLocation.hrefs = (href: string): string => linkHref(href, location.pathname)

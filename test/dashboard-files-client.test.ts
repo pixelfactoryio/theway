@@ -24,7 +24,10 @@ import {
   findPrompt,
   isDefaultText,
   keyLabel,
+  type Selection,
+  selectionFromSearch,
   selectionOf,
+  selectionSearch,
   stepsRunOn,
 } from "../src/dashboard/client/lib/workflow"
 
@@ -468,18 +471,20 @@ test("a prompt's page is the item frame: its name once in the header, its title 
     "<ProblemsCard",
   ])
     expect([card, page.includes(card)]).toEqual([card, true])
-  // Preview is a document view, as a change's files are.
-  expect(page).toMatch(/<DocTab\b[^]*<MarkdownView\b/)
+  // The prompt is a document view edited where it is read, as a change's files are: no source tab, no Preview.
+  expect(page).toMatch(/<DocTab\b[^]*<LiveMarkdown\b/)
+  expect(page).not.toContain("<CodeTab")
+  expect(page).not.toContain('"preview"')
 })
 
 test("a file's line count is its line breaks, and one more when it does not end with one", () => {
   expect(["", "a", "a\n", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n"].map(lineCount)).toEqual([0, 1, 1, 2, 2, 2, 1])
 })
 
-test("a workflow's YAML, a prompt's source and change.yaml are one code tab, which alone mounts the code view and its footer", () => {
+test("a workflow's YAML and change.yaml are one code tab, which alone mounts the code view and its footer", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx", "pages/change/active.tsx"]) {
+  for (const page of ["pages/workflow/page.tsx", "pages/change/active.tsx"]) {
     expect([page, read(page).includes("<CodeTab")]).toEqual([page, true])
     expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
   }
@@ -504,4 +509,31 @@ test("every item page passes its title once to the shared frame, and History is 
   }
   for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"])
     expect([page, read(page).includes("<HistoryTab")]).toEqual([page, true])
+})
+
+test("a workflow page's selected card is in its address, steps counted from 1, and read back", () => {
+  const cases: [Selection | null, string][] = [
+    [null, ""],
+    [{ kind: "inputs" }, "step=inputs"],
+    [{ kind: "step", index: 0 }, "step=1"],
+    [{ kind: "on-fail", index: 2 }, "step=3-on-fail"],
+  ]
+  for (const [selection, search] of cases) {
+    expect(selectionSearch(selection)).toBe(search)
+    expect(selectionFromSearch(search)).toEqual(selection)
+  }
+  for (const unread of ["step=0", "step=x", "step=1-fail", "other=1"]) expect(selectionFromSearch(unread)).toBeNull()
+})
+
+test("Markdown is edited one way: documents and prompts with LiveMarkdown, every Markdown field with MarkdownField", () => {
+  const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
+  const read = (file: string) => readFileSync(join(client, file), "utf-8")
+  // The shared field is the documents' editor.
+  expect(read("components/markdown-field.tsx")).toContain("<LiveMarkdown")
+  // Tasks, the change's description and the workflow's Markdown values use it; no Apply and Cancel field is left.
+  for (const file of ["components/task-list.tsx", "components/change-header.tsx", "components/workflow-fields.tsx"])
+    expect([file, read(file).includes("<MarkdownField")]).toEqual([file, true])
+  expect(read("components/workflow-panel.tsx").match(/<DraftMarkdown\b/g)?.length).toBe(2)
+  for (const file of ["components/task-list.tsx", "components/change-header.tsx"])
+    expect([file, /\bApply\b|<Textarea|<Input\b/.test(read(file))]).toEqual([file, false])
 })

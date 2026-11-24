@@ -22,6 +22,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { useSidebar } from "@/components/ui/sidebar"
 import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
 import { type SearchEntry, searchGroups } from "@/lib/search"
+import { CutName } from "@/shell/cut-name"
 import { useDialog } from "@/shell/dialogs"
 import { GO_TO } from "@/shell/keys"
 import { usePanelName, usePanelOpen } from "@/shell/panel"
@@ -81,6 +82,20 @@ function PaletteRow({
   )
 }
 
+/**
+ * An entry's detail at the row's right: where it belongs (a project's name, cut in the middle as lists cut it), then
+ * what follows its `·` (`archived 2026-11-03`) whole.
+ */
+function EntryDetail({ detail }: { detail: string }) {
+  const [place = "", ...rest] = detail.split(" · ")
+  return (
+    <span className="flex max-w-48 min-w-0 items-center text-xs whitespace-pre text-muted-foreground">
+      <CutName name={place} />
+      {rest.length > 0 ? <span className="shrink-0">{` · ${rest.join(" · ")}`}</span> : null}
+    </span>
+  )
+}
+
 /** An entry's icon: a change's status, a workflow's, a prompt's or a project's icon as the sidebar draws them. */
 function EntryIcon({ entry }: { entry: SearchEntry }) {
   if (entry.status !== undefined) return <StatusMark status={entry.status} />
@@ -117,7 +132,7 @@ function Results({ close }: { close: () => void }) {
     })),
     {
       value: "action:sidebar",
-      label: "Toggle sidebar",
+      label: "Show or hide the sidebar",
       icon: PanelLeftIcon,
       keys: [MOD, "B"],
       run: sidebar.toggleSidebar,
@@ -126,7 +141,7 @@ function Results({ close }: { close: () => void }) {
       ? [
           {
             value: "action:panel",
-            label: "Toggle panel",
+            label: "Show or hide the panel",
             icon: PanelRightIcon,
             detail: panel,
             run: () => setPanelOpen(!panelOpen),
@@ -184,21 +199,21 @@ function Results({ close }: { close: () => void }) {
                 icon={<EntryIcon entry={entry} />}
                 after={
                   entry.id !== null ? (
-                    // The ID takes the room the name leaves, up to its own width: it gives way first.
-                    <span className="max-w-max min-w-0 grow basis-0 truncate font-mono text-xs text-muted-foreground">
-                      {entry.id}
-                    </span>
+                    // The ID takes the room the name leaves, up to its own width: it gives way first, cut in the
+                    // middle so its tail still tells it apart.
+                    <CutName
+                      name={entry.id}
+                      className="max-w-max grow basis-0 font-mono text-xs text-muted-foreground"
+                    />
                   ) : undefined
                 }
-                right={
-                  entry.detail !== "" ? (
-                    <span className="max-w-48 truncate text-xs text-muted-foreground">{entry.detail}</span>
-                  ) : undefined
-                }
+                right={entry.detail !== "" ? <EntryDetail detail={entry.detail} /> : undefined}
               >
-                <span className={entry.mono ? "min-w-0 truncate font-mono text-xs" : "max-w-4/5 min-w-0 truncate"}>
-                  {entry.name}
-                </span>
+                {entry.mono ? (
+                  <CutName name={entry.name} className="font-mono text-xs" />
+                ) : (
+                  <span className="max-w-4/5 min-w-0 truncate">{entry.name}</span>
+                )}
               </PaletteRow>
             ))}
           </CommandGroup>

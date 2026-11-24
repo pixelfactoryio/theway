@@ -5,6 +5,7 @@ import {
   ADD_SIZE,
   addCentre,
   CARD,
+  cardHeight,
   fitView,
   GAP,
   KEEP,
@@ -13,6 +14,8 @@ import {
   layoutDrawing,
   ON_FAIL_GAP,
   ON_FAIL_WIDTH,
+  titleWidth,
+  wrappedLines,
   openView,
   overflows,
   percent,
@@ -232,4 +235,29 @@ test("at a larger root every size and space of the drawing, the view's margins a
   expect(minimapClears({ x: 0, y: 0, width: 400, height: 900 }, { x: 1, y: 0, zoom: 1 }, { width: room }, scale)).toBe(
     false,
   )
+})
+
+test("a card is as high as its title: 22px more per line, a step and its on-fail card level at the taller", () => {
+  expect([cardHeight(1), cardHeight(3), cardHeight(0)]).toEqual([56, 100, 56])
+  expect([titleWidth(360, false), titleWidth(360, true), titleWidth(232, false)]).toEqual([296, 272, 168])
+  const lines: Record<string, number> = { inputs: 1, "step-0": 2, "step-1": 1, "on-fail-1": 3, "step-2": 1 }
+  const { nodes } = layoutDrawing(THREE, null, false, 1, (id) => lines[id] ?? 1)
+  expect(nodes.map((n) => [n.id, n.y, n.height])).toEqual([
+    ["inputs", 0, 56],
+    ["step-0", 56 + GAP, 78],
+    ["step-1", 56 + GAP + 78 + GAP, 100],
+    ["on-fail-1", 56 + GAP + 78 + GAP, 100],
+    ["step-2", 56 + GAP + 78 + GAP + 100 + GAP, 56],
+  ])
+})
+
+test("a title wraps at spaces as the browser wraps it, a word wider than a line broken where the line is full", () => {
+  // Every character 10px wide.
+  const measure = (text: string) => text.length * 10
+  expect(wrappedLines("", 100, measure)).toBe(1)
+  expect(wrappedLines("one two", 100, measure)).toBe(1)
+  expect(wrappedLines("one two three", 100, measure)).toBe(2)
+  expect(wrappedLines("aaaa bbbb cccc dddd", 90, measure)).toBe(2)
+  expect(wrappedLines("x".repeat(25), 100, measure)).toBe(3)
+  expect(wrappedLines("ab " + "x".repeat(25), 100, measure)).toBe(4)
 })

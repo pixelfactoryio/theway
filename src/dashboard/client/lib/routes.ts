@@ -60,6 +60,17 @@ export const to = {
     `${withTab(project === null ? `/${kind}/global/${enc(name)}` : `/${kind}/projects/${enc(project)}/${enc(name)}`, tab)}?`,
 }
 
+/**
+ * The `href` a link renders for the app address `address` on a page served at `pathname`: the address the in-app
+ * navigation gives (wouter's hash `navigate`), its search part before the hash and none when it is empty, so a
+ * Cmd-click, a middle-click or Copy link opens the same page: `/x?archive` is `<pathname>?archive#/x`, `/x?` is
+ * `<pathname>#/x`.
+ */
+export function linkHref(address: string, pathname: string): string {
+  const [path = "", search = ""] = address.replace(/^#?\/?/, "").split("?")
+  return `${pathname}${search === "" ? "" : `?${search}`}#/${path}`
+}
+
 /** Each defined value of a router's parameters through `decodeURIComponent`; a value it cannot decode is kept. */
 export function decoded(params: Readonly<Partial<Record<string, string>>>): Params {
   const out: Partial<Record<string, string>> = {}

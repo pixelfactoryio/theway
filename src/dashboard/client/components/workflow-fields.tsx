@@ -2,6 +2,8 @@ import { isolateHistory } from "@codemirror/commands"
 import { cn } from "cn"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 
+import { MarkdownField } from "@/components/markdown-field"
+import { PROPERTY_ROW } from "@/components/property-card"
 import { StatusMark } from "@/components/status"
 import { FieldError } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -143,6 +145,40 @@ export function DraftText({
   )
 }
 
+/**
+ * A Markdown value of the workflow (its description, an input's description), edited with the shared Markdown field
+ * (`MarkdownField`), as documents and tasks are: written to the draft as it is typed, the first change after it takes
+ * focus starting a new undo step and the next ones joining it, as typing does. `null` disables it.
+ */
+export function DraftMarkdown({
+  value,
+  onWrite,
+  label,
+}: {
+  value: TextValue
+  onWrite: (value: string, mode: HistoryMode) => boolean
+  label: string
+}) {
+  const fresh = useRef(false)
+  return (
+    <MarkdownField
+      // A field that turns editable, or stops being, is made again: its editor's editability is set as it is made.
+      key={value === null ? "off" : "on"}
+      label={label}
+      value={value ?? ""}
+      disabled={value === null}
+      onFocus={() => {
+        fresh.current = true
+      }}
+      onChange={(next) => {
+        const mode = fresh.current ? "before" : null
+        fresh.current = false
+        onWrite(next, mode)
+      }}
+    />
+  )
+}
+
 /** A control of a card's row: 6px corners, 8px across, the interface's `text-sm` (15px) at every width. */
 const CONTROL = "rounded-md px-2 text-sm md:text-sm"
 
@@ -205,8 +241,8 @@ export function ChoiceSelect({
 }
 
 /**
- * A row of a workflow panel's card, as a property card's row: on a light rule, its label at the left in a 92px column
- * in the secondary ink (`label`, or its YAML key as a name: `runs-on` is Runs on), level with a 28px control; its value
+ * A row of a workflow panel's card, on a property card's row grid (`PROPERTY_ROW`): on a hairline, its label at the left
+ * in the 100px key column in the secondary ink (`label`, or its YAML key as a name: `runs-on` is Runs on), level with a 28px control; its value
  * or control (`children`) at the right, then the lines of `errors` under it. `orientation` is kept for the callers: a
  * switch stands at the start of the value column like any control.
  */
@@ -226,7 +262,7 @@ export function PanelField({
   children: ReactNode
 }) {
   return (
-    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-start gap-x-2 border-t border-rule px-3 py-2">
+    <div className={cn(PROPERTY_ROW, "items-start")}>
       <Label
         htmlFor={htmlFor}
         className="block min-w-0 text-sm leading-7 font-normal wrap-break-word text-muted-foreground"

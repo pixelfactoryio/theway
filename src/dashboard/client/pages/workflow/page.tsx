@@ -1,6 +1,6 @@
 import { WorkflowIcon } from "lucide-react"
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation } from "wouter"
+import { useLocation, useSearch } from "wouter"
 
 import { CodeTab } from "@/components/code-tab"
 import type { CodeViewHandle } from "@/components/code-view"
@@ -37,6 +37,8 @@ import {
   sameSelection,
   type Selection,
   selectionOf,
+  selectionFromSearch,
+  selectionSearch,
   stepsRunOn,
 } from "@/lib/workflow"
 import { addStep, changeStepPrompt, hasAnchors, moveStep, removeStep } from "@/lib/workflow-edit"
@@ -98,8 +100,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   })
   const label = useLabel()
   const [, setOpen] = usePanelOpen()
-  const [, navigate] = useLocation()
-  const [selection, setSelection] = useState<Selection | null>(null)
+  const [location, navigate] = useLocation()
+  const search = useSearch()
+  // The selected card is in the address (`?step=`, `selectionSearch`), written in place, so a reload or a copied link
+  // opens it selected; a view's tab drops it from the address, and it is written again.
+  const [selection, setSelection] = useState<Selection | null>(() => selectionFromSearch(search))
+  const selected = selectionSearch(selection)
+  useEffect(() => {
+    if (new URLSearchParams(search).toString() !== selected) navigate(`${location}?${selected}`, { replace: true })
+  }, [selected, search, location, navigate])
   const code = useRef<CodeViewHandle>(null)
   const yamlTab = tab === "yaml"
   const history = tab === "history"

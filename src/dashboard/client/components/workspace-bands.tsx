@@ -19,22 +19,30 @@ const isArchived = (r: ChangeListRow): r is Archived => "a" in r
 
 /**
  * The columns of a page's change lists: the project (`project`: a list over several projects), the progress
- * (`progress`: the page lists an open change as a row; archived changes have none) and Updated, an open change's age
- * or an archived change's archive date, wide enough for a date when the page lists archived changes (`dates`).
+ * (`progress`: the page lists an open change as a row; archived changes have none) and the date: Updated, an open
+ * change's age or an archived change's archive date, wide enough for a date when the page lists archived changes
+ * (`dates`); Archived when the list holds archived changes alone (`archivedOnly`).
  */
 export function changeColumns({
   project,
   progress,
   dates,
+  archivedOnly = false,
 }: {
   project: boolean
   progress: boolean
   dates: boolean
+  archivedOnly?: boolean
 }): ListColumn[] {
   return [
     ...(project ? [{ id: "project", title: "Project", className: COLUMN.project }] : []),
     ...(progress ? [{ id: "progress", title: "Progress", className: COLUMN.progress, align: "end" as const }] : []),
-    { id: "updated", title: "Updated", className: dates ? COLUMN.date : COLUMN.updated, align: "end" },
+    {
+      id: "updated",
+      title: archivedOnly ? "Archived" : "Updated",
+      className: dates ? COLUMN.date : COLUMN.updated,
+      align: "end",
+    },
   ]
 }
 
