@@ -115,7 +115,9 @@ const HEAD = `min-w-0 truncate font-medium text-foreground outline-none after:ab
  * (the name, `children`, is its text). `lead` stands in the margin slot (a chevron); `icon` is the status icon;
  * `member` indents a member of an opened row by 24px. `meta` follows the name (an ID, chips); `cells` are the fixed
  * columns, in the head's order; `actions` (buttons) stand above the head's surface, at most two. A `current` row (the
- * page shown, in a list of its siblings) is on the selection's tint, its link marked as the current page.
+ * page shown, in a list of its siblings) is on the selection's tint, its link marked as the current page. The row is
+ * its own stacking context (`isolate`): its actions rise above its head only, so a row scrolled under a sticky section
+ * band or column head stays under it.
  */
 export function ListRow({
   head,
@@ -140,7 +142,7 @@ export function ListRow({
   return (
     <li
       className={cn(
-        "relative flex h-10 items-center gap-3 px-4 transition-colors hover:bg-accent has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
+        "relative isolate flex h-10 items-center gap-3 px-4 transition-colors hover:bg-accent has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
         current && "bg-selected hover:bg-selected",
       )}
     >
