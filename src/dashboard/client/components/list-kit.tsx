@@ -203,8 +203,8 @@ export const idChipLeast = (id: string): number =>
  * An ID, the one chip of every ID set inline (a row's, a row led by its ID, the panel's Details and Series): Geist Mono
  * `text-xs` (14px) at 400 in the ink, on the band's tint, 6px corners, 24px tall, as every other ID in mono. When it does not fit
  * it is cut in the middle (`CutName`), its distinct tail kept, so `add-agent-runner` and `add-agent-store` still differ
- * when cut; it never shows fewer characters than `idChipLeast`: under 1024px the name beside it gives way first; from
- * 1024px, where a name stops at 60 characters, it shows whole.
+ * when cut; it never shows fewer characters than `idChipLeast`: under 1280px the name beside it gives way first; from
+ * 1280px it shows whole.
  */
 export function IdChip({ children, className }: { children: string; className?: string }) {
   // An ID that fits in 10 characters is never cut, and its chip is no wider than it.
@@ -224,9 +224,9 @@ export function IdChip({ children, className }: { children: string; className?: 
   )
 }
 
-/** An ID after a row's name (`IdChip`): under 1024px it is cut down to 10 characters as the name gives way. */
+/** An ID after a row's name (`IdChip`): under 1280px it is cut down to `idChipLeast` as the name gives way. */
 export function RowId({ children }: { children: string }) {
-  return <IdChip className="lg:max-w-none lg:shrink-0">{children}</IdChip>
+  return <IdChip className="xl:max-w-none xl:shrink-0">{children}</IdChip>
 }
 
 /**
@@ -239,11 +239,11 @@ export function IdName({ children }: { children: string }) {
 
 /**
  * A small label after a row's name (`series · 7`, `default`): plain `text-xs` (14px) text in the secondary ink. A `wide` label shows
- * from 1024px only, leaving its room to the name and the ID below that.
+ * from 1280px only, leaving its room to the name and the ID below that.
  */
 export function RowChip({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
-    <span className={cn("shrink-0 text-xs whitespace-nowrap text-muted-foreground", wide && "hidden lg:inline")}>
+    <span className={cn("shrink-0 text-xs whitespace-nowrap text-muted-foreground", wide && "hidden xl:inline")}>
       {children}
     </span>
   )
