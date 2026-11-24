@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useClampCut } from "@/components/use-clamp-cut"
 import { ViewTabs } from "@/components/view-tabs"
 import { useWide } from "@/shell/panel"
-import { type Crumb, PageHeader } from "@/shell/top-bar"
+import { type Crumb, type HeaderCopy, PageHeader } from "@/shell/top-bar"
 
 /**
  * A document's reading column, the same on every document page: the whole width between the panel's 16px gutters, the
@@ -91,7 +91,7 @@ export function ItemHeading({
 
 /**
  * An item's page, the one frame of a change's, a workflow's and a prompt's page, after Linear's item page: the header
- * holds the page's icon and path, its title (the item's ID or file name, `mono`), `lead` after it, then at the right
+ * holds the page's icon and path, its title (the item's ID or file name, `mono`), its `copy` and `lead` after it, then at the right
  * `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
  * views (`tabs`, each with its own address) are pills under it. Below: the page's `notices` (full-width strips), its
  * `heading` (an `ItemHeading`, the same on every view), then the view; the panel `panel`, a `PropertyCards` stack named
@@ -102,6 +102,7 @@ export function DocFrame({
   icon,
   parents,
   mono = false,
+  copy,
   lead,
   actions,
   tabs,
@@ -121,6 +122,8 @@ export function DocFrame({
   parents?: readonly Crumb[]
   /** The title is an ID or a file name: Geist Mono `text-xs` (14px). */
   mono?: boolean
+  /** What the header copies: the item's ID or name, and its run commands. */
+  copy?: HeaderCopy
   lead?: ReactNode
   actions?: ReactNode
   tabs: FrameTab[]
@@ -143,6 +146,7 @@ export function DocFrame({
         icon={icon}
         parents={parents}
         mono={mono}
+        copy={copy}
         lead={lead}
         actions={
           <>

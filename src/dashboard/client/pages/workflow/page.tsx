@@ -27,6 +27,7 @@ import { StepPanel, WorkflowPanel } from "@/components/workflow-read-panels"
 import { StepEditPanel } from "@/components/workflow-step-panel"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
 import { alertLines } from "@/lib/alert-lines"
+import { workflowCommand } from "@/lib/copy-targets"
 import { appliesTo, type PromptRow } from "@/lib/files"
 import { to } from "@/lib/routes"
 import {
@@ -373,6 +374,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <DocFrame
         title={name}
         mono
+        copy={{ value: name, what: "the workflow name", commands: [workflowCommand(name)] }}
         icon={WorkflowIcon}
         parents={PARENTS}
         label="Workflow views"

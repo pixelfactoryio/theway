@@ -26,7 +26,7 @@ import { useGuardedLocation } from "@/shell/guard"
 import { useScrollMemory } from "@/shell/scroll"
 import { SearchOpen } from "@/shell/search"
 import { DialogOpen } from "@/shell/dialogs"
-import { useGlobalKeys, type ShellDialog } from "@/shell/keys"
+import { HeaderCopyContext, useGlobalKeys, type ShellDialog } from "@/shell/keys"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { rootScale } from "@/hooks/use-root-scale"
 import { PANEL_WIDTH, PanelArea, PanelProvider, rem, usePanelState, useWide } from "@/shell/panel"
@@ -163,8 +163,10 @@ function Shell() {
       setSidebarWidth(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)))
     })
   }
+  // The page header's copy, for the C key.
+  const headerCopy = useRef<(() => void) | null>(null)
   useScrollMemory()
-  useGlobalKeys(dialogs)
+  useGlobalKeys(dialogs, headerCopy)
   useRecordStart(useProjects().data?.start ?? null)
 
   return (
@@ -178,77 +180,79 @@ function Shell() {
       <PanelProvider value={panel}>
         <SearchOpen.Provider value={search}>
           <DialogOpen.Provider value={dialogs}>
-            <SkipLink />
-            <ResizablePanelGroup
-              orientation="horizontal"
-              onLayoutChanged={(_, meta) => keepSidebarWidth(meta.isUserInteraction)}
-              className="min-w-0 flex-1"
-            >
-              <ResizablePanel
-                // A panel of another id for each state, so the group gives it its default size at once.
-                id={mobile ? "sidebar-sheet" : expanded ? "sidebar" : "sidebar-rail"}
-                panelRef={sidebarPanel}
-                defaultSize={sidebarSize}
-                minSize={expanded ? rem(SIDEBAR_WIDTH.min) : sidebarSize}
-                maxSize={expanded ? rem(SIDEBAR_WIDTH.max) : sidebarSize}
-                groupResizeBehavior="preserve-pixel-size"
-                // The sidebar's own width follows its panel's while it is dragged, without a render per frame.
-                onResize={(size) => {
-                  if (expanded) wrapper.current?.style.setProperty("--sidebar-width", `${size.inPixels}px`)
-                }}
+            <HeaderCopyContext.Provider value={headerCopy}>
+              <SkipLink />
+              <ResizablePanelGroup
+                orientation="horizontal"
+                onLayoutChanged={(_, meta) => keepSidebarWidth(meta.isUserInteraction)}
+                className="min-w-0 flex-1"
               >
-                <AppSidebar />
-              </ResizablePanel>
-              {expanded ? (
-                <ResizableHandle withHandle aria-label="Resize the sidebar" className={SIDEBAR_HANDLE} />
-              ) : null}
-              <ResizablePanel id="work" className="flex min-w-0 flex-col">
-                <main
-                  id="content"
-                  tabIndex={-1}
-                  className="m-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm outline-none md:ml-0"
+                <ResizablePanel
+                  // A panel of another id for each state, so the group gives it its default size at once.
+                  id={mobile ? "sidebar-sheet" : expanded ? "sidebar" : "sidebar-rail"}
+                  panelRef={sidebarPanel}
+                  defaultSize={sidebarSize}
+                  minSize={expanded ? rem(SIDEBAR_WIDTH.min) : sidebarSize}
+                  maxSize={expanded ? rem(SIDEBAR_WIDTH.max) : sidebarSize}
+                  groupResizeBehavior="preserve-pixel-size"
+                  // The sidebar's own width follows its panel's while it is dragged, without a render per frame.
+                  onResize={(size) => {
+                    if (expanded) wrapper.current?.style.setProperty("--sidebar-width", `${size.inPixels}px`)
+                  }}
                 >
-                  <HeaderSlot.Provider value={header}>
-                    <div ref={setHeader} className="flex shrink-0 flex-col" />
-                    <ResizablePanelGroup
-                      orientation="horizontal"
-                      onLayoutChanged={(_, meta) => keepPanelWidth(meta.isUserInteraction)}
-                      className="min-h-0 flex-1"
-                    >
-                      <ResizablePanel id="page" className="flex min-w-0 flex-col">
-                        <ErrorBoundary
-                          resetKey={location}
-                          fallback={(error, reset) => <PageError error={error} reset={reset} />}
-                        >
-                          <Routes />
-                        </ErrorBoundary>
-                      </ResizablePanel>
-                      {docked ? (
-                        <>
-                          <ResizableHandle aria-label={`Resize ${panelName}`} className={HANDLE} />
-                          <ResizablePanel
-                            id="panel"
-                            panelRef={dockedPanel}
-                            defaultSize={rem(panelWidth)}
-                            minSize={rem(PANEL_WIDTH.min)}
-                            maxSize={rem(PANEL_WIDTH.max)}
-                            groupResizeBehavior="preserve-pixel-size"
-                            className="flex min-h-0 flex-col"
+                  <AppSidebar />
+                </ResizablePanel>
+                {expanded ? (
+                  <ResizableHandle withHandle aria-label="Resize the sidebar" className={SIDEBAR_HANDLE} />
+                ) : null}
+                <ResizablePanel id="work" className="flex min-w-0 flex-col">
+                  <main
+                    id="content"
+                    tabIndex={-1}
+                    className="m-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm outline-none md:ml-0"
+                  >
+                    <HeaderSlot.Provider value={header}>
+                      <div ref={setHeader} className="flex shrink-0 flex-col" />
+                      <ResizablePanelGroup
+                        orientation="horizontal"
+                        onLayoutChanged={(_, meta) => keepPanelWidth(meta.isUserInteraction)}
+                        className="min-h-0 flex-1"
+                      >
+                        <ResizablePanel id="page" className="flex min-w-0 flex-col">
+                          <ErrorBoundary
+                            resetKey={location}
+                            fallback={(error, reset) => <PageError error={error} reset={reset} />}
                           >
-                            <aside aria-label={panelName ?? undefined} className="flex h-full min-h-0 flex-col">
-                              <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
-                            </aside>
-                          </ResizablePanel>
-                        </>
-                      ) : null}
-                    </ResizablePanelGroup>
-                  </HeaderSlot.Provider>
-                </main>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-            <PanelArea />
-            <SearchDialog />
-            <ShellDialogs />
+                            <Routes />
+                          </ErrorBoundary>
+                        </ResizablePanel>
+                        {docked ? (
+                          <>
+                            <ResizableHandle aria-label={`Resize ${panelName}`} className={HANDLE} />
+                            <ResizablePanel
+                              id="panel"
+                              panelRef={dockedPanel}
+                              defaultSize={rem(panelWidth)}
+                              minSize={rem(PANEL_WIDTH.min)}
+                              maxSize={rem(PANEL_WIDTH.max)}
+                              groupResizeBehavior="preserve-pixel-size"
+                              className="flex min-h-0 flex-col"
+                            >
+                              <aside aria-label={panelName ?? undefined} className="flex h-full min-h-0 flex-col">
+                                <div ref={setSlot} className="flex min-h-0 flex-1 flex-col" />
+                              </aside>
+                            </ResizablePanel>
+                          </>
+                        ) : null}
+                      </ResizablePanelGroup>
+                    </HeaderSlot.Provider>
+                  </main>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+              <PanelArea />
+              <SearchDialog />
+              <ShellDialogs />
+            </HeaderCopyContext.Provider>
           </DialogOpen.Provider>
         </SearchOpen.Provider>
       </PanelProvider>

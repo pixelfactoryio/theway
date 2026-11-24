@@ -1,8 +1,10 @@
 import { cn } from "cn"
-import { ChevronRightIcon } from "lucide-react"
+import { ChevronRightIcon, CopyIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
+import { useCopy } from "@/components/copy"
+import { ReorderMenu } from "@/components/reorder-menu"
 import { nameTail } from "@/lib/name-tail"
 import { CutName } from "@/shell/cut-name"
 import { ProjectMark } from "@/shell/project-mark"
@@ -35,6 +37,9 @@ export const COLUMN = {
   count: "w-24 hidden sm:flex tabular-nums",
   actions: "w-20",
 } as const
+
+/** A list's last column, untitled: a row's actions (`RowActions`). */
+export const ACTIONS_COLUMN: ListColumn = { id: "actions", title: "", className: COLUMN.actions, align: "end" }
 
 const cell = (column: ListColumn) =>
   cn(
@@ -252,4 +257,23 @@ export function ProjectChip({ label }: { label: string }) {
 /** A row's actions, above its head's surface so their clicks stay theirs: at most two buttons, seen at rest. */
 export function RowActions({ children }: { children: ReactNode }) {
   return <span className="relative z-10 flex items-center justify-end gap-0.5">{children}</span>
+}
+
+/**
+ * A change's or a series' row "…" menu, in its actions cell (`ACTIONS_COLUMN`), seen at rest: Copy ID, which copies
+ * `id` as `what` ("the change ID", "the series ID").
+ */
+export function CopyIdMenu({ id, what }: { id: string; what: string }) {
+  const { copy } = useCopy()
+  return (
+    <RowActions>
+      <ReorderMenu
+        label={`${id} actions`}
+        size="icon-sm"
+        triggerClassName="text-muted-foreground"
+        contentClassName="w-40"
+        items={[{ label: "Copy ID", icon: <CopyIcon aria-hidden="true" />, onSelect: () => copy(id, what) }]}
+      />
+    </RowActions>
+  )
 }

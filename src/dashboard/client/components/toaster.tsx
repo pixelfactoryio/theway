@@ -8,6 +8,12 @@ const TIMEOUT = 2000
 /** The most toasts shown at once: an older one leaves for a newer one. */
 const LIMIT = 3
 
+/**
+ * The dashboard's toasts, added from anywhere (`toasts.add`): the provider shows them. Held outside React, so adding
+ * one renders only the toaster, not every control that can add one.
+ */
+export const toasts = Toast.createToastManager()
+
 /** A toast's description, one line: the first line of a value that holds several. */
 const firstLine = (text: ReactNode): ReactNode => (typeof text === "string" ? (text.split(/\r\n?|\n/)[0] ?? "") : text)
 
@@ -18,12 +24,12 @@ const firstLine = (text: ReactNode): ReactNode => (typeof text === "string" ? (t
  * at once under reduced motion.
  */
 function Toasts() {
-  const { toasts } = Toast.useToastManager()
+  const shown = Toast.useToastManager().toasts
   return (
     <Toast.Portal>
       <Toast.Viewport className="fixed right-4 bottom-4 z-60 flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none">
         {/* The manager lists the newest first. */}
-        {[...toasts].reverse().map((toast) => (
+        {[...shown].reverse().map((toast) => (
           <Toast.Root
             key={toast.id}
             toast={toast}
@@ -43,10 +49,10 @@ function Toasts() {
   )
 }
 
-/** The dashboard's toasts (`Toast.useToastManager().add`), around `children`; mounted once, in the app. */
+/** The dashboard's toasts (`toasts.add`), around `children`; mounted once, in the app. */
 export function Toaster({ children }: { children: ReactNode }) {
   return (
-    <Toast.Provider timeout={TIMEOUT} limit={LIMIT}>
+    <Toast.Provider toastManager={toasts} timeout={TIMEOUT} limit={LIMIT}>
       {children}
       <Toasts />
     </Toast.Provider>

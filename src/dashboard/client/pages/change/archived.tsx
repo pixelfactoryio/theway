@@ -37,6 +37,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
     <DocFrame
       title={data.id}
       mono
+      copy={{ value: data.id, what: "the change ID" }}
       icon={<ProjectMark label={project} className="size-4" />}
       parents={[
         { label: project, href: to.project(projectKey) },

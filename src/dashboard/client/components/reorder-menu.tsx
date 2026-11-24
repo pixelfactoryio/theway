@@ -1,5 +1,5 @@
 import { MoreHorizontalIcon } from "lucide-react"
-import type { ComponentProps, ReactNode } from "react"
+import type { ComponentProps, MouseEvent, ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -27,7 +27,8 @@ export type ReorderItem =
 
 /**
  * A row's or a card's "…" menu: a ghost icon button (`label` its accessible name) opening `items`, aligned to its end.
- * `open`, `onOpenChange` and `finalFocus` control it when given.
+ * `open`, `onOpenChange` and `finalFocus` control it when given; `onTriggerClick` runs on a click of the button (a row
+ * that opens on a click stops it there).
  */
 export function ReorderMenu({
   label,
@@ -38,6 +39,7 @@ export function ReorderMenu({
   open,
   onOpenChange,
   finalFocus,
+  onTriggerClick,
 }: {
   label: string
   items: readonly ReorderItem[]
@@ -47,10 +49,12 @@ export function ReorderMenu({
   open?: boolean
   onOpenChange?: (open: boolean) => void
   finalFocus?: ComponentProps<typeof DropdownMenuContent>["finalFocus"]
+  onTriggerClick?: (event: MouseEvent<HTMLButtonElement>) => void
 }) {
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
+        onClick={onTriggerClick}
         render={<Button variant="ghost" size={size} aria-label={label} className={triggerClassName} />}
       >
         <MoreHorizontalIcon aria-hidden="true" />

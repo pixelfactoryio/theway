@@ -1,10 +1,21 @@
 import type { ReactNode } from "react"
 
 import { ChangeProgress } from "@/components/change-progress"
+import { CopyButton } from "@/components/copy"
 import { StatusCard } from "@/components/fact-cards"
-import { COLUMN, IdChip, IdName, type ListColumn, ListRow, ListRows } from "@/components/list-kit"
+import {
+  ACTIONS_COLUMN,
+  COLUMN,
+  CopyIdMenu,
+  IdChip,
+  IdName,
+  type ListColumn,
+  ListRow,
+  ListRows,
+} from "@/components/list-kit"
 import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { StatusMark, StatusPill } from "@/components/status"
+import { CopyPath } from "@/components/title-block"
 import { useChangeLists, useLabel } from "@/data/queries"
 import { type ChangeDetail, localDate, memberOf, ownDescription, type SeriesMember } from "@/lib/changes"
 import { to } from "@/lib/routes"
@@ -13,7 +24,7 @@ import { to } from "@/lib/routes"
 const memberHref = (key: string, m: { active: string | null; archived: string | null }): string | null =>
   m.active !== null ? to.change(key, m.active) : m.archived !== null ? to.archived(key, m.archived) : null
 
-/** The Series card's one column: a member's progress, or Archived. */
+/** The Series card's column: a member's progress, or Archived; then the row's "…" menu (`ACTIONS_COLUMN`). */
 const PROGRESS: ListColumn = { id: "progress", title: "Progress", className: COLUMN.progress, align: "end" }
 
 /**
@@ -73,7 +84,10 @@ function SeriesRow({
       icon={<StatusMark status={shown.status} />}
       current={current !== null}
       meta={lead !== null ? <IdChip>{shown.id}</IdChip> : undefined}
-      cells={[{ column: PROGRESS, content: right }]}
+      cells={[
+        { column: PROGRESS, content: right },
+        { column: ACTIONS_COLUMN, content: <CopyIdMenu id={shown.id} what="the change ID" /> },
+      ]}
     >
       {lead ?? <IdName>{shown.id}</IdName>}
     </ListRow>
@@ -124,7 +138,13 @@ export function ChangePanel({
           {description !== null ? <PropertyRow label="Description">{description}</PropertyRow> : null}
           <PropertyRow label="Project">{project}</PropertyRow>
           <PropertyRow label="ID">
-            <IdChip>{change.id}</IdChip>
+            <span className="flex min-w-0 items-center gap-1">
+              <IdChip>{change.id}</IdChip>
+              <CopyButton value={change.id} what="the change ID" />
+            </span>
+          </PropertyRow>
+          <PropertyRow label="Folder">
+            <CopyPath value={change.folder} what="the folder path" />
           </PropertyRow>
           {archived ? (
             <PropertyRow label="Archived">{change.archived}</PropertyRow>

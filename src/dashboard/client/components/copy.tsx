@@ -1,8 +1,8 @@
-import { Toast } from "@base-ui/react/toast"
 import { cn } from "cn"
 import { CheckIcon, CopyIcon } from "lucide-react"
 import { type RefObject, useEffect, useRef } from "react"
 
+import { toasts } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
@@ -16,7 +16,6 @@ const COPIED_MS = 1500
  * copy is only logged.
  */
 export function useCopy(): { copy: (value: string, what: string) => void; copied: boolean } {
-  const toasts = Toast.useToastManager()
   const last = useRef<{ value: string; what: string } | null>(null)
   const { isCopied, copyToClipboard } = useCopyToClipboard({
     timeout: COPIED_MS,

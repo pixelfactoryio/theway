@@ -11,9 +11,10 @@ import {
   SunIcon,
   WorkflowIcon,
 } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import { useLocation } from "wouter"
 
+import { useCopy } from "@/components/copy"
 import { EmptyNote } from "@/components/empty-note"
 import { StatusMark } from "@/components/status"
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
@@ -21,6 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Kbd } from "@/components/ui/kbd"
 import { useSidebar } from "@/components/ui/sidebar"
 import { useChangeLists, useLabel, useProjects, usePrompts, useWorkflows } from "@/data/queries"
+import { copiesEntry, paletteCopyTarget } from "@/lib/copy-targets"
 import { type SearchEntry, searchGroups } from "@/lib/search"
 import { CutName } from "@/shell/cut-name"
 import { useDialog } from "@/shell/dialogs"
@@ -118,6 +120,19 @@ function Results({ close }: { close: () => void }) {
   const label = useLabel()
   const groups = searchGroups({ changes, workflows, prompts, projects, label })
   const list = useRef<HTMLDivElement>(null)
+  const { copy } = useCopy()
+  // ⌘C (Ctrl+C) with no text selected in the input copies the highlighted entry (`paletteCopyTarget`), the palette
+  // left open; with text selected, the browser copies it. An action has nothing to copy.
+  const copyHighlighted = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key.toLowerCase() !== "c" || !modKey(event) || event.shiftKey || event.altKey) return
+    if (!copiesEntry(event.currentTarget)) return
+    const value = list.current?.querySelector<HTMLElement>("[cmdk-item][aria-selected='true']")?.dataset.value
+    const entry = groups.flatMap((g) => g.entries).find((e) => e.value === value)
+    if (entry === undefined) return
+    event.preventDefault()
+    const target = paletteCopyTarget(entry)
+    copy(target.value, target.what)
+  }
   const sidebar = useSidebar()
   const [panelOpen, setPanelOpen] = usePanelOpen()
   const panel = usePanelName()
@@ -176,6 +191,7 @@ function Results({ close }: { close: () => void }) {
             setQuery(next)
             requestAnimationFrame(() => list.current?.scrollTo({ top: 0 }))
           }}
+          onKeyDown={copyHighlighted}
           placeholder="Go to a change, workflow, prompt or project, or run an action"
           className="h-full min-w-0 flex-1 bg-transparent text-heading text-foreground outline-none"
         />

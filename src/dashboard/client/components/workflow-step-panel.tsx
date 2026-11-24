@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Link } from "wouter"
 
 import { MODELS } from "../../../core/language-schema"
+import { CopyButton } from "@/components/copy"
 import { PropertyCard } from "@/components/property-card"
 import {
   NumberField,
@@ -113,7 +114,7 @@ function RowGroup({ children }: { children: string }) {
 
 /** The `uses` row: the prompt's page as a link, else the value as written in the code font. */
 function UsesValue({ uses, prompt }: { uses: string | null; prompt: PromptRow | null }) {
-  if (prompt === null) return <span className="font-mono text-xs break-all">{uses ?? ""}</span>
+  if (prompt === null) return <span className="min-w-0 font-mono text-xs break-all">{uses ?? ""}</span>
   return (
     <Link
       href={to.file("prompts", prompt.project, prompt.name)}
@@ -228,7 +229,10 @@ export function StepEditPanel({
     <>
       <CardLines lines={alert} />
       <PanelField yamlKey="uses" errors={fields.get("uses")}>
-        <UsesValue uses={form.uses} prompt={prompt} />
+        <span className="flex min-w-0 items-center gap-1">
+          <UsesValue uses={form.uses} prompt={prompt} />
+          {form.uses !== null ? <CopyButton value={form.uses} what="the prompt path" /> : null}
+        </span>
       </PanelField>
       <PanelField yamlKey="runs-on" htmlFor={id("runs-on")} errors={fields.get("runs-on")}>
         <ChoiceSelect

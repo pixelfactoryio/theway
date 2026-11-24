@@ -3,7 +3,18 @@ import { type ReactNode, useState } from "react"
 
 import { ChangeProgress } from "@/components/change-progress"
 import type { BarField } from "@/components/filter-bar"
-import { COLUMN, IdName, type ListColumn, ListRow, ListRows, ProjectChip, RowChip, RowId } from "@/components/list-kit"
+import {
+  ACTIONS_COLUMN,
+  COLUMN,
+  CopyIdMenu,
+  IdName,
+  type ListColumn,
+  ListRow,
+  ListRows,
+  ProjectChip,
+  RowChip,
+  RowId,
+} from "@/components/list-kit"
 import { StatusMark } from "@/components/status"
 import { GROUP_TITLE, type Group, useNow } from "@/components/workspace-rows"
 import { useLabel } from "@/data/queries"
@@ -21,7 +32,8 @@ const isArchived = (r: ChangeListRow): r is Archived => "a" in r
  * The columns of a page's change lists: the project (`project`: a list over several projects), the progress
  * (`progress`: the page lists an open change as a row; archived changes have none) and the date: Updated, an open
  * change's age or an archived change's archive date, wide enough for a date when the page lists archived changes
- * (`dates`); Archived when the list holds archived changes alone (`archivedOnly`).
+ * (`dates`); Archived when the list holds archived changes alone (`archivedOnly`); then the row's "…" menu
+ * (`ACTIONS_COLUMN`).
  */
 export function changeColumns({
   project,
@@ -43,6 +55,7 @@ export function changeColumns({
       className: dates ? COLUMN.date : COLUMN.updated,
       align: "end",
     },
+    ACTIONS_COLUMN,
   ]
 }
 
@@ -79,6 +92,7 @@ function ChangeRow({
         project: <ProjectChip label={r.label} />,
         progress: <ChangeProgress done={change.done} total={change.total} status={change.status} />,
         updated: ageOf(change.updated, now),
+        actions: <CopyIdMenu id={change.id} what="the change ID" />,
       })}
     >
       {description ?? <IdName>{change.id}</IdName>}
@@ -119,7 +133,11 @@ export function ChangeRows({
               key={`${r.key}/${r.a.dir}`}
               head={{ href: to.archived(r.key, r.a.dir) }}
               icon={<StatusMark status="archived" />}
-              cells={cellsOf(columns, { project: <ProjectChip label={projectLabel(r.key)} />, updated: r.a.date })}
+              cells={cellsOf(columns, {
+                project: <ProjectChip label={projectLabel(r.key)} />,
+                updated: r.a.date,
+                actions: <CopyIdMenu id={r.a.id} what="the change ID" />,
+              })}
             >
               <IdName>{r.a.id}</IdName>
             </ListRow>
@@ -158,6 +176,7 @@ export function ChangeRows({
                   <ChangeProgress done={item.progress.done} total={item.progress.total} status={item.status} />
                 ) : null,
               updated: ageOf(item.updated, now),
+              actions: <CopyIdMenu id={item.id} what="the series ID" />,
             })}
           >
             {description ?? <IdName>{item.id}</IdName>}

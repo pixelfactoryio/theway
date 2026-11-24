@@ -214,6 +214,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       <DocFrame
         title={name}
         mono
+        copy={{ value: name, what: "the prompt name" }}
         icon={FileTextIcon}
         parents={PARENTS}
         label="Prompt views"
