@@ -21,7 +21,7 @@ const firstLine = (text: ReactNode): ReactNode => (typeof text === "string" ? (t
  * The shown toasts, at the window's bottom right, 16px from both edges, at most 22rem wide; stacked 8px apart, the
  * newest at the bottom. Each is a menu's surface: the check in the secondary ink, the title in `text-sm` at 500, the
  * value under it in Geist Mono `text-xs`, one line cut with an ellipsis. It fades and rises 8px in and out over 150ms,
- * at once under reduced motion.
+ * at once under reduced motion (`transition-none!` overrides the global rule in `globals.css` that keeps fades).
  */
 function Toasts() {
   const shown = Toast.useToastManager().toasts
@@ -33,7 +33,7 @@ function Toasts() {
           <Toast.Root
             key={toast.id}
             toast={toast}
-            className="flex items-start gap-3 rounded-lg border border-rule bg-popover px-4 py-3 text-popover-foreground shadow-md transition-[opacity,translate] duration-150 data-ending-style:translate-y-2 data-ending-style:opacity-0 data-limited:hidden data-starting-style:translate-y-2 data-starting-style:opacity-0 motion-reduce:transition-none"
+            className="flex items-start gap-3 rounded-lg border border-rule bg-popover px-4 py-3 text-popover-foreground shadow-md transition-[opacity,translate] duration-150 data-ending-style:translate-y-2 data-ending-style:opacity-0 data-limited:hidden data-starting-style:translate-y-2 data-starting-style:opacity-0 motion-reduce:transition-none!"
           >
             <CheckIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
             <Toast.Content className="flex min-w-0 flex-1 flex-col gap-0.5">
