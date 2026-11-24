@@ -1,12 +1,17 @@
-import type { LucideIcon } from "lucide-react"
-import { type ReactElement, type ReactNode, useState } from "react"
+import { ChevronDownIcon, type LucideIcon } from "lucide-react"
+import { type ReactElement, type ReactNode, useContext, useState } from "react"
 
+import { CopyButton, useCopy } from "@/components/copy"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useClampCut } from "@/components/use-clamp-cut"
 import { ViewTabs } from "@/components/view-tabs"
+import type { RunCommand } from "@/lib/copy-targets"
+import { HeaderCopyContext } from "@/shell/keys"
 import { useWide } from "@/shell/panel"
-import { type Crumb, type HeaderCopy, PageHeader } from "@/shell/top-bar"
+import { type Crumb, PageHeader } from "@/shell/top-bar"
 
 /**
  * A document's reading column, the same on every document page: the whole width between the panel's 16px gutters, the
@@ -17,6 +22,47 @@ export const DOC_COLUMN = "px-4"
 
 /** The measure of prose in the reading column, on its left edge: at most `--read-width` (about 70 characters a line). */
 export const PROSE_COLUMN = "w-full max-w-(--read-width)"
+
+/**
+ * What a page's header copies: its ID or name (`value`), what the toast names it (`what`), and the commands its menu
+ * copies, when the page has some.
+ */
+export type HeaderCopy = { value: string; what: string; commands?: readonly RunCommand[] }
+
+/**
+ * The header's copy, after the title: its copy button, which the `C` key runs too; with `commands`, joined to a
+ * button opening the commands' menu, each command's label then the command in Geist Mono `text-xs` secondary ink.
+ */
+function HeaderCopyControl({ value, what, commands }: HeaderCopy) {
+  const triggerRef = useContext(HeaderCopyContext) ?? undefined
+  const { copy } = useCopy()
+  const button = <CopyButton value={value} what={what} triggerRef={triggerRef} />
+  if (commands === undefined || commands.length === 0) return button
+  return (
+    <ButtonGroup>
+      {button}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-xs" aria-label="Copy a command" className="text-muted-foreground" />
+          }
+        >
+          <ChevronDownIcon aria-hidden="true" className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-auto max-w-[min(32rem,calc(100vw-2rem))] min-w-56">
+          {commands.map((c) => (
+            <DropdownMenuItem key={c.command} onClick={() => copy(c.command, "the command")}>
+              <span className="flex min-w-0 flex-col">
+                <span>{c.label}</span>
+                <span className="font-mono text-xs wrap-break-word text-muted-foreground">{c.command}</span>
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </ButtonGroup>
+  )
+}
 
 /** One view of an item: its own address, and a dot while it has unsaved edits. */
 export type FrameTab = { value: string; label: string; href: string; dirty?: boolean }
@@ -146,7 +192,7 @@ export function DocFrame({
         icon={icon}
         parents={parents}
         mono={mono}
-        copy={copy}
+        copy={copy !== undefined ? <HeaderCopyControl {...copy} /> : undefined}
         lead={lead}
         actions={
           <>
