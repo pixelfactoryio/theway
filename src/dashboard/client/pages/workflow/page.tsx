@@ -325,7 +325,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         </PropertyRow>
         <PropertyRow label="Runs on">{(drawing === null ? null : stepsRunOn(drawing)) ?? "–"}</PropertyRow>
         <PropertyRow label="File">
-          <CopyPath value={data.path} name="the file path" />
+          <CopyPath value={data.path} what="the file path" />
         </PropertyRow>
       </PropertyList>
     </PropertyCard>

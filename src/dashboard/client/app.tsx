@@ -4,6 +4,7 @@ import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
 import { SearchDialog } from "@/components/search-dialog"
 import { ShellDialogs } from "@/components/shell-dialogs"
+import { Toaster } from "@/components/toaster"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -255,14 +256,16 @@ function Shell() {
   )
 }
 
-/** The dashboard: hash routes through the guarded location hook, the tooltip provider and the shell. */
+/** The dashboard: hash routes through the guarded location hook, the tooltip provider, the toasts and the shell. */
 export function App() {
   return (
     <Router hook={useGuardedLocation}>
       <TooltipProvider>
-        <ErrorBoundary fallback={(error) => <RootError error={error} />}>
-          <Shell />
-        </ErrorBoundary>
+        <Toaster>
+          <ErrorBoundary fallback={(error) => <RootError error={error} />}>
+            <Shell />
+          </ErrorBoundary>
+        </Toaster>
       </TooltipProvider>
     </Router>
   )

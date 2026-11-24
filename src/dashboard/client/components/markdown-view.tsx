@@ -4,6 +4,7 @@ import { EditorView } from "@codemirror/view"
 import { cn } from "cn"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
+import { useCodeCopy } from "@/components/copy"
 import { OutlinedDoc } from "@/components/doc-outline"
 import { liveExtensions, setTitle } from "@/components/live-markdown"
 import { lineSeparatorOf } from "@/lib/files"
@@ -40,6 +41,7 @@ export function MarkdownView({
   const view = useRef<EditorView | null>(null)
   const latest = useRef(text)
   const latestTitle = useRef(title)
+  useCodeCopy(host)
 
   // Before the mount below, so a new view takes the current text.
   useEffect(() => {

@@ -67,7 +67,7 @@ function PromptCards({
           ) : null}
           <PropertyRow label="Applies to">{appliesTo(file.project, label)}</PropertyRow>
           <PropertyRow label="File">
-            <CopyPath value={file.path} name="the file path" />
+            <CopyPath value={file.path} what="the file path" />
           </PropertyRow>
         </PropertyList>
       </PropertyCard>
