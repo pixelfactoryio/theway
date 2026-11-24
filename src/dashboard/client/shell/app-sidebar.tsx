@@ -15,7 +15,7 @@ import type { ReactNode } from "react"
 import { Link, useLocation } from "wouter"
 
 import { Logo } from "@/shell/logo"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -32,7 +32,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -472,13 +471,12 @@ export function AppSidebar() {
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
+              <a
+                href={DOCS}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Documentation"
-                className="text-muted-foreground"
-                nativeButton={false}
-                render={<a href={DOCS} target="_blank" rel="noopener noreferrer" />}
+                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}
               />
             }
           >
@@ -490,11 +488,10 @@ export function AppSidebar() {
         <Tooltip>
           <TooltipTrigger render={<SidebarTrigger className="text-muted-foreground" />} />
           <TooltipContent>
-            Toggle sidebar <Shortcut keys={[MOD, "B"]} />
+            Show or hide the sidebar <Shortcut keys={[MOD, "B"]} />
           </TooltipContent>
         </Tooltip>
       </SidebarFooter>
-      <SidebarRail />
     </Sidebar>
   )
 }

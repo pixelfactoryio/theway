@@ -7,6 +7,7 @@ import {
   isAt,
   leavesChange,
   leavesFile,
+  linkHref,
   locationOf,
   pageOf,
   ROUTES,
@@ -215,4 +216,17 @@ test("a target leaves a file page when its kind, its global or projects/<key> pa
   expect(leavesFile({ fileKind: "prompts", project: null, name: "x" }, "/prompts/global/x/preview")).toBe(false)
   expect(pageOf("/prompts/global/x/history")).toEqual({ kind: "file", fileKind: "prompts", project: null, name: "x" })
   expect(pageOf("/prompts")).toBeNull()
+})
+
+test("a link's href is the address its click goes to: the search part before the hash, none when it is empty", () => {
+  expect(linkHref(to.file("prompts", null, "change"), "/")).toBe("/#/prompts/global/change")
+  expect(linkHref(to.workflows(), "/")).toBe("/#/workflows")
+  expect(linkHref(to.now(), "/")).toBe("/#/")
+  expect(linkHref(to.project("-k", { archive: true }), "/")).toBe("/?archive#/-k")
+  expect(linkHref(to.change("-k", "add-x"), "/app/")).toBe("/app/#/-k/changes/add-x")
+  expect(linkHref("#/group/badil?", "/")).toBe("/#/group/badil")
+  // The page it opens is the one the router matches: the hash path, decoded.
+  expect(routeOf(new URL(linkHref(to.group("a b"), "/"), "http://localhost").hash.slice(1)).params).toEqual({
+    id: "a b",
+  })
 })

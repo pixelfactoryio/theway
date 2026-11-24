@@ -75,10 +75,11 @@ test("an item's page states its title once, above every view, its ID or file nam
   // A hairline under it only once the view under it is scrolled.
   expect(html).toContain("border-transparent")
   expect(html).toContain("[&amp;:has(~[data-scrolled])]:border-border")
-  // Whole, on as many lines as it takes: nothing of it is left to a hover.
+  // Balanced, cut at three lines; Show more reads it whole when that cuts it, so nothing of it is left to a hover.
   expect(html).toContain(
-    '<h2 class="text-doc-title font-semibold tracking-tight text-pretty text-foreground">Split the client</h2>',
+    '<h2 class="text-doc-title font-semibold tracking-tight text-balance text-foreground line-clamp-3">Split the client</h2>',
   )
+  expect(read("components/doc-frame.tsx")).toContain('{more ? "Show less" : "Show more"}')
   // An item with no description has no title: its ID or file name stands once, in the header's path.
   expect(renderToStaticMarkup(<ItemHeading title={null} />)).toBe("")
   expect(renderToStaticMarkup(<ItemHeading title="  " />)).toBe("")

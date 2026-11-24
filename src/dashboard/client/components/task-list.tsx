@@ -8,15 +8,15 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, type Ref, useEffect, useRef, useState } from "react"
 
-import { TextField } from "@/components/change-fields"
+import { MarkdownField } from "@/components/markdown-field"
 import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
 import { TaskText } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
+import { useClampCut } from "@/components/use-clamp-cut"
 import { splitTask, taskName } from "@/lib/change-edit"
 import type { OpenField } from "@/lib/task-fields"
 
@@ -30,10 +30,10 @@ export type TaskListActions = {
   remove: (index: number) => void
   /** Opens a field: false when the open one could not be applied first. */
   open: (field: OpenField) => boolean
-  change: (field: OpenField | null) => void
-  /** Applies the open field as Enter does; false when refused. */
-  apply: () => boolean
-  cancel: () => void
+  /** Writes the open field's new text to the draft, as it is typed. */
+  change: (field: OpenField) => void
+  /** Closes the open field: its text is in the draft already. */
+  close: () => void
 }
 
 const LAST_TASK = "A change keeps at least one task."
@@ -51,6 +51,7 @@ function TaskBody({
   clamped,
   onEdit,
   field,
+  detailRef,
 }: {
   n: number
   next: boolean
@@ -60,6 +61,8 @@ function TaskBody({
   clamped: boolean
   onEdit?: () => void
   field?: ReactNode
+  /** The detail's element, measured for whether its clamp cuts it. */
+  detailRef?: Ref<HTMLDivElement>
 }) {
   const text = (
     <>
@@ -67,7 +70,10 @@ function TaskBody({
         <TaskText text={lead} />
       </div>
       {detail !== "" ? (
-        <div className={cn("mt-1 text-md whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}>
+        <div
+          ref={detailRef}
+          className={cn("mt-1 text-md whitespace-pre-line text-muted-foreground", clamped && "line-clamp-3")}
+        >
           <TaskText text={detail} />
         </div>
       ) : null}
@@ -126,6 +132,7 @@ function Row({
   }
   const { lead, detail } = splitTask(row.text)
   const clamped = !next && !more
+  const [detailRef, cut] = useClampCut(clamped ? detail : null)
   const editing = field?.kind === "task" && field.id === row.id ? field : null
   const edit = () => actions.open({ kind: "task", id: row.id, value: row.text, error: null })
   const move = (delta: -1 | 1) => {
@@ -158,7 +165,8 @@ function Row({
     >
       <SortableItemHandle
         render={<button type="button" aria-label={`Drag task ${n}`} />}
-        className="absolute top-8 left-0.5 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        // Above the checkbox's larger hit area, which reaches over it: a click or a drag on the grip is the grip's.
+        className="absolute top-8 left-0.5 z-10 flex h-(--text-md--line-height) w-3 items-center justify-center text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </SortableItemHandle>
@@ -178,27 +186,26 @@ function Row({
           detail={detail}
           done={row.done}
           clamped={clamped}
+          detailRef={detailRef}
           onEdit={edit}
           field={
             editing !== null ? (
-              <TextField
-                multiline
+              <MarkdownField
+                autoFocus
                 label={`Task ${n}`}
                 value={editing.value}
                 error={editing.error}
                 onChange={(value) => actions.change({ ...editing, value, error: null })}
-                onApply={() => {
-                  if (actions.apply()) focusRow(row.id)
-                }}
-                onCancel={() => {
-                  actions.cancel()
+                onLeave={() => {
+                  actions.close()
                   focusRow(row.id)
                 }}
+                onBlur={actions.close}
               />
             ) : undefined
           }
         />
-        {editing === null && detail.length > 220 && !next ? (
+        {editing === null && !next && (more || cut) ? (
           <Button variant="link" size="xs" onClick={() => setMore(!more)} className="mt-1 h-auto px-0 text-link">
             {more ? "Show less" : "Show more"}
           </Button>
@@ -313,6 +320,7 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
   })
 
   const below = field?.kind === "below" ? field : null
+  const adding = field?.kind === "add"
   const add = field?.kind === "add" ? field.value : ""
   const [showDone, setShowDone] = useState(false)
   const next = rows.findIndex((r) => !r.done)
@@ -372,17 +380,18 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
               >
                 <Checkbox disabled aria-hidden="true" tabIndex={-1} className="mt-2" />
                 <div className="min-w-0 flex-1">
-                  <TextField
-                    multiline
+                  <MarkdownField
+                    autoFocus
                     label="New task"
+                    placeholder="New task"
                     value={below.value}
                     error={below.error}
                     onChange={(value) => actions.change({ ...below, value, error: null })}
-                    onApply={() => void actions.apply()}
-                    onCancel={() => {
-                      actions.cancel()
+                    onLeave={() => {
+                      actions.close()
                       focusRow(row.id)
                     }}
+                    onBlur={actions.close}
                   />
                 </div>
               </div>,
@@ -390,28 +399,29 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
           }
           return out
         })}
-        <div role="listitem" className="flex items-center gap-3 border-t border-rule py-2 pr-2 pl-4">
-          <PlusIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            value={add}
-            placeholder="Add a task"
-            aria-label="Add a task"
-            onChange={(event) => {
-              const value = event.target.value
-              if (field !== null && field.kind !== "add" && !actions.open({ kind: "add", value })) return
-              actions.change(value === "" ? null : { kind: "add", value })
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
-                event.preventDefault()
-                if (add.trim() !== "") actions.apply()
-              } else if (event.key === "Escape" && field?.kind === "add") {
-                event.preventDefault()
-                actions.change(null)
-              }
-            }}
-            className="h-7 flex-1 rounded-sm border-0 bg-transparent px-1 shadow-none dark:bg-transparent"
-          />
+        <div role="listitem" className="flex items-start gap-3 border-t border-rule py-2 pr-2 pl-4">
+          <PlusIcon className="mt-2 size-4 text-muted-foreground" aria-hidden="true" />
+          {adding ? (
+            <div className="min-w-0 flex-1">
+              <MarkdownField
+                autoFocus
+                label="New task"
+                placeholder="New task"
+                value={add}
+                onChange={(value) => actions.change({ kind: "add", value })}
+                onLeave={actions.close}
+                onBlur={actions.close}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => actions.open({ kind: "add", value: "" })}
+              className="h-8 flex-1 cursor-text rounded-sm px-1 text-left text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Add a task
+            </button>
+          )}
         </div>
       </Sortable>
     </div>

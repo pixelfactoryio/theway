@@ -43,12 +43,18 @@ export function PropertyList({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The grid of a card's key/value row, shared by every row of a key and its value (`PropertyRow`, an editable field):
+ * the key in a 100px column, the value in the rest, a hairline above.
+ */
+export const PROPERTY_ROW = "grid grid-cols-[6.25rem_minmax(0,1fr)] gap-2 border-t px-3 py-2"
+
+/**
  * One key/value row of a card: its `label` in the secondary ink in a 100px column, its value in the ink, wrapping;
- * a light rule above it.
+ * a hairline above it.
  */
 export function PropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[6.25rem_minmax(0,1fr)] gap-2 border-t px-3 py-2">
+    <div className={PROPERTY_ROW}>
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="min-w-0 wrap-break-word">{children}</dd>
     </div>

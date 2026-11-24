@@ -1,3 +1,4 @@
+import { cn } from "cn"
 import { ArrowRightIcon, FolderIcon, FoldersIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Link } from "wouter"
@@ -9,7 +10,7 @@ import { ListFoot } from "@/components/list-grid"
 import { ListHead, NavList } from "@/components/list-kit"
 import { PageUnknown } from "@/components/page-states"
 import { PinButton } from "@/components/pin-button"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { ViewTabs } from "@/components/view-tabs"
 import {
   archiveGroups,
@@ -78,6 +79,7 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
     project: isGroup,
     progress: listsOpenRow(open, false),
     dates: archived.length > 0,
+    archivedOnly: open.length === 0 && archived.length > 0,
   })
   const limit = all || isNarrowed(filter) ? null : 12
   const archiveShown = limit === null ? archived : archived.slice(0, limit)
@@ -176,15 +178,13 @@ export function ScopePage({ id, all }: { id: string; all: boolean }) {
                 <Sections page={id} groups={groups} />
               </NavList>
               {limit !== null && archived.length > limit ? (
-                <Button
-                  variant="link"
-                  nativeButton={false}
-                  render={<Link href={href(true)} />}
-                  className="mt-2 h-auto gap-1 px-4 text-link"
+                <Link
+                  href={href(true)}
+                  className={cn(buttonVariants({ variant: "link" }), "mt-2 h-auto gap-1 self-start px-4 text-link")}
                 >
                   All archived
                   <ArrowRightIcon aria-hidden="true" />
-                </Button>
+                </Link>
               ) : null}
               <ListFoot>
                 <CollapseHint />

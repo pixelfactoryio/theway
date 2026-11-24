@@ -4,6 +4,7 @@ import type { ChangeList, Status } from "./changes"
 import { appliesTo, type PromptRow, type WorkflowRow } from "./files"
 import { byLabel, type Project } from "./projects"
 import { to } from "./routes"
+import { toDo } from "./workspace"
 
 /**
  * One entry, read as a list row: its cmdk `value` (unique), what it is (`kind`, and a change's `status` for its icon),
@@ -61,6 +62,8 @@ function fileEntry(
 /** The groups Changes, Workflows, Prompts and Projects, in this order, an empty one dropped. */
 export function searchGroups(input: SearchInput): SearchGroup[] {
   const { label } = input
+  // A project's count to do, as the sidebar shows it, once its change list is loaded.
+  const lists = new Map(input.changes.map(({ key, list }) => [key, list]))
   // Every project's active changes first, then the archives, each detail naming the project.
   const changeEntries: SearchEntry[] = [
     ...input.changes.flatMap(({ key, list }) =>
@@ -96,7 +99,7 @@ export function searchGroups(input: SearchInput): SearchGroup[] {
         name: p.label,
         mono: false,
         id: p.path,
-        detail: `${p.active} active`,
+        detail: lists.has(p.key) ? `${toDo(lists.get(p.key))} open` : "",
         href: to.project(p.key),
       })),
     },

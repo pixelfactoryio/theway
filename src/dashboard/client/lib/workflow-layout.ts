@@ -10,9 +10,49 @@ import type { Drawing } from "./workflow"
  * hold text in rem, so they grow with it as the root grows with the window.
  *
  * A card's size: 360px wide and 56px high: two lines (the title and the name with where it runs, each a `text-sm`
- * line, 22px) 2px apart, centred in the card, its step number in a 28px tile at its left.
+ * line, 22px) 2px apart, centred in the card, its step number in a 28px tile at its left. A title on more lines (it
+ * wraps whole) makes its card 22px higher per line (`cardHeight`).
  */
 export const CARD = { width: 360, height: 56 } as const
+/** A title's line: `text-sm`, 22px. */
+export const TITLE_LINE = 22
+/** A card's height for a title on `lines` lines, at the 16px root. */
+export const cardHeight = (lines: number): number => CARD.height + (Math.max(1, lines) - 1) * TITLE_LINE
+/**
+ * The width a card `width` wide gives its title, at the 16px root: less the tile's 12px margin and 28px, the text's
+ * 12px sides, and the 24px kept for the step's menu when it has one (`menu`).
+ */
+export const titleWidth = (width: number, menu: boolean): number => width - 12 - 28 - 24 - (menu ? 24 : 0)
+
+/**
+ * The lines `text` takes in `width` pixels, wrapped as the browser wraps it (`overflow-wrap: break-word`): at spaces,
+ * each line taking as many words as fit, and a word wider than a line broken where the line is full. `measure` gives a
+ * text's width in pixels.
+ */
+export function wrappedLines(text: string, width: number, measure: (text: string) => number): number {
+  const words = text.split(/\s+/).filter((w) => w !== "")
+  if (words.length === 0 || width <= 0) return 1
+  let lines = 1
+  let line = ""
+  for (const word of words) {
+    const next = line === "" ? word : `${line} ${word}`
+    if (measure(next) <= width) {
+      line = next
+      continue
+    }
+    if (line !== "") lines += 1
+    // A word wider than a line fills lines with its characters, and its rest starts the next line.
+    let rest = word
+    while (measure(rest) > width && rest.length > 1) {
+      let fit = 1
+      while (fit < rest.length && measure(rest.slice(0, fit + 1)) <= width) fit += 1
+      rest = rest.slice(fit)
+      lines += 1
+    }
+    line = rest
+  }
+  return lines
+}
 /** An on-fail card's width; it is as high as a card. */
 export const ON_FAIL_WIDTH = 232
 /** The space between two cards of the column: a 1px line, with room for a round "+" clear of both cards. */
@@ -73,9 +113,16 @@ export const INPUTS_ID = "inputs"
  * The layout of a drawing. `placeholder` is the index a step being added takes (its outlined card is drawn there,
  * moving the cards after it down), `null` for none; `editable` adds a "+" on each edge into a step or the placeholder,
  * and the round "+" under the last card (none while the placeholder stands there). `scale` is the root's scale
- * (`rootScale`), which multiplies every size and space.
+ * (`rootScale`), which multiplies every size and space. `lines` gives the lines of a card's title by its node's id
+ * (one when not given): a step and its on-fail card, level, are as high as the taller title asks.
  */
-export function layoutDrawing(drawing: Drawing, placeholder: number | null, editable: boolean, scale = 1): Layout {
+export function layoutDrawing(
+  drawing: Drawing,
+  placeholder: number | null,
+  editable: boolean,
+  scale = 1,
+  lines: (id: string) => number = () => 1,
+): Layout {
   const nodes: LayoutNode[] = []
   const edges: LayoutEdge[] = []
   const total = drawing.steps.length
@@ -85,8 +132,9 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
   const column = { width: card.width, height: card.height }
   let y = 0
   let previous: string = INPUTS_ID
-  nodes.push({ id: INPUTS_ID, kind: "inputs", x: 0, y, ...column })
-  y += card.height + gap
+  const inputsHeight = cardHeight(lines(INPUTS_ID)) * scale
+  nodes.push({ id: INPUTS_ID, kind: "inputs", x: 0, y, width: card.width, height: inputsHeight })
+  y += inputsHeight + gap
 
   /** A card of the column at the current height, joined to the one before it. */
   const place = (node: LayoutNode, add: number | null) => {
@@ -105,7 +153,9 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
     // After the placeholder, the edge into the step has no "+": the placeholder's own edge adds at that index.
     const add = editable && placeholder !== step.index ? step.index : null
     const top = y
-    place({ id: stepId(step.index), kind: "step", index: step.index, x: 0, y: top, ...column }, add)
+    const own = lines(stepId(step.index))
+    const height = cardHeight(step.onFail !== null ? Math.max(own, lines(onFailId(step.index))) : own) * scale
+    place({ id: stepId(step.index), kind: "step", index: step.index, x: 0, y: top, width: card.width, height }, add)
     if (step.onFail !== null) {
       const id = onFailId(step.index)
       nodes.push({
@@ -115,7 +165,7 @@ export function layoutDrawing(drawing: Drawing, placeholder: number | null, edit
         x: card.width + ON_FAIL_GAP * scale,
         y: top,
         width: ON_FAIL_WIDTH * scale,
-        height: card.height,
+        height,
       })
       edges.push({
         id: `${stepId(step.index)}->${id}`,

@@ -149,6 +149,31 @@ export const ungrouped = (settings: DashboardSettings, id: string): DashboardSet
   recent: settings.recent.filter((p) => p !== `group:${id}`),
 })
 
+/** `list` with `item` back at its index in `before` when `before` held it and `list` does not. */
+const restored = (list: readonly string[], before: readonly string[], item: string): string[] => {
+  const at = before.indexOf(item)
+  if (at === -1 || list.includes(item)) return [...list]
+  return [...list.slice(0, at), item, ...list.slice(at)]
+}
+
+/**
+ * Undoing `ungrouped`: `settings` with the group `id` of `before` back at its place, with its projects not grouped since,
+ * and its pins and recents back at theirs. Unchanged when `before` has no such group or `settings` has it again.
+ */
+export function regrouped(settings: DashboardSettings, before: DashboardSettings, id: string): DashboardSettings {
+  const at = before.groups.findIndex((g) => g.id === id)
+  const group = before.groups[at]
+  if (group === undefined || settings.groups.some((g) => g.id === id)) return settings
+  const taken = new Set(settings.groups.flatMap((g) => g.projects))
+  const back = { ...group, projects: group.projects.filter((k) => !taken.has(k)) }
+  return {
+    ...settings,
+    groups: [...settings.groups.slice(0, at), back, ...settings.groups.slice(at)],
+    pinned: restored(settings.pinned, before.pinned, `group:${id}`),
+    recent: restored(settings.recent, before.recent, `group:${id}`),
+  }
+}
+
 /** The settings with group `id` renamed. */
 export const renamed = (settings: DashboardSettings, id: string, name: string): DashboardSettings => ({
   ...settings,

@@ -82,8 +82,9 @@ function SeriesRow({
 
 /**
  * The change page's panel, after Linear's item page: stacked property cards. First the status and the progress; then
- * Tasks (`tasks`, the page's list), Details (`description` first) and, for a member of a series, Series, which lists
- * its members and opens them. `tasks` is `null` when the page shows the tasks in its centre.
+ * Tasks (`tasks`, the page's list), Details (`description` first, `null` while the page's title shows it, so it is said
+ * once) and, for a member of a series, Series, which lists its members and opens them. `tasks` is `null` when the page
+ * shows the tasks in its centre.
  */
 export function ChangePanel({
   projectKey,
@@ -94,7 +95,7 @@ export function ChangePanel({
   projectKey: string
   change: ChangeDetail
   tasks: ReactNode | null
-  description: ReactNode
+  description: ReactNode | null
 }) {
   const archived = change.archived !== null
   const project = useLabel()(projectKey)
@@ -120,7 +121,7 @@ export function ChangePanel({
       ) : null}
       <PropertyCard title="Details">
         <PropertyList>
-          <PropertyRow label="Description">{description}</PropertyRow>
+          {description !== null ? <PropertyRow label="Description">{description}</PropertyRow> : null}
           <PropertyRow label="Project">{project}</PropertyRow>
           <PropertyRow label="ID">
             <IdChip>{change.id}</IdChip>

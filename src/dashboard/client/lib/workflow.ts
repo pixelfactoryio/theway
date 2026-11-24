@@ -23,7 +23,7 @@ const STEP_LINE = /^steps\[(\d+)\](\.on-fail(?![\w-]))?/
 export type Shown = { prompt: string } | { source: string }
 
 /** The on-fail card of a step. */
-type OnFailCard = {
+export type OnFailCard = {
   /** The on-fail prompt's name, or the YAML source text naming the card. */
   name: string
   /** Whether `name` is YAML source text (shown in the code font). */
@@ -94,6 +94,31 @@ export const sameSelection = (a: Selection | null, b: Selection | null): boolean
     b !== null &&
     a.kind === b.kind &&
     (a.kind === "inputs" || (b.kind !== "inputs" && a.index === b.index)))
+
+/** The search parameter that holds a workflow page's selected card. */
+const SELECTED = "step"
+
+/**
+ * A selection as the search part of a workflow page's address (`step=inputs`, `step=3`, `step=3-on-fail`: steps
+ * counted from 1, as their cards show them); `""` for none.
+ */
+export function selectionSearch(selection: Selection | null): string {
+  if (selection === null) return ""
+  const value =
+    selection.kind === "inputs" ? "inputs" : `${selection.index + 1}${selection.kind === "on-fail" ? "-on-fail" : ""}`
+  return new URLSearchParams({ [SELECTED]: value }).toString()
+}
+
+/** The selection a workflow page's search part names (`selectionSearch`); `null` for none or a value it cannot read. */
+export function selectionFromSearch(search: string): Selection | null {
+  const value = new URLSearchParams(search).get(SELECTED)
+  if (value === null) return null
+  if (value === "inputs") return { kind: "inputs" }
+  const m = /^([1-9]\d*)(-on-fail)?$/.exec(value)
+  if (m === null) return null
+  const index = Number(m[1]) - 1
+  return m[2] !== undefined ? { kind: "on-fail", index } : { kind: "step", index }
+}
 
 /** The prompt of `name` in a workflow's context: its project's own when it has one, else the global one. */
 export function findPrompt(prompts: readonly PromptRow[], project: string | null, name: string): PromptRow | null {

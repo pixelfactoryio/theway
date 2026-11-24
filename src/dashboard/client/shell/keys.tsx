@@ -34,7 +34,7 @@ export const SHORTCUTS: { title: string; rows: { keys: string[]; action: string 
     rows: [
       { keys: ["↑", "↓"], action: "Move in a list (J and K too)" },
       { keys: ["Enter"], action: "Open the item" },
-      { keys: [ALT, "Click"], action: "Collapse or expand every group, on a group's header" },
+      { keys: [ALT, "Click"], action: "On a band: collapse or expand every group" },
       { keys: [ALT, "↑", "↓"], action: "Move the task that has the focus" },
     ],
   },

@@ -3,19 +3,21 @@ import { PlusIcon } from "lucide-react"
 import { type ReactNode, useId } from "react"
 
 import { ErrorsBadge } from "@/components/status"
-import { OneLine } from "@/components/text"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /** What a card stands for, which colours its tile: the inputs, a step run in the session or by agents, an on-fail. */
 export type CardKind = "inputs" | "session" | "agents" | "on-fail"
 
-/** The tile's tint and ink per kind, from the project hues (none is the blue or a status colour). */
+/**
+ * The tile's tint and ring per kind, from the project hues (none is the blue or a status colour); its number and icon
+ * stay in the ink, as a hue is never text.
+ */
 const TILE: Record<CardKind, string> = {
-  inputs: "bg-project-4/20 text-project-4 ring-1 ring-project-4/30 ring-inset",
-  session: "bg-project-2/20 text-project-2 ring-1 ring-project-2/30 ring-inset",
-  agents: "bg-project-1/20 text-project-1 ring-1 ring-project-1/30 ring-inset",
-  "on-fail": "bg-project-3/20 text-project-3 ring-1 ring-project-3/30 ring-inset",
+  inputs: "bg-project-4/20 text-foreground ring-1 ring-project-4/30 ring-inset",
+  session: "bg-project-2/20 text-foreground ring-1 ring-project-2/30 ring-inset",
+  agents: "bg-project-1/20 text-foreground ring-1 ring-project-1/30 ring-inset",
+  "on-fail": "bg-project-3/20 text-foreground ring-1 ring-project-3/30 ring-inset",
 }
 
 /** A step's kind from its badge (`session`, `agents · opus`). */
@@ -23,8 +25,9 @@ export const kindOf = (badge: string | null): CardKind => (badge?.startsWith("se
 
 /**
  * One card of the canvas, filling its node, raised off the canvas by its outline and a soft shadow: a button holding,
- * at its left, a 28px tile tinted by the card's `kind` with the step's number (or the card's icon), then two lines: the `title` (what the step does, in the ink), and the
- * step's name in Geist Mono with its `N errors` badge, and `meta` (where it runs, its matrix) at the right in the
+ * at its left, a 28px tile tinted by the card's `kind` with the step's number (or the card's icon) in the ink, then the
+ * `title` (what the step does, in the ink, whole on as many lines as it takes), and under it the step's name in Geist
+ * Mono with its `N errors` badge, and `meta` (where it runs, its matrix) at the right in the
  * secondary ink. An on-fail card (`dashed`) has a dashed border. The selected card has the blue border and a 3px blue tint
  * around it; a card with errors a red border. The menu,
  * when the canvas edits, stands at the top right, over the title's end.
@@ -85,9 +88,8 @@ export function Card({
           {number}
         </span>
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-3">
-          <span className={cn("flex h-(--text-sm--line-height) min-w-0 items-center", menu !== null && "pe-6")}>
-            <OneLine text={title} tooltipClassName="max-w-sm" className="min-w-0 flex-1 text-sm" />
-          </span>
+          {/* Whole, wrapped as the canvas measures it (`wrappedLines`): the card is as high as its lines. */}
+          <span className={cn("min-w-0 text-sm wrap-break-word", menu !== null && "pe-6")}>{title}</span>
           <span id={line} className="flex h-(--text-sm--line-height) min-w-0 items-center gap-2 text-muted-foreground">
             <span className="flex min-w-0 items-center gap-2 truncate">{name}</span>
             <ErrorsBadge count={errors} />

@@ -11,6 +11,7 @@ import {
   byField,
   CardLines,
   ChoiceSelect,
+  DraftMarkdown,
   DraftText,
   Errors,
   FieldNote,
@@ -103,9 +104,9 @@ function InputBox({
           onChange={(v) => v !== null && field("type", v)}
         />
       </PanelField>
-      <PanelField yamlKey="description" htmlFor={id("description")} errors={at("description")}>
-        <DraftText
-          id={id("description")}
+      <PanelField yamlKey="description" errors={at("description")}>
+        <DraftMarkdown
+          label={`${input.name} description`}
           value={editable ? input.description : null}
           onWrite={(v, mode) => field("description", v, mode)}
         />
@@ -164,11 +165,9 @@ export function WorkflowEditPanel({ text, lines, write }: { text: string; lines:
     <>
       <PropertyCard title="Workflow">
         <CardLines lines={alert} />
-        <PanelField yamlKey="description" htmlFor={id("description")} errors={fields.get("description")}>
-          <DraftText
-            id={id("description")}
-            multiline
-            rows={2}
+        <PanelField yamlKey="description" errors={fields.get("description")}>
+          <DraftMarkdown
+            label="Workflow description"
             value={form.description}
             onWrite={(v, mode) => write((t) => setWorkflowKey(t, "description", v), mode)}
           />

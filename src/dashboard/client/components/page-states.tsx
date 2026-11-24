@@ -2,7 +2,7 @@ import { type LucideIcon, SearchXIcon } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 import { Link } from "wouter"
 
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { StateBlock, StateLoading } from "@/shell/state"
 import { type Crumb, PageBody, PageHeader } from "@/shell/top-bar"
 
@@ -59,9 +59,9 @@ export function PageUnknown({
           icon={<SearchXIcon aria-hidden="true" className="text-muted-foreground" />}
           title={<span className="[&_code]:text-xs">{message}</span>}
           action={
-            <Button variant="outline" size="xs" nativeButton={false} render={<Link href={back.href} />}>
+            <Link href={back.href} className={buttonVariants({ variant: "outline", size: "xs" })}>
               {back.label}
-            </Button>
+            </Link>
           }
         />
       </PageBody>

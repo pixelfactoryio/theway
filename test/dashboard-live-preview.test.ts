@@ -5,6 +5,7 @@ import {
   activeLines,
   codeBlocks,
   decorationPlan,
+  frontMatter,
   outlineOf,
   type Plan,
   softBreaks,
@@ -302,4 +303,15 @@ test("the outline lists h1 to h3 without their marks, skipping code and a first 
     { level: 2, text: "Three", line: 13 },
   ])
   expect(outlineOf(doc, tree, null)[0]).toEqual({ level: 1, text: "The Title", line: 1 })
+})
+
+test("a prompt's header is the span from a first line --- to the next ---, left out of the outline", () => {
+  const source = "---\ndescription: Review it\nmodel: opus\n---\n\n# Steps\n\n## One\n\n## Two"
+  const doc = Text.of(source.split("\n"))
+  expect(frontMatter(doc)).toEqual({ from: 0, to: doc.line(4).to })
+  const tree = markdownLanguage.parser.parse(source)
+  // "model: opus" over "---" reads as a Setext heading: inside the header, it is no heading of the outline.
+  expect(outlineOf(doc, tree, null).map((e) => e.text)).toEqual(["Steps", "One", "Two"])
+  for (const none of ["# Title\n---\nx", "---\nno end", "--- \n", "text\n---\nmore\n---"])
+    expect([none, frontMatter(Text.of(none.split("\n")))]).toEqual([none, null])
 })

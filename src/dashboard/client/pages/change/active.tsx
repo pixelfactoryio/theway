@@ -7,7 +7,7 @@ import { useLocation } from "wouter"
 
 import { CHANGE_FILE, changeStatus, changeTextErrors, checkChangeText } from "../../../../core/change-text"
 import { ChangeDialogs } from "@/components/change-dialogs"
-import { ChangeHeading, DescriptionField, UNREADABLE } from "@/components/change-header"
+import { ChangeHeading, DescriptionField, descriptionInDetails, UNREADABLE } from "@/components/change-header"
 import { ChangePanel, ChangeStatus } from "@/components/change-panel"
 import { CodeTab } from "@/components/code-tab"
 import { DocFrame } from "@/components/doc-frame"
@@ -85,6 +85,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     confirm,
     setConfirm,
     save,
+    discard,
     doDiscard,
     reload,
     doReload,
@@ -210,7 +211,10 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   )
 
   const fileText = (file: string): string => drafts.text(file) ?? data.files.find((f) => f.name === file)?.text ?? ""
-  const status = <DraftStatus dirty={drafts.isDirty(name)} saved={drafts.isSaved(name)} />
+  // Discard asks first (`ChangeDialogs`), then drops the shown file's draft, as on a prompt's or a workflow's page.
+  const status = (
+    <DraftStatus dirty={drafts.isDirty(name)} saved={drafts.isSaved(name)} onDiscard={() => discard(name)} />
+  )
   const footer = <DocFooter file={name} details={[<LineCount text={fileText(name)} />]} status={status} />
 
   let body: ReactNode
@@ -303,7 +307,10 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     </div>
   )
 
-  const descriptionPane = <DescriptionField description={description} id={shown.id} edit={descriptionEdit} />
+  // The description is the page's title, edited there; Details names it only while the title does not show it.
+  const descriptionPane = descriptionInDetails(shown, descriptionEdit) ? (
+    <DescriptionField description={description} id={shown.id} edit={descriptionEdit} />
+  ) : null
 
   return (
     <>
@@ -322,7 +329,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         }))}
         status={<ChangeStatus change={shown} />}
         notices={notices}
-        heading={<ChangeHeading change={shown} />}
+        heading={<ChangeHeading change={shown} edit={descriptionEdit} />}
         panelName="Change"
         panel={<ChangePanel projectKey={projectKey} change={shown} tasks={taskPane} description={descriptionPane} />}
       >

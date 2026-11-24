@@ -2,9 +2,7 @@ import { FileTextIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { useLocation } from "wouter"
 
-import { CodeTab } from "@/components/code-tab"
-import type { CodeViewHandle } from "@/components/code-view"
-import { DocFooter } from "@/components/doc-footer"
+import { DocFooter, LineCount } from "@/components/doc-footer"
 import { DocFrame, ItemHeading } from "@/components/doc-frame"
 import { DocTab } from "@/components/doc-tab"
 import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
@@ -12,22 +10,14 @@ import { fileStatus, InputsCard, ProblemsCard, StatusCard, UsedByCard } from "@/
 import { useFileDraft } from "@/components/file-draft"
 import { Dash, UNKNOWN_FILE } from "@/components/file-page"
 import { HistoryTab, useHistoryTab } from "@/components/history"
-import { MarkdownView } from "@/components/markdown-view"
+import { goToLine, LiveMarkdown } from "@/components/live-markdown"
 import { PageLoading, PageUnknown } from "@/components/page-states"
-import { PropertyCard, PropertyCards, PropertyList, PropertyRow, PropertyText } from "@/components/property-card"
+import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { StatusPill } from "@/components/status"
 import { useSaveKey } from "@/components/step-prompt"
 import { CopyPath } from "@/components/title-block"
 import { useFile, useLabel, useProjects, usePrompts } from "@/data/queries"
-import {
-  appliesTo,
-  type FileBody,
-  type HeaderFields,
-  KIND_LABEL,
-  kindOf,
-  previewText,
-  type PromptRow,
-} from "@/lib/files"
+import { appliesTo, type FileBody, type HeaderFields, KIND_LABEL, kindOf, type PromptRow } from "@/lib/files"
 import { type AlertLine, alertLines } from "@/lib/alert-lines"
 import { to } from "@/lib/routes"
 import { PageLoadError } from "@/shell/load-error"
@@ -60,8 +50,8 @@ function PromptCards({
       {lines.length > 0 ? <ProblemsCard lines={lines} /> : null}
       {/* The history's own Versions card. */}
       {versions}
+      {/* The description is the page's title: Details names it only when there is none. */}
       <PropertyCard title="Details">
-        {description !== null ? <PropertyText>{description}</PropertyText> : null}
         <PropertyList>
           {description === null ? (
             <PropertyRow label="Description">
@@ -88,8 +78,9 @@ function PromptCards({
 }
 
 /**
- * `#/prompts/global/<name>[/preview|/history]` and `#/prompts/projects/<key>/<name>[/preview|/history]`: a prompt's text
- * in the editable code view, its rendered preview, its history, and its cards in the panel, all from the draft. The
+ * `#/prompts/global/<name>[/history]` and `#/prompts/projects/<key>/<name>[/history]`: a prompt's text edited where it
+ * is read (`LiveMarkdown`, its header as its source lines), its history, and its cards in the panel, all from the
+ * draft (the former `/preview` address shows the text). The
  * header states its name once, for every view: Prompts › name, its status, the panel's button, the views as pill tabs.
  */
 export function PromptPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
@@ -106,10 +97,10 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     docName: `${name}.md`,
   })
   const [, navigate] = useLocation()
-  const code = useRef<CodeViewHandle>(null)
-  // A placed line clicked on the Preview tab, for the Prompt tab's code view.
+  // A placed line clicked on the History tab, for the Prompt tab's editor.
   const pending = useRef<number | null>(null)
-  const view = tab === "preview" || tab === "history" ? tab : "prompt"
+  // The address of the former Preview tab shows the Prompt tab, where the text is read and edited.
+  const view = tab === "history" ? tab : "prompt"
   const historyTab = useHistoryTab({
     draft,
     kind: "prompts",
@@ -122,19 +113,20 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     if (draft.dirty) void draft.save(false)
   })
 
-  // A placed line clicked on the Preview tab moves the cursor once the Prompt tab's code view is there: the child's
+  // A placed line clicked on the History tab moves the cursor once the Prompt tab's editor is there: the child's
   // mount effect, which attaches its editor to the draft, runs before this one.
+  const store = draft.store
   useEffect(() => {
-    if (view !== "prompt" || pending.current === null) return
-    code.current?.goToLine(pending.current)
+    if (view !== "prompt" || pending.current === null || store === null) return
+    goToLine(store, pending.current)
     pending.current = null
-  }, [view])
+  }, [view, store])
 
   const errors = draft.errors
   const lines = useMemo(
     () =>
       view === "prompt"
-        ? alertLines(errors, (line) => () => code.current?.goToLine(line))
+        ? alertLines(errors, (line) => () => store !== null && goToLine(store, line))
         : alertLines(errors, null, (e) => {
             const line = e.line
             if (line === null) return null
@@ -143,7 +135,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
               navigate(to.file("prompts", project, name))
             }
           }),
-    [errors, view, project, name, navigate],
+    [errors, view, project, name, navigate, store],
   )
 
   const unknownKey =
@@ -233,7 +225,6 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
             href: to.file("prompts", project, name),
             dirty: draft.dirty && view === "prompt",
           },
-          { value: "preview", label: "Preview", href: to.file("prompts", project, name, "preview") },
           { value: "history", label: "History", href: to.file("prompts", project, name, "history") },
         ]}
         status={<StatusPill {...fileStatus(errors.length)} />}
@@ -242,13 +233,12 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         panelName="Details"
         panel={<PromptCards file={data} fields={fields} lines={lines} versions={history ? historyTab.panel : null} />}
       >
-        {view === "prompt" ? (
-          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} />
-        ) : history ? (
+        {history ? (
           <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (
-          <DocTab footer={<DocFooter file={fileName} status={status} />}>
-            <MarkdownView text={previewText(draft.text, fields.header)} name={fileName} title={pageTitle} />
+          // The prompt is edited where it is read, as a change's documents are: its header as its source lines.
+          <DocTab footer={<DocFooter file={fileName} details={[<LineCount text={draft.text} />]} status={status} />}>
+            <LiveMarkdown key={fileName} store={draft.store} name={fileName} title={pageTitle} className="h-auto" />
           </DocTab>
         )}
       </DocFrame>

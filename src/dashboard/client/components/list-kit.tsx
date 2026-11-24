@@ -96,9 +96,9 @@ export type RowHead = { href: string } | { onToggle: () => void; expanded: boole
 
 /**
  * What holds a row's lead (a link): a lead that is an ID's chip (`IdName`) keeps room for the chip's least characters
- * (`idChipLeast`, at most a 12-character tail, 3 of the head and the ellipsis).
+ * (`idChipLeast`, at most a 16-character tail, 3 of the head and the ellipsis).
  */
-export const ID_LEAD = "has-[[data-id-chip]]:min-w-[calc(16ch+1rem)]"
+export const ID_LEAD = "has-[[data-id-chip]]:min-w-[calc(20ch+1rem)]"
 
 const HEAD = `min-w-0 truncate font-medium text-foreground outline-none after:absolute after:inset-0 lg:max-w-[60ch] ${ID_LEAD}`
 
@@ -168,7 +168,7 @@ export function ListRow({
         {meta}
       </span>
       {cells.map(({ column, content }) => (
-        <span key={column.id} className={cn(cell(column), "text-muted-foreground")}>
+        <span key={column.id} className={cn(cell(column), "text-xs text-muted-foreground")}>
           {content}
         </span>
       ))}

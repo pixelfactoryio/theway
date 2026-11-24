@@ -26,6 +26,7 @@ import {
   type CodeBlock,
   codeBlocks,
   decorationPlan,
+  frontMatter,
   type LineKind,
   type MarkKind,
   outlineOf,
@@ -136,6 +137,13 @@ const THEME = EditorView.theme({
   ".cm-lp-title-gap + .cm-lp-blank": { lineHeight: "0" },
   ".cm-lp-title-gap + .cm-line, .cm-lp-title-gap + .cm-lp-blank + .cm-line": FIRST_HEADING,
   ".cm-lp-quote": { borderLeft: "1px solid var(--border)", paddingLeft: "1rem", ...MUTED },
+  // A prompt's header, as its source: `text-xs` mono (14px) on 20px lines in the secondary ink.
+  ".cm-lp-front": {
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-xs)",
+    lineHeight: "var(--text-xs--line-height)",
+    ...MUTED,
+  },
   // A code block: on a faint tint of the page, `text-xs` mono (14px) on 20px lines, 16px by 20px inside its 8px corners. Its lines
   // wrap: a wrapped line continues 2ch further in than it starts, as a list item's later lines hang past its marker.
   ".cm-lp-code": {
@@ -319,6 +327,9 @@ const markOf = (m: { kind: MarkKind; from: number; to: number }): Decoration =>
   m.kind === "code" && m.to - m.from <= WHOLE_CODE ? WHOLE_CODE_MARK : MARK[m.kind]
 
 const HIDE = Decoration.replace({})
+
+/** A line of a prompt's header (`frontMatter`), shown as its source. */
+const FRONT = Decoration.line({ class: "cm-lp-front" })
 
 /** A list item line's indent at `depth`, the marker hanging on its `first` line. */
 const ITEM = (depth: number, first: boolean): Decoration =>
@@ -665,7 +676,12 @@ const trackFocus = EditorView.focusChangeEffect.of((_, focusing) => setFocused.o
 function softBreakDecorations(state: EditorState): DecorationSet {
   const editing = !state.readOnly && state.field(focused, false) === true
   const active = activeLines(state.doc, state.selection.ranges, editing)
-  return Decoration.set(softBreakSpans(state.doc, syntaxTree(state), active).map((b) => SPACE.range(b.from, b.to)))
+  const header = frontMatter(state.doc)
+  return Decoration.set(
+    softBreakSpans(state.doc, syntaxTree(state), active)
+      .filter((b) => header === null || b.from > header.to)
+      .map((b) => SPACE.range(b.from, b.to)),
+  )
 }
 
 /**
@@ -784,15 +800,22 @@ function decorations(view: EditorView): DecorationSet {
   const state = view.state
   const active = activeLines(state.doc, state.selection.ranges, view.hasFocus && !state.readOnly)
   const plan = decorationPlan(state.doc, syntaxTree(state), active, view.visibleRanges)
+  // A prompt's header is shown as its source, each line in mono: nothing of the Markdown read into it is drawn.
+  const header = frontMatter(state.doc)
+  const body = (at: { from: number }) => header === null || at.from > header.to
   const ranges: Range<Decoration>[] = [
-    ...plan.lines.map((l) => LINE[l.kind].range(l.from)),
-    ...plan.items.map((i) => ITEM(i.depth, i.first).range(i.from)),
-    ...plan.marks.map((m) =>
-      m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : markOf(m).range(m.from, m.to),
-    ),
-    ...plan.hidden.map((h) => HIDE.range(h.from, h.to)),
-    ...plan.widgets.map((w) => widgetDecoration(w, state.readOnly).range(w.from, w.to)),
+    ...plan.lines.filter(body).map((l) => LINE[l.kind].range(l.from)),
+    ...plan.items.filter(body).map((i) => ITEM(i.depth, i.first).range(i.from)),
+    ...plan.marks
+      .filter(body)
+      .map((m) =>
+        m.kind === "link" ? linkMark(m.href, state.readOnly).range(m.from, m.to) : markOf(m).range(m.from, m.to),
+      ),
+    ...plan.hidden.filter(body).map((h) => HIDE.range(h.from, h.to)),
+    ...plan.widgets.filter(body).map((w) => widgetDecoration(w, state.readOnly).range(w.from, w.to)),
   ]
+  if (header !== null)
+    for (let n = 1; n <= state.doc.lineAt(header.to).number; n++) ranges.push(FRONT.range(state.doc.line(n).from))
   return Decoration.set(ranges, true)
 }
 
@@ -932,6 +955,15 @@ export function liveExtensions({
  */
 const toLive = (state: EditorState, name: string, title: string | null): StateEffect<unknown> =>
   StateEffect.reconfigure.of(liveExtensions({ name, separator: state.lineBreak, title }))
+
+/** Puts the cursor at the start of line `line` (from 1) of the store's mounted view, scrolled into view and focused. */
+export function goToLine(store: DraftStore, line: number): void {
+  const v = store.view
+  if (v === null) return
+  const at = v.state.doc.line(Math.min(Math.max(1, line), v.state.doc.lines)).from
+  v.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: "center" }) })
+  v.focus()
+}
 
 /**
  * A Markdown draft, editable where it is read: formatted, its syntax shown on the lines the selection touches, with its

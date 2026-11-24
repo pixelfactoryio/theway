@@ -7,7 +7,8 @@ export type OpenField =
   | { kind: "task"; id: string; value: string; error: string | null }
   | { kind: "below"; id: string; value: string; error: string | null }
   | { kind: "add"; value: string }
-  | { kind: "description"; value: string; error: string | null }
+  /** The description, edited in the page's title (`title`) or, while the title does not show it, in Details. */
+  | { kind: "description"; value: string; error: string | null; place?: "title" | "panel" }
 
 /** The refusals the page shows under a field. */
 export const TASK_EMPTY = "A task cannot be empty."

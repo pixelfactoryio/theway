@@ -6,6 +6,14 @@ export const HANDLE =
   "bg-border transition-colors data-[separator=active]:bg-ring data-[separator=hover]:bg-ring/60 focus-visible:bg-ring"
 
 /**
+ * The sidebar's resize handle: no width of its own, on the work area's left edge; its grip, a 4px × 24px pill seen at
+ * rest, stands in the middle of the 8px between the sidebar's rows and the work area, blue on hover, while dragged
+ * and with the focus.
+ */
+export const SIDEBAR_HANDLE =
+  "w-0 bg-transparent focus-visible:ring-0 [&>div]:absolute [&>div]:right-0.5 [&>div]:rounded-full [&>div]:transition-colors data-[separator=active]:[&>div]:bg-ring data-[separator=hover]:[&>div]:bg-ring/60 focus-visible:[&>div]:bg-ring focus-visible:[&>div]:ring-2 focus-visible:[&>div]:ring-ring/50"
+
+/**
  * A pill tab (a page's view, a panel pane's tab): 26px, 12px across, a hairline outline at rest in the secondary ink;
  * the chosen one on the blue tint in the ink, without outline; a 2px focus ring.
  */
