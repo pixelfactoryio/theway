@@ -34,7 +34,7 @@ import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import { PageLoadError } from "@/shell/load-error"
-import { useLarge } from "@/shell/panel"
+import { useLarge, useWide } from "@/shell/panel"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
@@ -69,8 +69,11 @@ function scaled<Row extends FileRow>(
  */
 const COLUMN = cn("flex min-h-0 w-full flex-1 flex-col", LIST_FRAME)
 
-/** The columns hidden under 1024px, so the list never scrolls sideways there: a prompt's Model, and Applies to. */
-const NARROW_HIDDEN = { model: false, applies: false }
+/** The columns hidden under 1280px, so the list never scrolls sideways there: a prompt's Used by. */
+const WIDE_HIDDEN = { usedBy: false }
+
+/** The columns hidden under 1024px as well: a prompt's Model, and Applies to. */
+const NARROW_HIDDEN = { ...WIDE_HIDDEN, model: false, applies: false }
 
 /** Each kind's icon, as the sidebar shows it. */
 export const KIND_ICON = { workflows: WorkflowIcon, prompts: FileTextIcon } as const
@@ -171,7 +174,9 @@ function FileGrid<Row extends FileRow>({
   const [, navigate] = useLocation()
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
-  const columnVisibility = useLarge() ? {} : NARROW_HIDDEN
+  const large = useLarge()
+  const wide = useWide()
+  const columnVisibility = wide ? {} : large ? WIDE_HIDDEN : NARROW_HIDDEN
   const scale = useRootScale()
   // By file: the grid's sort keeps this order among the rows its column ties.
   const data = useMemo(() => [...rows].sort(byFile), [rows])

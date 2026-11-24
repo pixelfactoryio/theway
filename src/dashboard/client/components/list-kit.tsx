@@ -38,8 +38,11 @@ export const COLUMN = {
   actions: "w-20",
 } as const
 
-/** A list's last column, untitled: a row's actions (`RowActions`). */
-export const ACTIONS_COLUMN: ListColumn = { id: "actions", title: "", className: COLUMN.actions, align: "end" }
+/**
+ * A change list's last column, untitled: the row's "…" menu (`RowActions`), 28px, the button alone, so a row's name
+ * keeps its room at 390px.
+ */
+export const ACTIONS_COLUMN: ListColumn = { id: "actions", title: "", className: "w-7 shrink-0", align: "end" }
 
 const cell = (column: ListColumn) =>
   cn(
