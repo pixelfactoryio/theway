@@ -46,7 +46,15 @@ export function OutlinedDoc({
  */
 function DocOutline({ entries, view }: { entries: readonly OutlineEntry[]; view: () => EditorView | null }) {
   const ref = useRef<HTMLElement>(null)
-  const [current, setCurrent] = useState<number | null>(entries[0]?.line ?? null)
+  const [current, setCurrentState] = useState<number | null>(entries[0]?.line ?? null)
+  // Set only when it changes: the effect runs on every edit of the text (new `entries`), and a same value set while
+  // the outline still has a render queued costs a render of its own (see `useDrafts`' `pending`).
+  const shownLine = useRef(current)
+  const setCurrent = (line: number | null) => {
+    if (line === shownLine.current) return
+    shownLine.current = line
+    setCurrentState(line)
+  }
   const top = Math.min(...entries.map((e) => e.level))
 
   useEffect(() => {
