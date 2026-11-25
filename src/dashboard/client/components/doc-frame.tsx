@@ -1,4 +1,4 @@
-import { ChevronDownIcon, type LucideIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, CopyIcon, type LucideIcon } from "lucide-react"
 import { type ReactElement, type ReactNode, useContext, useState } from "react"
 
 import { CopyButton, useCopy } from "@/components/copy"
@@ -23,34 +23,40 @@ export const DOC_COLUMN = "px-4"
 /** The measure of prose in the reading column, on its left edge: at most `--read-width` (about 70 characters a line). */
 export const PROSE_COLUMN = "w-full max-w-(--read-width)"
 
-/**
- * What a page's header copies: its ID or name (`value`), what the toast names it (`what`), and the commands its menu
- * copies, when the page has some.
- */
-export type HeaderCopy = { value: string; what: string; commands?: readonly RunCommand[] }
+/** What a page's header copies after its title: its ID or name (`value`), and what the toast names it (`what`). */
+export type HeaderCopy = { value: string; what: string }
+
+/** The header's copy, after the title: its copy button, which the `C` key runs too. */
+function HeaderCopyControl({ value, what }: HeaderCopy) {
+  const triggerRef = useContext(HeaderCopyContext) ?? undefined
+  return <CopyButton value={value} what={what} triggerRef={triggerRef} />
+}
 
 /**
- * The header's copy, after the title: its copy button, which the `C` key runs too; with `commands`, joined to a
- * button opening the commands' menu, each command's label then the command in Geist Mono `text-xs` secondary ink.
+ * The header's run command, at the left of its actions: an outline `sm` button "Copy run command" copying the first of
+ * `commands` (its copy icon a check for 1.5s after a copy); with more commands, joined to a chevron "More run commands"
+ * whose menu copies the others, each command's label over the command in Geist Mono `text-xs` secondary ink.
  */
-function HeaderCopyControl({ value, what, commands }: HeaderCopy) {
-  const triggerRef = useContext(HeaderCopyContext) ?? undefined
-  const { copy } = useCopy()
-  const button = <CopyButton value={value} what={what} triggerRef={triggerRef} />
-  if (commands === undefined || commands.length === 0) return button
+export function RunCommandControl({ commands }: { commands: readonly RunCommand[] }) {
+  const { copy, copied } = useCopy()
+  const [primary, ...more] = commands
+  if (primary === undefined) return null
+  const button = (
+    <Button variant="outline" size="sm" onClick={() => copy(primary.command, "the command")}>
+      {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
+      Copy run command
+    </Button>
+  )
+  if (more.length === 0) return button
   return (
     <ButtonGroup>
       {button}
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="icon-xs" aria-label="Copy a command" className="text-muted-foreground" />
-          }
-        >
+        <DropdownMenuTrigger render={<Button variant="outline" size="icon-sm" aria-label="More run commands" />}>
           <ChevronDownIcon aria-hidden="true" className="size-3.5" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-auto max-w-[min(32rem,calc(100vw-2rem))] min-w-56">
-          {commands.map((c) => (
+        <DropdownMenuContent align="end" className="w-auto max-w-[min(32rem,calc(100vw-2rem))] min-w-56">
+          {more.map((c) => (
             <DropdownMenuItem key={c.command} onClick={() => copy(c.command, "the command")}>
               <span className="flex min-w-0 flex-col">
                 <span>{c.label}</span>
@@ -138,7 +144,7 @@ export function ItemHeading({
 /**
  * An item's page, the one frame of a change's, a workflow's and a prompt's page, after Linear's item page: the header
  * holds the page's icon and path, its title (the item's ID or file name, `mono`), its `copy` and `lead` after it, then at the right
- * `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
+ * its `run` commands' button, `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
  * views (`tabs`, each with its own address) are pills under it. Below: the page's `notices` (full-width strips), its
  * `heading` (an `ItemHeading`, the same on every view), then the view; the panel `panel`, a `PropertyCards` stack named
  * `panelName`, in the shell's right column.
@@ -149,6 +155,7 @@ export function DocFrame({
   parents,
   mono = false,
   copy,
+  run,
   lead,
   actions,
   tabs,
@@ -168,8 +175,10 @@ export function DocFrame({
   parents?: readonly Crumb[]
   /** The title is an ID or a file name: Geist Mono `text-xs` (14px). */
   mono?: boolean
-  /** What the header copies: the item's ID or name, and its run commands. */
+  /** What the header copies after its title: the item's ID or name. */
   copy?: HeaderCopy
+  /** The item's run commands, the first on the header's "Copy run command" button, the others in its menu. */
+  run?: readonly RunCommand[]
   lead?: ReactNode
   actions?: ReactNode
   tabs: FrameTab[]
@@ -196,6 +205,7 @@ export function DocFrame({
         lead={lead}
         actions={
           <>
+            {run !== undefined ? <RunCommandControl commands={run} /> : null}
             {actions}
             {status !== undefined && !panelShown ? <div className="mr-2 flex items-center gap-3">{status}</div> : null}
             <PanelToggle open={open} onOpenChange={setOpen} />

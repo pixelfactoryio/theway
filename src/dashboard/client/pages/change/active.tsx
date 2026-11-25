@@ -318,7 +318,8 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       <DocFrame
         title={data.id}
         mono
-        copy={{ value: data.id, what: "the change ID", commands: changeCommands(data.id) }}
+        copy={{ value: data.id, what: "the change ID" }}
+        run={changeCommands(data.id)}
         icon={<ProjectMark label={project} className="size-4" />}
         parents={[{ label: project, href: to.project(projectKey) }]}
         label="Change files"

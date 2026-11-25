@@ -4,7 +4,6 @@ import { type RefObject, useEffect, useRef } from "react"
 
 import { toasts } from "@/components/toaster"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
 
 /** How long a copy control shows its check after a copy, in milliseconds. */
@@ -34,9 +33,9 @@ export function useCopy(): { copy: (value: string, what: string) => void; copied
 }
 
 /**
- * The icon copy button (ReUI's Icon Copy, `c-button-42`): a 24px ghost icon button in the secondary ink, always seen,
- * named "Copy {what}", its tooltip "Copy {what}" then "Copied" while its check shows. With `triggerRef`, it registers
- * its own copy there while it is mounted (the `C` key's).
+ * The icon copy button (ReUI's Icon Copy, `c-button-42`, without its tooltip: the toast says what was copied): a 24px
+ * ghost icon button in the secondary ink, always seen, named "Copy {what}", its copy icon a check for 1.5s after a
+ * copy. With `triggerRef`, it registers its own copy there while it is mounted (the `C` key's).
  */
 export function CopyButton({
   value,
@@ -60,26 +59,19 @@ export function CopyButton({
     }
   })
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label={`Copy ${what}`}
-            onClick={() => copy(value, what)}
-            className={cn("shrink-0 text-muted-foreground", className)}
-          />
-        }
-      >
-        {copied ? (
-          <CheckIcon className="size-3.5" aria-hidden="true" />
-        ) : (
-          <CopyIcon className="size-3.5" aria-hidden="true" />
-        )}
-      </TooltipTrigger>
-      <TooltipContent>{copied ? "Copied" : `Copy ${what}`}</TooltipContent>
-    </Tooltip>
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      aria-label={`Copy ${what}`}
+      onClick={() => copy(value, what)}
+      className={cn("shrink-0 text-muted-foreground", className)}
+    >
+      {copied ? (
+        <CheckIcon className="size-3.5" aria-hidden="true" />
+      ) : (
+        <CopyIcon className="size-3.5" aria-hidden="true" />
+      )}
+    </Button>
   )
 }
 

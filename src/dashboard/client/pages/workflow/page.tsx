@@ -374,7 +374,8 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       <DocFrame
         title={name}
         mono
-        copy={{ value: name, what: "the workflow name", commands: [workflowCommand(name)] }}
+        copy={{ value: name, what: "the workflow name" }}
+        run={[workflowCommand(name)]}
         icon={WorkflowIcon}
         parents={PARENTS}
         label="Workflow views"

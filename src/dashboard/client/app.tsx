@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useMemo, useRef, useState } from "react"
+import { type CSSProperties, type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { usePanelRef } from "react-resizable-panels"
 import { Redirect, Route, Router, Switch, useLocation, useSearch } from "wouter"
 
@@ -57,6 +57,9 @@ const SIDEBAR_PIXELS = panelWidthCodec(SIDEBAR_WIDTH.min, SIDEBAR_WIDTH.max, SID
 
 /** The icon rail: its 32px buttons with 8px at each side, the work area 8px after them as everywhere else. */
 const RAIL = "3rem"
+
+/** How far the pointer may move between down and up on the sidebar's edge, in pixels, for a click that folds it. */
+const EDGE_CLICK_SLOP = 4
 
 /** "Skip to content": the first focusable element, focusing `main#content` without touching the hash route. */
 function SkipLink() {
@@ -154,14 +157,30 @@ function Shell() {
       setPanelWidth(Math.min(PANEL_WIDTH.max, Math.max(PANEL_WIDTH.min, width)))
     })
   }
+  // Whether the sidebar is still expanded once a resize is drawn: a click on its edge folds it in the meantime.
+  const expandedNow = useRef(expanded)
+  useLayoutEffect(() => {
+    expandedNow.current = expanded
+  }, [expanded])
   const keepSidebarWidth = (byUser: boolean) => {
     if (!byUser || !expanded) return
     requestAnimationFrame(() => {
+      if (!expandedNow.current) return
       const size = sidebarPanel.current?.getSize()
       if (size === undefined) return
       const width = Math.round(size.inPixels / rootScale())
       setSidebarWidth(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width)))
     })
+  }
+  // A click on the sidebar's edge (the pointer moved under 4px between down and up) folds the sidebar, keeping the
+  // width it had at the press: the few pixels the separator may have resized it by are dropped.
+  const edgePress = useRef<{ x: number; y: number; width: number } | null>(null)
+  const foldSidebar = (width: number) => {
+    // The group keeps the expanded panel's last layout for when it comes back: give it the kept width first.
+    sidebarPanel.current?.resize(rem(width))
+    setSidebarWidth(width)
+    wrapper.current?.style.setProperty("--sidebar-width", rem(width))
+    setOpen(false)
   }
   // The page header's copy, for the C key.
   const headerCopy = useRef<(() => void) | null>(null)
@@ -203,7 +222,29 @@ function Shell() {
                   <AppSidebar />
                 </ResizablePanel>
                 {expanded ? (
-                  <ResizableHandle withHandle aria-label="Resize the sidebar" className={SIDEBAR_HANDLE} />
+                  <ResizableHandle
+                    withHandle
+                    data-sidebar-edge=""
+                    aria-label="Resize the sidebar"
+                    className={SIDEBAR_HANDLE}
+                    onPointerDown={(event) => {
+                      edgePress.current =
+                        event.button === 0 ? { x: event.clientX, y: event.clientY, width: sidebarWidth } : null
+                    }}
+                    onPointerUp={(event) => {
+                      const press = edgePress.current
+                      edgePress.current = null
+                      if (press === null) return
+                      const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y)
+                      if (moved < EDGE_CLICK_SLOP) foldSidebar(press.width)
+                    }}
+                    onPointerCancel={() => {
+                      edgePress.current = null
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") foldSidebar(sidebarWidth)
+                    }}
+                  />
                 ) : null}
                 <ResizablePanel id="work" className="flex min-w-0 flex-col">
                   <main

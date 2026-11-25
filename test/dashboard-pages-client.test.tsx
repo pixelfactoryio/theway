@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
-import { ItemHeading } from "../src/dashboard/client/components/doc-frame"
+import { ItemHeading, RunCommandControl } from "../src/dashboard/client/components/doc-frame"
 import { ListFoot } from "../src/dashboard/client/components/list-grid"
 import { PageUnknown } from "../src/dashboard/client/components/page-states"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
@@ -144,6 +144,24 @@ test("a change's header copies its run commands: the default workflow, agents, a
     label: "Run this workflow",
     command: "/theway:workflow --workflow review",
   })
+})
+
+test("the header's run command is a visible button; a change's other commands are behind its chevron", () => {
+  const change = renderToStaticMarkup(<RunCommandControl commands={changeCommands("add-x")} />)
+  expect(change).toContain("Copy run command")
+  expect(change).toContain('aria-label="More run commands"')
+  // A workflow has one command: the button alone.
+  const workflow = renderToStaticMarkup(<RunCommandControl commands={[workflowCommand("review")]} />)
+  expect(workflow).toContain("Copy run command")
+  expect(workflow).not.toContain("More run commands")
+  // The title keeps its copy button only: no command chevron after it.
+  expect(read("components/doc-frame.tsx")).not.toContain("Copy a command")
+})
+
+test("copy controls show no tooltip: the toast says what was copied", () => {
+  for (const file of ["components/copy.tsx", "components/doc-frame.tsx"]) {
+    expect([file, /Tooltip/.test(read(file))]).toEqual([file, false])
+  }
 })
 
 test("the shortcut sheet lists C under Anywhere and the search's copy under Search", () => {

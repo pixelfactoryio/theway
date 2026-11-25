@@ -6,12 +6,14 @@ export const HANDLE =
   "bg-border transition-colors data-[separator=active]:bg-ring data-[separator=hover]:bg-ring/60 focus-visible:bg-ring"
 
 /**
- * The sidebar's resize handle: no width of its own, on the work area's left edge; its grip, a 4px × 24px pill seen at
- * rest, stands in the middle of the 8px between the sidebar's rows and the work area, blue on hover, while dragged
- * and with the focus.
+ * The sidebar's edge while it is expanded: a resize handle with no width of its own, on the work area's left edge,
+ * nothing drawn at rest. Its 10px hit area (the separator's own minimum) stands over its neighbours, so a click on it
+ * reaches it; a 2px line in the middle of the 8px between the sidebar's rows and the work area shows on hover in the
+ * sidebar's border ink, blue while dragged and with the focus. Its `col-resize` cursor holds over the whole page while
+ * it is hovered or dragged (`globals.css`).
  */
 export const SIDEBAR_HANDLE =
-  "w-0 bg-transparent focus-visible:ring-0 [&>div]:absolute [&>div]:right-0.5 [&>div]:rounded-full [&>div]:transition-colors data-[separator=active]:[&>div]:bg-ring data-[separator=hover]:[&>div]:bg-ring/60 focus-visible:[&>div]:bg-ring focus-visible:[&>div]:ring-2 focus-visible:[&>div]:ring-ring/50"
+  "w-0 cursor-col-resize bg-transparent after:z-10 after:w-[10px] focus-visible:ring-0 [&>div]:absolute [&>div]:inset-y-0 [&>div]:right-[calc(0.25rem-1px)] [&>div]:h-auto [&>div]:w-0.5 [&>div]:rounded-none [&>div]:bg-transparent [&>div]:transition-colors data-[separator=hover]:[&>div]:bg-sidebar-border data-[separator=active]:[&>div]:bg-ring focus-visible:[&>div]:bg-ring"
 
 /**
  * A pill tab (a page's view, a panel pane's tab): 26px, 12px across, a hairline outline at rest in the secondary ink;
