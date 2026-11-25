@@ -67,7 +67,7 @@ function PromptCards({
           ) : null}
           <PropertyRow label="Applies to">{appliesTo(file.project, label)}</PropertyRow>
           <PropertyRow label="File">
-            <CopyPath value={file.path} name="the file path" />
+            <CopyPath value={file.path} what="the file path" />
           </PropertyRow>
         </PropertyList>
       </PropertyCard>
@@ -214,6 +214,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
       <DocFrame
         title={name}
         mono
+        copy={{ value: name, what: "the prompt name" }}
         icon={FileTextIcon}
         parents={PARENTS}
         label="Prompt views"

@@ -1,8 +1,10 @@
 import { cn } from "cn"
-import { ChevronRightIcon } from "lucide-react"
+import { ChevronRightIcon, CopyIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { Link } from "wouter"
 
+import { useCopy } from "@/components/copy"
+import { ReorderMenu } from "@/components/reorder-menu"
 import { nameTail } from "@/lib/name-tail"
 import { CutName } from "@/shell/cut-name"
 import { ProjectMark } from "@/shell/project-mark"
@@ -35,6 +37,12 @@ export const COLUMN = {
   count: "w-24 hidden sm:flex tabular-nums",
   actions: "w-20",
 } as const
+
+/**
+ * A change list's last column, untitled: the row's "…" menu (`RowActions`), 28px, the button alone, so a row's name
+ * keeps its room at 390px.
+ */
+export const ACTIONS_COLUMN: ListColumn = { id: "actions", title: "", className: "w-7 shrink-0", align: "end" }
 
 const cell = (column: ListColumn) =>
   cn(
@@ -107,7 +115,9 @@ const HEAD = `min-w-0 truncate font-medium text-foreground outline-none after:ab
  * (the name, `children`, is its text). `lead` stands in the margin slot (a chevron); `icon` is the status icon;
  * `member` indents a member of an opened row by 24px. `meta` follows the name (an ID, chips); `cells` are the fixed
  * columns, in the head's order; `actions` (buttons) stand above the head's surface, at most two. A `current` row (the
- * page shown, in a list of its siblings) is on the selection's tint, its link marked as the current page.
+ * page shown, in a list of its siblings) is on the selection's tint, its link marked as the current page. The row is
+ * its own stacking context (`isolate`): its actions rise above its head only, so a row scrolled under a sticky section
+ * band or column head stays under it.
  */
 export function ListRow({
   head,
@@ -132,7 +142,7 @@ export function ListRow({
   return (
     <li
       className={cn(
-        "relative flex h-10 items-center gap-3 px-4 transition-colors hover:bg-accent has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
+        "relative isolate flex h-10 items-center gap-3 px-4 transition-colors hover:bg-accent has-[[data-nav-item]:focus-visible]:bg-accent has-[[data-nav-item]:focus-visible]:ring-2 has-[[data-nav-item]:focus-visible]:ring-ring has-[[data-nav-item]:focus-visible]:ring-inset",
         current && "bg-selected hover:bg-selected",
       )}
     >
@@ -193,8 +203,8 @@ export const idChipLeast = (id: string): number =>
  * An ID, the one chip of every ID set inline (a row's, a row led by its ID, the panel's Details and Series): Geist Mono
  * `text-xs` (14px) at 400 in the ink, on the band's tint, 6px corners, 24px tall, as every other ID in mono. When it does not fit
  * it is cut in the middle (`CutName`), its distinct tail kept, so `add-agent-runner` and `add-agent-store` still differ
- * when cut; it never shows fewer characters than `idChipLeast`: under 1024px the name beside it gives way first; from
- * 1024px, where a name stops at 60 characters, it shows whole.
+ * when cut; it never shows fewer characters than `idChipLeast`: under 1280px the name beside it gives way first; from
+ * 1280px it shows whole.
  */
 export function IdChip({ children, className }: { children: string; className?: string }) {
   // An ID that fits in 10 characters is never cut, and its chip is no wider than it.
@@ -214,9 +224,9 @@ export function IdChip({ children, className }: { children: string; className?: 
   )
 }
 
-/** An ID after a row's name (`IdChip`): under 1024px it is cut down to 10 characters as the name gives way. */
+/** An ID after a row's name (`IdChip`): under 1280px it is cut down to `idChipLeast` as the name gives way. */
 export function RowId({ children }: { children: string }) {
-  return <IdChip className="lg:max-w-none lg:shrink-0">{children}</IdChip>
+  return <IdChip className="xl:max-w-none xl:shrink-0">{children}</IdChip>
 }
 
 /**
@@ -229,11 +239,11 @@ export function IdName({ children }: { children: string }) {
 
 /**
  * A small label after a row's name (`series · 7`, `default`): plain `text-xs` (14px) text in the secondary ink. A `wide` label shows
- * from 1024px only, leaving its room to the name and the ID below that.
+ * from 1280px only, leaving its room to the name and the ID below that.
  */
 export function RowChip({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
-    <span className={cn("shrink-0 text-xs whitespace-nowrap text-muted-foreground", wide && "hidden lg:inline")}>
+    <span className={cn("shrink-0 text-xs whitespace-nowrap text-muted-foreground", wide && "hidden xl:inline")}>
       {children}
     </span>
   )
@@ -252,4 +262,23 @@ export function ProjectChip({ label }: { label: string }) {
 /** A row's actions, above its head's surface so their clicks stay theirs: at most two buttons, seen at rest. */
 export function RowActions({ children }: { children: ReactNode }) {
   return <span className="relative z-10 flex items-center justify-end gap-0.5">{children}</span>
+}
+
+/**
+ * A change's or a series' row "…" menu, in its actions cell (`ACTIONS_COLUMN`), seen at rest: Copy ID, which copies
+ * `id` as `what` ("the change ID", "the series ID").
+ */
+export function CopyIdMenu({ id, what }: { id: string; what: string }) {
+  const { copy } = useCopy()
+  return (
+    <RowActions>
+      <ReorderMenu
+        label={`${id} actions`}
+        size="icon-sm"
+        triggerClassName="text-muted-foreground"
+        contentClassName="w-40"
+        items={[{ label: "Copy ID", icon: <CopyIcon aria-hidden="true" />, onSelect: () => copy(id, what) }]}
+      />
+    </RowActions>
+  )
 }

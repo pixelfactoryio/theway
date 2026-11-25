@@ -2,6 +2,7 @@ import { expect, test } from "bun:test"
 import type { ActiveChange, ChangeList } from "../src/dashboard/client/lib/changes"
 import type { PromptRow, WorkflowRow } from "../src/dashboard/client/lib/files"
 import type { Project } from "../src/dashboard/client/lib/projects"
+import { copiesEntry, paletteCopyTarget } from "../src/dashboard/client/lib/copy-targets"
 import { type SearchInput, searchGroups } from "../src/dashboard/client/lib/search"
 
 const active = (id: string, description: string | null): ActiveChange => ({
@@ -188,4 +189,44 @@ test("a list still loading or empty gives no group", () => {
   expect(searchGroups(input({ changes: [], workflows: undefined, prompts: undefined, projects: undefined }))).toEqual(
     [],
   )
+})
+
+test("⌘C copies an entry's ID: a change's, a workflow's or a prompt's name, a project's folder or its name", () => {
+  // A change named by its description gives its ID; one with none is named by it.
+  expect(paletteCopyTarget({ kind: "change", name: "Add x", id: "add-x" })).toEqual({
+    value: "add-x",
+    what: "the change ID",
+  })
+  expect(paletteCopyTarget({ kind: "change", name: "add-x", id: null })).toEqual({
+    value: "add-x",
+    what: "the change ID",
+  })
+  expect(paletteCopyTarget({ kind: "workflow", name: "Review a change", id: "review" })).toEqual({
+    value: "review",
+    what: "the workflow name",
+  })
+  expect(paletteCopyTarget({ kind: "workflow", name: "review", id: null })).toEqual({
+    value: "review",
+    what: "the workflow name",
+  })
+  expect(paletteCopyTarget({ kind: "prompt", name: "implement", id: null })).toEqual({
+    value: "implement",
+    what: "the prompt name",
+  })
+  expect(paletteCopyTarget({ kind: "project", name: "acme", id: "/src/acme" })).toEqual({
+    value: "/src/acme",
+    what: "the folder path",
+  })
+  // A path the dashboard does not know gives the project's name.
+  for (const id of ["", "/", null])
+    expect(paletteCopyTarget({ kind: "project", name: "acme", id })).toEqual({
+      value: "acme",
+      what: "the project name",
+    })
+})
+
+test("⌘C copies the entry only while no text is selected in the input", () => {
+  expect(copiesEntry({ selectionStart: 3, selectionEnd: 3 })).toBe(true)
+  expect(copiesEntry({ selectionStart: 0, selectionEnd: 0 })).toBe(true)
+  expect(copiesEntry({ selectionStart: 1, selectionEnd: 4 })).toBe(false)
 })

@@ -508,6 +508,14 @@
 }
 
 /*
+ * The sidebar's edge keeps the `col-resize` cursor over the whole page while it is hovered or dragged, as the separator
+ * library does with its own cursor (`ew-resize` in Chrome and Firefox), which this rule outranks. Unlayered.
+ */
+html:has([data-sidebar-edge]:is([data-separator="hover"], [data-separator="active"])) * {
+  cursor: col-resize !important;
+}
+
+/*
  * React Flow's attribution on the workflow canvas, kept as its docs ask (removing it is for its subscribers): the theme's
  * secondary ink at `text-xs` (14px), on no background, on the panel's 16px gutter, 4px over the canvas's foot. The cards and lines
  * fade out over the canvas's last 40px (clear under 24px), so the credit never sits on a card.

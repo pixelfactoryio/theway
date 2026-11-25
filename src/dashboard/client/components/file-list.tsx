@@ -1,7 +1,7 @@
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { useTable } from "@tanstack/react-table"
 import { cn } from "cn"
-import { FileTextIcon, WorkflowIcon } from "lucide-react"
+import { CopyIcon, FileTextIcon, TerminalIcon, WorkflowIcon } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useLocation } from "wouter"
 
@@ -9,6 +9,7 @@ import { DataGrid, dataGridFeatures, type DataGridFeatures } from "@/components/
 import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header"
 import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area"
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table"
+import { useCopy } from "@/components/copy"
 import { type BarField, FilterBar, NoMatch, useListFilter } from "@/components/filter-bar"
 import { ErrorsCell, NoFile, StatusCell } from "@/components/files-table"
 import {
@@ -24,14 +25,16 @@ import {
   useSpare,
 } from "@/components/list-grid"
 import { NewFileButton } from "@/components/new-file"
+import { type ReorderItem, ReorderMenu } from "@/components/reorder-menu"
 import { StatusMark } from "@/components/status"
 import { useLabel, useProjects } from "@/data/queries"
 import { useRootScale } from "@/hooks/use-root-scale"
+import { workflowCommand } from "@/lib/copy-targets"
 import { appliesTo, byFile, compareText, fileMatches, rowId } from "@/lib/files"
 import { type FieldRule, NO_FILTER, passesAll, valueCounts } from "@/lib/list-filter"
 import { to } from "@/lib/routes"
 import { PageLoadError } from "@/shell/load-error"
-import { useLarge } from "@/shell/panel"
+import { useLarge, useWide } from "@/shell/panel"
 import { PageBody, PageHeader } from "@/shell/top-bar"
 
 /**
@@ -66,8 +69,11 @@ function scaled<Row extends FileRow>(
  */
 const COLUMN = cn("flex min-h-0 w-full flex-1 flex-col", LIST_FRAME)
 
-/** The columns hidden under 1024px, so the list never scrolls sideways there: a prompt's Model, and Applies to. */
-const NARROW_HIDDEN = { model: false, applies: false }
+/** The columns hidden under 1280px, so the list never scrolls sideways there: a prompt's Used by. */
+const WIDE_HIDDEN = { usedBy: false }
+
+/** The columns hidden under 1024px as well: a prompt's Model, and Applies to. */
+const NARROW_HIDDEN = { ...WIDE_HIDDEN, model: false, applies: false }
 
 /** Each kind's icon, as the sidebar shows it. */
 export const KIND_ICON = { workflows: WorkflowIcon, prompts: FileTextIcon } as const
@@ -87,6 +93,9 @@ export type FileColumns<Row extends FileRow> = {
 /** The status column's width: the 16px gutter, the 16px margin slot and 12px, then the 14px icon. */
 const STATUS_WIDTH = 58
 
+/** The actions column's width: 4px, the 28px "…" button, then the list's 16px right gutter. */
+const ACTIONS_WIDTH = 48
+
 /** The name column's edge: 8px after the status icon, as a list's name stands after its icon. */
 const NAME_META = { headerClassName: "ps-2", cellClassName: "ps-2" }
 
@@ -103,6 +112,39 @@ function withErrors<Row extends FileRow>(
       <span className="min-w-0">{cell(context)}</span>
       <ErrorsCell errors={context.row.original.errors} />
     </span>
+  )
+}
+
+/**
+ * A file row's "…" menu: Copy name, and on a workflow Copy run command (`workflowCommand`). A click on its button
+ * opens the menu, not the file.
+ */
+function FileActions({ kind, name }: { kind: "workflows" | "prompts"; name: string }) {
+  const { copy } = useCopy()
+  const items: ReorderItem[] =
+    kind === "workflows"
+      ? [
+          {
+            label: "Copy name",
+            icon: <CopyIcon aria-hidden="true" />,
+            onSelect: () => copy(name, "the workflow name"),
+          },
+          {
+            label: "Copy run command",
+            icon: <TerminalIcon aria-hidden="true" />,
+            onSelect: () => copy(workflowCommand(name).command, "the command"),
+          },
+        ]
+      : [{ label: "Copy name", icon: <CopyIcon aria-hidden="true" />, onSelect: () => copy(name, "the prompt name") }]
+  return (
+    <ReorderMenu
+      label={`${name} actions`}
+      size="icon-sm"
+      triggerClassName="text-muted-foreground"
+      contentClassName="w-48"
+      onTriggerClick={(event) => event.stopPropagation()}
+      items={items}
+    />
   )
 }
 
@@ -132,7 +174,9 @@ function FileGrid<Row extends FileRow>({
   const [, navigate] = useLocation()
   const label = useLabel()
   const [sorting, setSorting] = useState<SortingState>([{ id: "name", desc: false }])
-  const columnVisibility = useLarge() ? {} : NARROW_HIDDEN
+  const large = useLarge()
+  const wide = useWide()
+  const columnVisibility = wide ? {} : large ? WIDE_HIDDEN : NARROW_HIDDEN
   const scale = useRootScale()
   // By file: the grid's sort keeps this order among the rows its column ties.
   const data = useMemo(() => [...rows].sort(byFile), [rows])
@@ -163,13 +207,23 @@ function FileGrid<Row extends FileRow>({
         sortFn: (a, b) => compareText(appliesTo(a.original.project, label), appliesTo(b.original.project, label)),
         size: 150,
         enableSorting: true,
-        // The list's 16px right gutter.
-        meta: { headerClassName: "pe-4", cellClassName: "pe-4", skeleton: cellSkeleton("w-24") },
+        meta: { skeleton: cellSkeleton("w-24") },
+      },
+      {
+        // The row's "…" menu, on the list's 16px right gutter.
+        id: "actions",
+        header: () => <span className="sr-only">Actions</span>,
+        cell: ({ row }) => <FileActions kind={kind} name={row.original.name} />,
+        size: ACTIONS_WIDTH,
+        minSize: ACTIONS_WIDTH,
+        enableSorting: false,
+        enableResizing: false,
+        meta: { headerClassName: "ps-1 pe-4", cellClassName: "ps-1 pe-4", skeleton: cellSkeleton("size-3.5") },
       },
     ]
     // The spare column is measured in pixels: it is not scaled.
     return [...sized.map((column) => scaled(column, scale)), ...spareColumn<Row>(spare)]
-  }, [columnsOf, label, spare, scale])
+  }, [columnsOf, label, spare, scale, kind])
   const defaultColumn = useMemo(() => ({ minSize: Math.round(COLUMN_MIN * scale) }), [scale])
 
   const table = useTable({

@@ -3,6 +3,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   ChevronRightIcon,
+  CopyIcon,
   GripVerticalIcon,
   PencilIcon,
   PlusIcon,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, type Ref, useEffect, useRef, useState } from "react"
 
+import { useCopy } from "@/components/copy"
 import { MarkdownField } from "@/components/markdown-field"
 import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
@@ -124,6 +126,7 @@ function Row({
   const n = index + 1
   const [more, setMore] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const { copy } = useCopy()
   // A menu action that moves the focus elsewhere keeps the menu from giving it back to its button.
   const keepFocus = useRef(false)
   const act = (f: () => void) => () => {
@@ -224,6 +227,11 @@ function Row({
         finalFocus={() => !keepFocus.current}
         items={[
           { label: "Edit", icon: <PencilIcon aria-hidden="true" />, onSelect: act(edit) },
+          {
+            label: "Copy text",
+            icon: <CopyIcon aria-hidden="true" />,
+            onSelect: () => copy(row.text, "the task text"),
+          },
           {
             label: "Move up",
             icon: <ArrowUpIcon aria-hidden="true" />,

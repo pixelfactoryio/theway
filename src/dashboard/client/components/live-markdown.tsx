@@ -15,6 +15,7 @@ import { highlightTree } from "@lezer/highlight"
 import { cn } from "cn"
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
 
+import { CODE_COPY_EVENT, useCodeCopy } from "@/components/copy"
 import { OutlinedDoc } from "@/components/doc-outline"
 import { formattingKeymap } from "@/components/markdown-editor"
 import { meta } from "@/data/api"
@@ -571,16 +572,12 @@ class CodeBlockWidget extends WidgetType {
     copy.textContent = "Copy"
     const text = this.runs.map((line) => line.map(([run]) => run).join("")).join("\n")
     let reset: ReturnType<typeof setTimeout> | undefined
+    // The editor's host copies it (`useCodeCopy`): a widget is plain DOM, out of React's reach.
     copy.addEventListener("click", () => {
-      const done = (shown: string) => {
-        copy.textContent = shown
-        clearTimeout(reset)
-        reset = setTimeout(() => (copy.textContent = "Copy"), 1500)
-      }
-      void navigator.clipboard.writeText(text).then(
-        () => done("Copied"),
-        () => done("Copy failed"),
-      )
+      copy.dispatchEvent(new CustomEvent(CODE_COPY_EVENT, { bubbles: true, detail: text }))
+      copy.textContent = "Copied"
+      clearTimeout(reset)
+      reset = setTimeout(() => (copy.textContent = "Copy"), 1500)
     })
     head.append(label, copy)
     const pre = document.createElement("pre")
@@ -986,6 +983,7 @@ export function LiveMarkdown({
 }) {
   const host = useRef<HTMLDivElement>(null)
   const latestTitle = useRef(title)
+  useCodeCopy(host)
 
   // Before the mount below, so a new view takes the current title.
   useEffect(() => {

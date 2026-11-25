@@ -32,6 +32,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
@@ -440,12 +441,19 @@ function Library() {
 }
 
 /**
+ * The collapsed sidebar's edge (`SidebarRail`): the 8px between the rail's icons and the work area, a button that
+ * expands the sidebar, its 2px line in the sidebar's border ink on hover.
+ */
+const SIDEBAR_RAIL = "left-10 w-2 group-data-[side=left]:right-auto ltr:translate-x-0"
+
+/**
  * The sidebar, on the app's ground with no border: the workspace row (Search, New); Now and Search; the pinned and
  * recent projects and groups, then All projects; the Library; the version, Documentation, Settings and the button that
- * folds it. It never lists changes. Cmd/Ctrl+B or that button folds it to a rail of icons; below 768px it opens over
- * the page.
+ * folds it. It never lists changes. Cmd/Ctrl+B, that button or a click on its edge folds it to a rail of icons, whose
+ * edge (`SidebarRail`, out of the tab order) expands it on a click; below 768px it opens over the page.
  */
 export function AppSidebar() {
+  const { state, isMobile } = useSidebar()
   const shown = version()
   const projects = useProjects().data?.projects
   const keys = projects?.map((p) => p.key) ?? []
@@ -492,6 +500,9 @@ export function AppSidebar() {
           </TooltipContent>
         </Tooltip>
       </SidebarFooter>
+      {state === "collapsed" && !isMobile ? (
+        <SidebarRail aria-label="Expand the sidebar" className={SIDEBAR_RAIL} />
+      ) : null}
     </Sidebar>
   )
 }

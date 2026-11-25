@@ -28,6 +28,7 @@ import { apiPath, queryKeys, useLabel, useWrites } from "@/data/queries"
 import type { SyncedFile } from "@/drafts/draft-set"
 import { useDrafts } from "@/drafts/use-drafts"
 import { alertLines } from "@/lib/alert-lines"
+import { changeCommands } from "@/lib/copy-targets"
 import {
   type ChangeDetail,
   ChangeDetailSchema,
@@ -317,6 +318,8 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
       <DocFrame
         title={data.id}
         mono
+        copy={{ value: data.id, what: "the change ID" }}
+        run={changeCommands(data.id)}
         icon={<ProjectMark label={project} className="size-4" />}
         parents={[{ label: project, href: to.project(projectKey) }]}
         label="Change files"

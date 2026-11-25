@@ -68,15 +68,17 @@ export type Crumb = { label: string; href: string }
 
 /**
  * A page's header: its icon, its path (`parents`, then its title, the page's `h1`), then `actions` at the right; and,
- * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `lead` stands right after the title (a pin's
- * star). The title is the interface's `text-sm` (15px) at 600 (an ID, with `mono`, Geist Mono `text-xs`, 14px, at 500); the path before it is
- * secondary. In a narrow header the path is cut first, the title last.
+ * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `copy` (the page's copy control, `DocFrame`'s)
+ * stands right after the title, outside the path, so the title is cut before it; then `lead` (a pin's star). The title is the interface's `text-sm` (15px) at 600 (an ID, with `mono`, Geist Mono `text-xs`, 14px, at 500); the path before it is
+ * secondary. In a narrow header the path is cut first (its links shrink far faster), the title last, within the path's
+ * room: the title never runs under the copy control after it.
  */
 export function PageHeader({
   title,
   icon: Icon,
   parents = [],
   mono = false,
+  copy,
   lead,
   actions,
   tabs,
@@ -86,6 +88,7 @@ export function PageHeader({
   icon?: LucideIcon | ReactElement
   parents?: readonly Crumb[]
   mono?: boolean
+  copy?: ReactNode
   lead?: ReactNode
   actions?: ReactNode
   tabs?: ReactNode
@@ -105,17 +108,16 @@ export function PageHeader({
             <Fragment key={p.href}>
               <Link
                 href={p.href}
-                className="min-w-0 truncate rounded-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-w-0 shrink-[999] truncate rounded-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {p.label}
               </Link>
               <ChevronRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
             </Fragment>
           ))}
-          <h1 className={cn("max-w-full shrink-0 truncate font-semibold", mono && "font-mono text-xs font-medium")}>
-            {title}
-          </h1>
+          <h1 className={cn("min-w-0 truncate font-semibold", mono && "font-mono text-xs font-medium")}>{title}</h1>
         </nav>
+        {copy !== undefined ? <div className="flex shrink-0 items-center">{copy}</div> : null}
         {lead !== undefined ? <div className="flex shrink-0 items-center">{lead}</div> : null}
         {actions !== undefined ? <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div> : null}
       </div>
