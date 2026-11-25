@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test"
 import {
+  ADD_TASK,
+  cancelFocus,
   DESCRIPTION_EMPTY,
   differs,
   fieldEdit,
@@ -152,4 +154,11 @@ test("sameField matches the same kind, and a task field on the same row", () => 
     sameField({ kind: "task", id: "a", value: "", error: null }, { kind: "below", id: "a", value: "", error: null }),
   ).toBe(false)
   expect(sameField({ kind: "add", value: "" }, { kind: "description", value: "", error: null })).toBe(false)
+})
+
+test("cancelFocus returns Esc's focus to the row or button the field opened from, never to a task it added", () => {
+  expect(cancelFocus({ kind: "task", id: "b", value: "x", error: null })).toBe("b")
+  expect(cancelFocus({ kind: "below", id: "b", value: "", error: null })).toBe("b")
+  expect(cancelFocus({ kind: "add", value: "" })).toBe(ADD_TASK)
+  expect(cancelFocus({ kind: "description", value: "d", error: null, place: "title" })).toBeNull()
 })

@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useClampCut } from "@/components/use-clamp-cut"
 import { splitTask, taskName } from "@/lib/change-edit"
-import type { OpenField } from "@/lib/task-fields"
+import { ADD_TASK, type OpenField } from "@/lib/task-fields"
 
 /** A task row: its client id, its text and its state. */
 export type TaskRow = { id: string; text: string; done: boolean }
@@ -39,7 +39,7 @@ export type TaskListActions = {
   close: () => void
   /** Enter: applies the open field and closes it, the focus on its task's row. */
   enter: () => void
-  /** Esc: sets the draft back to its text when the field opened, and closes it. */
+  /** Esc: sets the draft back to its text when the field opened, closes it and puts the focus back. */
   cancel: () => void
 }
 
@@ -205,10 +205,7 @@ function Row({
                 error={editing.error}
                 onChange={(value) => actions.change({ ...editing, value, error: null })}
                 onEnter={actions.enter}
-                onLeave={() => {
-                  actions.cancel()
-                  focusRow(row.id)
-                }}
+                onLeave={actions.cancel}
                 onBlur={actions.close}
               />
             ) : undefined
@@ -322,14 +319,19 @@ function ReadOnlyList({ rows }: { rows: ReadOnlyProps["rows"] }) {
 /**
  * The task list of an active change, a view of the `change.yaml` draft: one row per task, rows reordered by dragging
  * their handle, from their menu or with Alt and the arrows, then the add row. `focus` names the row to focus next: an
- * id, or `#<index>` for the row at that position.
+ * id, or `#<index>` for the row at that position; `ADD_TASK` names the "Add a task" button.
  */
 function EditableList({ rows, field, actions, focus, onFocused, focusRow }: EditableProps) {
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (focus === null || list.current === null) return
     const items = [...list.current.querySelectorAll<HTMLElement>("[data-task-id]")]
-    const node = focus.startsWith("#") ? items[Number(focus.slice(1))] : items.find((i) => i.dataset.taskId === focus)
+    const node =
+      focus === ADD_TASK
+        ? list.current.querySelector<HTMLElement>("[data-task-add]")
+        : focus.startsWith("#")
+          ? items[Number(focus.slice(1))]
+          : items.find((i) => i.dataset.taskId === focus)
     node?.focus()
     onFocused()
   })
@@ -403,10 +405,7 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
                     error={below.error}
                     onChange={(value) => actions.change({ ...below, value, error: null })}
                     onEnter={actions.enter}
-                    onLeave={() => {
-                      actions.cancel()
-                      focusRow(row.id)
-                    }}
+                    onLeave={actions.cancel}
                     onBlur={actions.close}
                   />
                 </div>
@@ -433,6 +432,7 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
           ) : (
             <button
               type="button"
+              data-task-add
               onClick={() => actions.open({ kind: "add", value: "" })}
               className="h-8 flex-1 cursor-text rounded-sm px-1 text-left text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >

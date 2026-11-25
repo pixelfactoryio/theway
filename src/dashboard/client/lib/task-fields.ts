@@ -96,6 +96,19 @@ export function fieldEdit(field: OpenField, ids: readonly string[], enter: boole
   }
 }
 
+/** The `focus` target of the task list's "Add a task" button (a row's target is its id, or `#<index>`). */
+export const ADD_TASK = "+add"
+
+/**
+ * Where Esc on a field returns the focus, from the field as it opened (`null` for the description, which its own
+ * button takes back): a task's own row, the row a "below" field opened under, the "Add a task" button for an add. A
+ * task the field added as it was typed is gone after Esc, so its row is never the target.
+ */
+export function cancelFocus(opened: OpenField): string | null {
+  if (opened.kind === "description") return null
+  return opened.kind === "add" ? ADD_TASK : opened.id
+}
+
 /** Whether `next` is the field already open (`open`): the same kind, and for a task field the same row. */
 export const sameField = (open: OpenField, next: OpenField): boolean =>
   open.kind === next.kind &&

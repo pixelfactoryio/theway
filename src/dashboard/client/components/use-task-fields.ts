@@ -1,13 +1,13 @@
 import { isolateHistory } from "@codemirror/commands"
 import type { Text } from "@codemirror/state"
 import { arrayMove } from "@dnd-kit/sortable"
-import { useCallback, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import { type ChangeEdit, editedChangeText } from "../../../core/change-text"
 import type { DescriptionEdit } from "@/components/change-header"
 import type { TaskListActions, TaskRow } from "@/components/task-list"
 import type { Draft } from "@/drafts/draft-set"
-import { differs, fieldEdit, type OpenField, type RowIds, sameField, syncRowIds } from "@/lib/task-fields"
+import { cancelFocus, differs, fieldEdit, type OpenField, type RowIds, sameField, syncRowIds } from "@/lib/task-fields"
 
 /**
  * The task list and description of a change page, edited in place on the `change.yaml` draft `yaml` (`null` without
@@ -53,8 +53,14 @@ export function useTaskFields({
   const [focus, setFocus] = useState<string | null>(null)
   // Where the description's button takes the focus back, after Enter or Esc in its field.
   const [descriptionFocus, setDescriptionFocus] = useState<"title" | "panel" | null>(null)
-  // The `change.yaml` text when the open field opened, which Esc sets back.
-  const opened = useRef<string | null>(null)
+  // Once only: the buttons' effects run before this page's, so a request no button took (the title hidden and the panel
+  // closed) is dropped instead of moving the focus to Details whenever it next opens.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one render after a request, then null bails out
+    if (descriptionFocus !== null) setDescriptionFocus(null)
+  }, [descriptionFocus])
+  // The `change.yaml` text, the row ids and the field when the open field opened, which Esc sets back.
+  const opened = useRef<{ text: string | null; ids: string[]; field: OpenField } | null>(null)
 
   // The latest field, tasks and row ids, for the event handlers.
   const live = useRef({ field, tasks, description, ids })
@@ -109,7 +115,7 @@ export function useTaskFields({
       if (sameField(f, next)) return true
       if (!applyField(f, false)) return false
     }
-    opened.current = yaml?.store.state.sliceDoc() ?? null
+    opened.current = { text: yaml?.store.state.sliceDoc() ?? null, ids: live.current.ids, field: next }
     setField(next)
     return true
   }
@@ -132,24 +138,28 @@ export function useTaskFields({
   }
 
   /**
-   * Esc: sets the draft back to its text when the field opened (one transaction, its own undo step, none when the
-   * text is unchanged), which also removes a task the field added, then closes the field; the description's button
-   * takes the focus back (a task's row is focused by the list).
+   * Esc: sets the draft and the row ids back to theirs when the field opened (one transaction, its own undo step, none
+   * when the text is unchanged), which also removes a task the field added, then closes the field; the description's
+   * button takes the focus back, else the row or button `cancelFocus` names.
    */
   const cancelField = (): void => {
     const f = live.current.field
-    const text = opened.current
+    const at = opened.current
     opened.current = null
-    if (yaml !== null && text !== null) {
+    if (yaml !== null && at !== null && at.text !== null) {
       const state = yaml.store.state
-      if (state.sliceDoc() !== text)
+      if (state.sliceDoc() !== at.text) {
+        // Nothing else edits the draft while a field is open: the ids it opened with name the rows of its text.
+        setRowIds({ text: at.text, epoch, ids: at.ids })
         yaml.store.dispatch({
-          changes: { from: 0, to: state.doc.length, insert: text },
+          changes: { from: 0, to: state.doc.length, insert: at.text },
           annotations: isolateHistory.of("full"),
         })
+      }
     }
     setField(null)
     if (f?.kind === "description") setDescriptionFocus(f.place ?? "title")
+    else if (at !== null) setFocus(cancelFocus(at.field))
   }
 
   /** Whether the open field holds a text other than the draft's, for the event handlers. */

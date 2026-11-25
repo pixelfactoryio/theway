@@ -92,6 +92,11 @@ function reading(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && target.closest('.cm-content[aria-readonly="true"]') !== null
 }
 
+/** Whether a key event comes from inside a dialog (a page's confirmation, a toast), where E must not change the page. */
+function inDialog(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('[role="dialog"], [role="alertdialog"]') !== null
+}
+
 /** The next or previous item of the list holding the focus, or the sidebar's first item when none has it. */
 function moveInList(delta: 1 | -1): boolean {
   const active = document.activeElement
@@ -114,7 +119,8 @@ function moveInList(delta: 1 | -1): boolean {
  * Now, All projects, Workflows or Prompts, ↑/↓ (or J/K) move in the list holding the focus, C runs the page header's
  * copy (`headerCopy`, nothing when the page has none), E the view's Edit (`headerEdit`, nothing when it has none).
  * `?`, G and the key after it, C and E also act inside a reading editor; the list keys never act in an editor, so the
- * focus never leaves it for the sidebar. `dialogs` is the shell's dialog state: no key acts while a dialog is shown.
+ * focus never leaves it for the sidebar. `dialogs` is the shell's dialog state: no key acts while a dialog is shown;
+ * E also does nothing from inside a page's dialog, so the page never starts editing behind it.
  */
 export function useGlobalKeys(
   dialogs: { dialog: ShellDialog; open: (d: ShellDialog) => void },
@@ -157,7 +163,7 @@ export function useGlobalKeys(
       }
       if (key === "e") {
         const edit = headerEdit.current
-        if (edit !== null) {
+        if (edit !== null && !inDialog(event.target)) {
           event.preventDefault()
           edit()
         }
