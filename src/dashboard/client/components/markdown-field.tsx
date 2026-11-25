@@ -1,7 +1,7 @@
 import { EditorState, type Extension, Prec, Transaction } from "@codemirror/state"
 import { EditorView, keymap, placeholder as placeholderText } from "@codemirror/view"
 import { cn } from "cn"
-import { type FocusEvent, useEffect, useLayoutEffect, useMemo, useRef } from "react"
+import { type FocusEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { LiveMarkdown, liveExtensions } from "@/components/live-markdown"
 import { FieldError } from "@/components/ui/field"
@@ -22,15 +22,28 @@ const TITLE_SCALE =
 const CONTROL =
   "rounded-md border border-input transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 data-[invalid]:border-destructive [&_.cm-content]:px-2! [&_.cm-content]:py-1! [&_.cm-line]:mx-0! [&_.cm-editor]:bg-transparent!"
 
-/** One line: Enter adds nothing, and a line break typed or pasted becomes a space. */
-const ONE_LINE: Extension = [
-  Prec.highest(keymap.of([{ key: "Enter", run: () => true }])),
-  EditorState.transactionFilter.of((tr) => {
-    if (!tr.docChanged || tr.newDoc.lines === 1) return tr
-    const text = tr.newDoc.sliceString(0).replace(/\s*[\r\n]+\s*/g, " ")
-    return [tr, { changes: { from: 0, to: tr.newDoc.length, insert: text }, sequential: true }]
-  }),
-]
+/** One line: a line break typed or pasted becomes a space. */
+const ONE_LINE: Extension = EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || tr.newDoc.lines === 1) return tr
+  const text = tr.newDoc.sliceString(0).replace(/\s*[\r\n]+\s*/g, " ")
+  return [tr, { changes: { from: 0, to: tr.newDoc.length, insert: text }, sequential: true }]
+})
+
+/**
+ * The field's Enter, ahead of every other key: `enter` (the field's `onEnter`) when given, else nothing on one line;
+ * on one line Shift+Enter does nothing either. In a field of several lines without `enter`, Enter adds a line.
+ */
+const enterKeys = (oneLine: boolean, enter: (() => void) | null): Extension =>
+  Prec.highest(
+    keymap.of([
+      ...(enter !== null
+        ? [{ key: "Enter", run: () => (enter(), true) }]
+        : oneLine
+          ? [{ key: "Enter", run: () => true }]
+          : []),
+      ...(oneLine ? [{ key: "Shift-Enter", run: () => true }] : []),
+    ]),
+  )
 
 /**
  * A Markdown text edited where it is read, with the documents' editor (`LiveMarkdown`) and their keys: formatted, its
@@ -38,8 +51,8 @@ const ONE_LINE: Extension = [
  * Cmd/Ctrl+S, which the editor leaves to the page, saves. Each change is written to the page's draft at once
  * (`onChange`), so the page's footer, Discard and its leave guard cover it as they cover a document; a change the draft
  * refuses shows `error` under it, and the draft keeps its last text. A new `value` (the draft changed by another way)
- * replaces the text. `oneLine` keeps it to one line. Escape (`onLeave`) and moving the focus out (`onBlur`) are the
- * page's: an in-place field closes there.
+ * replaces the text. `oneLine` keeps it to one line. Enter (`onEnter`), Escape (`onLeave`) and moving the focus out
+ * (`onBlur`) are the page's: an in-place field applies, cancels or closes there.
  */
 export function MarkdownField({
   value,
@@ -52,6 +65,7 @@ export function MarkdownField({
   disabled = false,
   error = null,
   onLeave,
+  onEnter,
   onBlur,
   onFocus,
   className,
@@ -68,14 +82,20 @@ export function MarkdownField({
   disabled?: boolean
   error?: string | null
   onLeave?: () => void
+  /** Enter: applies the field (Shift+Enter then adds a line, on one line nothing). */
+  onEnter?: () => void
   onBlur?: () => void
   onFocus?: () => void
   className?: string
 }) {
   const latest = useRef(onChange)
+  const latestEnter = useRef(onEnter)
   useLayoutEffect(() => {
     latest.current = onChange
+    latestEnter.current = onEnter
   })
+  // Whether the field has an Enter of its own, fixed for its life as its store is.
+  const [entered] = useState(onEnter !== undefined)
 
   // One store for the field's life: its state holds the live set, so `LiveMarkdown` takes it as it is.
   const store = useMemo(
@@ -85,6 +105,8 @@ export function MarkdownField({
           doc: value,
           extensions: [
             ...liveExtensions({ name: label, separator: "\n" }),
+            // eslint-disable-next-line react-hooks/refs -- read when Enter is pressed, never while rendering
+            enterKeys(oneLine, entered ? () => latestEnter.current?.() : null),
             ...(oneLine ? [ONE_LINE] : []),
             ...(placeholder !== undefined ? [placeholderText(placeholder)] : []),
             EditorState.readOnly.of(disabled),

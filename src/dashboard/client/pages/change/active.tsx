@@ -13,12 +13,12 @@ import { CodeTab } from "@/components/code-tab"
 import { DocFrame } from "@/components/doc-frame"
 import { DocFooter, LineCount } from "@/components/doc-footer"
 import { DocTab } from "@/components/doc-tab"
-import { type CodeLanguage, type CodeViewHandle, editableExtensions } from "@/components/code-view"
-import { ConflictNotice, DraftStatus, SaveFailureNotice } from "@/components/draft-notices"
+import { DocumentEditor } from "@/components/document-editor"
+import { type CodeLanguage, type CodeViewHandle, codeExtensions, runEditing } from "@/components/code-view"
+import { ConflictNotice, SaveBar, SaveFailureNotice } from "@/components/draft-notices"
+import { EditControl, useEditMode } from "@/components/edit-mode"
 import { ErrorStrip, LinesAlert } from "@/components/file-page"
-import { LiveMarkdown } from "@/components/live-markdown"
 import { MarkdownView } from "@/components/markdown-view"
-import { formattingKeymap } from "@/components/markdown-editor"
 import { useSaveKey } from "@/components/step-prompt"
 import { TaskList } from "@/components/task-list"
 import { Button } from "@/components/ui/button"
@@ -37,7 +37,7 @@ import {
   ownDescription,
   shownTab,
 } from "@/lib/changes"
-import { lineSeparatorOf } from "@/lib/files"
+import { type FileError, lineSeparatorOf } from "@/lib/files"
 import { leavesChange, to } from "@/lib/routes"
 import { ProjectMark } from "@/shell/project-mark"
 import { StateNotice } from "@/shell/state"
@@ -48,20 +48,20 @@ function loadedFiles(data: ChangeDetail): SyncedFile[] {
   return data.changeFile ? [...files, { name: CHANGE_FILE, ...data.changeFile }] : files
 }
 
+/** A Markdown file's errors in Source: none (only `change.yaml` is checked), one array so the view marks them once. */
+const NO_ERRORS: readonly FileError[] = []
+
 /** A file's language: YAML for `change.yaml`, Markdown for the others. */
 const languageOf = (name: string): CodeLanguage => (name === CHANGE_FILE ? "yaml" : "markdown")
 
 /**
- * A new state of `text` for the file `name`, with an empty undo history and the file's line separator; a Markdown
- * file's state also holds the formatting keys.
+ * A new state of `text` for the file `name`: the code set in its reading half (a page opens reading), an empty undo
+ * history and the file's line separator. A Markdown file's code set holds the formatting keys in its editing half.
  */
 function stateOf(name: string, text: string): EditorState {
   return EditorState.create({
     doc: text,
-    extensions: [
-      ...editableExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }),
-      ...(languageOf(name) === "markdown" ? [formattingKeymap] : []),
-    ],
+    extensions: codeExtensions({ language: languageOf(name), name, separator: lineSeparatorOf(text) }),
   })
 }
 
@@ -154,6 +154,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     currentField,
     actions,
     descriptionEdit,
+    closeField,
   } = useTaskFields({ yaml, yamlText, tasks, description })
   const code = useRef<CodeViewHandle>(null)
 
@@ -189,19 +190,37 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
     </Button>
   )
 
-  /** ⌘S / Ctrl+S: writes every file of the change with unsaved edits, `change.yaml` checked first. */
-  const saveDirty = async () => {
+  /**
+   * ⌘S / Ctrl+S and Save: writes every file of the change with unsaved edits, `change.yaml` checked first; true once
+   * every one is written, false when a save failed or "Save anyway" was refused.
+   */
+  const saveDirty = async (): Promise<boolean> => {
     const f = currentField()
-    if (f !== null && fieldDiffers() && !applyField(f, false)) return
+    if (f !== null && fieldDiffers() && !applyField(f, false)) return false
     for (const file of order) {
-      if (drafts.isDirty(file) && !(await save(file, true))) return
+      if (drafts.isDirty(file) && !(await save(file, true))) return false
     }
+    return true
   }
   const saveRef = useRef(saveDirty)
   useLayoutEffect(() => {
     saveRef.current = saveDirty
   })
   useSaveKey(useCallback(() => void saveRef.current(), []))
+
+  // The page's mode: on a Markdown file's tab and on `change.yaml`'s, each a view of a draft.
+  const mode = useEditMode({
+    available: draft !== null,
+    store: draft?.store ?? null,
+    setConfirm,
+    // An open field with a refused text holds a change of `change.yaml` the draft does not.
+    dirtyCount: () => order.filter((file) => drafts.isDirty(file) || (file === CHANGE_FILE && fieldDiffers())).length,
+    save: () => saveRef.current(),
+    discardAll: () => {
+      closeField()
+      for (const file of order) if (drafts.isDirty(file)) doDiscard(file)
+    },
+  })
 
   const notices = (
     <>
@@ -212,32 +231,41 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   )
 
   const fileText = (file: string): string => drafts.text(file) ?? data.files.find((f) => f.name === file)?.text ?? ""
-  // Discard asks first (`ChangeDialogs`), then drops the shown file's draft, as on a prompt's or a workflow's page.
+  // Discard asks first (`ChangeDialogs`), then drops the shown file's draft, as on a prompt's or a workflow's page;
+  // Save is ⌘S.
   const status = (
-    <DraftStatus dirty={drafts.isDirty(name)} saved={drafts.isSaved(name)} onDiscard={() => discard(name)} />
+    <SaveBar
+      dirty={drafts.isDirty(name)}
+      saved={drafts.isSaved(name)}
+      editing={mode.editing}
+      onDiscard={() => discard(name)}
+      onSave={() => void saveRef.current()}
+    />
   )
   const footer = <DocFooter file={name} details={[<LineCount text={fileText(name)} />]} status={status} />
 
   let body: ReactNode
   if (current.file !== null) {
     // A Markdown file scrolls under the change's title; the editor grows to its text.
-    body = (
-      <DocTab footer={footer}>
-        {draft !== null ? (
-          <LiveMarkdown
-            key={name}
-            store={draft.store}
-            name={name}
-            title={ownDescription(description, data.id)}
-            className="h-auto"
-          />
-        ) : (
+    body =
+      draft !== null ? (
+        <DocumentEditor
+          store={draft.store}
+          name={name}
+          language="markdown"
+          title={ownDescription(description, data.id)}
+          mode={mode}
+          errors={NO_ERRORS}
+          file={name}
+          saveBar={status}
+        />
+      ) : (
+        <DocTab footer={footer}>
           <MarkdownView key={name} text={fileText(name)} name={name} title={ownDescription(description, data.id)} />
-        )}
-      </DocTab>
-    )
+        </DocTab>
+      )
   } else if (yaml !== null) {
-    body = <CodeTab ref={code} draft={yaml.store} errors={errors} file={name} status={status} />
+    body = <CodeTab ref={code} draft={yaml.store} errors={errors} file={name} status={status} mode={mode} />
   } else {
     // No `change.yaml` to edit: the title states the reasons, and nothing stands in place of the code.
     body = <DocTab footer={footer}>{null}</DocTab>
@@ -267,7 +295,8 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
                 variant="outline"
                 size="xs"
                 onClick={() => {
-                  if (yaml !== null) undo({ state: yaml.store.state, dispatch: yaml.store.dispatch })
+                  // Through `runEditing`: the history commands refuse a reading state.
+                  if (yaml !== null) runEditing(yaml.store, undo)
                   setUndoNote(null)
                 }}
               >
@@ -330,6 +359,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
           href: to.change(projectKey, data.id, tab.slug),
           dirty: drafts.isDirty(tab.file ?? CHANGE_FILE),
         }))}
+        tabActions={<EditControl mode={mode} />}
         status={<ChangeStatus change={shown} />}
         notices={notices}
         heading={<ChangeHeading change={shown} edit={descriptionEdit} />}
@@ -344,6 +374,7 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
         onDiscard={doDiscard}
         onReload={(file) => void doReload(file)}
         onLeaveSave={(proceed) => void saveAndLeave(proceed)}
+        done={mode.answers}
       />
     </>
   )

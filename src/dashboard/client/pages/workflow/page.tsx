@@ -6,7 +6,8 @@ import { CodeTab } from "@/components/code-tab"
 import type { CodeViewHandle } from "@/components/code-view"
 import { DocFooter } from "@/components/doc-footer"
 import { DocFrame, ItemHeading } from "@/components/doc-frame"
-import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { DraftDialogs, DraftNotices, SaveBar } from "@/components/draft-notices"
+import { EditControl, useEditMode } from "@/components/edit-mode"
 import { fileStatus, ProblemsCard, StatusCard } from "@/components/fact-cards"
 import { useFileDraft } from "@/components/file-draft"
 import { UNKNOWN_FILE } from "@/components/file-page"
@@ -114,8 +115,17 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
   const yamlTab = tab === "yaml"
   const history = tab === "history"
   const historyTab = useHistoryTab({ draft, kind: "workflows", project, name, language: "yaml", active: history })
-  useSaveKey(() => {
-    if (draft.dirty) void draft.save(false)
+  /** ⌘S, Save and Done's Save: writes the draft, asking "Save anyway" when it has errors; true once written. */
+  const save = (): Promise<boolean> => (draft.dirty ? draft.save(true) : Promise.resolve(true))
+  useSaveKey(() => void save())
+  // Only the YAML view holds the text; the Editor and History end editing.
+  const mode = useEditMode({
+    available: yamlTab && draft.store !== null,
+    store: draft.store,
+    setConfirm: draft.setConfirm,
+    dirtyCount: () => (draft.dirty ? 1 : 0),
+    save,
+    discardAll: draft.doDiscard,
   })
 
   const data = file.data
@@ -366,7 +376,15 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       ) : null}
     </>
   )
-  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+  const status = (
+    <SaveBar
+      dirty={draft.dirty}
+      saved={draft.saved}
+      editing={mode.editing}
+      onDiscard={draft.discard}
+      onSave={() => void save()}
+    />
+  )
   const fileName = `${name}.yaml`
 
   return (
@@ -395,6 +413,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           },
           { value: "history", label: "History", href: to.file("workflows", project, name, "history") },
         ]}
+        tabActions={<EditControl mode={mode} />}
         status={<StatusPill {...shownStatus} />}
         notices={notices}
         heading={<ItemHeading title={drawing?.description ?? null} />}
@@ -412,7 +431,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         panel={panel}
       >
         {yamlTab ? (
-          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} />
+          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} mode={mode} />
         ) : history ? (
           <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (
@@ -436,7 +455,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           </>
         )}
       </DocFrame>
-      <DraftDialogs draft={draft} />
+      <DraftDialogs draft={draft} done={mode.answers} />
     </>
   )
 }

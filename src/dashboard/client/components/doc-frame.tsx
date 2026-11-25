@@ -1,7 +1,8 @@
 import { CheckIcon, ChevronDownIcon, CopyIcon, type LucideIcon } from "lucide-react"
-import { type ReactElement, type ReactNode, useContext, useState } from "react"
+import { type ReactElement, type ReactNode, useContext, useEffect, useRef, useState } from "react"
 
 import { CopyButton, useCopy } from "@/components/copy"
+import { EditPencil } from "@/components/edit-mode"
 import { PanelToggle, RecordBody, usePanelOpen } from "@/components/record-panel"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -79,13 +80,17 @@ export type FrameTab = { value: string; label: string; href: string; dirty?: boo
  * at 600, which no heading of a document outranks), balanced over its lines and cut at three, with Show more to read
  * it whole when that cuts it; then what the page puts under it (the reasons a change cannot be read). An item with no
  * description has no title (`title` `null` or blank): its ID or file name stands once, in the header's path, and only
- * what the page puts under it shows. With `onEdit` a click on the title edits it, and `field` stands in its place. It never scrolls; the view under it does, and once that view is scrolled (its
+ * what the page puts under it shows. With `onEdit` a click on the title or on the pencil at the right of its first line
+ * edits it, and `field` stands in its place; `focusEdit` gives the title the focus back once (after its field's Enter
+ * or Esc). It never scrolls; the view under it does, and once that view is scrolled (its
  * scroll root `data-scrolled`, `DocTab`), a hairline closes the title off from the text passing under it.
  */
 export function ItemHeading({
   title,
   field,
   onEdit,
+  focusEdit = false,
+  onEditFocused,
   children,
 }: {
   title: string | null
@@ -93,35 +98,49 @@ export function ItemHeading({
   field?: ReactNode
   /** Edits the title in place: a click on it (or Enter on it). */
   onEdit?: () => void
+  /** The title takes the focus, then `onEditFocused` runs. */
+  focusEdit?: boolean
+  onEditFocused?: () => void
   children?: ReactNode
 }) {
   const shown = title !== null && title.trim() !== "" ? title : null
   const [more, setMore] = useState(false)
   const editing = field !== undefined
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const button = box.current?.querySelector<HTMLElement>("h2 > button")
+    if (!focusEdit || button === null || button === undefined) return
+    button.focus()
+    onEditFocused?.()
+  })
   const [clampRef, cut] = useClampCut(shown !== null && !more && !editing ? shown : null)
   if (shown === null && !editing && (children === undefined || children === null || children === false)) return null
   // Joined by hand: the class merger takes `text-doc-title` for a colour and would drop it.
   const clamp = more ? "" : " line-clamp-3"
   return (
     <div
-      className={`shrink-0 border-b border-transparent ${shown !== null || editing ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
+      className={`shrink-0 border-b border-transparent ${shown !== null || editing ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled]):not(:has(~[role=toolbar]))]:border-border`}
     >
-      <div className={PROSE_COLUMN}>
+      <div ref={box} className={PROSE_COLUMN}>
         {editing ? (
           field
         ) : shown !== null && onEdit !== undefined ? (
-          <h2 className="text-doc-title font-semibold tracking-tight text-balance text-foreground">
-            <button
-              ref={clampRef}
-              type="button"
-              aria-label={`${shown}. Edit the description`}
-              onClick={onEdit}
-              // Clamped, it is the clamp's box; whole, a block: either way it spans the column.
-              className={`w-full cursor-text rounded-sm text-left outline-none transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring${more ? " block" : clamp}`}
-            >
-              {shown}
-            </button>
-          </h2>
+          <div className="flex items-start gap-2">
+            <h2 className="min-w-0 flex-1 text-doc-title font-semibold tracking-tight text-balance text-foreground">
+              <button
+                ref={clampRef}
+                type="button"
+                aria-label={`${shown}. Edit the description`}
+                onClick={onEdit}
+                // Clamped, it is the clamp's box; whole, a block: either way it spans the column.
+                className={`w-full cursor-text rounded-sm text-left outline-none transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring${more ? " block" : clamp}`}
+              >
+                {shown}
+              </button>
+            </h2>
+            {/* Level with the title's first line (28px). */}
+            <EditPencil label="Edit the description" onClick={onEdit} className="mt-0.5" />
+          </div>
         ) : shown !== null ? (
           <h2
             ref={clampRef}
@@ -145,7 +164,7 @@ export function ItemHeading({
  * An item's page, the one frame of a change's, a workflow's and a prompt's page, after Linear's item page: the header
  * holds the page's icon and path, its title (the item's ID or file name, `mono`), its `copy` and `lead` after it, then at the right
  * its `run` commands' button, `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
- * views (`tabs`, each with its own address) are pills under it. Below: the page's `notices` (full-width strips), its
+ * views (`tabs`, each with its own address) are pills under it, `tabActions` (the Edit/Done control) at their row's right. Below: the page's `notices` (full-width strips), its
  * `heading` (an `ItemHeading`, the same on every view), then the view; the panel `panel`, a `PropertyCards` stack named
  * `panelName`, in the shell's right column.
  */
@@ -159,6 +178,7 @@ export function DocFrame({
   lead,
   actions,
   tabs,
+  tabActions,
   value,
   label,
   status,
@@ -182,6 +202,8 @@ export function DocFrame({
   lead?: ReactNode
   actions?: ReactNode
   tabs: FrameTab[]
+  /** At the right of the views' row. */
+  tabActions?: ReactNode
   value: string
   label: string
   status?: ReactNode
@@ -211,7 +233,7 @@ export function DocFrame({
             <PanelToggle open={open} onOpenChange={setOpen} />
           </>
         }
-        tabs={<ViewTabs label={label} value={value} tabs={tabs} />}
+        tabs={<ViewTabs label={label} value={value} tabs={tabs} actions={tabActions} />}
       />
       <RecordBody name={panelName} panel={panel}>
         {notices}

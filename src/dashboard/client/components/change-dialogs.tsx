@@ -12,10 +12,20 @@ import { Button } from "@/components/ui/button"
 import { DIALOG_TITLE } from "@/components/ui-classes"
 import type { Confirm } from "@/drafts/use-drafts"
 import { saveWithErrors } from "@/lib/edit"
+import { countOf } from "@/lib/list-filter"
+
+/** The answers of the "Save your changes?" dialog that Done asks (`useEditMode`), and where the focus goes after it. */
+export type DoneAnswers = {
+  discard: () => void
+  save: () => void
+  /** Where the focus goes when a dialog closes: an element, or `true` for where it was. */
+  finalFocus: () => HTMLElement | true
+}
 
 /**
- * The page's confirmations: Discard, Reload, Save with errors, and leaving the page. Each says what it asks in its
- * title, what follows in one line under it, and names its actions; the safe one first, the one asked for last.
+ * The page's confirmations: Discard, Reload, Save with errors, leaving the page, and Done with unsaved changes. Each
+ * says what it asks in its title, what follows in one line under it, and names its actions; the safe one first, the
+ * one asked for last.
  */
 export function ChangeDialogs({
   confirm,
@@ -23,12 +33,15 @@ export function ChangeDialogs({
   onDiscard,
   onReload,
   onLeaveSave,
+  done,
 }: {
   confirm: Confirm | null
   setConfirm: (c: Confirm | null) => void
   onDiscard: (file: string) => void
   onReload: (file: string) => void
   onLeaveSave: (proceed: () => void) => void
+  /** The page's edit mode's answers to Done. */
+  done?: DoneAnswers
 }) {
   const close = () => {
     if (confirm?.kind === "errors") confirm.answer(false)
@@ -36,7 +49,7 @@ export function ChangeDialogs({
   }
   return (
     <AlertDialog open={confirm !== null} onOpenChange={(next) => (next ? undefined : close())}>
-      <AlertDialogContent>
+      <AlertDialogContent finalFocus={done === undefined ? true : () => done.finalFocus()}>
         {confirm?.kind === "discard" || confirm?.kind === "reload" ? (
           <>
             <AlertDialogHeader>
@@ -104,6 +117,22 @@ export function ChangeDialogs({
                 Discard
               </Button>
               <AlertDialogAction onClick={() => onLeaveSave(confirm.proceed)}>Save and leave</AlertDialogAction>
+            </AlertDialogFooter>
+          </>
+        ) : confirm?.kind === "done" && done !== undefined ? (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle className={DIALOG_TITLE}>Save your changes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your unsaved edits to {countOf(confirm.n, "file")} are kept until you save or discard them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep editing</AlertDialogCancel>
+              <Button variant="outline" onClick={done.discard}>
+                Discard
+              </Button>
+              <AlertDialogAction onClick={done.save}>Save</AlertDialogAction>
             </AlertDialogFooter>
           </>
         ) : null}

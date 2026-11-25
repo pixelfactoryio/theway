@@ -14,6 +14,12 @@ export type ShellDialog = "shortcuts" | "new-workflow" | "new-prompt" | null
  */
 export const HeaderCopyContext = createContext<RefObject<(() => void) | null> | null>(null)
 
+/**
+ * The view tabs' Edit, which the `E` key runs: the Edit/Done control registers its Edit there while it reads Edit (on
+ * a view that holds a file's text), `null` otherwise. `null` outside the shell.
+ */
+export const HeaderEditContext = createContext<RefObject<(() => void) | null> | null>(null)
+
 /** The pages G and a key goes to, as the shortcuts, the sheet and the search list them, with the sidebar's icon. */
 export const GO_TO: readonly { key: string; label: string; icon: LucideIcon; href: () => string }[] = [
   { key: "n", label: "Now", icon: Clock3Icon, href: () => to.now() },
@@ -50,6 +56,13 @@ export const SHORTCUTS: { title: string; rows: { keys: string[]; action: string 
     ],
   },
   {
+    title: "Editing",
+    rows: [
+      { keys: ["E"], action: "Edit the page's file" },
+      { keys: ["Esc"], action: "Done editing" },
+    ],
+  },
+  {
     title: "Markdown editor",
     rows: [
       { keys: [MOD, "B"], action: "Bold" },
@@ -74,6 +87,11 @@ function typing(target: EventTarget | null): boolean {
   return target.isContentEditable || target.closest("input, textarea, select, [contenteditable], .cm-editor") !== null
 }
 
+/** Whether a key event comes from inside a reading editor (`aria-readonly`), where no key types text. */
+function reading(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('.cm-content[aria-readonly="true"]') !== null
+}
+
 /** The next or previous item of the list holding the focus, or the sidebar's first item when none has it. */
 function moveInList(delta: 1 | -1): boolean {
   const active = document.activeElement
@@ -94,18 +112,21 @@ function moveInList(delta: 1 | -1): boolean {
 /**
  * The shell's single-key shortcuts, outside text fields and editors: `?` opens the sheet, G then N, A, W or P goes to
  * Now, All projects, Workflows or Prompts, ↑/↓ (or J/K) move in the list holding the focus, C runs the page header's
- * copy (`headerCopy`, nothing when the page has none). `dialogs` is the shell's dialog state: no key acts while a
- * dialog is shown.
+ * copy (`headerCopy`, nothing when the page has none), E the view's Edit (`headerEdit`, nothing when it has none).
+ * `?`, G and the key after it, C and E also act inside a reading editor; the list keys never act in an editor, so the
+ * focus never leaves it for the sidebar. `dialogs` is the shell's dialog state: no key acts while a dialog is shown.
  */
 export function useGlobalKeys(
   dialogs: { dialog: ShellDialog; open: (d: ShellDialog) => void },
   headerCopy: RefObject<(() => void) | null>,
+  headerEdit: RefObject<(() => void) | null>,
 ): void {
   const [, navigate] = useLocation()
   const pendingG = useRef<number>(0)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typing(event.target)) return
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (typing(event.target) && !reading(event.target)) return
       if (dialogs.dialog !== null) return
       const key = event.key
       if (key === "?") {
@@ -134,6 +155,15 @@ export function useGlobalKeys(
         }
         return
       }
+      if (key === "e") {
+        const edit = headerEdit.current
+        if (edit !== null) {
+          event.preventDefault()
+          edit()
+        }
+        return
+      }
+      if (typing(event.target)) return
       if (key === "ArrowDown" || key === "j") {
         if (moveInList(1)) event.preventDefault()
       } else if (key === "ArrowUp" || key === "k") {
@@ -142,5 +172,5 @@ export function useGlobalKeys(
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [dialogs, navigate, headerCopy])
+  }, [dialogs, navigate, headerCopy, headerEdit])
 }

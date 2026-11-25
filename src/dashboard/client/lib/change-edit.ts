@@ -71,3 +71,58 @@ export function linked(doc: string, from: number, to: number): Replace {
   const selected = doc.slice(from, to)
   return { from, to, insert: `[${selected}](https://)`, anchor: from + 1, head: from + 1 + selected.length }
 }
+
+/** A line command of the editing strip: a heading (`## `), or a list of a kind. */
+export type LineKind = "heading" | "bullet" | "numbered" | "task"
+
+/** A line's edit: the range of the line it replaces (from its start) and the text put there. */
+export type LineEdit = { from: number; to: number; insert: string }
+
+/** Any list marker a line may start with: a task's first, as it starts like a bullet. */
+const LIST_MARKER = /^(?:- \[[ xX]\] |[-*+] |\d+\. )/
+
+/** Whether `rest` (a line after its indentation) starts with the marker of `kind`. */
+function hasMarker(rest: string, kind: Exclude<LineKind, "heading">): boolean {
+  if (kind === "task") return /^- \[[ xX]\] /.test(rest)
+  if (kind === "numbered") return /^\d+\. /.test(rest)
+  return rest.startsWith("- ") && !/^- \[[ xX]\] /.test(rest)
+}
+
+/**
+ * The edits of a line command on the lines `lines` (the ones the selection touches), one per line, `null` for a line
+ * left as it is; each keeps its line's leading indentation. Blank lines are left out unless every line is blank.
+ *
+ * - Heading: when every line starts with `## `, it is removed; otherwise any `#{1,6} ` prefix is replaced by `## `.
+ * - Bulleted, Numbered or Task list: when every line has the kind's marker (`- ` but not a task's; `N. `; `- [ ] ` or
+ *   `- [x] `), the markers are removed; otherwise each line's list marker (`- `, `* `, `+ `, `N. `, `- [ ] `, `- [x] `)
+ *   is replaced by the kind's, a line that has it already keeping it, and numbered lines are numbered from 1 in order.
+ */
+export function lineEdits(lines: readonly string[], kind: LineKind): (LineEdit | null)[] {
+  const blank = (line: string) => line.trim() === ""
+  const touched = lines.every(blank) ? lines.map(() => true) : lines.map((l) => !blank(l))
+  const parts = lines.map((line) => {
+    const indent = /^\s*/.exec(line)?.[0].length ?? 0
+    return { indent, rest: line.slice(indent) }
+  })
+  const own = parts.filter((_, i) => touched[i])
+  if (kind === "heading") {
+    const remove = own.every((p) => p.rest.startsWith("## "))
+    return parts.map(({ indent, rest }, i) => {
+      if (!touched[i]) return null
+      if (remove) return { from: indent, to: indent + 3, insert: "" }
+      const prefix = /^#{1,6} /.exec(rest)?.[0] ?? ""
+      return prefix === "## " ? null : { from: indent, to: indent + prefix.length, insert: "## " }
+    })
+  }
+  const remove = own.every((p) => hasMarker(p.rest, kind))
+  let n = 0
+  return parts.map(({ indent, rest }, i) => {
+    if (!touched[i]) return null
+    const marker = LIST_MARKER.exec(rest)?.[0] ?? ""
+    if (remove) return { from: indent, to: indent + marker.length, insert: "" }
+    n += 1
+    if (kind !== "numbered" && hasMarker(rest, kind)) return null
+    const insert = kind === "numbered" ? `${n}. ` : kind === "task" ? "- [ ] " : "- "
+    return marker === insert ? null : { from: indent, to: indent + marker.length, insert }
+  })
+}

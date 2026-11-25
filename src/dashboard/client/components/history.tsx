@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { DIALOG_TITLE, PILL_TAB } from "@/components/ui-classes"
+import { LAYOUT_PILL } from "@/components/toolbar"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
 import { DIFF_LAYOUT } from "@/lib/preferences"
@@ -29,12 +30,6 @@ import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
 const LAYOUT_KEY = "theway-diff-layout"
-
-/** A layout toggle, as a pill tab: the pressed one on the blue tint. */
-const LAYOUT_PILL = cn(
-  PILL_TAB,
-  "border hover:bg-transparent aria-pressed:border-transparent aria-pressed:bg-selected aria-pressed:text-foreground",
-)
 
 /** The versions panel's selection: Current, or a version's id. */
 const CURRENT = "current"

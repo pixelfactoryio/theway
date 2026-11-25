@@ -12,6 +12,7 @@ import {
 import { type KeyboardEvent, type ReactNode, type Ref, useEffect, useRef, useState } from "react"
 
 import { useCopy } from "@/components/copy"
+import { EditPencil } from "@/components/edit-mode"
 import { MarkdownField } from "@/components/markdown-field"
 import { ReorderMenu } from "@/components/reorder-menu"
 import { Sortable, SortableItem, SortableItemHandle } from "@/components/reui/sortable"
@@ -36,6 +37,10 @@ export type TaskListActions = {
   change: (field: OpenField) => void
   /** Closes the open field: its text is in the draft already. */
   close: () => void
+  /** Enter: applies the open field and closes it, the focus on its task's row. */
+  enter: () => void
+  /** Esc: sets the draft back to its text when the field opened, and closes it. */
+  cancel: () => void
 }
 
 const LAST_TASK = "A change keeps at least one task."
@@ -199,8 +204,9 @@ function Row({
                 value={editing.value}
                 error={editing.error}
                 onChange={(value) => actions.change({ ...editing, value, error: null })}
+                onEnter={actions.enter}
                 onLeave={() => {
-                  actions.close()
+                  actions.cancel()
                   focusRow(row.id)
                 }}
                 onBlur={actions.close}
@@ -214,6 +220,7 @@ function Row({
           </Button>
         ) : null}
       </div>
+      {editing === null ? <EditPencil label={`Edit task ${n}`} onClick={edit} className="mt-0.5" /> : null}
       <ReorderMenu
         label={`Task ${n} actions`}
         size="icon-sm"
@@ -395,8 +402,9 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
                     value={below.value}
                     error={below.error}
                     onChange={(value) => actions.change({ ...below, value, error: null })}
+                    onEnter={actions.enter}
                     onLeave={() => {
-                      actions.close()
+                      actions.cancel()
                       focusRow(row.id)
                     }}
                     onBlur={actions.close}
@@ -417,7 +425,8 @@ function EditableList({ rows, field, actions, focus, onFocused, focusRow }: Edit
                 placeholder="New task"
                 value={add}
                 onChange={(value) => actions.change({ kind: "add", value })}
-                onLeave={actions.close}
+                onEnter={actions.enter}
+                onLeave={actions.cancel}
                 onBlur={actions.close}
               />
             </div>

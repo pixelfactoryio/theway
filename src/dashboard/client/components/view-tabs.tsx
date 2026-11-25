@@ -26,7 +26,8 @@ export function ViewTabs({
   return (
     <div className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
       <Tabs value={value} className="min-w-0 flex-1 gap-0">
-        <TabsList aria-label={label} className={PILL_LIST}>
+        {/* No wider than its room: a list wider than it scrolls in itself, never under the actions. */}
+        <TabsList aria-label={label} className={`${PILL_LIST} max-w-full`}>
           {tabs.map((tab) => (
             <TabsTrigger
               key={tab.value}

@@ -67,8 +67,9 @@ export type FieldEdit =
 
 /**
  * Applying the field `field` over the rows `ids`, as Enter does: a description is one-lined, and empty is refused; an
- * empty add closes, an add appends a new row; an empty task is refused; `below` inserts a new row after its own,
- * focused when `enter` (the user applied it); a field whose row is gone closes. `newId` makes a new row's id.
+ * empty add closes, an add appends a new row; an empty task is refused; `below` inserts a new row after its own; when
+ * `enter` (the user applied it), a task's row or the new row of `below` is focused; a field whose row is gone closes.
+ * `newId` makes a new row's id.
  */
 export function fieldEdit(field: OpenField, ids: readonly string[], enter: boolean, newId: () => string): FieldEdit {
   if (field.kind === "description") {
@@ -84,7 +85,8 @@ export function fieldEdit(field: OpenField, ids: readonly string[], enter: boole
   const index = ids.indexOf(field.id)
   if (index === -1) return { kind: "close" }
   if (field.value.trim() === "") return { kind: "error", field: { ...field, error: TASK_EMPTY } }
-  if (field.kind === "task") return { kind: "edit", edit: { kind: "text", index, text: field.value } }
+  if (field.kind === "task")
+    return { kind: "edit", edit: { kind: "text", index, text: field.value }, ...(enter ? { focus: field.id } : {}) }
   const id = newId()
   return {
     kind: "edit",

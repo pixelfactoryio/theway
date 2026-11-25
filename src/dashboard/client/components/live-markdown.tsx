@@ -1,7 +1,7 @@
 import { defaultKeymap, history, historyKeymap, redo } from "@codemirror/commands"
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
+import { markdown, markdownKeymap, markdownLanguage, pasteURLAsLink } from "@codemirror/lang-markdown"
 import { ensureSyntaxTree, syntaxHighlighting, syntaxTree } from "@codemirror/language"
-import { EditorState, type Extension, Facet, type Range, StateEffect, StateField } from "@codemirror/state"
+import { EditorState, type Extension, Facet, Prec, type Range, StateEffect, StateField } from "@codemirror/state"
 import {
   Decoration,
   type DecorationSet,
@@ -15,6 +15,7 @@ import { highlightTree } from "@lezer/highlight"
 import { cn } from "cn"
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react"
 
+import { applyMode, isEditing, type ModeHalves, modeExtensions, setEffects } from "@/components/code-view"
 import { CODE_COPY_EVENT, useCodeCopy } from "@/components/copy"
 import { OutlinedDoc } from "@/components/doc-outline"
 import { formattingKeymap } from "@/components/markdown-editor"
@@ -110,6 +111,8 @@ const FIRST_HEADING = { paddingTop: "0", backgroundImage: "none" }
  */
 const THEME = EditorView.theme({
   "&": { height: "100%", backgroundColor: "var(--background)", color: "var(--doc-foreground)" },
+  // Editing: the surface on the `--muted` tint (`cm-editing`, the editing half's class).
+  "&.cm-editing": { backgroundColor: "var(--muted)" },
   "&.cm-focused": { outline: "none" },
   ".cm-scroller": {
     fontFamily: "var(--font-sans)",
@@ -271,6 +274,8 @@ const THEME = EditorView.theme({
     "&:hover": { backgroundColor: "var(--accent)", color: "var(--foreground)" },
     "&:focus-visible": { outline: "2px solid var(--ring)", outlineOffset: "-2px" },
   },
+  // On the editing tint the accent does not show: Copy's hover takes the panel's colour, one step back from it.
+  "&.cm-editing .cm-lp-copy:hover": { backgroundColor: "var(--background)" },
   ".cm-lp-pre": {
     margin: "0",
     padding: "0.75rem 1rem",
@@ -487,12 +492,16 @@ function tableDecorations(state: EditorState): DecorationSet {
   )
 }
 
+/** Whether a transaction changes what the state-given decorations read: the text, the selection, the tree or the mode. */
+const redraws = (tr: { docChanged: boolean; selection: unknown; startState: EditorState; state: EditorState }) =>
+  tr.docChanged ||
+  tr.selection !== undefined ||
+  tr.startState.readOnly !== tr.state.readOnly ||
+  syntaxTree(tr.startState) !== syntaxTree(tr.state)
+
 export const tables = StateField.define<DecorationSet>({
   create: tableDecorations,
-  update: (set, tr) =>
-    tr.docChanged || tr.selection !== undefined || syntaxTree(tr.startState) !== syntaxTree(tr.state)
-      ? tableDecorations(tr.state)
-      : set,
+  update: (set, tr) => (redraws(tr) ? tableDecorations(tr.state) : set),
   provide: (field) => EditorView.decorations.from(field),
 })
 
@@ -629,10 +638,7 @@ function codeDecorations(state: EditorState): DecorationSet {
 
 export const codeBlockField = StateField.define<DecorationSet>({
   create: codeDecorations,
-  update: (set, tr) =>
-    tr.docChanged || tr.selection !== undefined || syntaxTree(tr.startState) !== syntaxTree(tr.state)
-      ? codeDecorations(tr.state)
-      : set,
+  update: (set, tr) => (redraws(tr) ? codeDecorations(tr.state) : set),
   provide: (field) => EditorView.decorations.from(field),
 })
 
@@ -690,10 +696,7 @@ function softBreakDecorations(state: EditorState): DecorationSet {
 export const softBreaks = StateField.define<DecorationSet>({
   create: softBreakDecorations,
   update: (set, tr) =>
-    tr.docChanged ||
-    tr.selection !== undefined ||
-    tr.startState.field(focused, false) !== tr.state.field(focused, false) ||
-    syntaxTree(tr.startState) !== syntaxTree(tr.state)
+    redraws(tr) || tr.startState.field(focused, false) !== tr.state.field(focused, false)
       ? softBreakDecorations(tr.state)
       : set,
   provide: (field) => EditorView.decorations.from(field),
@@ -817,7 +820,8 @@ function decorations(view: EditorView): DecorationSet {
 }
 
 /**
- * The live preview: rebuilt on a change of the text, the selection, the focus, the viewport or the parsed tree. A
+ * The live preview: rebuilt on a change of the text, the selection, the focus, the viewport, the parsed tree or the
+ * mode (`readOnly`). A
  * mousedown on a task box toggles it (one character, undoable); Cmd or Ctrl and a click on a link opens its target in a
  * new tab when it is http:, https: or mailto:. In a read-only view a task box does not toggle, and a link is an anchor
  * that a click opens, except a click that selected text or a double or triple click.
@@ -836,6 +840,7 @@ const livePreview = ViewPlugin.fromClass(
         u.selectionSet ||
         u.focusChanged ||
         u.viewportChanged ||
+        u.startState.readOnly !== u.state.readOnly ||
         syntaxTree(u.startState) !== syntaxTree(u.state)
       )
         this.decorations = decorations(u.view)
@@ -880,34 +885,51 @@ function openLink(target: EventTarget | null): boolean {
 const LIVE = Facet.define<boolean, boolean>({ combine: (values) => values.length > 0 })
 
 /**
+ * The live set's halves. Reading: read-only and not editable, no keys, so the text always shows formatted (no line is
+ * active), links are anchors, tables and code blocks take the focus and task boxes are disabled. Editing: the
+ * formatting keys, the stock and history keys with `Mod-Shift-z` as redo, Markdown's own keys and URL paste (which
+ * ignore `readOnly`, so only this half has them), the focus kept in the state, and the table and code block click.
+ */
+const LIVE_HALVES: ModeHalves = {
+  reading: [EditorState.readOnly.of(true), EditorView.editable.of(false)],
+  editing: [
+    formattingKeymap,
+    keymap.of([...defaultKeymap, ...historyKeymap]),
+    keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
+    Prec.high(keymap.of(markdownKeymap)),
+    pasteURLAsLink,
+    focused,
+    trackFocus,
+    blockClick,
+  ],
+}
+
+/**
  * The extension set of a live Markdown view: GFM Markdown with fenced code parsed in the languages of the list and
- * coloured by their scoped highlight styles, the live preview, history with the stock keys and `Mod-Shift-z` as redo,
- * the formatting keys, wrapped lines, no gutters, the accessible name, the file's line separator and the style nonce.
- * It binds no `Mod-s`: saving is the page's. `readOnly` gives the set of a read view: not editable, no history, no keys,
- * no table or code block click, no line ever active, so the text always shows formatted. Either set joins soft line
- * breaks.
+ * coloured by their scoped highlight styles, the live preview, history, the mode compartment (`LIVE_HALVES`, editing
+ * unless `editing` is false), wrapped lines, no gutters, the accessible name, the file's line separator and the style
+ * nonce. It binds no `Mod-s`: saving is the page's. `readOnly` gives the set of a read view instead: not editable, no
+ * history, no keys, no table or code block click, no mode, no line ever active, so the text always shows formatted.
+ * Either set joins soft line breaks.
  */
 export function liveExtensions({
   name,
   separator,
   readOnly = false,
   title = null,
+  editing = true,
 }: {
   name: string
   separator: string
   readOnly?: boolean
   /** The page's title, whose restatement as the document's first line is hidden (`titleHidden`). */
   title?: string | null
+  /** The mode a draft's set starts in. */
+  editing?: boolean
 }): Extension[] {
   const preview: Extension[] = [
-    // A read view's links take focus, so its keys reach the editor: Markdown's Enter and Backspace and its URL paste
-    // would edit the read-only document.
-    markdown({
-      base: markdownLanguage,
-      codeLanguages: CODE_LANGUAGES,
-      addKeymap: !readOnly,
-      pasteURLAsLink: !readOnly,
-    }),
+    // Markdown's Enter and Backspace and its URL paste would edit a read-only document: only an editing half has them.
+    markdown({ base: markdownLanguage, codeLanguages: CODE_LANGUAGES, addKeymap: false, pasteURLAsLink: false }),
     CODE_BLOCK_STYLES.map((style) => syntaxHighlighting(style)),
     livePreview,
     tables,
@@ -931,13 +953,8 @@ export function liveExtensions({
   return [
     LIVE.of(true),
     history(),
-    formattingKeymap,
-    keymap.of([...defaultKeymap, ...historyKeymap]),
-    keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
     ...preview,
-    focused,
-    trackFocus,
-    blockClick,
+    ...modeExtensions(LIVE_HALVES, editing),
     THEME,
     EditorView.lineWrapping,
     EditorView.contentAttributes.of({ "aria-label": name }),
@@ -947,11 +964,13 @@ export function liveExtensions({
 }
 
 /**
- * The effect that gives `state` the live set with the page's `title`, keeping its text, selection, undo history and
- * line separator.
+ * The effect that gives `state` the live set with the page's `title`, keeping its text, selection, undo history, line
+ * separator and mode.
  */
-const toLive = (state: EditorState, name: string, title: string | null): StateEffect<unknown> =>
-  StateEffect.reconfigure.of(liveExtensions({ name, separator: state.lineBreak, title }))
+export function toLive(state: EditorState, name: string, title: string | null): StateEffect<unknown>[] {
+  const editing = isEditing(state)
+  return setEffects(liveExtensions({ name, separator: state.lineBreak, title, editing }), LIVE_HALVES, editing)
+}
 
 /** Puts the cursor at the start of line `line` (from 1) of the store's mounted view, scrolled into view and focused. */
 export function goToLine(store: DraftStore, line: number): void {
@@ -963,22 +982,25 @@ export function goToLine(store: DraftStore, line: number): void {
 }
 
 /**
- * A Markdown draft, editable where it is read: formatted, its syntax shown on the lines the selection touches, with its
- * outline at its right while the page has room (`OutlinedDoc`). It mounts
- * the draft's state and dispatches through it as the editable code view does; a state without the live set (the
- * draft's first one, or one taken by Discard, Reload or Restore) is reconfigured to it, which keeps the text, the
- * selection and the undo history.
+ * A Markdown draft shown formatted, with its outline at its right while the page has room (`OutlinedDoc`): read-only
+ * while reading, its syntax shown on the lines the selection touches while editing. It mounts the draft's state and
+ * dispatches through it as the code view does; a state without the live set (the draft's first one, a Source view's,
+ * or one taken by Discard, Reload or Restore) is reconfigured to it, which keeps the text, the selection, the undo
+ * history and the mode. `editing`, when given, is the page's mode, applied on mount, on every change and on every new
+ * state; a field (`MarkdownField`) gives none and keeps its own.
  */
 export function LiveMarkdown({
   store,
   name,
   title = null,
+  editing,
   className,
 }: {
   store: DraftStore
   name: string
   /** The page's title: a first line restating it is hidden off its line (`titleHidden`). */
   title?: string | null
+  editing?: boolean
   className?: string
 }) {
   const host = useRef<HTMLDivElement>(null)
@@ -1024,6 +1046,10 @@ export function LiveMarkdown({
     const v = store.view
     if (v !== null && !v.state.facet(LIVE)) v.dispatch({ effects: toLive(v.state, name, latestTitle.current) })
   }, [store, name, generation])
+  // After `toLive`: the page's mode, on the state it gives.
+  useEffect(() => {
+    if (editing !== undefined) applyMode(store, editing)
+  }, [store, name, editing, generation])
 
   const outline = useMemo(
     () => outlineOf(state.doc, ensureSyntaxTree(state, state.doc.length, 50) ?? syntaxTree(state), title),

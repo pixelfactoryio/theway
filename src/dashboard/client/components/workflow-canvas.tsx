@@ -1,4 +1,3 @@
-import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands"
 import {
   Background,
   BackgroundVariant,
@@ -23,29 +22,24 @@ import {
   ArrowUpIcon,
   MinusIcon,
   PlusIcon,
-  Redo2Icon,
   Trash2Icon,
-  Undo2Icon,
   WrenchIcon,
 } from "lucide-react"
 import {
   createContext,
   type FocusEvent,
   type KeyboardEvent,
-  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react"
 
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { ReorderMenu } from "@/components/reorder-menu"
+import { HistoryButtons, TOOLBAR_ROW, ToolbarButton } from "@/components/toolbar"
 import { AddButton, Card, CardChip, CardName, kindOf, Placeholder } from "@/components/workflow-card"
 import type { DraftStore } from "@/drafts/draft-store"
 import { useRootScale } from "@/hooks/use-root-scale"
@@ -73,7 +67,6 @@ import {
   zoomStep,
 } from "@/lib/workflow-layout"
 import { MOD, modKey } from "@/shell/platform"
-import { Shortcut } from "@/shell/shortcut"
 
 /** What the canvas offers to edit: `null` for a read-only canvas. */
 export type CanvasEdits = {
@@ -432,22 +425,6 @@ const flowEdges = (edges: LayoutEdge[]): FlowEdge[] =>
     domAttributes: { "aria-hidden": true },
   }))
 
-/** The Undo and Redo buttons: they act on the draft's state through its dispatch, and update on every transaction. */
-function HistoryButtons({ store }: { store: DraftStore }) {
-  const state = useSyncExternalStore(store.subscribe, store.getState)
-  const target = () => ({ state: store.state, dispatch: store.dispatch })
-  return (
-    <>
-      <ToolbarButton tip="Undo" label="Undo" disabled={undoDepth(state) === 0} onClick={() => undo(target())}>
-        <Undo2Icon aria-hidden="true" />
-      </ToolbarButton>
-      <ToolbarButton tip="Redo" label="Redo" disabled={redoDepth(state) === 0} onClick={() => redo(target())}>
-        <Redo2Icon aria-hidden="true" />
-      </ToolbarButton>
-    </>
-  )
-}
-
 /**
  * The Editor tab's canvas, on React Flow: one column of cards (Inputs, then each step with its on-fail at its right) on
  * a 16px dot grid, under a toolbar strip (Undo and Redo at its left; zoom out, the zoom, zoom in and Fit at its right),
@@ -600,11 +577,7 @@ function Flow({
 
   return (
     <CanvasContext value={canvas}>
-      <div
-        role="toolbar"
-        aria-label="Canvas"
-        className="flex h-10 shrink-0 items-center gap-0.5 border-y bg-background px-3 text-muted-foreground"
-      >
+      <div role="toolbar" aria-label="Canvas" className={TOOLBAR_ROW}>
         <HistoryButtons store={store} />
         <span className="flex-1" />
         <ToolbarButton
@@ -693,44 +666,3 @@ const sameView = (a: { x: number; y: number; zoom: number }, b: { x: number; y: 
   a.x === b.x && a.y === b.y && a.zoom === b.zoom
 const sameSize = (a: { width: number; height: number }, b: { width: number; height: number }) =>
   a.width === b.width && a.height === b.height
-
-function ToolbarButton({
-  tip,
-  keys,
-  label,
-  disabled = false,
-  size = "icon-sm",
-  onClick,
-  children,
-}: {
-  tip: string
-  keys?: string[]
-  label: string
-  disabled?: boolean
-  size?: "icon-sm" | "sm"
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="ghost"
-            size={size}
-            aria-label={label}
-            disabled={disabled}
-            onClick={onClick}
-            className="text-muted-foreground hover:text-foreground"
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent>
-        {tip}
-        {keys !== undefined ? <Shortcut keys={keys} /> : null}
-      </TooltipContent>
-    </Tooltip>
-  )
-}

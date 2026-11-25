@@ -12,6 +12,8 @@ export type Confirm =
   | { kind: "reload"; name: string }
   | { kind: "errors"; n: number; answer: (yes: boolean) => void }
   | { kind: "leave"; proceed: () => void }
+  /** Done editing with unsaved changes to `n` files. */
+  | { kind: "done"; n: number }
 
 export type DraftsOptions = {
   /** The route's files, taken by `DraftSet.sync`. */

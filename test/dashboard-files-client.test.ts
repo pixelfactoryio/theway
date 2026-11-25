@@ -471,8 +471,9 @@ test("a prompt's page is the item frame: its name once in the header, its title 
     "<ProblemsCard",
   ])
     expect([card, page.includes(card)]).toEqual([card, true])
-  // The prompt is a document view edited where it is read, as a change's files are: no source tab, no Preview.
-  expect(page).toMatch(/<DocTab\b[^]*<LiveMarkdown\b/)
+  // The prompt is a document view, read and edited in the page's mode as a change's files are: no source tab, no Preview.
+  expect(page).toMatch(/<DocumentEditor\b[^]*language="prompt"/)
+  expect(page).toContain("<EditControl mode={mode} />")
   expect(page).not.toContain("<CodeTab")
   expect(page).not.toContain('"preview"')
 })

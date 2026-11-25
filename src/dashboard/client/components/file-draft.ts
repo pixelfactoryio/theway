@@ -6,8 +6,11 @@ import { failureOf, getJson } from "@/data/api"
 import { apiPath, queryKeys, useWrites } from "@/data/queries"
 import type { DraftSet, Outcome } from "@/drafts/draft-set"
 import { useDrafts } from "@/drafts/use-drafts"
-import { type FileBody, FileBodySchema, headerOf } from "@/lib/files"
+import { type FileBody, FileBodySchema, type FileError, headerOf } from "@/lib/files"
 import { leavesFile } from "@/lib/routes"
+
+/** No lines: one array, so a view that marks the lines marks them once. */
+const NO_LINES: FileError[] = []
 
 /** The number of errors of `text`: the applied check's when it holds that text, else a new check's (0 when it fails). */
 async function errorsOf(set: DraftSet, name: string, text: string): Promise<number> {
@@ -101,7 +104,7 @@ export function useFileDraft({
     text,
     dirty: set.isDirty(name),
     /** The lines shown: none after a failed check. */
-    errors: d === undefined || d.checkFailure !== null ? [] : d.result.errors,
+    errors: d === undefined || d.checkFailure !== null ? NO_LINES : d.result.errors,
     checkFailure: d?.checkFailure ?? null,
     conflict: d?.conflict ?? false,
     saveFailure: d?.saveFailure ?? null,

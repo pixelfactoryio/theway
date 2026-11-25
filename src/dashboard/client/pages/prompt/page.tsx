@@ -2,15 +2,15 @@ import { FileTextIcon } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef } from "react"
 import { useLocation } from "wouter"
 
-import { DocFooter, LineCount } from "@/components/doc-footer"
 import { DocFrame, ItemHeading } from "@/components/doc-frame"
-import { DocTab } from "@/components/doc-tab"
-import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { DocumentEditor } from "@/components/document-editor"
+import { DraftDialogs, DraftNotices, SaveBar } from "@/components/draft-notices"
+import { EditControl, useEditMode } from "@/components/edit-mode"
 import { fileStatus, InputsCard, ProblemsCard, StatusCard, UsedByCard } from "@/components/fact-cards"
 import { useFileDraft } from "@/components/file-draft"
 import { Dash, UNKNOWN_FILE } from "@/components/file-page"
 import { HistoryTab, useHistoryTab } from "@/components/history"
-import { goToLine, LiveMarkdown } from "@/components/live-markdown"
+import { goToLine } from "@/components/live-markdown"
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { PropertyCard, PropertyCards, PropertyList, PropertyRow } from "@/components/property-card"
 import { StatusPill } from "@/components/status"
@@ -78,9 +78,9 @@ function PromptCards({
 }
 
 /**
- * `#/prompts/global/<name>[/history]` and `#/prompts/projects/<key>/<name>[/history]`: a prompt's text edited where it
- * is read (`LiveMarkdown`, its header as its source lines), its history, and its cards in the panel, all from the
- * draft (the former `/preview` address shows the text). The
+ * `#/prompts/global/<name>[/history]` and `#/prompts/projects/<key>/<name>[/history]`: a prompt's text, read and
+ * edited in the page's mode (`DocumentEditor`, its header as its source lines), its history, and its cards in the
+ * panel, all from the draft (the former `/preview` address shows the text). The
  * header states its name once, for every view: Prompts › name, its status, the panel's button, the views as pill tabs.
  */
 export function PromptPage({ project, name, tab }: { project: string | null; name: string; tab?: string }) {
@@ -109,8 +109,17 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     language: "prompt",
     active: view === "history",
   })
-  useSaveKey(() => {
-    if (draft.dirty) void draft.save(false)
+  /** ⌘S, Save and Done's Save: writes the draft, asking "Save anyway" when it has errors; true once written. */
+  const save = (): Promise<boolean> => (draft.dirty ? draft.save(true) : Promise.resolve(true))
+  useSaveKey(() => void save())
+  // Only the Prompt view holds the text; History ends editing.
+  const mode = useEditMode({
+    available: view === "prompt" && draft.store !== null,
+    store: draft.store,
+    setConfirm: draft.setConfirm,
+    dirtyCount: () => (draft.dirty ? 1 : 0),
+    save,
+    discardAll: draft.doDiscard,
   })
 
   // A placed line clicked on the History tab moves the cursor once the Prompt tab's editor is there: the child's
@@ -206,7 +215,15 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
   const pageTitle = fields.header ? fields.description : null
   const history = view === "history"
   const notices = <DraftNotices draft={draft} lines={lines} history={history} />
-  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+  const status = (
+    <SaveBar
+      dirty={draft.dirty}
+      saved={draft.saved}
+      editing={mode.editing}
+      onDiscard={draft.discard}
+      onSave={() => void save()}
+    />
+  )
   const fileName = `${name}.md`
 
   return (
@@ -228,6 +245,7 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
           },
           { value: "history", label: "History", href: to.file("prompts", project, name, "history") },
         ]}
+        tabActions={<EditControl mode={mode} />}
         status={<StatusPill {...fileStatus(errors.length)} />}
         notices={notices}
         heading={<ItemHeading title={pageTitle} />}
@@ -237,13 +255,20 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
         {history ? (
           <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (
-          // The prompt is edited where it is read, as a change's documents are: its header as its source lines.
-          <DocTab footer={<DocFooter file={fileName} details={[<LineCount text={draft.text} />]} status={status} />}>
-            <LiveMarkdown key={fileName} store={draft.store} name={fileName} title={pageTitle} className="h-auto" />
-          </DocTab>
+          // The prompt is read and edited as a change's documents are: its header as its source lines.
+          <DocumentEditor
+            store={draft.store}
+            name={fileName}
+            language="prompt"
+            title={pageTitle}
+            mode={mode}
+            errors={errors}
+            file={fileName}
+            saveBar={status}
+          />
         )}
       </DocFrame>
-      <DraftDialogs draft={draft} />
+      <DraftDialogs draft={draft} done={mode.answers} />
     </>
   )
 }

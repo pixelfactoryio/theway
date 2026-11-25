@@ -1,11 +1,20 @@
 import { defaultKeymap, history, historyKeymap, redo } from "@codemirror/commands"
-import { markdown } from "@codemirror/lang-markdown"
+import { markdown, markdownKeymap, pasteURLAsLink } from "@codemirror/lang-markdown"
 import { yaml, yamlFrontmatter } from "@codemirror/lang-yaml"
 import { HighlightStyle, indentOnInput, syntaxHighlighting } from "@codemirror/language"
 import { type Diagnostic, lintGutter, setDiagnostics } from "@codemirror/lint"
 import { MergeView, unifiedMergeView } from "@codemirror/merge"
-import { highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
-import { EditorSelection, EditorState, type Extension } from "@codemirror/state"
+import { closeSearchPanel, highlightSelectionMatches, search, searchKeymap } from "@codemirror/search"
+import {
+  Compartment,
+  EditorSelection,
+  EditorState,
+  type Extension,
+  Facet,
+  Prec,
+  type StateCommand,
+  StateEffect,
+} from "@codemirror/state"
 import {
   drawSelection,
   EditorView,
@@ -15,8 +24,9 @@ import {
   lineNumbers,
 } from "@codemirror/view"
 import { tags } from "@lezer/highlight"
-import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref } from "react"
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useSyncExternalStore, type Ref } from "react"
 
+import { formattingKeymap } from "@/components/markdown-editor"
 import { meta } from "@/data/api"
 import type { DraftStore } from "@/drafts/draft-store"
 import { CODE_TAG_STYLES } from "@/lib/code-languages"
@@ -53,6 +63,9 @@ const THEME = EditorView.theme({
   ".cm-lineNumbers .cm-gutterElement": { padding: "0 0.5rem 0 1rem", minWidth: "2.5rem" },
   ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--foreground)" },
   ".cm-activeLine": { backgroundColor: "color-mix(in oklab, var(--accent) 60%, transparent)" },
+  // Editing: the surface and its gutters on the `--muted` tint, the active line one step back, on the panel's colour.
+  "&.cm-editing, &.cm-editing .cm-gutters": { backgroundColor: "var(--muted)" },
+  "&.cm-editing .cm-activeLine": { backgroundColor: "var(--background)" },
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
     { backgroundColor: "color-mix(in oklab, var(--ring) 28%, transparent)" },
   ".cm-selectionMatch": { backgroundColor: "color-mix(in oklab, var(--ring) 16%, transparent)" },
@@ -182,16 +195,125 @@ const PHRASES = EditorState.phrases.of({
   close: "Close search",
 })
 
+/** Markdown with no keys and no URL paste of its own: they edit even a read-only state, so only the editing half has them. */
+const MARKDOWN = () => markdown({ addKeymap: false, pasteURLAsLink: false })
+
 const LANGUAGE: Record<CodeLanguage, () => Extension> = {
   yaml: () => yaml(),
-  prompt: () => yamlFrontmatter({ content: markdown() }),
-  markdown: () => markdown(),
+  prompt: () => yamlFrontmatter({ content: MARKDOWN() }),
+  markdown: MARKDOWN,
+}
+
+/** A set's two modes: what it holds while read (`reading`) and while edited (`editing`). */
+export type ModeHalves = { reading: Extension; editing: Extension }
+
+/**
+ * The compartment of a draft's mode, in the live Markdown set and in the code set: the reading half or the editing
+ * half of the set. `history()` stays outside it, so a switch keeps the text, the selection and the undo history.
+ */
+export const editMode = new Compartment()
+
+/** The halves of the set a state holds, given outside the compartment, so a switch finds the other half. */
+const HALVES = Facet.define<ModeHalves, ModeHalves | null>({ combine: (values) => values[0] ?? null })
+
+/** Marks a state in its editing half. */
+const EDITING = Facet.define<boolean, boolean>({ combine: (values) => values.some((v) => v) })
+
+/** The editing half's own content: its mark and the editor's `cm-editing` class, which the themes tint. */
+const editingContent = (halves: ModeHalves): Extension => [
+  EDITING.of(true),
+  EditorView.editorAttributes.of({ class: "cm-editing" }),
+  halves.editing,
+]
+
+/** A set's mode: its halves, and the compartment holding the one of `editing`. */
+export function modeExtensions(halves: ModeHalves, editing: boolean): Extension[] {
+  return [HALVES.of(halves), editMode.of(editing ? editingContent(halves) : halves.reading)]
+}
+
+/** Whether `state` holds its set's editing half. */
+export const isEditing = (state: EditorState): boolean => state.facet(EDITING)
+
+/**
+ * The effects that give a state the set `set` of halves `halves` in the mode `editing`. A whole reconfigure keeps a
+ * compartment's last content, which would be the other set's half: the compartment is reconfigured with it, first, so
+ * the state copies its compartments before changing one.
+ */
+export const setEffects = (set: Extension[], halves: ModeHalves, editing: boolean): StateEffect<unknown>[] => [
+  editMode.reconfigure(editing ? editingContent(halves) : halves.reading),
+  StateEffect.reconfigure.of(set),
+]
+
+/** The effect that puts `state` in the mode `editing`; `null` when it is in it, or holds no mode. */
+export function modeEffect(state: EditorState, editing: boolean): StateEffect<unknown> | null {
+  const halves = state.facet(HALVES)
+  if (halves === null || isEditing(state) === editing) return null
+  return editMode.reconfigure(editing ? editingContent(halves) : halves.reading)
+}
+
+/**
+ * Puts the store's state in the page's mode. A mounted view's open search panel closes first: it builds its Replace
+ * fields once, for the mode it opened in.
+ */
+export function applyMode(store: DraftStore, editing: boolean): void {
+  const effect = modeEffect(store.state, editing)
+  if (effect === null) return
+  if (store.view !== null) closeSearchPanel(store.view)
+  store.dispatch({ effects: effect })
+}
+
+/**
+ * Runs a history command (`undo`, `redo`) on the store's draft whatever its mode: the commands refuse a read-only
+ * state, so the state is switched to editing, the command run, and the state switched back, in three dispatches.
+ */
+export function runEditing(store: DraftStore, command: StateCommand): boolean {
+  const on = modeEffect(store.state, true)
+  if (on !== null) store.dispatch({ effects: on })
+  const done = command({ state: store.state, dispatch: store.dispatch })
+  if (on !== null) {
+    const off = modeEffect(store.state, false)
+    if (off !== null) store.dispatch({ effects: off })
+  }
+  return done
+}
+
+/** Marks a state that holds the code set. */
+const CODE = Facet.define<boolean, boolean>({ combine: (values) => values.length > 0 })
+
+/** Whether `state` holds the code set. */
+export const isCode = (state: EditorState): boolean => state.facet(CODE)
+
+/** Each language's halves, made once. */
+const HALVES_OF = new Map<CodeLanguage, ModeHalves>()
+
+/** The stock keys of a code view: the default keys, history and search. */
+const STOCK_KEYS = () => keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap])
+
+/**
+ * The code set's halves. Reading: read-only (CodeMirror sets `aria-readonly`), caret movement and search, whose panel
+ * then has no Replace. Editing: the stock keys with history and `Mod-Shift-z` as redo on every platform; a Markdown or
+ * prompt source also takes the formatting keys, Markdown's own keys and its URL paste.
+ */
+function codeHalves(language: CodeLanguage): ModeHalves {
+  const made = HALVES_OF.get(language)
+  if (made !== undefined) return made
+  const prose = language !== "yaml"
+  const halves: ModeHalves = {
+    reading: [EditorState.readOnly.of(true), keymap.of([...defaultKeymap, ...searchKeymap])],
+    editing: [
+      ...(prose ? [formattingKeymap, Prec.high(keymap.of(markdownKeymap)), pasteURLAsLink] : []),
+      STOCK_KEYS(),
+      keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
+    ],
+  }
+  HALVES_OF.set(language, halves)
+  return halves
 }
 
 /**
  * The extension set every code view of the dashboard holds, built by hand (no setup bundle): line numbers, the active line,
- * selection, indentation on input, history, search at the top, the keymaps, the language, the highlight style, the
- * theme, wrapped lines, the lint gutter, the accessible name, the file's line separator and the style nonce.
+ * selection, indentation on input, history, search at the top, the language, the highlight style, the theme, wrapped
+ * lines, the lint gutter, the accessible name, the file's line separator and the style nonce. The keys are each view's.
  */
 function sharedExtensions({
   language,
@@ -211,7 +333,6 @@ function sharedExtensions({
     history(),
     search({ top: true }),
     highlightSelectionMatches(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     LANGUAGE[language](),
     syntaxHighlighting(HIGHLIGHT),
     THEME,
@@ -225,18 +346,48 @@ function sharedExtensions({
 }
 
 /**
- * The extension set of an editable code view: the shared set (with `history()` and its keymap) and `Mod-Shift-z` as redo
- * on every platform, beside the stock keys.
+ * The code set of a draft: the shared set (with `history()`) and the mode compartment (`codeHalves`), in its reading
+ * half unless `editing`.
  */
-export function editableExtensions(options: { language: CodeLanguage; name: string; separator: string }): Extension[] {
-  return [...sharedExtensions(options), keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }])]
+export function codeExtensions({
+  language,
+  name,
+  separator,
+  editing = false,
+}: {
+  language: CodeLanguage
+  name: string
+  separator: string
+  editing?: boolean
+}): Extension[] {
+  return [
+    CODE.of(true),
+    ...sharedExtensions({ language, name, separator }),
+    ...modeExtensions(codeHalves(language), editing),
+  ]
 }
 
-/** A draft's first state: `text` with the editable set and its line separator, so that the draft equals the file. */
+/**
+ * The effects that give `state` the code set of `language`, keeping its text, selection, undo history, line separator
+ * and mode: the mirror of the live set's `toLive`.
+ */
+export function toCode(state: EditorState, language: CodeLanguage, name: string): StateEffect<unknown>[] {
+  const editing = isEditing(state)
+  return setEffects(
+    codeExtensions({ language, name, separator: state.lineBreak, editing }),
+    codeHalves(language),
+    editing,
+  )
+}
+
+/**
+ * A draft's first state: `text` with the code set in its reading half (a page opens reading) and its line separator,
+ * so that the draft equals the file.
+ */
 export function draftState(text: string, language: CodeLanguage, name: string): EditorState {
   return EditorState.create({
     doc: text,
-    extensions: editableExtensions({ language, name, separator: lineSeparatorOf(text) }),
+    extensions: codeExtensions({ language, name, separator: lineSeparatorOf(text) }),
   })
 }
 
@@ -262,24 +413,39 @@ function goTo(view: EditorView | null, n: number): void {
 }
 
 /**
- * The editable code view of a draft: it mounts the draft's state unchanged, dispatches through it, and marks each of
- * `errors` (the applied check's) that has a line; it creates no state and runs no check.
+ * The code view of a draft, in the page's mode (`editing`): it mounts the draft's state, dispatches through it, and
+ * marks each of `errors` (the applied check's) that has a line; it creates no state and runs no check. A state that
+ * holds the live Markdown set (a Markdown file's Source) takes the code set of `source` first (`toCode`).
  */
 export function EditableCodeView({
   draft,
   errors,
+  editing,
+  source,
   ref,
 }: {
   draft: DraftStore
   errors: readonly FileError[]
+  /** The page's mode, applied on mount, on every change and on every new state of the draft. */
+  editing: boolean
+  /** The language and accessible name of a draft whose state may hold another set. */
+  source?: { language: CodeLanguage; name: string }
   ref?: Ref<CodeViewHandle>
 }) {
   const host = useRef<HTMLDivElement>(null)
+  const latestSource = useRef(source)
+  useLayoutEffect(() => {
+    latestSource.current = source
+  })
 
   useEffect(() => {
     if (host.current === null) return
+    const src = latestSource.current
     const v = new EditorView({
-      state: draft.state,
+      state:
+        isCode(draft.state) || src === undefined
+          ? draft.state
+          : draft.state.update({ effects: toCode(draft.state, src.language, src.name) }).state,
       parent: host.current,
       dispatchTransactions: (trs, view) => {
         view.update(trs)
@@ -287,18 +453,25 @@ export function EditableCodeView({
       },
     })
     draft.attach(v)
+    if (v.state !== draft.state) draft.set(v.state)
     return () => {
       draft.detach(v)
       v.destroy()
     }
   }, [draft])
 
-  // Again for a new state (Discard, Reload, Restore), which holds no marks.
+  // Again for a new state (Discard, Reload, Restore), which holds no marks and, for a Markdown file, not the code set.
   useSyncExternalStore(draft.subscribe, draft.getState)
   const generation = draft.generation
   useEffect(() => {
+    const src = latestSource.current
+    if (!isCode(draft.state) && src !== undefined)
+      draft.dispatch({ effects: toCode(draft.state, src.language, src.name) })
+  }, [draft, generation])
+  useEffect(() => {
     draft.dispatch(setDiagnostics(draft.state, diagnostics(draft.state, errors)))
   }, [draft, errors, generation])
+  useEffect(() => applyMode(draft, editing), [draft, editing, generation])
 
   useImperativeHandle(ref, () => ({ goToLine: (n: number) => goTo(draft.view, n) }), [draft])
 
@@ -331,6 +504,7 @@ export function CodeView({
       doc: text,
       extensions: [
         ...sharedExtensions({ language, name, separator: lineSeparatorOf(text) }),
+        STOCK_KEYS(),
         EditorState.readOnly.of(true),
       ],
     })
@@ -386,6 +560,7 @@ const COLLAPSE = { margin: 3, minSize: 4 }
 /** A read-only extension set: the code view's shared set (its nonce included) with `name` and `text`'s separator. */
 const readOnlySet = (text: string, language: CodeLanguage, name: string): Extension[] => [
   ...sharedExtensions({ language, name, separator: lineSeparatorOf(text) }),
+  STOCK_KEYS(),
   EditorState.readOnly.of(true),
   DIFF_THEME,
 ]

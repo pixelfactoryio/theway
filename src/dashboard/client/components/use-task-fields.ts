@@ -51,6 +51,10 @@ export function useTaskFields({
 
   const [actionError, setActionError] = useState<string | null>(null)
   const [focus, setFocus] = useState<string | null>(null)
+  // Where the description's button takes the focus back, after Enter or Esc in its field.
+  const [descriptionFocus, setDescriptionFocus] = useState<"title" | "panel" | null>(null)
+  // The `change.yaml` text when the open field opened, which Esc sets back.
+  const opened = useRef<string | null>(null)
 
   // The latest field, tasks and row ids, for the event handlers.
   const live = useRef({ field, tasks, description, ids })
@@ -105,8 +109,47 @@ export function useTaskFields({
       if (sameField(f, next)) return true
       if (!applyField(f, false)) return false
     }
+    opened.current = yaml?.store.state.sliceDoc() ?? null
     setField(next)
     return true
+  }
+
+  /** Closes the open field: its text is in the draft already (a click elsewhere, Discard). */
+  const closeField = useCallback((): void => {
+    opened.current = null
+    setField(null)
+  }, [])
+
+  /**
+   * Enter: applies the open field and closes it; the focus goes to the description's button, or to the task's row
+   * (`fieldEdit`'s `focus`).
+   */
+  const enterField = (): void => {
+    const f = live.current.field
+    if (f === null || !applyField(f, true)) return
+    opened.current = null
+    if (f.kind === "description") setDescriptionFocus(f.place ?? "title")
+  }
+
+  /**
+   * Esc: sets the draft back to its text when the field opened (one transaction, its own undo step, none when the
+   * text is unchanged), which also removes a task the field added, then closes the field; the description's button
+   * takes the focus back (a task's row is focused by the list).
+   */
+  const cancelField = (): void => {
+    const f = live.current.field
+    const text = opened.current
+    opened.current = null
+    if (yaml !== null && text !== null) {
+      const state = yaml.store.state
+      if (state.sliceDoc() !== text)
+        yaml.store.dispatch({
+          changes: { from: 0, to: state.doc.length, insert: text },
+          annotations: isolateHistory.of("full"),
+        })
+    }
+    setField(null)
+    if (f?.kind === "description") setDescriptionFocus(f.place ?? "title")
   }
 
   /** Whether the open field holds a text other than the draft's, for the event handlers. */
@@ -155,7 +198,9 @@ export function useTaskFields({
     },
     open: openField,
     change: writeField,
-    close: () => setField(null),
+    close: closeField,
+    enter: enterField,
+    cancel: cancelField,
   }
 
   const descriptionEdit: DescriptionEdit | null =
@@ -173,7 +218,11 @@ export function useTaskFields({
               place: f?.kind === "description" ? f.place : undefined,
             })
           },
-          close: () => setField(null),
+          close: closeField,
+          enter: enterField,
+          cancel: cancelField,
+          focus: descriptionFocus,
+          focused: () => setDescriptionFocus(null),
         }
 
   return {
@@ -190,5 +239,6 @@ export function useTaskFields({
     currentField,
     actions,
     descriptionEdit,
+    closeField,
   }
 }

@@ -75,9 +75,9 @@ test("an item's page states its title once, above every view, its ID or file nam
   expect(html).toMatch(
     /^<div class="shrink-0 [^"]*\bpt-8 pb-4\b[^"]*\bpx-4\b[^"]*"><div class="w-full max-w-\(--read-width\)">/,
   )
-  // A hairline under it only once the view under it is scrolled.
+  // A hairline under it only once the view under it is scrolled, and none over a toolbar strip's own.
   expect(html).toContain("border-transparent")
-  expect(html).toContain("[&amp;:has(~[data-scrolled])]:border-border")
+  expect(html).toContain("[&amp;:has(~[data-scrolled]):not(:has(~[role=toolbar]))]:border-border")
   // Balanced, cut at three lines; Show more reads it whole when that cuts it, so nothing of it is left to a hover.
   expect(html).toContain(
     '<h2 class="text-doc-title font-semibold tracking-tight text-balance text-foreground line-clamp-3">Split the client</h2>',
@@ -171,4 +171,35 @@ test("the shortcut sheet lists C under Anywhere and the search's copy under Sear
     action: "Copy the page's ID or name",
   })
   expect(group("Search")).toEqual([{ keys: [MOD, "C"], action: "Copy the highlighted entry's ID" }])
+})
+
+test("an editable title shows a pencil at the right of its first line; a title read only has none", () => {
+  const html = renderToStaticMarkup(<ItemHeading title="Split the client" onEdit={() => undefined} />)
+  expect(html).toContain('aria-label="Split the client. Edit the description"')
+  expect(html.indexOf('aria-label="Edit the description"')).toBeGreaterThan(html.indexOf("</h2>"))
+  expect(renderToStaticMarkup(<ItemHeading title="Split the client" />)).not.toContain("Edit the description")
+})
+
+test("the shortcut sheet lists E and Esc under Editing, the Markdown editor's keys unchanged", () => {
+  const group = (title: string) => SHORTCUTS.find((g) => g.title === title)?.rows ?? []
+  expect(group("Editing")).toEqual([
+    { keys: ["E"], action: "Edit the page's file" },
+    { keys: ["Esc"], action: "Done editing" },
+  ])
+  expect(group("Markdown editor").map((r) => r.action)).toEqual(["Bold", "Italic", "Code", "Link"])
+})
+
+test("each file view's footer is the save bar, and Save asks Save anyway on every page", () => {
+  for (const file of ["pages/change/active.tsx", "pages/prompt/page.tsx", "pages/workflow/page.tsx"]) {
+    const page = read(file)
+    expect([file, page.includes("<SaveBar"), page.includes("DraftStatus")]).toEqual([file, true, false])
+    expect([file, page.includes("<EditControl mode={mode} />")]).toEqual([file, true])
+  }
+  for (const file of ["pages/prompt/page.tsx", "pages/workflow/page.tsx"]) {
+    expect([file, read(file).includes("draft.save(true)"), read(file).includes("draft.save(false)")]).toEqual([
+      file,
+      true,
+      false,
+    ])
+  }
 })

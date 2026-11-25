@@ -37,8 +37,13 @@ test("fieldEdit closes an empty add and appends a new row for an add", () => {
   })
 })
 
-test("fieldEdit edits a task's text and refuses an empty task", () => {
+test("fieldEdit edits a task's text, its row focused only on Enter, and refuses an empty task", () => {
   expect(fieldEdit({ kind: "task", id: "b", value: "New text", error: null }, IDS, true, ids())).toEqual({
+    kind: "edit",
+    edit: { kind: "text", index: 1, text: "New text" },
+    focus: "b",
+  })
+  expect(fieldEdit({ kind: "task", id: "b", value: "New text", error: null }, IDS, false, ids())).toEqual({
     kind: "edit",
     edit: { kind: "text", index: 1, text: "New text" },
   })

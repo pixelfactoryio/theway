@@ -1,9 +1,10 @@
-import { ChangeDialogs } from "@/components/change-dialogs"
+import { ChangeDialogs, type DoneAnswers } from "@/components/change-dialogs"
 import type { FileDraft } from "@/components/file-draft"
 import { ErrorStrip, SavedStatus } from "@/components/file-page"
 import { Button } from "@/components/ui/button"
+import { Kbd } from "@/components/ui/kbd"
 import type { AlertLine } from "@/lib/alert-lines"
-import { MOD, shortcutText } from "@/shell/platform"
+import { MAC } from "@/shell/platform"
 import { StateNotice } from "@/shell/state"
 
 /** The strip shown when the file changed on disk since it was opened, with Reload. */
@@ -32,7 +33,7 @@ export function SaveFailureNotice({ message }: { message: string }) {
 
 /**
  * The stack under the tabs, from the top: the conflict, the save failure, then the check failure or the error alert. On
- * History the error alert is hidden. Unsaved edits show in the footer, with `DraftStatus`.
+ * History the error alert is hidden. Unsaved edits show in the footer, with `SaveBar`.
  */
 export function DraftNotices({
   draft,
@@ -59,32 +60,44 @@ export function DraftNotices({
 }
 
 /**
- * A footer's save state: `Unsaved · ⌘S to save` (Ctrl+S off macOS) with Discard when `onDiscard` is given, while
- * `dirty`; else Saved for a moment after a save.
+ * A file view's save bar, at the footer's right: while the shown file has unsaved changes, "Unsaved changes" in the ink,
+ * Discard (ghost, which asks first) and Save (with its key, ⌘S, Ctrl S off macOS), which runs what the page's ⌘S
+ * runs. While editing with none, Discard and Save stay, disabled; "Saved" shows for a moment after a save, as it does
+ * while reading, where nothing else shows. Its buttons are 24px, inside the 28px footer.
  */
-export function DraftStatus({ dirty, saved, onDiscard }: { dirty: boolean; saved: boolean; onDiscard?: () => void }) {
-  if (!dirty) return <SavedStatus saved={saved} />
+export function SaveBar({
+  dirty,
+  saved,
+  editing,
+  onDiscard,
+  onSave,
+}: {
+  dirty: boolean
+  saved: boolean
+  editing: boolean
+  onDiscard: () => void
+  onSave: () => void
+}) {
+  if (!dirty && !editing) return <SavedStatus saved={saved} />
   return (
     <span className="flex items-center gap-2">
-      <span className="text-foreground">Unsaved · {shortcutText([MOD, "S"])} to save</span>
-      {onDiscard !== undefined ? (
-        <Button
-          variant="link"
-          size="xs"
-          onClick={onDiscard}
-          className="h-auto px-0 text-muted-foreground hover:text-foreground"
-        >
-          Discard
-        </Button>
-      ) : null}
+      {dirty ? <span className="text-foreground">Unsaved changes</span> : <SavedStatus saved={saved} />}
+      <Button variant="ghost" size="xs" disabled={!dirty} onClick={onDiscard}>
+        Discard
+      </Button>
+      <Button size="xs" disabled={!dirty} onClick={onSave}>
+        Save
+        <Kbd className="h-4 bg-primary-foreground/15 text-primary-foreground">{MAC ? "⌘S" : "Ctrl S"}</Kbd>
+      </Button>
     </span>
   )
 }
 
-/** The page's confirmations: Discard, Save with errors, Reload and leaving the page. */
-export function DraftDialogs({ draft }: { draft: FileDraft }) {
+/** The page's confirmations: Discard, Save with errors, Reload, leaving the page and Done (`done`, the edit mode's). */
+export function DraftDialogs({ draft, done }: { draft: FileDraft; done?: DoneAnswers }) {
   return (
     <ChangeDialogs
+      done={done}
       confirm={draft.confirm}
       setConfirm={draft.setConfirm}
       onDiscard={draft.doDiscard}
