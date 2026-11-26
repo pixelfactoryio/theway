@@ -134,12 +134,17 @@ export function useDrafts(options: DraftsOptions) {
   // Read in an effect, after the page's layout effects have stored this render's state for `extraDirty`; during render
   // it would see the previous render's.
   const [pending, setPending] = useState(false)
+  // Set only when it changes: a same value set while the page still has a render queued (each keystroke has one) costs
+  // a render of its own, and keystrokes faster than that render chain those renders until React stops at its update
+  // depth limit (error #185).
+  const setTo = useRef(false)
   const { extraDirty } = options
-  useEffect(
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the same value bails out; no cascade past one render
-    () => setPending(set.anyDirty() || extraDirty?.() === true),
-    [set, version, extraDirty],
-  )
+  useEffect(() => {
+    const next = set.anyDirty() || extraDirty?.() === true
+    if (next === setTo.current) return
+    setTo.current = next
+    setPending(next)
+  }, [set, version, extraDirty])
   useBeforeUnload(pending)
 
   return { set, confirm, setConfirm, save, discard, doDiscard, reload, doReload, saveAll }
