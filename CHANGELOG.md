@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.26.0](https://github.com/pixelfactoryio/theway/compare/v0.25.0...v0.26.0) (2026-11-26)
+
+
+### Features
+
+* **dashboard:** add copy buttons, copy toast and copy shortcuts ([#168](https://github.com/pixelfactoryio/theway/issues/168)) ([5002b19](https://github.com/pixelfactoryio/theway/commit/5002b193bbe2c3575f2fbd4808bba84afbcab5ee))
+* **dashboard:** edit every file whole in a code editor ([#173](https://github.com/pixelfactoryio/theway/issues/173)) ([cc8f8ab](https://github.com/pixelfactoryio/theway/commit/cc8f8ab75a9deaa4cfcd908a00822b791b445a8d))
+* **dashboard:** use one markdown editor, a resizable sidebar and shorter change titles ([#166](https://github.com/pixelfactoryio/theway/issues/166)) ([6c3cc7e](https://github.com/pixelfactoryio/theway/commit/6c3cc7ea4552aa1cde7e39e0a7a602f4dfd7b7aa))
+
+
+### Bug Fixes
+
+* **dashboard:** stop repeated state updates while typing in a field ([#170](https://github.com/pixelfactoryio/theway/issues/170)) ([3226682](https://github.com/pixelfactoryio/theway/commit/322668271ab385b2e2b1247f28c1ac013ede6ad7))
+
 ## [0.25.0](https://github.com/pixelfactoryio/theway/compare/v0.24.0...v0.25.0) (2026-11-21)
 
 
