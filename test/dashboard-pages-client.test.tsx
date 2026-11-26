@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderToStaticMarkup } from "react-dom/server"
 import { Router } from "wouter"
 import { ItemHeading, RunCommandControl } from "../src/dashboard/client/components/doc-frame"
+import { DocFooter } from "../src/dashboard/client/components/doc-footer"
+import { SaveControls } from "../src/dashboard/client/components/file-editor"
 import { ListFoot } from "../src/dashboard/client/components/list-grid"
 import { PageUnknown } from "../src/dashboard/client/components/page-states"
 import { SidebarProvider } from "../src/dashboard/client/components/ui/sidebar"
@@ -87,24 +89,26 @@ test("an item's page states its title once, above every view, its ID or file nam
   expect(renderToStaticMarkup(<ItemHeading title={null} />)).toBe("")
   expect(renderToStaticMarkup(<ItemHeading title="  " />)).toBe("")
   // A change's, a workflow's and a prompt's page are one frame: the header with the mono ID or name, the pill views,
-  // the title passed once to the frame (never to a view), the panel's cards; no page builds a header of its own.
+  // the heading passed once to the frame (never to a view), the panel's cards; no page builds a header of its own. A
+  // file's own views have no title: a change's heading holds only its reasons, the YAML view and a prompt none.
   const heading = {
     "pages/change/active.tsx": "heading={<ChangeHeading",
     "pages/change/archived.tsx": "heading={<ChangeHeading",
-    "pages/workflow/page.tsx": "heading={<ItemHeading",
-    "pages/prompt/page.tsx": "heading={<ItemHeading",
+    "pages/workflow/page.tsx": "heading={yamlTab ? null : <ItemHeading",
+    "pages/prompt/page.tsx": "heading={null}",
   }
   for (const [file, passed] of Object.entries(heading)) {
     const text = read(file)
     expect([file, text.match(/<DocFrame\b/g)?.length]).toEqual([file, 1])
-    expect([file, text.match(/<(ChangeHeading|ItemHeading)\b/g)?.length]).toEqual([file, 1])
+    const headings = file === "pages/prompt/page.tsx" ? undefined : 1
+    expect([file, text.match(/<(ChangeHeading|ItemHeading)\b/g)?.length]).toEqual([file, headings])
     expect([file, text.includes(passed)]).toEqual([file, true])
     expect([file, /title=\{(data\.id|name)\}\s+mono\b/.test(text)]).toEqual([file, true])
-    expect([file, /<(DocTab|CodeTab|HistoryTab)\b[^>]*\btitle=/.test(text)]).toEqual([file, false])
+    expect([file, /<(DocTab|FileEditor|HistoryTab)\b[^>]*\btitle=/.test(text)]).toEqual([file, false])
     expect([file, /<ViewTabs\b|<RecordBody\b|<PanelToggle\b/.test(text)]).toEqual([file, false])
   }
   // The views take no title of their own.
-  for (const file of ["components/code-tab.tsx", "components/history.tsx", "components/doc-tab.tsx"])
+  for (const file of ["components/file-editor.tsx", "components/history.tsx", "components/doc-tab.tsx"])
     expect([file, /\btitle\??:/.test(read(file))]).toEqual([file, false])
 })
 
@@ -146,13 +150,13 @@ test("a change's header copies its run commands: the default workflow, agents, a
   })
 })
 
-test("the header's run command is a visible button; a change's other commands are behind its chevron", () => {
+test("the header's run command is an always-visible copy button; a change's other commands are behind its chevron", () => {
   const change = renderToStaticMarkup(<RunCommandControl commands={changeCommands("add-x")} />)
-  expect(change).toContain("Copy run command")
+  expect(change).toContain('aria-label="Copy run command"')
   expect(change).toContain('aria-label="More run commands"')
   // A workflow has one command: the button alone.
   const workflow = renderToStaticMarkup(<RunCommandControl commands={[workflowCommand("review")]} />)
-  expect(workflow).toContain("Copy run command")
+  expect(workflow).toContain('aria-label="Copy run command"')
   expect(workflow).not.toContain("More run commands")
   // The title keeps its copy button only: no command chevron after it.
   expect(read("components/doc-frame.tsx")).not.toContain("Copy a command")
@@ -171,4 +175,21 @@ test("the shortcut sheet lists C under Anywhere and the search's copy under Sear
     action: "Copy the page's ID or name",
   })
   expect(group("Search")).toEqual([{ keys: [MOD, "C"], action: "Copy the highlighted entry's ID" }])
+})
+
+test("a file's save controls stay in place, disabled while the file equals its saved text", () => {
+  const clean = renderToStaticMarkup(<SaveControls dirty={false} onSave={() => {}} onDiscard={() => {}} />)
+  expect(clean.match(/<button[^>]*disabled=""[^>]*>(Discard|Save)/g)?.length).toBe(2)
+  expect(clean).not.toContain("Unsaved changes")
+  const dirty = renderToStaticMarkup(<SaveControls dirty onSave={() => {}} onDiscard={() => {}} />)
+  expect(dirty).toContain("Unsaved changes")
+  expect(dirty).not.toMatch(/disabled=""/)
+})
+
+test("a document's footer puts its tools after its details and its status at the right", () => {
+  const html = renderToStaticMarkup(
+    <DocFooter file="spec.md" details={["Markdown"]} tools={<i>switch</i>} status="Saved" />,
+  )
+  expect(html.indexOf("Markdown")).toBeLessThan(html.indexOf("switch"))
+  expect(html.indexOf("switch")).toBeLessThan(html.indexOf("Saved"))
 })

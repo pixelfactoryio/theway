@@ -20,6 +20,7 @@ import { useEffect, useImperativeHandle, useRef, useSyncExternalStore, type Ref 
 import { meta } from "@/data/api"
 import type { DraftStore } from "@/drafts/draft-store"
 import { CODE_TAG_STYLES } from "@/lib/code-languages"
+import { changedLines } from "@/lib/changed-lines"
 import { type FileError, lineSeparatorOf } from "@/lib/files"
 
 /** The language of a code view: a workflow's YAML, a prompt (a YAML header over Markdown), or Markdown. */
@@ -225,11 +226,15 @@ function sharedExtensions({
 }
 
 /**
- * The extension set of an editable code view: the shared set (with `history()` and its keymap) and `Mod-Shift-z` as redo
- * on every platform, beside the stock keys.
+ * The extension set of an editable code view: the shared set (with `history()` and its keymap), the changed lines' gutter
+ * (`changedLines`) and `Mod-Shift-z` as redo on every platform, beside the stock keys.
  */
 export function editableExtensions(options: { language: CodeLanguage; name: string; separator: string }): Extension[] {
-  return [...sharedExtensions(options), keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }])]
+  return [
+    ...sharedExtensions(options),
+    changedLines,
+    keymap.of([{ key: "Mod-Shift-z", run: redo, preventDefault: true }]),
+  ]
 }
 
 /** A draft's first state: `text` with the editable set and its line separator, so that the draft equals the file. */

@@ -1,15 +1,4 @@
-/** Editing a change on its page: row ids, Markdown checkboxes and formatting. Pure: no React, no DOM. */
-
-/** The ids of `count` rows after a change of the draft that is not a list action: the first min(old, new) kept by position. */
-export function keptIds(old: readonly string[], count: number, make: () => string): string[] {
-  return Array.from({ length: count }, (_, i) => (i < old.length ? (old[i] as string) : make()))
-}
-
-/** A task row's accessible name: `Task N: <text>`, or `Task N, done: <text>`. */
-export const taskName = (n: number, text: string, done: boolean): string => `Task ${n}${done ? ", done" : ""}: ${text}`
-
-/** A description as one line: each run of line breaks turned into one space. */
-export const oneLine = (text: string): string => text.replace(/[\r\n]+/g, " ")
+/** Reading a change's tasks and formatting Markdown: a task's lead and detail, the formatting keys' edits. Pure: no React, no DOM. */
 
 /** The longest lead a task shows before its detail. */
 const LEAD_MAX = 160

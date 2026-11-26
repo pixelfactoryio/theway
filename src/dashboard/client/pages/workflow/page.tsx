@@ -2,14 +2,14 @@ import { WorkflowIcon } from "lucide-react"
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useSearch } from "wouter"
 
-import { CodeTab } from "@/components/code-tab"
 import type { CodeViewHandle } from "@/components/code-view"
 import { DocFooter } from "@/components/doc-footer"
 import { DocFrame, ItemHeading } from "@/components/doc-frame"
-import { DraftDialogs, DraftNotices, DraftStatus } from "@/components/draft-notices"
+import { DraftDialogs, DraftNotices } from "@/components/draft-notices"
+import { FileEditor, SaveControls } from "@/components/file-editor"
 import { fileStatus, ProblemsCard, StatusCard } from "@/components/fact-cards"
 import { useFileDraft } from "@/components/file-draft"
-import { UNKNOWN_FILE } from "@/components/file-page"
+import { SavedStatus, UNKNOWN_FILE } from "@/components/file-page"
 import { PageLoading, PageUnknown } from "@/components/page-states"
 import { HistoryTab, useHistoryTab } from "@/components/history"
 import { RowChip } from "@/components/list-kit"
@@ -366,7 +366,7 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
       ) : null}
     </>
   )
-  const status = <DraftStatus dirty={draft.dirty} saved={draft.saved} onDiscard={draft.discard} />
+  const status = <SavedStatus saved={draft.saved} />
   const fileName = `${name}.yaml`
 
   return (
@@ -395,9 +395,20 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
           },
           { value: "history", label: "History", href: to.file("workflows", project, name, "history") },
         ]}
+        tabActions={
+          history ? undefined : (
+            <SaveControls
+              dirty={draft.dirty}
+              saving={draft.saving}
+              onSave={() => void draft.save(false)}
+              onDiscard={draft.discard}
+            />
+          )
+        }
         status={<StatusPill {...shownStatus} />}
         notices={notices}
-        heading={<ItemHeading title={drawing?.description ?? null} />}
+        // The YAML view edits the whole file: no title over it, as over every file.
+        heading={yamlTab ? null : <ItemHeading title={drawing?.description ?? null} />}
         panelName={
           history
             ? "Versions"
@@ -412,7 +423,18 @@ export function WorkflowPage({ project, name, tab }: { project: string | null; n
         panel={panel}
       >
         {yamlTab ? (
-          <CodeTab ref={code} draft={draft.store} errors={errors} file={fileName} status={status} />
+          <FileEditor
+            key={fileName}
+            ref={code}
+            store={draft.store}
+            base={draft.loaded?.text ?? draft.text ?? ""}
+            name={fileName}
+            language="yaml"
+            errors={errors}
+            view="source"
+            dirty={draft.dirty}
+            saved={draft.saved}
+          />
         ) : history ? (
           <HistoryTab main={historyTab.main} file={fileName} status={status} />
         ) : (

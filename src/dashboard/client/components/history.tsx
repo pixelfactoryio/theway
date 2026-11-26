@@ -6,6 +6,7 @@ import { DocFooter } from "@/components/doc-footer"
 import { EmptyNote } from "@/components/empty-note"
 import type { FileDraft } from "@/components/file-draft"
 import { PropertyCard } from "@/components/property-card"
+import { type Segment, Segmented } from "@/components/segmented"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,22 +20,21 @@ import {
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { DIALOG_TITLE, PILL_TAB } from "@/components/ui-classes"
+import { DIALOG_TITLE } from "@/components/ui-classes"
 import { apiPath, useHistory, useVersion } from "@/data/queries"
 import { lineCounts, localTime } from "@/lib/edit"
-import { DIFF_LAYOUT } from "@/lib/preferences"
+import { DIFF_LAYOUT, type DiffLayout } from "@/lib/preferences"
 import { PageLoadError } from "@/shell/load-error"
 import { useStored } from "@/shell/storage"
 
 /** The `localStorage` key of the difference's layout: `unified` or `split`; Unified when unset. */
 const LAYOUT_KEY = "theway-diff-layout"
 
-/** A layout toggle, as a pill tab: the pressed one on the blue tint. */
-const LAYOUT_PILL = cn(
-  PILL_TAB,
-  "border hover:bg-transparent aria-pressed:border-transparent aria-pressed:bg-selected aria-pressed:text-foreground",
-)
+/** The difference's layouts, in the switch's order. */
+const LAYOUTS: readonly Segment<DiffLayout>[] = [
+  { value: "unified", label: "Unified" },
+  { value: "split", label: "Split" },
+]
 
 /** The versions panel's selection: Current, or a version's id. */
 const CURRENT = "current"
@@ -159,25 +159,13 @@ export function useHistoryTab({
               Show changes
             </Label>
           </div>
-          <ToggleGroup
-            aria-label="Diff layout"
-            spacing={2}
-            value={[layout]}
+          <Segmented
+            label="Diff layout"
+            value={layout}
+            segments={LAYOUTS}
             disabled={isCurrent || !show}
-            onValueChange={(next: string[]) => {
-              // Pressing the pressed item empties the value: the current layout stays selected and stored.
-              const picked = next[0]
-              if (picked !== "unified" && picked !== "split") return
-              setLayout(picked)
-            }}
-          >
-            <ToggleGroupItem value="unified" className={LAYOUT_PILL}>
-              Unified
-            </ToggleGroupItem>
-            <ToggleGroupItem value="split" className={LAYOUT_PILL}>
-              Split
-            </ToggleGroupItem>
-          </ToggleGroup>
+            onChange={setLayout}
+          />
           <Button
             variant="outline"
             size="sm"
