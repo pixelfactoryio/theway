@@ -454,13 +454,14 @@ test("the Workflows and Prompts lists have no tooltip, keep each row to one line
   for (const page of pages) expect([page, read(page).includes("<FileListPage")]).toEqual([page, true])
 })
 
-test("a prompt's page is the item frame: its name once in the header, its title above every view, a column of cards", () => {
+test("a prompt's page is the item frame: its name once in the header, no title over its file, a column of cards", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const page = readFileSync(join(client, "pages", "prompt", "page.tsx"), "utf-8")
-  // The frame carries the path, the mono name and the pill views; the description is the title, once.
+  // The frame carries the path, the mono name and the pill views; no title over the file, the description in Details.
   expect(page).toContain("<DocFrame")
   expect(page).toContain('const PARENTS = [{ label: "Prompts", href: to.prompts() }]')
-  expect(page).toContain("heading={<ItemHeading")
+  expect(page).toContain("heading={null}")
+  expect(page).toContain('<PropertyRow label="Description">')
   // The panel is one stack of the shared cards, the status first.
   for (const card of [
     "<PropertyCards>",
@@ -471,9 +472,10 @@ test("a prompt's page is the item frame: its name once in the header, its title 
     "<ProblemsCard",
   ])
     expect([card, page.includes(card)]).toEqual([card, true])
-  // The prompt is a document view edited where it is read, as a change's files are: no source tab, no Preview.
-  expect(page).toMatch(/<DocTab\b[^]*<LiveMarkdown\b/)
-  expect(page).not.toContain("<CodeTab")
+  // The prompt is edited whole in the file editor, as a change's files are; Preview is a view of it, not a tab.
+  expect(page).toContain("<FileEditor")
+  expect(page).toContain("onViewChange={setFileView}")
+  expect(page).not.toContain("<LiveMarkdown")
   expect(page).not.toContain('"preview"')
 })
 
@@ -481,12 +483,13 @@ test("a file's line count is its line breaks, and one more when it does not end 
   expect(["", "a", "a\n", "a\nb", "a\nb\n", "a\r\nb\r\n", "\n"].map(lineCount)).toEqual([0, 1, 1, 2, 2, 2, 1])
 })
 
-test("a workflow's YAML and change.yaml are one code tab, which alone mounts the code view and its footer", () => {
+test("every file a page edits is the one file editor, which alone mounts the code view and its status bar", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  for (const page of ["pages/workflow/page.tsx", "pages/change/active.tsx"]) {
-    expect([page, read(page).includes("<CodeTab")]).toEqual([page, true])
-    expect([page, read(page).includes("EditableCodeView")]).toEqual([page, false])
+  for (const page of ["pages/workflow/page.tsx", "pages/change/active.tsx", "pages/prompt/page.tsx"]) {
+    expect([page, read(page).includes("<FileEditor")]).toEqual([page, true])
+    expect([page, read(page).includes("<SaveControls")]).toEqual([page, true])
+    expect([page, /EditableCodeView|<LiveMarkdown|<DraftStatus/.test(read(page))]).toEqual([page, false])
   }
 })
 
@@ -504,7 +507,7 @@ test("every item page passes its title once to the shared frame, and History is 
     expect([page, /PROSE_COLUMN\}>\{(title|heading)\}|pt-4 pb-3|pt-5 pb-3|pt-10/.test(text)]).toEqual([page, false])
     for (const match of text.matchAll(/<(ItemHeading|ChangeHeading)\b/g)) {
       const before = text.slice(0, match.index).trimEnd()
-      expect([page, match[0], /\bheading=\{$/.test(before)]).toEqual([page, match[0], true])
+      expect([page, match[0], /\bheading=\{[^{}]*$/.test(before)]).toEqual([page, match[0], true])
     }
   }
   for (const page of ["pages/workflow/page.tsx", "pages/prompt/page.tsx"])
@@ -525,14 +528,15 @@ test("a workflow page's selected card is in its address, steps counted from 1, a
   for (const unread of ["step=0", "step=x", "step=1-fail", "other=1"]) expect(selectionFromSearch(unread)).toBeNull()
 })
 
-test("Markdown is edited one way: documents and prompts with LiveMarkdown, every Markdown field with MarkdownField", () => {
+test("files are edited whole; the workflow canvas's Markdown values use the one Markdown field", () => {
   const client = join(import.meta.dirname, "..", "src", "dashboard", "client")
   const read = (file: string) => readFileSync(join(client, file), "utf-8")
-  // The shared field is the documents' editor.
+  // The shared field edits the workflow's Markdown values on its canvas.
   expect(read("components/markdown-field.tsx")).toContain("<LiveMarkdown")
-  // Tasks, the change's description and the workflow's Markdown values use it; no Apply and Cancel field is left.
-  for (const file of ["components/task-list.tsx", "components/change-header.tsx", "components/workflow-fields.tsx"])
-    expect([file, read(file).includes("<MarkdownField")]).toEqual([file, true])
+  expect(read("components/workflow-fields.tsx")).toContain("<MarkdownField")
+  // A change's tasks and description have no field of their own: they are edited in change.yaml.
+  for (const file of ["components/task-list.tsx", "components/change-header.tsx"])
+    expect([file, read(file).includes("<MarkdownField")]).toEqual([file, false])
   expect(read("components/workflow-panel.tsx").match(/<DraftMarkdown\b/g)?.length).toBe(2)
   for (const file of ["components/task-list.tsx", "components/change-header.tsx"])
     expect([file, /\bApply\b|<Textarea|<Input\b/.test(read(file))]).toEqual([file, false])

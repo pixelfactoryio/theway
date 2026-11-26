@@ -221,6 +221,8 @@ export function writes(client: QueryClient) {
     /** `PUT` of one file of an active change against its version `base`. */
     saveChangeFile: async (key: string, id: string, name: string, text: string, base: string) =>
       refresh(await sendJson("PUT", apiPath.changeFile(key, id, name), { text, base }, SavedSchema), [
+        // The change itself too: its panel shows the change as saved.
+        queryKeys.change(apiPath.change(key, id)),
         queryKeys.changes(key),
         queryKeys.projects(),
       ]),

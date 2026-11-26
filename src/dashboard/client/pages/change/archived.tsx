@@ -1,4 +1,4 @@
-import { ChangeHeading, SameAsId, UNREADABLE } from "@/components/change-header"
+import { ChangeDescription, ChangeHeading, UNREADABLE } from "@/components/change-header"
 import { ChangePanel, ChangeStatus } from "@/components/change-panel"
 import { DOC_COLUMN, DocFrame, PROSE_COLUMN } from "@/components/doc-frame"
 import { DocFooter } from "@/components/doc-footer"
@@ -7,7 +7,7 @@ import { LinesAlert } from "@/components/file-page"
 import { MarkdownView } from "@/components/markdown-view"
 import { TaskList } from "@/components/task-list"
 import { useLabel } from "@/data/queries"
-import { type ChangeDetail, changeTabs, ownDescription, shownTab } from "@/lib/changes"
+import { type ChangeDetail, changeTabs, shownTab } from "@/lib/changes"
 import { to } from "@/lib/routes"
 import { ProjectMark } from "@/shell/project-mark"
 
@@ -19,12 +19,12 @@ function Tasks({ change, card }: { change: ChangeDetail; card: boolean }) {
   if (change.issues.length > 0) {
     return <LinesAlert lines={change.issues} title={UNREADABLE} place={card ? "card" : "bare"} />
   }
-  return <TaskList readOnly rows={change.tasks} />
+  return <TaskList rows={change.tasks} />
 }
 
 /**
  * The page of an archived change, read-only, laid out as an active one: its path (the project, its archive, the
- * change's ID), its files as views, its title, the file, and its panel at the right.
+ * change's ID), its files as views, the file, and its panel at the right.
  */
 export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; data: ChangeDetail; tab?: string }) {
   const project = useLabel()(projectKey)
@@ -58,14 +58,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
           projectKey={projectKey}
           change={data}
           tasks={markdown ? <Tasks change={data} card /> : null}
-          // The description is the page's title: Details names it only when the title does not show it.
-          description={
-            data.description === null || data.description.trim() === "" ? (
-              <span className="text-muted-foreground">–</span>
-            ) : ownDescription(data.description, data.id) === null ? (
-              <SameAsId />
-            ) : null
-          }
+          description={<ChangeDescription change={data} />}
         />
       }
     >
@@ -78,12 +71,7 @@ export function ArchivedChange({ projectKey, data, tab }: { projectKey: string; 
         }
       >
         {file !== undefined ? (
-          <MarkdownView
-            key={file.name}
-            text={file.text}
-            name={file.name}
-            title={ownDescription(data.description, data.id)}
-          />
+          <MarkdownView key={file.name} text={file.text} name={file.name} />
         ) : (
           <div className={`${DOC_COLUMN} pt-6 pb-10`}>
             <div className={PROSE_COLUMN}>

@@ -68,7 +68,7 @@ export type Crumb = { label: string; href: string }
 
 /**
  * A page's header: its icon, its path (`parents`, then its title, the page's `h1`), then `actions` at the right; and,
- * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `copy` (the page's copy control, `DocFrame`'s)
+ * under it, `tabs` (its views, as `ViewTabs`) when the page has some. `copy` (the page's copy controls, `DocFrame`'s: its ID and its run command)
  * stands right after the title, outside the path, so the title is cut before it; then `lead` (a pin's star). The title is the interface's `text-sm` (15px) at 600 (an ID, with `mono`, Geist Mono `text-xs`, 14px, at 500); the path before it is
  * secondary. In a narrow header the path is cut first (its links shrink far faster), the title last, within the path's
  * room: the title never runs under the copy control after it.
@@ -117,7 +117,7 @@ export function PageHeader({
           ))}
           <h1 className={cn("min-w-0 truncate font-semibold", mono && "font-mono text-xs font-medium")}>{title}</h1>
         </nav>
-        {copy !== undefined ? <div className="flex shrink-0 items-center">{copy}</div> : null}
+        {copy !== undefined ? <div className="flex shrink-0 items-center gap-1">{copy}</div> : null}
         {lead !== undefined ? <div className="flex shrink-0 items-center">{lead}</div> : null}
         {actions !== undefined ? <div className="ml-auto flex shrink-0 items-center gap-1">{actions}</div> : null}
       </div>

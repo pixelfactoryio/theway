@@ -53,7 +53,7 @@ test("the History tab keeps the layout under theway-diff-layout, marks no scroll
   const history = readFileSync(join(CLIENT, "components", "history.tsx"), "utf-8")
   expect(history).toContain('"theway-diff-layout"')
   expect(history).not.toContain("data-scroll-root")
-  expect(history).toContain('aria-label="Diff layout"')
+  expect(history).toContain('label="Diff layout"')
   const code = readFileSync(join(CLIENT, "components", "code-view.tsx"), "utf-8")
   expect(code).toContain("unifiedMergeView({ original, mergeControls: false, collapseUnchanged: COLLAPSE })")
   expect(code).toContain("new MergeView(")

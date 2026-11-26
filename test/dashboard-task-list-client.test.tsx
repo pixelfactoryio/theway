@@ -5,7 +5,6 @@ import { TaskList } from "../src/dashboard/client/components/task-list"
 test("a read-only task list shows every task in order, each with its disabled box, and nothing to edit", () => {
   const html = renderToStaticMarkup(
     <TaskList
-      readOnly
       rows={[
         { text: "Write the spec", done: true },
         { text: "Ship it\n\nWith its detail", done: false },
@@ -21,4 +20,20 @@ test("a read-only task list shows every task in order, each with its disabled bo
   expect(html.match(/aria-disabled="true"/g)?.length).toBe(2)
   for (const absent of ["done</button>", "Add a task", "actions", "data-task-id", "Show more", "Next", "line-clamp"])
     expect([absent, html.includes(absent)]).toEqual([absent, false])
+})
+
+test("an active change's list marks its first task not done as Next", () => {
+  const html = renderToStaticMarkup(
+    <TaskList
+      markNext
+      rows={[
+        { text: "Write the spec", done: true },
+        { text: "Ship it", done: false },
+        { text: "Document it", done: false },
+      ]}
+    />,
+  )
+  expect(html.match(/>Next</g)?.length).toBe(1)
+  expect(html.indexOf("Next")).toBeGreaterThan(html.indexOf("Write the spec"))
+  expect(html.indexOf("Next")).toBeLessThan(html.indexOf("Ship it"))
 })

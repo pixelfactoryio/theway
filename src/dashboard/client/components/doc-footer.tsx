@@ -9,15 +9,18 @@ export function LineCount({ text }: { text: string }) {
 }
 
 /**
- * A document page's footer bar: the file in mono, each detail after a `·`, and `status` (its save state) at the right.
+ * A document page's footer bar: the file in mono, each detail after a `·`, its `tools` after them (a Markdown file's
+ * view switch), and `status` (its save state) at the right.
  */
 export function DocFooter({
   file,
   details = [],
+  tools,
   status,
 }: {
   file: ReactNode
   details?: readonly ReactNode[]
+  tools?: ReactNode
   status?: ReactNode
 }) {
   return (
@@ -29,6 +32,7 @@ export function DocFooter({
           {d}
         </Fragment>
       ))}
+      {tools !== undefined ? <span className="ml-2 flex items-center">{tools}</span> : null}
       {status !== undefined ? <span className="ml-auto">{status}</span> : null}
     </div>
   )

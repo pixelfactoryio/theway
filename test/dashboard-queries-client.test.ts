@@ -94,7 +94,7 @@ const WRITES: {
     path: "/api/projects/-p/changes/add-a/files/spec.md",
     sent: { text: "t", base: "v1" },
     ok: { version: "v2" },
-    keys: [["changes", "-p"], ["projects"]],
+    keys: [["change", "/api/projects/-p/changes/add-a"], ["changes", "-p"], ["projects"]],
   },
 ]
 

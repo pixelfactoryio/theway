@@ -1,29 +1,9 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { keptIds, linked, oneLine, splitTask, taskName, wrapped } from "../src/dashboard/client/lib/change-edit"
+import { linked, splitTask, wrapped } from "../src/dashboard/client/lib/change-edit"
 
 const CLIENT = join(import.meta.dirname, "..", "src", "dashboard", "client")
-
-/** The active change page and its task-fields hook, read together. */
-const pageAndHook = (): string =>
-  [join(CLIENT, "pages", "change", "active.tsx"), join(CLIENT, "components", "use-task-fields.ts")]
-    .map((f) => readFileSync(f, "utf-8"))
-    .join("\n")
-
-test("row ids are kept by position for the first min(old, new) tasks, the rest new", () => {
-  let n = 0
-  const make = () => `n${++n}`
-  expect(keptIds(["a", "b", "c"], 2, make)).toEqual(["a", "b"])
-  expect(keptIds(["a", "b"], 4, make)).toEqual(["a", "b", "n1", "n2"])
-  expect(keptIds([], 1, make)).toEqual(["n3"])
-})
-
-test("a task row's name and a one-line description", () => {
-  expect(taskName(3, "Ship it", false)).toBe("Task 3: Ship it")
-  expect(taskName(1, "Plan", true)).toBe("Task 1, done: Plan")
-  expect(oneLine("a\nb\r\n\r\nc\rd")).toBe("a b c d")
-})
 
 const apply = (doc: string, r: { from: number; to: number; insert: string; anchor: number; head: number }) => ({
   text: doc.slice(0, r.from) + r.insert + doc.slice(r.to),
@@ -44,17 +24,13 @@ test("the formatting keys take precedence, prevent the default and stop the even
   expect(editor).toContain("Prec.highest(")
   expect(editor).toContain("preventDefault: true, stopPropagation: true")
   for (const key of ["Mod-b", "Mod-i", "Mod-e", "Mod-k"]) expect(editor).toContain(`"${key}"`)
-  const page = pageAndHook()
-  expect(page).toContain('isolateHistory.of("full")')
-  expect(page).not.toMatch(/sonner|toast/)
-  expect(page).not.toContain("doc.toString()")
+  expect(editor).not.toMatch(/sonner|toast/)
 })
 
-test("the client imports the check and the edits from src/core/change-text", () => {
-  const page = pageAndHook()
+test("the change page checks change.yaml with src/core/change-text", () => {
+  const page = readFileSync(join(CLIENT, "pages", "change", "active.tsx"), "utf-8")
   expect(page).toMatch(/from "(\.\.\/){3,4}core\/change-text"/)
-  for (const name of ["checkChangeText", "changeTextErrors", "changeStatus", "editedChangeText"])
-    expect(page).toContain(name)
+  expect(page).toContain("changeTextErrors")
 })
 
 test("splitTask cuts a task at its first clause or sentence, outside code, within 160 characters", () => {

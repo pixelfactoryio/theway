@@ -1,4 +1,4 @@
-import { CheckIcon, ChevronDownIcon, CopyIcon, type LucideIcon } from "lucide-react"
+import { CheckIcon, ChevronDownIcon, type LucideIcon, SquareTerminalIcon } from "lucide-react"
 import { type ReactElement, type ReactNode, useContext, useState } from "react"
 
 import { CopyButton, useCopy } from "@/components/copy"
@@ -33,18 +33,24 @@ function HeaderCopyControl({ value, what }: HeaderCopy) {
 }
 
 /**
- * The header's run command, at the left of its actions: an outline `sm` button "Copy run command" copying the first of
- * `commands` (its copy icon a check for 1.5s after a copy); with more commands, joined to a chevron "More run commands"
- * whose menu copies the others, each command's label over the command in Geist Mono `text-xs` secondary ink.
+ * The header's run command, at the left of its actions: an outline `icon-sm` button "Copy run command" (a terminal, so it
+ * is not taken for the title's copy button; no tooltip, the toast says what was copied) copying the first of
+ * `commands` (its icon a check for 1.5s after a copy); with more commands, joined
+ * to a chevron "More run commands" whose menu copies the others, each command's label over the command in Geist Mono
+ * `text-xs` secondary ink.
  */
 export function RunCommandControl({ commands }: { commands: readonly RunCommand[] }) {
   const { copy, copied } = useCopy()
   const [primary, ...more] = commands
   if (primary === undefined) return null
   const button = (
-    <Button variant="outline" size="sm" onClick={() => copy(primary.command, "the command")}>
-      {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-      Copy run command
+    <Button
+      variant="outline"
+      size="icon-sm"
+      aria-label="Copy run command"
+      onClick={() => copy(primary.command, "the command")}
+    >
+      {copied ? <CheckIcon aria-hidden="true" /> : <SquareTerminalIcon aria-hidden="true" />}
     </Button>
   )
   if (more.length === 0) return button
@@ -75,54 +81,26 @@ export type FrameTab = { value: string; label: string; href: string; dirty?: boo
 
 /**
  * An item page's title, under its views and above every one of them, so it stands at the same place whichever view is
- * shown: in the reading column, 32px under the views and 16px over the view, at the reading scale's title size (22/28
- * at 600, which no heading of a document outranks), balanced over its lines and cut at three, with Show more to read
- * it whole when that cuts it; then what the page puts under it (the reasons a change cannot be read). An item with no
- * description has no title (`title` `null` or blank): its ID or file name stands once, in the header's path, and only
- * what the page puts under it shows. With `onEdit` a click on the title edits it, and `field` stands in its place. It never scrolls; the view under it does, and once that view is scrolled (its
- * scroll root `data-scrolled`, `DocTab`), a hairline closes the title off from the text passing under it.
+ * shown (a workflow's canvas): in the reading column, 32px under the views and 16px over the view, at the reading
+ * scale's title size (22/28 at 600, which no heading of a document outranks), balanced over its lines and cut at three,
+ * with Show more to read it whole when that cuts it; then what the page puts under it (the reasons a change cannot be
+ * read). An item with no description has no title (`title` `null` or blank): only what the page puts under it shows. A
+ * file's own views have none: the file is what is read. It never scrolls; the view under it does, and once that view
+ * is scrolled (its scroll root `data-scrolled`), a hairline closes the title off from the text passing under it.
  */
-export function ItemHeading({
-  title,
-  field,
-  onEdit,
-  children,
-}: {
-  title: string | null
-  /** The title's field while it is edited (`MarkdownField`), in its place. */
-  field?: ReactNode
-  /** Edits the title in place: a click on it (or Enter on it). */
-  onEdit?: () => void
-  children?: ReactNode
-}) {
+export function ItemHeading({ title, children }: { title: string | null; children?: ReactNode }) {
   const shown = title !== null && title.trim() !== "" ? title : null
   const [more, setMore] = useState(false)
-  const editing = field !== undefined
-  const [clampRef, cut] = useClampCut(shown !== null && !more && !editing ? shown : null)
-  if (shown === null && !editing && (children === undefined || children === null || children === false)) return null
+  const [clampRef, cut] = useClampCut(shown !== null && !more ? shown : null)
+  if (shown === null && (children === undefined || children === null || children === false)) return null
   // Joined by hand: the class merger takes `text-doc-title` for a colour and would drop it.
   const clamp = more ? "" : " line-clamp-3"
   return (
     <div
-      className={`shrink-0 border-b border-transparent ${shown !== null || editing ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
+      className={`shrink-0 border-b border-transparent ${shown !== null ? "pt-8" : "pt-6"} pb-4 transition-colors ${DOC_COLUMN} [&:has(~[data-scrolled])]:border-border`}
     >
       <div className={PROSE_COLUMN}>
-        {editing ? (
-          field
-        ) : shown !== null && onEdit !== undefined ? (
-          <h2 className="text-doc-title font-semibold tracking-tight text-balance text-foreground">
-            <button
-              ref={clampRef}
-              type="button"
-              aria-label={`${shown}. Edit the description`}
-              onClick={onEdit}
-              // Clamped, it is the clamp's box; whole, a block: either way it spans the column.
-              className={`w-full cursor-text rounded-sm text-left outline-none transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring${more ? " block" : clamp}`}
-            >
-              {shown}
-            </button>
-          </h2>
-        ) : shown !== null ? (
+        {shown !== null ? (
           <h2
             ref={clampRef}
             className={`text-doc-title font-semibold tracking-tight text-balance text-foreground${clamp}`}
@@ -130,7 +108,7 @@ export function ItemHeading({
             {shown}
           </h2>
         ) : null}
-        {!editing && shown !== null && (more || cut) ? (
+        {shown !== null && (more || cut) ? (
           <Button variant="link" size="xs" onClick={() => setMore(!more)} className="mt-1 h-auto px-0 text-link">
             {more ? "Show less" : "Show more"}
           </Button>
@@ -143,9 +121,9 @@ export function ItemHeading({
 
 /**
  * An item's page, the one frame of a change's, a workflow's and a prompt's page, after Linear's item page: the header
- * holds the page's icon and path, its title (the item's ID or file name, `mono`), its `copy` and `lead` after it, then at the right
- * its `run` commands' button, `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
- * views (`tabs`, each with its own address) are pills under it. Below: the page's `notices` (full-width strips), its
+ * holds the page's icon and path, its title (the item's ID or file name, `mono`), its `copy` and its `run` commands' button after it, then `lead`, then at the right
+ * `actions`, the item's `status` while the panel is not shown (below 1280px, or hidden), and the panel's toggle; its
+ * views (`tabs`, each with its own address) are pills under it, `tabActions` (the shown file's save controls) at their right. Below: the page's `notices` (full-width strips), its
  * `heading` (an `ItemHeading`, the same on every view), then the view; the panel `panel`, a `PropertyCards` stack named
  * `panelName`, in the shell's right column.
  */
@@ -159,6 +137,7 @@ export function DocFrame({
   lead,
   actions,
   tabs,
+  tabActions,
   value,
   label,
   status,
@@ -182,6 +161,8 @@ export function DocFrame({
   lead?: ReactNode
   actions?: ReactNode
   tabs: FrameTab[]
+  /** At the right of the tab row: the shown file's save controls. */
+  tabActions?: ReactNode
   value: string
   label: string
   status?: ReactNode
@@ -201,17 +182,23 @@ export function DocFrame({
         icon={icon}
         parents={parents}
         mono={mono}
-        copy={copy !== undefined ? <HeaderCopyControl {...copy} /> : undefined}
+        copy={
+          copy !== undefined || run !== undefined ? (
+            <>
+              {copy !== undefined ? <HeaderCopyControl {...copy} /> : null}
+              {run !== undefined ? <RunCommandControl commands={run} /> : null}
+            </>
+          ) : undefined
+        }
         lead={lead}
         actions={
           <>
-            {run !== undefined ? <RunCommandControl commands={run} /> : null}
             {actions}
             {status !== undefined && !panelShown ? <div className="mr-2 flex items-center gap-3">{status}</div> : null}
             <PanelToggle open={open} onOpenChange={setOpen} />
           </>
         }
-        tabs={<ViewTabs label={label} value={value} tabs={tabs} />}
+        tabs={<ViewTabs label={label} value={value} tabs={tabs} actions={tabActions} />}
       />
       <RecordBody name={panelName} panel={panel}>
         {notices}
