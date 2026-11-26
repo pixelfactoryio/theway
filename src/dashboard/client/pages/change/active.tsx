@@ -168,8 +168,9 @@ export function ActiveChange({ projectKey, data, tab }: { projectKey: string; da
   const dirty = drafts.isDirty(name)
   const saveControls = (
     <SaveControls
-      dirty={dirty}
-      saving={draft?.saving ?? false}
+      dirty={order.some((file) => drafts.isDirty(file))}
+      discardable={dirty}
+      saving={order.some((file) => drafts.get(file)?.saving === true)}
       onSave={() => void saveRef.current()}
       onDiscard={() => discard(name)}
     />

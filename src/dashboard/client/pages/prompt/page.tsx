@@ -73,7 +73,7 @@ function PromptCards({
 
 /**
  * `#/prompts/global/<name>[/history]` and `#/prompts/projects/<key>/<name>[/history]`: a prompt's file edited whole in
- * the file editor (Source, Split or Preview), its history, and its cards in the panel, all from the draft (the former
+ * the file editor (Source or Preview), its history, and its cards in the panel, all from the draft (the former
  * `/preview` address shows the file). The
  * header states its name once, for every view: Prompts › name, its status, the panel's button, the views as pill tabs.
  */
@@ -108,29 +108,38 @@ export function PromptPage({ project, name, tab }: { project: string | null; nam
     if (draft.dirty) void draft.save(false)
   })
 
-  // A placed line clicked on the History tab moves the cursor once the Prompt tab's editor is there: the child's
-  // mount effect, which attaches its editor to the draft, runs before this one.
+  // A line clicked on the History tab, or in Preview, moves the cursor once the Prompt tab's source editor is there:
+  // the child's mount effect, which attaches its editor to the draft, runs before this one.
   const store = draft.store
   useEffect(() => {
-    if (view !== "prompt" || pending.current === null || store === null) return
+    if (view !== "prompt" || fileView !== "source" || pending.current === null || store === null) return
     goToLine(store, pending.current)
     pending.current = null
-  }, [view, store])
+  }, [view, fileView, store])
 
   const errors = draft.errors
   const lines = useMemo(
     () =>
       view === "prompt"
-        ? alertLines(errors, (line) => () => store !== null && goToLine(store, line))
+        ? alertLines(errors, (line) => () => {
+            if (store === null) return
+            if (fileView === "source") {
+              goToLine(store, line)
+              return
+            }
+            pending.current = line
+            setFileView("source")
+          })
         : alertLines(errors, null, (e) => {
             const line = e.line
             if (line === null) return null
             return () => {
               pending.current = line
+              setFileView("source")
               navigate(to.file("prompts", project, name))
             }
           }),
-    [errors, view, project, name, navigate, store],
+    [errors, view, fileView, project, name, navigate, store],
   )
 
   const unknownKey =

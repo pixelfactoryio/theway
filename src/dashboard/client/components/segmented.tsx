@@ -7,8 +7,9 @@ export type Segment<T extends string> = { value: T; label: string; icon?: ReactN
 
 /**
  * A choice between views of one thing (a file's Source | Preview, the history's Unified | Split), the same on every
- * page: its segments on a muted track, the chosen one raised on the page's background with a hairline. Pressing the
- * chosen one keeps it.
+ * page: its segments on a muted track, the chosen one raised on the page's background with a hairline. The hairline is
+ * an outline, so the focus ring (a box shadow) still shows on the chosen segment, where the keyboard lands. Pressing
+ * the chosen one keeps it.
  */
 export function Segmented<T extends string>({
   label,
@@ -23,7 +24,7 @@ export function Segmented<T extends string>({
   segments: readonly Segment<T>[]
   onChange: (value: T) => void
   disabled?: boolean
-  /** `sm` for a 28px status bar: 20px segments on a 1px track. */
+  /** `sm` for a 28px status bar: 24px segments flush with their track. */
   size?: "default" | "sm"
 }) {
   const sm = size === "sm"
@@ -33,7 +34,7 @@ export function Segmented<T extends string>({
       spacing={0.5}
       value={[value]}
       disabled={disabled}
-      className={sm ? "rounded-md bg-muted p-px" : "rounded-lg bg-muted p-0.5"}
+      className={sm ? "rounded-md bg-muted" : "rounded-lg bg-muted p-0.5"}
       onValueChange={(next: string[]) => {
         const picked = segments.find((s) => s.value === next[0])
         if (picked !== undefined) onChange(picked.value)
@@ -43,7 +44,7 @@ export function Segmented<T extends string>({
         <ToggleGroupItem
           key={s.value}
           value={s.value}
-          className={`${sm ? "h-5 rounded-sm px-1.5" : "h-6 rounded-md px-2"} min-w-0 gap-1 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs aria-pressed:ring-1 aria-pressed:ring-foreground/10 dark:aria-pressed:bg-foreground/15 [&_svg:not([class*='size-'])]:size-3.5`}
+          className={`h-6 rounded-md ${sm ? "px-1.5" : "px-2"} min-w-0 gap-1 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs aria-pressed:outline-1 aria-pressed:-outline-offset-1 aria-pressed:outline-foreground/10 aria-pressed:outline-solid dark:aria-pressed:bg-foreground/15 [&_svg:not([class*='size-'])]:size-3.5`}
         >
           {s.icon}
           {s.label}

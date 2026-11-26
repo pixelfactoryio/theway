@@ -1,9 +1,8 @@
 import { ChangeDialogs } from "@/components/change-dialogs"
 import type { FileDraft } from "@/components/file-draft"
-import { ErrorStrip, SavedStatus } from "@/components/file-page"
+import { ErrorStrip } from "@/components/file-page"
 import { Button } from "@/components/ui/button"
 import type { AlertLine } from "@/lib/alert-lines"
-import { MOD, shortcutText } from "@/shell/platform"
 import { StateNotice } from "@/shell/state"
 
 /** The strip shown when the file changed on disk since it was opened, with Reload. */
@@ -32,7 +31,7 @@ export function SaveFailureNotice({ message }: { message: string }) {
 
 /**
  * The stack under the tabs, from the top: the conflict, the save failure, then the check failure or the error alert. On
- * History the error alert is hidden. Unsaved edits show in the footer, with `DraftStatus`.
+ * History the error alert is hidden. Unsaved edits show in the tab row's `SaveControls` and the status bar.
  */
 export function DraftNotices({
   draft,
@@ -55,29 +54,6 @@ export function DraftNotices({
         <ErrorStrip lines={lines} />
       )}
     </>
-  )
-}
-
-/**
- * A footer's save state: `Unsaved · ⌘S to save` (Ctrl+S off macOS) with Discard when `onDiscard` is given, while
- * `dirty`; else Saved for a moment after a save.
- */
-export function DraftStatus({ dirty, saved, onDiscard }: { dirty: boolean; saved: boolean; onDiscard?: () => void }) {
-  if (!dirty) return <SavedStatus saved={saved} />
-  return (
-    <span className="flex items-center gap-2">
-      <span className="text-foreground">Unsaved · {shortcutText([MOD, "S"])} to save</span>
-      {onDiscard !== undefined ? (
-        <Button
-          variant="link"
-          size="xs"
-          onClick={onDiscard}
-          className="h-auto px-0 text-muted-foreground hover:text-foreground"
-        >
-          Discard
-        </Button>
-      ) : null}
-    </span>
   )
 }
 

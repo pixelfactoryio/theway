@@ -28,18 +28,22 @@ const LANGUAGE_NAME: Record<CodeLanguage, string> = { markdown: "Markdown", prom
 export const previewable = (language: CodeLanguage): boolean => language !== "yaml"
 
 /**
- * A file page's save controls, at the right of its tab row: "Unsaved changes" while the shown file differs from its
- * saved text (from 1024px; below, the dot on its tab says it), Discard (which asks first) and Save with its shortcut,
- * last. Discard and Save are always there, disabled while the file equals its saved text, so nothing moves when
- * editing starts.
+ * A file page's save controls, at the right of its tab row: "Unsaved changes" while anything Save writes differs from
+ * its saved text (from 1024px; below, the dot on a tab says it), Discard (the shown file only, which asks first) and
+ * Save with its shortcut, last: Save and the shortcut write the same files. Discard and Save are always there, each
+ * disabled while it has nothing to do, so nothing moves when editing starts.
  */
 export function SaveControls({
   dirty,
+  discardable = dirty,
   saving = false,
   onSave,
   onDiscard,
 }: {
+  /** Whether anything Save writes differs from its saved text. */
   dirty: boolean
+  /** Whether the shown file differs from its saved text; by default, `dirty`. */
+  discardable?: boolean
   saving?: boolean
   onSave: () => void
   onDiscard: () => void
@@ -47,12 +51,12 @@ export function SaveControls({
   return (
     <div className="flex items-center gap-2">
       {dirty ? <span className="hidden text-xs text-muted-foreground lg:inline">Unsaved changes</span> : null}
-      <Button variant="ghost" size="xs" onClick={onDiscard} disabled={!dirty}>
+      <Button variant="ghost" size="xs" onClick={onDiscard} disabled={!discardable}>
         Discard
       </Button>
       <Button size="xs" onClick={onSave} disabled={!dirty || saving}>
         Save
-        <span className="font-mono opacity-70">{shortcutText([MOD, "S"])}</span>
+        <span className="opacity-70">{shortcutText([MOD, "S"])}</span>
       </Button>
     </div>
   )
