@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/components/mdx';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
+import { inlineCode, plainText } from '@/lib/inline-code';
+import { openGraphBase, pageUrl } from '@/lib/site';
 
 export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const params = await props.params;
@@ -15,7 +17,7 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
+      <DocsDescription>{page.data.description ? inlineCode(page.data.description) : null}</DocsDescription>
       <DocsBody>
         <MDX
           components={getMDXComponents({
@@ -36,8 +38,12 @@ export async function generateMetadata(props: { params: Promise<{ slug?: string[
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
+  const description = page.data.description ? plainText(page.data.description) : undefined;
+  const url = pageUrl(page.url);
   return {
     title: page.data.title,
-    description: page.data.description,
+    description,
+    alternates: { canonical: url },
+    openGraph: { ...openGraphBase, title: `${page.data.title} · theway`, description, url },
   };
 }

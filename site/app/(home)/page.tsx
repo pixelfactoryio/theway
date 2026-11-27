@@ -1,11 +1,22 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { ArrowRight, FileCode2, GitPullRequest, SquareTerminal } from 'lucide-react';
+import { ArrowRight, FileCode2, SquareTerminal } from 'lucide-react';
+import { resolveLinkItems } from 'fumadocs-ui/layouts/shared';
 import { InstallPill } from '@/components/install-pill';
 import { WorkflowDemo } from '@/components/workflow-demo';
 import { commandDescription } from '@/lib/commands';
 import { githubUrl } from '@/lib/layout.shared';
-import { column, installCommand } from '@/lib/site';
+import { inlineCode } from '@/lib/inline-code';
+import { column, installCommand, openGraphBase, pageUrl, tagline, title } from '@/lib/site';
+
+export const metadata: Metadata = {
+  alternates: { canonical: pageUrl('/') },
+  openGraph: { ...openGraphBase, title, description: tagline, url: pageUrl('/') },
+};
+
+/* The GitHub mark the docs' sidebar draws (Fumadocs' link item for `githubUrl`). */
+const githubMark = resolveLinkItems({ githubUrl }).find((item) => item.type === 'icon')?.icon;
 
 /* The example change every crop on the page follows. */
 const change = 'add-rate-limit';
@@ -60,7 +71,7 @@ const stages: Stage[] = [
   },
   {
     command: '/theway:workflow',
-    title: 'Your workflow runs it, step by step',
+    title: 'The tasks implemented in your session or by agents',
     body: (
       <>
         By default the <code>develop</code> workflow works through the tasks in your session and commits nothing. The{' '}
@@ -70,9 +81,14 @@ const stages: Stage[] = [
     ),
     facts: [
       ['Command', <code key="c">/theway:workflow</code>],
-      ['Shipped workflows', 'develop, agents, engineering, engineering-light'],
+      [
+        'Shipped workflows',
+        <>
+          <code>develop</code>, <code>agents</code>, <code>engineering</code>, <code>engineering-light</code>
+        </>,
+      ],
       ['Your own', <code key="o">workflows/&lt;name&gt;.yaml</code>],
-      ['Merging', 'always yours'],
+      ['Merging', 'by you, or in a series by the run after your yes'],
     ],
     crop: {
       kind: 'session',
@@ -84,16 +100,16 @@ const stages: Stage[] = [
         { kind: 'report', label: '3.review[prompts/correctness.md]', result: 'pass' },
         { kind: 'report', label: '4.triage', result: 'fail', note: '1 confirmed' },
         { kind: 'report', label: '4.fix-review', result: 'pass' },
-        { kind: 'report', label: '4.triage, round 2', result: 'pass' },
+        { kind: 'report', label: '4.triage (round 2)', result: 'pass' },
         { kind: 'report', label: '5.open-pr', result: 'pass', note: 'PR #42' },
         { kind: 'report', label: '6.ci', result: 'pass' },
-        { kind: 'message', text: 'PR #42 is open and green. Merging is your call.' },
+        { kind: 'message', text: 'PR #42 is open and CI passes.' },
       ],
     },
   },
   {
     command: '/theway:archive',
-    title: 'Archived when you name it',
+    title: 'The finished change moved to the archive',
     body: (
       <>
         A finished change moves to <code>changes/archive/</code> under a dated folder, with its spec and tasks. It only
@@ -125,9 +141,13 @@ const commands = ['engineering', 'workflow', 'list', 'archive', 'document'];
 
 const startHere: [string, string, string][] = [
   ['Installation', 'Install, update, pin and uninstall theway.', '/docs/installation/'],
-  ['A full change', 'One change from request to passing tests: rate limiting for a small API.', '/docs/examples/full-change/'],
-  ['Workflows', 'The YAML files /theway:workflow runs and the prompts their steps use.', '/docs/concepts/workflows/'],
-  ['Configuration', 'Every key of config.yaml, with its default and meaning.', '/docs/configuration/'],
+  [
+    'A full change',
+    'Rate limiting added to a small Node API: the request, the spec, the tasks, the code and the tests.',
+    '/docs/examples/full-change/',
+  ],
+  ['Workflows', 'The YAML files `/theway:workflow` runs and the prompts their steps use.', '/docs/concepts/workflows/'],
+  ['Configuration', 'Every key of `config.yaml`, with its default and meaning.', '/docs/configuration/'],
 ];
 
 const h2 = 'text-balance text-title font-semibold tracking-display';
@@ -267,7 +287,7 @@ function LinkRows({ rows, mono = false }: { rows: [string, string, string][]; mo
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-4">
               <span className={`shrink-0 sm:w-44 ${mono ? 'font-mono text-code' : 'text-ui font-medium'}`}>{name}</span>
-              <span className="text-pretty text-[14px] text-dim">{description}</span>
+              <span className={`text-pretty text-[14px] text-dim ${prose}`}>{inlineCode(description)}</span>
             </span>
             <ArrowRight
               aria-hidden="true"
@@ -296,12 +316,14 @@ export default function HomePage() {
               id="hero"
               className="text-pretty text-display-sm font-semibold tracking-display md:text-display"
             >
-              Your review process is a YAML&nbsp;file. <span className="block text-dim">Claude Code runs it.</span>
+              Claude Code commands that write a spec before the code,{' '}
+              <span className="block text-dim">then implement it through a YAML&nbsp;workflow.</span>
             </h1>
-            <p className="mt-5 max-w-[40rem] text-pretty text-lead text-dim">
-              theway writes a spec and ordered tasks before any code, then runs each change through the steps you
-              define: implement, review through lenses, fix what is confirmed, open the pull request. In your session or
-              through agents.
+            <p className={`mt-5 max-w-[40rem] text-pretty text-lead text-dim ${prose}`}>
+              <code>/theway:engineering</code> writes a spec and ordered tasks for a change. <code>/theway:workflow</code>{' '}
+              then implements the tasks: in your session with the default <code>develop</code> workflow, through agents
+              with the <code>agents</code> workflow, which reviews the work, fixes the confirmed findings and opens the
+              pull request, or through a workflow file you write.
             </p>
           </div>
           <div className="flex min-w-0 max-w-[31rem] flex-col gap-2.5">
@@ -326,11 +348,11 @@ export default function HomePage() {
 
       <section aria-labelledby="how" className={`${column} pt-24 md:pt-36`}>
         <h2 id="how" className={h2}>
-          One change, from request to archive
+          The commands one change uses
         </h2>
         <p className="mt-3 max-w-[40rem] text-pretty text-lead text-dim">
-          Three commands carry a change. Its spec, tasks and notes are plain files in your theway home, outside the
-          repository.
+          You run them in the order below. A change&apos;s spec, tasks and notes are plain files in your theway home,
+          outside the repository.
         </p>
         <ol className="mt-12 flex flex-col gap-20 md:mt-16 md:gap-28">
           {stages.map((stage) => (
@@ -351,7 +373,7 @@ export default function HomePage() {
         </div>
         <div>
           <h2 className={h2}>Start here</h2>
-          <p className="mt-3 text-pretty text-lead text-dim">The docs, in the order most people read them.</p>
+          <p className="mt-3 text-pretty text-lead text-dim">Four pages of the docs to read first.</p>
           <div className="mt-8">
             <LinkRows rows={startHere} />
           </div>
@@ -377,7 +399,9 @@ export default function HomePage() {
         <div className={`${column} flex flex-wrap items-center gap-x-6 gap-y-2 py-6 text-[14px] text-dim`}>
           <span>MIT License</span>
           <a href={githubUrl} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
-            <GitPullRequest aria-hidden="true" className="size-4" />
+            <span aria-hidden="true" className="flex size-4 [&_svg]:size-4">
+              {githubMark}
+            </span>
             GitHub
           </a>
           <Link href="/docs/" className="transition-colors hover:text-ink">

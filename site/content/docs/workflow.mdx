@@ -1,6 +1,6 @@
 ---
 title: How it works
-description: Engineering, then workflow, then archive.
+description: "What `/theway:engineering`, `/theway:workflow` and `/theway:archive` do to a change, and when to use `develop` or `agents`."
 ---
 
 A change goes through three commands.
@@ -50,4 +50,4 @@ Use `develop` to watch and steer the work in your session. Use `--workflow agent
 
 [`/theway:archive`](./commands/archive.mdx) moves a finished change to `<home>/projects/<key>/changes/archive/YYYY-MM-DD-<change-id>/`. It runs only when you name the change and say to archive it. It refuses while a task in `change.yaml` is not done, or the file is invalid, unless you accept and it runs with `--force`.
 
-See the [Examples](./examples/full-change.mdx) section: one change from request to passing tests, then a light fix, an escalation, a workflow run, a series and standards.
+See the [Examples](./examples/full-change.mdx) section: a full change that adds rate limiting to a small API, then a light fix, an escalation, a workflow run, a series and standards.
