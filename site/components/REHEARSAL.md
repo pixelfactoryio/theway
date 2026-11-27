@@ -17,9 +17,9 @@ Beats (about 6 s, played once when the demo comes into view; it holds the result
 
 Poster (reduced motion): the result.
 
-Wide 1344 × 540, compact 358 × 680 (canvas over the panel; ci's on-fail card left out; the step's card runs off the panel's foot).
+Three scenes: desktop 1344 × 540 from 1280px of viewport; tablet 672 × 740 below it (canvas over the panel, the whole workflow with ci's on-fail card, the step's card running off the panel's foot); phone, the compact 358 × 680 when the column is under 600px (canvas over the panel; ci's on-fail card left out; the step's card runs off the panel's foot).
 
-Captured on the real page, 1440 and 390 viewports, light and dark; both films end `rehearsal passed`.
+Captured on the real page at 390, 640, 768, 1024 and 1440, light and dark; every film ends `rehearsal passed`.
 
 Film notes that stand:
 
@@ -28,4 +28,4 @@ Film notes that stand:
 
 Not checked:
 
-- Widths between 900 and 1344 (the wide design scales below 1:1).
+- Widths from 1280 to 1343 (the desktop scene scales just below 1:1).

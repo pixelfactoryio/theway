@@ -72,9 +72,23 @@ type S = {
 
 const initial: S = { slot: false, picker: false, query: 0, hover: false, added: false }
 const done: S = { slot: true, picker: false, query: 3, hover: false, added: true }
-const REST = { wide: { x: 760, y: 150 }, compact: { x: 346, y: 320 } }
+/**
+ * Three scenes: the desktop's (canvas beside the panel) from 1280px of viewport, the tablet's (canvas over the panel,
+ * ci's on-fail card kept) below it, and the phone's (the Stage's compact design) when the column is under 600px.
+ */
+type Scene = 'desktop' | 'tablet'
+const SCENES = {
+  desktop: { width: 1344, height: 540, rest: { wide: { x: 760, y: 150 }, compact: { x: 346, y: 320 } } },
+  tablet: { width: 672, height: 740, rest: { wide: { x: 560, y: 110 }, compact: { x: 346, y: 320 } } },
+} as const
+const COMPACT = { below: 600, width: 358, height: 680 }
 
-async function script(a: Act<S>) {
+const scripts = {
+  desktop: (a: Act<S>) => script(a, SCENES.desktop.rest),
+  tablet: (a: Act<S>) => script(a, SCENES.tablet.rest),
+}
+
+async function script(a: Act<S>, rest: (typeof SCENES)[Scene]['rest']) {
   await a.wait(500)
   await a.move({ at: 'card-review', x: 0.72, y: 0.5 })
   await a.wait(200)
@@ -94,7 +108,7 @@ async function script(a: Act<S>) {
   await a.click()
   await a.set({ picker: false, added: true })
   await a.wait(350)
-  await a.move(REST[a.layout])
+  await a.move(rest[a.layout])
   await a.wait(1200)
 }
 
@@ -112,26 +126,39 @@ function useDarkClass() {
   return dark
 }
 
+/** The desktop scene from 1280px of viewport, else the tablet's (whose compact design is the phone's). */
+function useScene(): Scene {
+  const [scene, setScene] = useState<Scene>('desktop')
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 1280px)')
+    const read = () => setScene(wide.matches ? 'desktop' : 'tablet')
+    read()
+    wide.addEventListener('change', read)
+    return () => wide.removeEventListener('change', read)
+  }, [])
+  return scene
+}
+
 export function WorkflowDemo() {
   const dark = useDarkClass()
+  const scene = useScene()
+  const size = SCENES[scene]
   return (
     // A faux UI: one image to assistive tech, its controls not exposed
-    <div
-      role="img"
-      aria-label="The workflow editor: the open-pr step is added under review, and its properties open in the panel"
-    >
+    <div role="img" aria-label="The workflow editor: the open-pr step is added under review, and its properties open in the panel">
       <Stage<S>
-        width={1344}
-        height={540}
-        compact={{ below: 900, width: 358, height: 680 }}
+        key={scene}
+        width={size.width}
+        height={size.height}
+        compact={COMPACT}
         initial={initial}
         poster={done}
-        script={script}
+        script={scripts[scene]}
         play="once"
-        cursor={{ at: REST }}
+        cursor={{ at: size.rest }}
         theme={dark ? 'dark' : 'light'}
         fidelity="minimal"
-        className="wfd"
+        className={`wfd wfd--${scene}`}
       >
         {(s) => (
           <div className="ss-window wfd-win">

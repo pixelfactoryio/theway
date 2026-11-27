@@ -10,10 +10,13 @@ export function InstallPill({ command, className = '' }: { command: string; clas
     <div
       className={`flex min-h-10 min-w-0 items-center gap-2.5 rounded-lg py-1 border border-line bg-panel pl-3.5 pr-1 font-mono text-code ${className}`}
     >
-      <span aria-hidden="true" className="select-none text-dim">
-        $
+      {/* The prompt runs inline with the command, so a wrapped command keeps it on its first line */}
+      <span className="min-w-0 [overflow-wrap:anywhere] sm:whitespace-nowrap">
+        <span aria-hidden="true" className="select-none text-dim">
+          ${' '}
+        </span>
+        <code>{command}</code>
       </span>
-      <code className="min-w-0 [overflow-wrap:anywhere] sm:whitespace-nowrap">{command}</code>
       <button
         type="button"
         onClick={onClick}

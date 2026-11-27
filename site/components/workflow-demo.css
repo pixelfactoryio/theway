@@ -39,6 +39,7 @@
 .wfd {
   --wfd-card: 340px;
   --wfd-onfail: 220px;
+  --wfd-wire: 72px;
   --wfd-edge: 28px;
   --wfd-line: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
   /* The column and ci's on-fail card (340 + 72 + 220) centred in the canvas */
@@ -267,7 +268,7 @@
     flex: none;
     align-items: center;
     justify-content: center;
-    width: 72px;
+    width: var(--wfd-wire);
     height: 2px;
     background-image: linear-gradient(90deg, var(--wfd-line) 50%, transparent 50%);
     background-size: 8px 1px;
@@ -648,6 +649,38 @@
     color: var(--muted-foreground);
     font-family: var(--font-mono);
     font-size: 12px;
+  }
+
+  /* ---- tablet: the canvas over the panel, the whole workflow in it ---- */
+
+  &.wfd--tablet .ss-stage[data-layout='wide'] {
+    --wfd-onfail: 200px;
+    --wfd-wire: 60px;
+    --wfd-edge: 24px;
+    /* The column and ci's on-fail card (340 + 60 + 200) centred */
+    --wfd-x: calc((672px - 600px) / 2);
+    /* The column with the step added (5 cards of 62, 4 lines of 24) centred in 440 */
+    --wfd-top: 17px;
+  }
+
+  &.wfd--tablet .ss-stage[data-layout='wide'] .wfd-win {
+    flex-direction: column;
+  }
+
+  &.wfd--tablet .ss-stage[data-layout='wide'] .wfd-canvas {
+    width: auto;
+    height: 440px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  &.wfd--tablet .ss-stage[data-layout='wide'] .wfd-panel::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 32px;
+    background: linear-gradient(color-mix(in oklab, var(--background) 0%, transparent), var(--background) 90%);
+    pointer-events: none;
   }
 
   /* ---- compact: the canvas over the panel ---- */

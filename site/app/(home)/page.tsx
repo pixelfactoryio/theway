@@ -290,7 +290,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-1 flex-col">
       <section aria-labelledby="hero" className={`${column} pt-12 md:pt-16`}>
-        <div className="grid items-end gap-8 min-[1360px]:grid-cols-[minmax(0,1fr)_28rem] min-[1360px]:gap-10">
+        <div className="grid items-end gap-8 min-[1360px]:grid-cols-[minmax(0,1fr)_31rem] min-[1360px]:gap-10">
           <div>
             <h1
               id="hero"
@@ -304,7 +304,7 @@ export default function HomePage() {
               through agents.
             </p>
           </div>
-          <div className="flex min-w-0 max-w-[28rem] flex-col gap-2.5">
+          <div className="flex min-w-0 max-w-[31rem] flex-col gap-2.5">
             <InstallPill command={installCommand} />
             <div className="grid gap-2.5 sm:grid-cols-2">
               <Link href="/docs/" className={`${button} bg-action text-white hover:bg-action/90`}>
