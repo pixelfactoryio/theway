@@ -1,564 +1,386 @@
 import Link from 'next/link';
-import { Fragment, type ReactNode } from 'react';
-import {
-  Activity,
-  Archive,
-  ArrowRight,
-  BookOpen,
-  CircleCheck,
-  FileText,
-  FolderClock,
-  GitPullRequest,
-  Hand,
-  List,
-  ListChecks,
-  ListTodo,
-  type LucideIcon,
-  Search,
-  ShieldAlert,
-} from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ArrowRight, FileCode2, GitPullRequest, SquareTerminal } from 'lucide-react';
 import { InstallPill } from '@/components/install-pill';
-import { basePath } from '@/lib/base-path.mjs';
+import { WorkflowDemo } from '@/components/workflow-demo';
 import { commandDescription } from '@/lib/commands';
 import { githubUrl } from '@/lib/layout.shared';
-import { column, mono, tagline } from '@/lib/site';
+import { column, installCommand } from '@/lib/site';
 
-const installCommand = 'npx --yes @pixelfactoryio/theway@latest install';
+/* The example change every crop on the page follows. */
+const change = 'add-rate-limit';
+const changeDir = `~/.theway/projects/-home-you-code-my-api/changes/${change}`;
 
-/* One line of a file window: `heading` is a Markdown heading, `check` marks a task line. */
-type FileLine = { text: string; heading?: boolean; check?: 'done' | 'open' };
+/* One line of a file crop: plain text, or a YAML key and its value. */
+type Line = { text: string; key?: string; dim?: boolean };
 
-/* One entry of an agent session: the user's prompt, a tool call with its optional result, or the agent's message. */
+/* One line of a session crop: the user's prompt, a tool call with its result, or the agent's message. */
 type Entry =
   | { kind: 'prompt'; text: string }
   | { kind: 'tool'; name: string; args: string; result?: string }
+  | { kind: 'report'; label: string; result: 'pass' | 'fail'; note?: string }
   | { kind: 'message'; text: string };
 
-/* A file window shows numbered lines; a session window shows an agent transcript and its input box. */
-/* `input` ends a session with the agent's input box. */
-type Mock = { type: 'file'; title: string; lines: FileLine[] } | { type: 'session'; entries: Entry[]; input?: boolean };
+type Crop = { kind: 'file'; path: string; language: string; lines: Line[] } | { kind: 'session'; entries: Entry[] };
 
-const sessionTitle = 'claude — my-api';
+type Stage = { command: string; title: string; body: ReactNode; facts: [string, ReactNode][]; crop: Crop };
 
-type Feature = { icon: LucideIcon; title: string; href?: string; body: ReactNode };
-
-type Step = { title: string; subline: ReactNode; mocks: Mock[]; features: Feature[] };
-
-const steps: Step[] = [
+const stages: Stage[] = [
   {
-    title: 'Write the spec before the code',
-    subline: (
+    command: '/theway:engineering',
+    title: 'A spec and ordered tasks before any code',
+    body: (
       <>
-        <code className="text-accent-text">/theway:engineering</code> investigates the request, then writes <code>spec.md</code> and{' '}
-        <code>change.yaml</code>, and critic agents review them. No code is written in this step: it is the shipped{' '}
-        <code>engineering</code> workflow, whose steps and prompts you can change.
+        It investigates the request, writes <code>spec.md</code> and <code>change.yaml</code> in the change folder, then
+        critic agents review them through two lenses. No code is written in this step.
       </>
     ),
-    mocks: [
-      {
-        type: 'session',
-        input: true,
-        entries: [
-          { kind: 'prompt', text: '/theway:engineering add rate limiting to the public API' },
-          { kind: 'tool', name: 'Bash', args: 'theway context engineering' },
-          { kind: 'tool', name: 'Read', args: 'src/api/router.ts' },
-          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/spec.md' },
-          { kind: 'tool', name: 'Write', args: '~/.theway/projects/-home-you-code-my-api/changes/add-rate-limit/change.yaml' },
-          {
-            kind: 'message',
-            text: 'Spec and tasks written. Review them before developing.',
-          },
-        ],
-      },
+    facts: [
+      ['Command', <code key="c">/theway:engineering</code>],
+      ['Workflow', <code key="w">engineering</code>],
+      ['Review lenses', 'grounding, implementability'],
+      ['Small change', <code key="l">--light</code>],
     ],
-    features: [
-      {
-        icon: Search,
-        title: 'Facts first',
-        body: 'Questions the design depends on are investigated and written into the spec as findings.',
-      },
-      {
-        icon: ShieldAlert,
-        title: 'TAMM hardpoints',
-        href: '/docs/concepts/tamm/',
-        body: 'Medium and High risks across Time, Autonomy, Mastery and Machine, each with countermeasures.',
-      },
-      {
-        icon: ListChecks,
-        title: 'Ordered tasks',
-        body: (
-          <>
-            <code>change.yaml</code> lists the work as ordered tasks (a light change: 1 to 3 tasks).
-          </>
-        ),
-      },
-    ],
+    crop: {
+      kind: 'file',
+      path: `${changeDir}/change.yaml`,
+      language: 'YAML',
+      lines: [
+        { key: 'version', text: 'theway.change/v1beta1' },
+        { key: 'description', text: 'Limit each client IP to 60 requests per minute' },
+        { key: 'tasks', text: '' },
+        { text: '  - text: Add the limiter middleware' },
+        { text: '    done: false', dim: true },
+        { text: '  - text: Read the limits from the config' },
+        { text: '    done: false', dim: true },
+        { text: '  - text: Return 429 with Retry-After' },
+        { text: '    done: false', dim: true },
+      ],
+    },
   },
   {
-    title: 'Implement task by task',
-    subline: (
+    command: '/theway:workflow',
+    title: 'Your workflow runs it, step by step',
+    body: (
       <>
-        <code className="text-accent-text">/theway:workflow</code> runs the steps of a YAML workflow: by default it works through the
-        tasks in your session; the <code className="text-accent-text">agents</code> workflow hands them to agents that implement and review
-        locally, then opens a pull request.
+        By default the <code>develop</code> workflow works through the tasks in your session and commits nothing. The{' '}
+        <code>agents</code> workflow hands them to agents that implement, review, fix what is confirmed, open the pull
+        request and drive CI to green. Every step answers pass, fail or blocked.
       </>
     ),
-    mocks: [
-      {
-        type: 'file',
-        title: 'change.yaml',
-        lines: [
-          { text: '1. Add the limiter middleware', check: 'done' },
-          { text: '2. Read limits from config', check: 'done' },
-          { text: '3. Return 429 with Retry-After', check: 'open' },
-        ],
-      },
-      {
-        type: 'session',
-        entries: [
-          { kind: 'prompt', text: '/theway:workflow --workflow agents add-rate-limit' },
-          { kind: 'tool', name: 'Agent', args: 'implement add-rate-limit', result: 'committed on add-rate-limit' },
-          { kind: 'tool', name: 'Agent', args: 'review add-rate-limit', result: '2 findings, 2 confirmed' },
-          { kind: 'tool', name: 'Agent', args: 'fix add-rate-limit', result: '2 resolved' },
-          { kind: 'tool', name: 'Bash', args: 'gh pr create', result: 'PR #42 opened' },
-          { kind: 'tool', name: 'Bash', args: 'gh pr checks 42', result: 'test  pass' },
-          { kind: 'message', text: 'PR #42 is ready for you to merge.' },
-        ],
-      },
+    facts: [
+      ['Command', <code key="c">/theway:workflow</code>],
+      ['Shipped workflows', 'develop, agents, engineering, engineering-light'],
+      ['Your own', <code key="o">workflows/&lt;name&gt;.yaml</code>],
+      ['Merging', 'always yours'],
     ],
-    features: [
-      {
-        icon: CircleCheck,
-        title: 'Verified against the spec',
-        body: 'Each Success Criterion is reported with the command or test that verified it, or flagged as unverified.',
-      },
-      {
-        icon: GitPullRequest,
-        title: 'Adversarial review',
-        body: 'Reviewer agents try to break the diff; a fix agent addresses confirmed findings, and a fix check confirms them.',
-      },
-      {
-        icon: Activity,
-        title: 'CI driven to green',
-        body: 'Failed runs are diagnosed from the real error line, within a set number of attempts.',
-      },
-    ],
+    crop: {
+      kind: 'session',
+      entries: [
+        { kind: 'prompt', text: `/theway:workflow --workflow agents ${change}` },
+        { kind: 'report', label: '1.branch', result: 'pass' },
+        { kind: 'report', label: '2.implement', result: 'pass', note: '3 commits' },
+        { kind: 'report', label: '3.review[prompts/conformance.md]', result: 'pass' },
+        { kind: 'report', label: '3.review[prompts/correctness.md]', result: 'pass' },
+        { kind: 'report', label: '4.triage', result: 'fail', note: '1 confirmed' },
+        { kind: 'report', label: '4.fix-review', result: 'pass' },
+        { kind: 'report', label: '4.triage, round 2', result: 'pass' },
+        { kind: 'report', label: '5.open-pr', result: 'pass', note: 'PR #42' },
+        { kind: 'report', label: '6.ci', result: 'pass' },
+        { kind: 'message', text: 'PR #42 is open and green. Merging is your call.' },
+      ],
+    },
   },
   {
-    title: 'Compose your own workflow',
-    subline: (
+    command: '/theway:archive',
+    title: 'Archived when you name it',
+    body: (
       <>
-        Write a workflow as a YAML file of steps. Each step uses one of your Markdown prompts, and runs in your session or
-        through agents.{' '}
-        <code className="text-accent-text">/theway:workflow --workflow &lt;name&gt;</code> runs it.
+        A finished change moves to <code>changes/archive/</code> under a dated folder, with its spec and tasks. It only
+        happens when you name the change and ask, and it refuses while a task is open unless you accept it.
       </>
     ),
-    mocks: [
-      {
-        type: 'file',
-        title: 'workflows/develop-secure.yaml',
-        lines: [
-          { text: 'version: theway.workflow/v1beta1' },
-          { text: 'description: Implement, review with a security lens, audit and open the PR' },
-          { text: 'inputs:' },
-          { text: '  change: {description: The change to implement, required: true, type: change}' },
-          { text: 'runs-on: agents' },
-          { text: 'steps:' },
-          { text: '  - uses: prompts/implement.md' },
-          { text: '    runs-on: session' },
-          { text: '    with:' },
-          { text: '      change: ${{ inputs.change }}' },
-          { text: '  - uses: prompts/review.md' },
-          { text: '    matrix: {lens: [prompts/correctness.md, prompts/security.md]}' },
-          { text: '    with:' },
-          { text: '      change: ${{ inputs.change }}' },
-          { text: '      lens: ${{ matrix.lens }}' },
-          { text: '  - uses: prompts/security-audit.md' },
-          { text: '    with:' },
-          { text: '      change: ${{ inputs.change }}' },
-          { text: '  - uses: prompts/open-pr.md' },
-          { text: '    with:' },
-          { text: '      change: ${{ inputs.change }}' },
-        ],
-      },
+    facts: [
+      ['Command', <code key="c">/theway:archive</code>],
+      ['Listing', <code key="li">/theway:list</code>],
+      ['Open tasks', 'refused, or accepted by you'],
     ],
-    features: [
-      {
-        icon: Hand,
-        title: 'Inline or through agents',
-        body: 'Each step runs in your session, where you can steer it, or through subagents. Mix them: implement it yourself, have agents review it, and open the PR.',
-      },
-      {
-        icon: Search,
-        title: 'Steps and prompts you write',
-        body: 'A workflow is a flat list of steps, each using a Markdown prompt that answers pass, fail or blocked, with on-fail to fix and retry and matrix to run copies at once. Add a security-audit step, or a security.md lens to the review, and every change that workflow runs gets it.',
-      },
-      {
-        icon: BookOpen,
-        title: 'Your conventions, your git host',
-        href: '/docs/concepts/standards/#convention-standards',
-        body: 'Commit messages, branch names and the git host commands live in commits.md and git-host.md, which you replace per project.',
-      },
-    ],
-  },
-  {
-    title: 'Keep the history',
-    subline: (
-      <>
-        <code className="text-accent-text">/theway:archive</code> moves a finished change to <code>changes/archive/</code>, dated, and only when you
-        ask for it by name.
-      </>
-    ),
-    mocks: [
-      {
-        type: 'session',
-        entries: [
-          { kind: 'prompt', text: '/theway:archive add-rate-limit' },
-          {
-            kind: 'tool',
-            name: 'Bash',
-            args: 'theway archive add-rate-limit',
-            result: 'Archived: ~/.theway/projects/-home-you-code-my-api/changes/archive/2026-10-28-add-rate-limit',
-          },
-        ],
-      },
-    ],
-    features: [
-      {
-        icon: Hand,
-        title: 'Explicit only',
-        body: '"It\'s merged" or "ship it" never archives a change: you name the change and ask.',
-      },
-      {
-        icon: ListTodo,
-        title: 'No open tasks',
-        body: (
-          <>
-            Archiving refuses while a task in <code>change.yaml</code> is not done, unless you accept the open tasks.
-          </>
-        ),
-      },
-      {
-        icon: FolderClock,
-        title: 'Dated archive',
-        body: 'Every archived change keeps its spec and tasks under a dated folder.',
-      },
-    ],
+    crop: {
+      kind: 'session',
+      entries: [
+        { kind: 'prompt', text: `/theway:archive ${change}` },
+        { kind: 'tool', name: 'Bash', args: 'theway list', result: `${change}  3 files   3/3 tasks done` },
+        {
+          kind: 'tool',
+          name: 'Bash',
+          args: `theway archive ${change}`,
+          result: `Archived: ~/.theway/projects/-home-you-code-my-api/changes/archive/2026-11-26-${change}`,
+        },
+      ],
+    },
   },
 ];
 
-const commandIcons: [string, LucideIcon][] = [
-  ['engineering', FileText],
-  ['workflow', GitPullRequest],
-  ['document', BookOpen],
-  ['list', List],
-  ['archive', Archive],
+const commands = ['engineering', 'workflow', 'list', 'archive', 'document'];
+
+const startHere: [string, string, string][] = [
+  ['Installation', 'Install, update, pin and uninstall theway.', '/docs/installation/'],
+  ['A full change', 'One change from request to passing tests: rate limiting for a small API.', '/docs/examples/full-change/'],
+  ['Workflows', 'The YAML files /theway:workflow runs and the prompts their steps use.', '/docs/concepts/workflows/'],
+  ['Configuration', 'Every key of config.yaml, with its default and meaning.', '/docs/configuration/'],
 ];
 
-const h1 = 'text-balance text-hero-sm font-bold uppercase leading-display tracking-display md:text-hero';
-const h2 = 'text-balance text-title-sm font-bold uppercase leading-display tracking-display md:text-title';
-const subline =
-  'mx-auto max-w-prose text-pretty text-lg leading-relaxed text-body [&_code]:font-mono [&_code]:text-[0.9em]';
-const sectionPad = 'px-4 py-20 md:px-12 md:py-32';
-const h3 = 'text-balance text-2xl font-bold uppercase leading-display tracking-display md:text-4xl';
-const button = 'inline-flex h-10 items-center justify-center px-4 font-mono uppercase tracking-wider transition-colors';
-const frame = `${column} border-x border-dashed`;
+const h2 = 'text-balance text-title font-semibold tracking-display';
+const button = 'inline-flex h-9 items-center justify-center gap-2 rounded-lg px-4 text-ui font-medium transition-colors';
+const window = 'overflow-hidden rounded-xl border border-line bg-panel shadow-panel';
+const prose = '[&_code]:font-mono [&_code]:text-code [&_code]:text-ink';
+/* Long lines of a crop (paths, tool output) wrap anywhere inside the panel, as Claude Code wraps them. */
+const wrap = 'min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]';
 
-/* A 9px `+` mark where a separator meets a guide line. */
-function Cross({ className }: { className: string }) {
+/* A crop's header: the file or the session it shows, as the dashboard's 40px header. */
+function CropHeader({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <svg
-      aria-hidden="true"
-      width="9"
-      height="9"
-      viewBox="0 0 9 9"
-      shapeRendering="crispEdges"
-      className={`absolute z-10 text-fd-muted-foreground ${className}`}
-    >
-      <path d="M4 0v9M0 4h9" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  );
-}
-
-/* Crosses on the line at the top of the element, at both guide lines. */
-function Crosses() {
-  return (
-    <div aria-hidden="true" className={`relative ${column}`}>
-      <Cross className="-left-1 -top-[5px]" />
-      <Cross className="-right-1 -top-[5px]" />
+    <div className="flex h-10 items-center gap-2 border-b border-line px-4 text-code text-dim">
+      {icon}
+      <span className="min-w-0 truncate font-mono">{children}</span>
     </div>
   );
 }
 
-/* A full-width dashed separator between sections. */
-function Separator() {
+function FileCrop({ crop }: { crop: Extract<Crop, { kind: 'file' }> }) {
   return (
-    <div aria-hidden="true" className="border-t border-dashed">
-      <Crosses />
-    </div>
-  );
-}
-
-/* A full-width row framed by the dashed guide lines. */
-function Band({ children, className = '', label }: { children: ReactNode; className?: string; label?: string }) {
-  return (
-    <section aria-label={label}>
-      <div className={`${frame} ${className}`}>{children}</div>
-    </section>
-  );
-}
-
-/* Text that may break only at spaces or right after a `/`: each `/`-delimited segment stays whole. */
-function Breakable({ text }: { text: string }) {
-  return text.split(' ').map((word, w) => (
-    <Fragment key={w}>
-      {w > 0 ? ' ' : null}
-      {word.split('/').map((part, i, parts) => (
-        <Fragment key={i}>
-          <span className="whitespace-nowrap">
-            {part}
-            {i < parts.length - 1 ? '/' : null}
-          </span>
-          {i < parts.length - 1 ? <wbr /> : null}
-        </Fragment>
-      ))}
-    </Fragment>
-  ));
-}
-
-/* One wrapped line: continuation lines hang under the text after the prefix. */
-function Row({ prefix, children, className = '' }: { prefix?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <div className={`flex ${className}`}>
-      {prefix ? <span className="shrink-0 whitespace-pre">{prefix}</span> : null}
-      <span className="min-w-0 whitespace-pre-wrap">{children}</span>
-    </div>
-  );
-}
-
-function FileLines({ lines }: { lines: FileLine[] }) {
-  return (
-    <div className="py-3 font-mono text-code leading-6">
-      {lines.map((line, i) => (
-        <div key={i} className="flex">
-          <span aria-hidden="true" className="w-10 shrink-0 select-none pr-4 text-right text-fd-muted-foreground">
-            {i + 1}
-          </span>
-          <Row
-            className={`min-w-0 flex-1 pr-4 ${line.check === 'done' ? 'text-fd-muted-foreground' : ''} ${
-              line.heading ? 'font-semibold' : ''
-            }`}
-            prefix={
-              line.check ? <span className="text-fd-primary">{line.check === 'done' ? '- [x] ' : '- [ ] '}</span> : undefined
-            }
-          >
-            <Breakable text={line.text} />
-          </Row>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SessionEntry({ entry }: { entry: Entry }) {
-  switch (entry.kind) {
-    case 'prompt':
-      return (
-        <Row prefix="> " className="bg-fd-foreground/5 px-4 py-1">
-          <Breakable text={entry.text} />
-        </Row>
-      );
-    case 'tool':
-      return (
-        <div className="px-4">
-          <Row prefix={<span className="text-fd-primary">● </span>}>
-            <span className="font-semibold">{entry.name}</span>
-            <span className="text-fd-muted-foreground">
-              (<Breakable text={entry.args} />)
+    <figure className={window}>
+      <CropHeader icon={<FileCode2 aria-hidden="true" className="size-4 shrink-0" />}>
+        {crop.path.split('/').slice(-2).join('/')}
+      </CropHeader>
+      <div className="py-3 font-mono text-code">
+        {crop.lines.map((line, i) => (
+          <div key={i} className="flex">
+            <span aria-hidden="true" className="w-11 shrink-0 select-none pr-4 text-right text-dim">
+              {i + 1}
             </span>
-          </Row>
-          {entry.result ? (
-            <Row prefix={<span className="text-fd-muted-foreground">⎿ </span>} className="pl-4">
-              <Breakable text={entry.result} />
-            </Row>
-          ) : null}
-        </div>
-      );
-    case 'message':
-      return (
-        <Row prefix="● " className="px-4">
-          <Breakable text={entry.text} />
-        </Row>
-      );
-  }
-}
-
-function Session({ entries, input = false }: { entries: Entry[]; input?: boolean }) {
-  return (
-    <div className="font-mono text-code leading-6 text-body">
-      <div className={`flex flex-col gap-2 pt-3 ${input ? '' : 'pb-4'}`}>
-        {entries.map((entry, i) => (
-          <SessionEntry key={i} entry={entry} />
+            {line.key ? (
+              <span className={wrap}>
+                <span className="text-(--code-property)">{line.key}</span>
+                <span className="text-dim">:</span> {line.text}
+              </span>
+            ) : (
+              <span className={`${wrap} ${line.dim ? 'text-dim' : ''}`}>{line.text}</span>
+            )}
+          </div>
         ))}
       </div>
-      {input ? (
-        <div className="mx-4 my-4 border px-3 py-1.5">
-          &gt; <span aria-hidden="true">▍</span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function Window({ mock, className = '' }: { mock: Mock; className?: string }) {
-  return (
-    <figure className={`overflow-hidden border bg-fd-card ${className}`}>
-      <figcaption className="flex h-9 items-center justify-center border-b font-mono text-xs text-fd-muted-foreground">
-        {mock.type === 'file' ? mock.title : sessionTitle}
+      <figcaption className="flex h-7 items-center gap-3 border-t border-line px-4 text-code text-dim">
+        <span className="font-mono">{crop.path.split('/').pop()}</span>
+        <span>{crop.language}</span>
+        <span>{crop.lines.length} lines</span>
       </figcaption>
-      {mock.type === 'file' ? <FileLines lines={mock.lines} /> : <Session entries={mock.entries} input={mock.input} />}
     </figure>
   );
 }
 
-function StepBlock({ step }: { step: Step }) {
-  const [first, second] = step.mocks;
+function SessionCrop({ entries }: { entries: Entry[] }) {
   return (
-    <div className="flex flex-col">
-      <div className="flex flex-col items-center text-center">
-        <h3 className={h3}>{step.title}</h3>
-        <p className={`mt-5 ${subline}`}>{step.subline}</p>
+    <figure className={window}>
+      <CropHeader icon={<SquareTerminal aria-hidden="true" className="size-4 shrink-0" />}>claude — my-api</CropHeader>
+      <div className="flex flex-col gap-1.5 py-4 font-mono text-code">
+        {entries.map((entry, i) => {
+          switch (entry.kind) {
+            case 'prompt':
+              return (
+                <div key={i} className="mx-3 mb-1.5 rounded-md bg-band px-3 py-1.5">
+                  <span className="text-dim">&gt; </span>
+                  {entry.text}
+                </div>
+              );
+            case 'tool':
+              return (
+                <div key={i} className="px-4">
+                  <div className={wrap}>
+                    <span className="text-success">● </span>
+                    <span className="font-medium">{entry.name}</span>
+                    <span className="text-dim">({entry.args})</span>
+                  </div>
+                  {entry.result ? (
+                    <div className="flex pl-4 text-dim">
+                      <span className="shrink-0 whitespace-pre">⎿ </span>
+                      <span className={wrap}>{entry.result}</span>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            case 'report':
+              return (
+                <div key={i} className="flex gap-3 px-4">
+                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                  {entry.note ? <span className="hidden text-dim sm:inline">{entry.note}</span> : null}
+                  <span className={`w-10 text-right ${entry.result === 'pass' ? 'text-success' : 'text-(--destructive)'}`}>
+                    {entry.result}
+                  </span>
+                </div>
+              );
+            case 'message':
+              return (
+                <div key={i} className="mt-1.5 px-4">
+                  <span className="text-dim">● </span>
+                  {entry.text}
+                </div>
+              );
+          }
+        })}
       </div>
-      <div className="mt-12 grid gap-12 md:mt-16 md:grid-cols-12 md:items-center">
-        <div className="min-w-0 md:col-span-7">
-          <Window mock={first} className={second ? 'mr-8 pb-8' : ''} />
-          {second ? <Window mock={second} className="relative -mt-8 ml-8 bg-fd-background" /> : null}
-        </div>
-        <ul className="border md:col-span-5">
-          {step.features.map((feature) => (
-            <li key={feature.title} className="flex items-start justify-between gap-4 border-b p-5 last:border-b-0">
-              <div className="flex flex-col gap-2">
-                <p className={`font-medium ${mono}`}>
-                  {feature.href ? (
-                    <Link href={feature.href} className="transition-colors hover:text-fd-primary">
-                      {feature.title}
-                    </Link>
-                  ) : (
-                    feature.title
-                  )}
-                </p>
-                <p className="text-detail text-body [&_code]:font-mono [&_code]:text-[0.9em]">
-                  {feature.body}
-                </p>
-              </div>
-              <span className="flex size-7 shrink-0 items-center justify-center border">
-                <feature.icon aria-hidden="true" className="size-3.5" />
-              </span>
-            </li>
+    </figure>
+  );
+}
+
+function StageRow({ stage }: { stage: Stage }) {
+  return (
+    <div className="grid gap-8 md:grid-cols-12 md:gap-12">
+      <div className="flex flex-col md:col-span-5 md:pt-2">
+        <h3 className="text-balance text-[1.375rem] font-semibold leading-7 tracking-[-0.015em]">{stage.title}</h3>
+        <p className={`mt-3 text-pretty text-ui text-dim ${prose}`}>{stage.body}</p>
+        <dl className="mt-6 divide-y divide-line border-y border-line text-[14px]">
+          {stage.facts.map(([label, value]) => (
+            <div key={label} className="flex items-baseline justify-between gap-4 py-2.5">
+              <dt className="text-dim">{label}</dt>
+              <dd className={`text-right ${prose}`}>{value}</dd>
+            </div>
           ))}
-        </ul>
+        </dl>
+      </div>
+      <div className="min-w-0 md:col-span-7">
+        {stage.crop.kind === 'file' ? <FileCrop crop={stage.crop} /> : <SessionCrop entries={stage.crop.entries} />}
       </div>
     </div>
   );
 }
 
+/* A list of links as the dashboard's rows: one line each on the panel, the name, its description, an arrow. */
+function LinkRows({ rows, mono = false }: { rows: [string, string, string][]; mono?: boolean }) {
+  return (
+    <ul className="overflow-hidden rounded-xl border border-line bg-panel shadow-panel">
+      {rows.map(([name, description, href]) => (
+        <li key={href} className="border-b border-rule last:border-b-0">
+          <Link
+            href={href}
+            className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-hover focus-visible:-outline-offset-2 md:px-5"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-4">
+              <span className={`shrink-0 sm:w-44 ${mono ? 'font-mono text-code' : 'text-ui font-medium'}`}>{name}</span>
+              <span className="text-pretty text-[14px] text-dim">{description}</span>
+            </span>
+            <ArrowRight
+              aria-hidden="true"
+              className="size-4 shrink-0 text-dim transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+            />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function HomePage() {
-  const commands = commandIcons.map(([name, icon]) => ({ name, icon, description: commandDescription(name) }));
-  const filler = (3 - (commands.length % 3)) % 3;
+  const commandRows: [string, string, string][] = commands.map((name) => [
+    `/theway:${name}`,
+    commandDescription(name),
+    `/docs/commands/${name}/`,
+  ]);
 
   return (
     <div className="flex flex-1 flex-col">
-      <Band label="Introduction" className={`${sectionPad} flex flex-col items-center gap-6 text-center`}>
-        <h1 className={h1}>
-          A spec-first workflow <br className="hidden md:inline" />
-          for Claude Code
-        </h1>
-        <p className={subline}>{tagline}</p>
-        <div className="mt-2 flex max-w-full flex-col items-center gap-6">
-          <InstallPill command={installCommand} />
-          <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/docs/" className={`${button} bg-amber text-code font-semibold text-ink hover:bg-amber/90`}>
-              Read the docs
-              <span aria-hidden="true" className="ml-4 flex h-full items-center border-l border-ink/30 pl-4">
-                →
-              </span>
-            </Link>
-            <a href={githubUrl} className={`${button} border border-fd-foreground/20 text-xs hover:bg-fd-accent`}>
-              GitHub
-            </a>
+      <section aria-labelledby="hero" className={`${column} pt-12 md:pt-16`}>
+        <div className="grid items-end gap-8 min-[1360px]:grid-cols-[minmax(0,1fr)_31rem] min-[1360px]:gap-10">
+          <div>
+            <h1
+              id="hero"
+              className="text-pretty text-display-sm font-semibold tracking-display md:text-display"
+            >
+              Your review process is a YAML&nbsp;file. <span className="block text-dim">Claude Code runs it.</span>
+            </h1>
+            <p className="mt-5 max-w-[40rem] text-pretty text-lead text-dim">
+              theway writes a spec and ordered tasks before any code, then runs each change through the steps you
+              define: implement, review through lenses, fix what is confirmed, open the pull request. In your session or
+              through agents.
+            </p>
+          </div>
+          <div className="flex min-w-0 max-w-[31rem] flex-col gap-2.5">
+            <InstallPill command={installCommand} />
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <Link href="/docs/" className={`${button} bg-action text-white hover:bg-action/90`}>
+                Read the docs
+              </Link>
+              <Link
+                href="/docs/concepts/workflows/"
+                className={`${button} border border-line bg-panel hover:bg-hover`}
+              >
+                How a workflow runs
+              </Link>
+            </div>
           </div>
         </div>
-        <figure className="mt-10 flex w-full max-w-4xl flex-col gap-3">
-          <video
-            src={`${basePath}/demo.mp4`}
-            poster={`${basePath}/demo-poster.png`}
-            aria-label="A Claude Code session: /theway:engineering writes the spec and tasks, then /theway:develop implements them"
-            className="w-full border"
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-          />
-          <figcaption className="text-xs text-fd-muted-foreground">
-            Real Claude Code session on Sonnet, sped up. Idle waits shortened.
-          </figcaption>
-        </figure>
-      </Band>
+        <div className="mt-12 md:mt-14">
+          <WorkflowDemo />
+        </div>
+      </section>
 
-      <Separator />
-
-      <Band label="How it works" className={sectionPad}>
-        <h2 className={`text-center ${h2}`}>How it works</h2>
-        <ol className="mt-16 flex flex-col gap-24 md:mt-24 md:gap-32">
-          {steps.map((step) => (
-            <li key={step.title}>
-              <StepBlock step={step} />
+      <section aria-labelledby="how" className={`${column} pt-24 md:pt-36`}>
+        <h2 id="how" className={h2}>
+          One change, from request to archive
+        </h2>
+        <p className="mt-3 max-w-[40rem] text-pretty text-lead text-dim">
+          Three commands carry a change. Its spec, tasks and notes are plain files in your theway home, outside the
+          repository.
+        </p>
+        <ol className="mt-12 flex flex-col gap-20 md:mt-16 md:gap-28">
+          {stages.map((stage) => (
+            <li key={stage.command}>
+              <StageRow stage={stage} />
             </li>
           ))}
         </ol>
-      </Band>
+      </section>
 
-      <Separator />
+      <section aria-label="Commands and docs" className={`${column} grid gap-12 pt-24 md:pt-36 lg:grid-cols-2 lg:gap-8`}>
+        <div>
+          <h2 className={h2}>Five commands</h2>
+          <p className="mt-3 text-pretty text-lead text-dim">Slash commands in Claude Code, each with its own page.</p>
+          <div className="mt-8">
+            <LinkRows rows={commandRows} mono />
+          </div>
+        </div>
+        <div>
+          <h2 className={h2}>Start here</h2>
+          <p className="mt-3 text-pretty text-lead text-dim">The docs, in the order most people read them.</p>
+          <div className="mt-8">
+            <LinkRows rows={startHere} />
+          </div>
+        </div>
+      </section>
 
-      <Band label="Commands" className="pt-20 md:pt-32">
-        <h2 className={`px-4 pb-12 text-center md:pb-16 ${h2}`}>Five commands</h2>
-        <ul className="grid gap-px border-t bg-fd-border md:grid-cols-3">
-          {commands.map((cmd) => (
-            <li key={cmd.name} className="bg-fd-background">
-              <Link
-                href={`/docs/commands/${cmd.name}/`}
-                className="group flex h-full flex-col gap-3 p-6 transition-colors hover:bg-fd-card md:p-8"
-              >
-                <span className="flex items-center gap-2 font-mono text-xs font-semibold text-accent-text">
-                  <cmd.icon aria-hidden="true" className="size-4 text-fd-muted-foreground" />
-                  {cmd.name}
-                </span>
-                <span className="flex-1 text-detail text-body">{cmd.description}</span>
-                <span
-                  aria-hidden="true"
-                  className="mt-2 flex size-8 items-center justify-center border transition-colors group-hover:bg-fd-accent"
-                >
-                  <ArrowRight className="size-4" />
-                </span>
-              </Link>
-            </li>
-          ))}
-          {filler > 0 ? (
-            <li aria-hidden="true" className={`hidden bg-fd-background md:block ${filler === 2 ? 'md:col-span-2' : ''}`} />
-          ) : null}
-        </ul>
-      </Band>
+      <section aria-labelledby="install" className={`${column} pb-20 pt-24 md:pb-28 md:pt-36`}>
+        <div className="flex flex-col items-start gap-6 rounded-xl border border-line bg-panel p-6 shadow-panel md:flex-row md:items-center md:justify-between md:p-8">
+          <div>
+            <h2 id="install" className="text-[1.375rem] font-semibold leading-7 tracking-[-0.015em]">
+              Install theway
+            </h2>
+            <p className={`mt-2 text-pretty text-ui text-dim ${prose}`}>
+              It installs the <code>theway</code> CLI in <code>~/.local/bin</code> and the Claude Code plugin. Then
+              start a new session or run <code>/reload-plugins</code>.
+            </p>
+          </div>
+          <InstallPill command={installCommand} className="w-full md:w-auto md:shrink-0" />
+        </div>
+      </section>
 
-      <Separator />
-
-      <footer>
-        <div className={`${frame} flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 md:px-12`}>
-          <span className={`text-fd-muted-foreground ${mono}`}>MIT License</span>
-          <a href={githubUrl} className={`text-fd-muted-foreground transition-colors hover:text-fd-foreground ${mono}`}>
+      <footer className="border-t border-line">
+        <div className={`${column} flex flex-wrap items-center gap-x-6 gap-y-2 py-6 text-[14px] text-dim`}>
+          <span>MIT License</span>
+          <a href={githubUrl} className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
+            <GitPullRequest aria-hidden="true" className="size-4" />
             GitHub
           </a>
-          <Link href="/docs/" className={`text-fd-muted-foreground transition-colors hover:text-fd-foreground ${mono}`}>
+          <Link href="/docs/" className="transition-colors hover:text-ink">
             Docs
           </Link>
         </div>

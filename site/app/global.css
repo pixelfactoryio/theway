@@ -2,94 +2,332 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-@theme inline {
-  --color-body: var(--body);
-  --color-accent-text: var(--accent-text);
-}
-
-@theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
-  --container-frame: 1080px;
-  --container-prose: 640px;
-  --text-hero: 4rem;
-  --text-hero-sm: 2.5rem;
-  --text-title: 3rem;
-  --text-title-sm: 2rem;
-  --text-code: 13px;
-  --text-detail: 16px;
-  --text-detail--line-height: 1.6;
-  --tracking-display: -0.03em;
-  --leading-display: 1;
-  --font-wordmark: 'Unbounded Variable', var(--font-sans);
-  --tracking-wordmark: 0.12em;
-  --color-amber: oklch(0.72 0.15 62);
-  --color-ink: oklch(0.24 0.008 240);
-}
-
+/*
+ * The site wears the dashboard's look (the repository's DESIGN.md, "The Inset Panel"): the cool ground, the work on
+ * one inset panel a step lighter with a hairline, Inter for text and Geist Mono for code, one blue for the primary
+ * action, selection, focus and links. The tokens are the dashboard's (src/dashboard/client/styles/globals.css), light
+ * by default and dark under `.dark`, which Fumadocs sets from the system setting or the theme switch.
+ */
 :root {
-  --color-fd-background: oklch(0.94 0.018 85);
-  --color-fd-card: oklch(0.965 0.012 85);
-  --color-fd-popover: oklch(0.965 0.012 85);
-  --color-fd-foreground: oklch(0.24 0.008 240);
-  --color-fd-card-foreground: oklch(0.24 0.008 240);
-  --color-fd-popover-foreground: oklch(0.24 0.008 240);
-  /* Metadata only (window titles, line numbers, footer): APCA Lc 77 on the background. */
-  --color-fd-muted-foreground: oklch(0.42 0.012 240);
-  /* Body copy (sublines, descriptions, docs prose): APCA Lc 92. Kept apart from the foreground so dark mode can soften it. */
-  --body: oklch(0.24 0.008 240);
-  /* Amber for small text (commands, command names): APCA Lc 78. */
-  --accent-text: oklch(0.42 0.1 55);
-  --color-fd-border: oklch(0.84 0.015 85);
-  /* Accent text: the amber mark darkened to 4.5:1 on the background and the card. */
-  --color-fd-primary: oklch(0.5 0.12 55);
-  --color-fd-primary-foreground: oklch(0.94 0.018 85);
-  --color-fd-ring: oklch(0.72 0.15 62);
+  --ground: #eceef1;
+  --background: #ffffff;
+  --foreground: #111214;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --muted: #f1f2f4;
+  --muted-foreground: #55585e;
+  --accent: #f3f4f6;
+  --border: #dcdee2;
+  --rule: #eceef0;
+  --band: #eff0f3;
+  --primary: #2563eb;
+  --ring: #2563eb;
+  --link: #2563eb;
+  --selected: rgb(37 99 235 / 0.12);
+  --canvas: #f2f3f5;
+  --canvas-dot: #cfd2d7;
+  --sidebar-foreground: #3a3c41;
+  --sidebar-accent: #e0e2e6;
+  --success: #14964a;
+  --success-foreground: #157a3f;
+  --warning: #c98300;
+  --destructive: #d92d2d;
+  --project-1: #5a62cf;
+  --project-2: #8a4fd6;
+  --project-3: #c63d8b;
+  --project-4: #138a80;
+  --project-5: #1d84a8;
+  --project-6: #6f7d1c;
+  --project-7: #9a6438;
+  --code-keyword: #b0322a;
+  --code-string: #0a3d75;
+  --code-constant: #1f55ad;
+  --code-property: #1a6640;
+  --code-comment: #55585e;
+  --code-function: #6639ba;
+  --code-type: #953800;
+  --code-surface: rgb(24 25 27 / 0.03);
+  /* DESIGN.md, Shadow Vocabulary, sm: one value for both themes. */
+  --panel-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08);
+
+  --color-fd-background: var(--ground);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--foreground);
+  --color-fd-popover: var(--popover);
+  --color-fd-popover-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-secondary: var(--muted);
+  --color-fd-secondary-foreground: var(--foreground);
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--link);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-ring: var(--ring);
+  --color-fd-info: var(--primary);
+  --color-fd-warning: var(--warning);
+  --color-fd-error: var(--destructive);
+  --color-fd-success: var(--success);
 }
 
 .dark {
-  --color-fd-background: oklch(0.25 0.008 240);
-  --color-fd-card: oklch(0.285 0.008 240);
-  --color-fd-popover: oklch(0.285 0.008 240);
-  --color-fd-foreground: oklch(0.97 0.01 85);
-  --color-fd-card-foreground: oklch(0.97 0.01 85);
-  --color-fd-popover-foreground: oklch(0.97 0.01 85);
-  --color-fd-muted-foreground: oklch(0.86 0.012 80);
-  --body: oklch(0.94 0.01 85);
-  /* APCA Lc 79 on the background. */
-  --accent-text: oklch(0.88 0.13 70);
-  --color-fd-border: oklch(0.4 0.01 240);
-  --color-fd-primary: oklch(0.78 0.14 65);
-  --color-fd-primary-foreground: oklch(0.25 0.008 240);
-  --color-amber: oklch(0.78 0.14 65);
-  --color-fd-ring: oklch(0.78 0.14 65);
+  color-scheme: dark;
+  --ground: #09090b;
+  --background: #151619;
+  --foreground: #f2f2f0;
+  --card: #1a1b1f;
+  --popover: #1d1e22;
+  --muted: #1f2024;
+  --muted-foreground: #a1a4aa;
+  --accent: #1f2024;
+  --border: #2c2d33;
+  --rule: #1f2024;
+  --band: #222328;
+  --primary: #3370e8;
+  --ring: #5b9bff;
+  --link: #5b9bff;
+  --selected: rgb(91 155 255 / 0.18);
+  --canvas: #0d0e10;
+  --canvas-dot: #2f3137;
+  --sidebar-foreground: #c4c6ca;
+  --sidebar-accent: #1b1c20;
+  --success: #3fcf7f;
+  --success-foreground: #3fcf7f;
+  --warning: #f2b42a;
+  --destructive: #ff5c52;
+  --project-1: #8a90f0;
+  --project-2: #b48af2;
+  --project-3: #ec7ab8;
+  --project-4: #3cc3b6;
+  --project-5: #4fb6dc;
+  --project-6: #aebd4a;
+  --project-7: #d29a6c;
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-constant: #79c0ff;
+  --code-property: #7ee787;
+  --code-comment: #a1a4aa;
+  --code-function: #d2a8ff;
+  --code-type: #ffa657;
+  --code-surface: rgb(255 255 255 / 0.03);
+  --color-fd-primary-foreground: #ffffff;
 }
 
-/* Body links keep the body colour; amber marks them through the underline only. */
+@theme inline {
+  --shadow-panel: var(--panel-shadow);
+  --color-ground: var(--ground);
+  --color-panel: var(--background);
+  --color-ink: var(--foreground);
+  --color-card: var(--card);
+  --color-dim: var(--muted-foreground);
+  --color-line: var(--border);
+  --color-rule: var(--rule);
+  --color-band: var(--band);
+  --color-hover: var(--accent);
+  --color-blue: var(--link);
+  --color-action: var(--primary);
+  --color-success: var(--success-foreground);
+  --color-selected: var(--selected);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+@theme {
+  --container-frame: 84rem;
+  --text-display: 3.25rem;
+  --text-display--line-height: 1.04;
+  --text-display-sm: 2.25rem;
+  --text-display-sm--line-height: 1.1;
+  --text-title: 2rem;
+  --text-title--line-height: 1.15;
+  --text-lead: 1.0625rem;
+  --text-lead--line-height: 1.625rem;
+  --text-ui: 0.9375rem;
+  --text-ui--line-height: 1.375rem;
+  /* The dashboard's text-xs: every ID and line of code (DESIGN.md, The One Mono Rule) and the Label size. */
+  --text-code: 0.875rem;
+  --text-code--line-height: 1.25rem;
+  /* The dashboard's xl: the panel, dialogs and the search palette (DESIGN.md, Shapes). */
+  --radius-xl: 0.625rem;
+  --tracking-display: -0.028em;
+}
+
+body {
+  background: var(--ground);
+  color: var(--foreground);
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+::selection {
+  background: var(--selected);
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Docs: the sidebar on the ground with no border; the page and its table of contents on one inset panel. The panel
+ * runs to the window's right edge less 8px, and from 8px on the left too once the sidebar is collapsed. It starts under
+ * the bars that stay on top (the phone's header, the "on this page" bar below 1280px), which sit on the ground above
+ * it, so its top edge and corners always show.
+ */
+#nd-sidebar {
+  background: var(--ground);
+  border-color: transparent;
+}
+#nd-docs-layout::before {
+  content: '';
+  grid-column: 3 / -1;
+  grid-row: 3 / -1;
+  margin: 8px 8px 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  box-shadow: var(--panel-shadow);
+}
+#nd-docs-layout[data-sidebar-collapsed='true']::before {
+  grid-column: 1 / -1;
+  margin: 8px;
+}
+@media (max-width: 767px) {
+  #nd-docs-layout::before,
+  #nd-docs-layout[data-sidebar-collapsed='true']::before {
+    grid-column: 1 / -1;
+    margin: 8px;
+  }
+}
+#nd-subnav,
+#nd-docs-layout > [class*='grid-area:toc-popover'] > header {
+  border-color: transparent;
+}
+
+/*
+ * Docs sidebar rows: the dashboard's (DESIGN.md, Navigation), 28px with 6px corners in the sidebar's ink, the accent
+ * on hover; the chosen row on the blue tint at 500 in the ink.
+ */
+#nd-sidebar,
+.dark #nd-sidebar {
+  --color-fd-muted-foreground: var(--sidebar-foreground);
+  --color-fd-accent: var(--sidebar-accent);
+  --color-fd-accent-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-secondary: var(--muted);
+}
+#nd-sidebar :is(a[data-active], button[data-state]):not([aria-label]) {
+  min-height: 1.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+#nd-sidebar :is(a[data-active='false'], button[data-state]):not([aria-label]):hover {
+  background-color: var(--sidebar-accent);
+  color: var(--foreground);
+}
+#nd-sidebar a[data-active='true'] {
+  background-color: var(--selected);
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/*
+ * Docs prose: the dashboard's document scale (DESIGN.md, Typography, Documents), body 17/24 in the 36rem reading
+ * column (about 65 characters a line), headings at 600 under a 28/34 page title; links blue, underlined at 40% of the blue and fully
+ * on hover; inline code the mono step on a tint, 4px corners; tables ruled with no box.
+ */
+#nd-page h1 {
+  font-size: 1.75rem;
+  line-height: 2.125rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+#nd-page h1 + p {
+  max-width: 36rem;
+  font-size: 1.0625rem;
+  line-height: 1.625rem;
+  color: var(--muted-foreground);
+}
 .prose {
-  --tw-prose-body: var(--body);
-  --tw-prose-links: var(--body);
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: var(--link);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--rule);
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+}
+.prose :is(p, li, blockquote) {
+  max-width: 36rem;
+}
+.prose h2 {
+  font-size: 1.375rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.prose h3 {
+  font-size: 1.1875rem;
+  line-height: 1.625rem;
+  font-weight: 600;
+}
+.prose h4 {
+  font-size: 1.0625rem;
+  font-weight: 600;
 }
 .prose :is(p, li, td, th, blockquote) a:not(.not-prose a) {
+  font-weight: inherit;
   text-decoration-line: underline;
-  text-decoration-color: var(--color-amber);
-  text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent);
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
+.prose :is(p, li, td, th, blockquote) a:not(.not-prose a):hover {
+  text-decoration-color: var(--link);
+}
+.prose :not(pre) > code {
+  border: 0;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  padding: 0 2px;
+  font-size: max(0.75rem, 0.8125em);
+  box-decoration-break: clone;
+}
+.prose table {
+  border: 0;
+}
+.prose :is(th, td) {
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
 
-/* Code blocks: 8px radius, no shadow. */
+/*
+ * Code blocks: the dashboard's code view, a hairline and 8px corners on the panel, no shadow; Geist Mono 14/20
+ * (DESIGN.md, Code block) in the `--code-*` colours (lib/code-theme.ts).
+ */
 figure.shiki {
   border-radius: 8px;
+  border-color: var(--rule);
+  background: var(--code-surface);
   box-shadow: none;
 }
-
-:focus-visible {
-  outline: 2px solid var(--color-fd-ring);
-  outline-offset: 2px;
+figure.shiki pre {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 
-/* The landing page is square. Fumadocs' SearchTrigger and ThemeSwitch are rounded, so their radius is overridden here. */
-.landing,
-.landing * {
-  border-radius: 0 !important;
+/* "On this page": the dashboard's outline, its links in the label size. */
+#nd-toc a {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }

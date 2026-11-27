@@ -1,0 +1,16 @@
+/* Copied from Stageshow's kit/window.css (MIT): the Bar rules. */
+
+@layer stageshow {
+  .ss-bar {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  /* A line gives way in a row too narrow for it, never past its container
+     (Bar shrink, on by default for lines). Where it fits, nothing changes */
+  .ss-bar[data-shrink] {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
