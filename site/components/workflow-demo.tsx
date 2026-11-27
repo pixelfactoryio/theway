@@ -115,26 +115,32 @@ function useDarkClass() {
 export function WorkflowDemo() {
   const dark = useDarkClass()
   return (
-    <Stage<S>
-      width={1344}
-      height={540}
-      compact={{ below: 900, width: 358, height: 680 }}
-      initial={initial}
-      poster={done}
-      script={script}
-      play="once"
-      cursor={{ at: REST }}
-      theme={dark ? 'dark' : 'light'}
-      fidelity="minimal"
-      className="wfd"
+    // A faux UI: one image to assistive tech, its controls not exposed
+    <div
+      role="img"
+      aria-label="The workflow editor: the open-pr step is added under review, and its properties open in the panel"
     >
-      {(s) => (
-        <div className="ss-window wfd-win">
-          <Canvas s={s} />
-          <Panel s={s} />
-        </div>
-      )}
-    </Stage>
+      <Stage<S>
+        width={1344}
+        height={540}
+        compact={{ below: 900, width: 358, height: 680 }}
+        initial={initial}
+        poster={done}
+        script={script}
+        play="once"
+        cursor={{ at: REST }}
+        theme={dark ? 'dark' : 'light'}
+        fidelity="minimal"
+        className="wfd"
+      >
+        {(s) => (
+          <div className="ss-window wfd-win">
+            <Canvas s={s} />
+            <Panel s={s} />
+          </div>
+        )}
+      </Stage>
+    </div>
   )
 }
 

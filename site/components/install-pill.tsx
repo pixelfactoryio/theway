@@ -8,12 +8,12 @@ export function InstallPill({ command, className = '' }: { command: string; clas
 
   return (
     <div
-      className={`flex min-h-10 min-w-0 items-center gap-2.5 rounded-lg py-1 border border-line bg-panel pl-3.5 pr-1 font-mono text-[13px] ${className}`}
+      className={`flex min-h-10 min-w-0 items-center gap-2.5 rounded-lg py-1 border border-line bg-panel pl-3.5 pr-1 font-mono text-code ${className}`}
     >
       <span aria-hidden="true" className="select-none text-dim">
         $
       </span>
-      <code className="min-w-0 sm:whitespace-nowrap">{command}</code>
+      <code className="min-w-0 [overflow-wrap:anywhere] sm:whitespace-nowrap">{command}</code>
       <button
         type="button"
         onClick={onClick}

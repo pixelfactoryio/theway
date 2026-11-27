@@ -29,10 +29,11 @@
   --ss-popover-bg: var(--card);
   --ss-popover-shadow: 0 0 0 1px var(--border), 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16);
 
-  /* The page is the ground: no plate, the window is the object */
+  /* The page is the ground: no plate, the window is the object, on the panel's 10px corners and shadow sm */
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
+  box-shadow: var(--panel-shadow);
 }
 
 .wfd {
@@ -51,9 +52,8 @@
     inset: 0;
     display: flex;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--background);
-    box-shadow: none;
   }
 
   & .wfd-win::after {

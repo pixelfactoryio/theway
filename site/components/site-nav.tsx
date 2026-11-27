@@ -29,7 +29,7 @@ export function SiteNav() {
         <div className="ml-auto flex items-center gap-2">
           <a
             href={`${githubUrl}/releases/tag/v${version()}`}
-            className="hidden font-mono text-[13px] text-dim transition-colors hover:text-ink md:inline"
+            className="hidden font-mono text-code text-dim transition-colors hover:text-ink md:inline"
           >
             v{version()}
           </a>
