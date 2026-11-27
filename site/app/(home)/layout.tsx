@@ -5,7 +5,7 @@ import { baseOptions } from '@/lib/layout.shared';
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <HomeLayout {...baseOptions()} nav={{ enabled: false }} className="landing">
+    <HomeLayout {...baseOptions()} nav={{ enabled: false }}>
       <SiteNav />
       {children}
     </HomeLayout>

@@ -1,8 +1,7 @@
-import '@fontsource-variable/unbounded/wght.css';
+import '@fontsource-variable/inter/wght.css';
 import './global.css';
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { GeistMono } from 'geist/font/mono';
-import { GeistSans } from 'geist/font/sans';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import SearchDialog from '@/components/search';
@@ -15,9 +14,9 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
-      <body className="flex flex-col min-h-screen">
-        <RootProvider search={{ SearchDialog }} theme={{ defaultTheme: 'dark' }}>{children}</RootProvider>
+    <html lang="en" className={GeistMono.variable} suppressHydrationWarning>
+      <body className="flex min-h-screen flex-col font-sans antialiased">
+        <RootProvider search={{ SearchDialog }}>{children}</RootProvider>
       </body>
     </html>
   );

@@ -1,0 +1,705 @@
+/* The workflow canvas demo. Every colour is a site token, switched by `.dark` on <html>. */
+
+.wfd .ss-stage {
+  /* The kit's look, mapped to the site's tokens */
+  --ss-canvas: var(--canvas);
+  --ss-surface: var(--background);
+  --ss-chrome: var(--background);
+  --ss-raised: var(--card);
+  --ss-well: var(--ground);
+  --ss-line: var(--border);
+  --ss-line-faint: var(--border);
+  --ss-text-strong: var(--foreground);
+  --ss-text: var(--muted-foreground);
+  --ss-text-faint: var(--muted-foreground);
+  --ss-icon: var(--muted-foreground);
+  --ss-icon-faint: var(--muted-foreground);
+  --ss-accent: var(--primary);
+  --ss-accent-soft: var(--selected);
+  --ss-ink-1: color-mix(in oklab, var(--foreground) 4%, transparent);
+  --ss-ink-2: color-mix(in oklab, var(--foreground) 6%, transparent);
+  --ss-ink-3: color-mix(in oklab, var(--foreground) 8%, transparent);
+  --ss-ink-4: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --ss-ink-5: color-mix(in oklab, var(--foreground) 15%, transparent);
+  --ss-font: var(--font-sans);
+  --ss-mono: var(--font-mono);
+  --ss-radius-sm: 6px;
+  --ss-radius-md: 8px;
+  --ss-radius-lg: 8px;
+  --ss-popover-bg: var(--card);
+  --ss-popover-shadow: 0 0 0 1px var(--border), 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 8px 16px -4px rgb(0 0 0 / 0.16);
+
+  /* The page is the ground: no plate, the window is the object */
+  overflow: hidden;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.wfd {
+  --wfd-card: 340px;
+  --wfd-onfail: 220px;
+  --wfd-edge: 28px;
+  --wfd-line: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  /* The column and ci's on-fail card (340 + 72 + 220) centred in the canvas */
+  --wfd-x: calc((806px - 632px) / 2);
+  /* The column with the step added (5 cards of 62, 4 lines of 28) centred */
+  --wfd-top: 59px;
+
+  /* One surface: the canvas zoomed out to the whole workflow, its panel beside it */
+  & .wfd-win {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    overflow: hidden;
+    border-radius: 12px;
+    background: var(--background);
+    box-shadow: none;
+  }
+
+  & .wfd-win::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    border: 1px solid var(--border);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  /* ---- the canvas ---- */
+
+  & .wfd-canvas {
+    position: relative;
+    flex: none;
+    width: 60%;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+    background-color: var(--canvas);
+    background-image: radial-gradient(var(--canvas-dot) 1.25px, transparent 1.25px);
+    background-size: 16px 16px;
+  }
+
+  & .wfd-drawing {
+    position: absolute;
+    top: var(--wfd-top);
+    left: var(--wfd-x);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* The step card: hairline, 8px corners, a tinted tile, a title bar over a name and meta */
+  & .wfd-card {
+    display: flex;
+    box-sizing: border-box;
+    flex: none;
+    align-items: center;
+    gap: 10px;
+    width: var(--wfd-card);
+    height: 62px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.05),
+      0 1px 3px 0 rgb(0 0 0 / 0.07);
+    transition:
+      border-color 0.18s ease,
+      box-shadow 0.18s ease,
+      background-color 0.15s ease;
+  }
+
+  & .wfd-card[data-hover] {
+    background: var(--muted);
+  }
+
+  & .wfd-card[data-selected] {
+    border-color: var(--ring);
+    box-shadow:
+      0 0 0 3px color-mix(in oklab, var(--ring) 15%, transparent),
+      0 1px 3px 0 rgb(0 0 0 / 0.08);
+  }
+
+  & .wfd-card[data-kind='on-fail'] {
+    width: var(--wfd-onfail);
+    border-style: dashed;
+    border-color: color-mix(in oklab, var(--muted-foreground) 50%, transparent);
+  }
+
+  & .wfd-card__tile {
+    --hue: var(--project-1);
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--hue) 20%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--hue) 30%, transparent);
+    color: var(--foreground);
+  }
+
+  /* The step added, in words: as high as its title's lines, as on the dashboard */
+  & .wfd-card--words {
+    height: auto;
+    min-height: 62px;
+    padding: 9px 12px;
+  }
+
+  & .wfd-card--words .wfd-card__tile {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  & .wfd-card--words .wfd-card__text {
+    gap: 2px;
+  }
+
+  & .wfd-card__title {
+    color: var(--foreground);
+    text-wrap: balance;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  & .wfd-card--words .wfd-card__line {
+    height: 20px;
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-card__name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  & .wfd-card__meta {
+    font-size: 12px;
+  }
+
+  & .wfd-card__tile svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  & .wfd-card[data-kind='inputs'] .wfd-card__tile { --hue: var(--project-4); }
+  & .wfd-card[data-kind='session'] .wfd-card__tile { --hue: var(--project-2); }
+  & .wfd-card[data-kind='on-fail'] .wfd-card__tile { --hue: var(--project-3); }
+
+  & .wfd-card__text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  & .wfd-card__line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  /* The line between two cards, its round "+" in the middle */
+  & .wfd-edge {
+    position: relative;
+    flex: none;
+    width: 18px;
+    height: var(--wfd-edge);
+    margin-left: calc(var(--wfd-card) / 2 - 9px);
+  }
+
+  & .wfd-edge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 9px;
+    width: 1px;
+    background: var(--wfd-line);
+  }
+
+  & .wfd-plus {
+    position: absolute;
+    top: calc(var(--wfd-edge) / 2 - 9px);
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    transition:
+      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  & .wfd-plus svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  & .wfd-plus[data-hover] {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+
+  & .wfd-plus[data-pressed] {
+    transform: scale(0.88);
+  }
+
+  /* ci and its on-fail card, the dashed line between them */
+  & .wfd-row {
+    display: flex;
+    align-items: center;
+  }
+
+  & .wfd-wire {
+    position: relative;
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 2px;
+    background-image: linear-gradient(90deg, var(--wfd-line) 50%, transparent 50%);
+    background-size: 8px 1px;
+    background-repeat: repeat-x;
+    background-position: 0 50%;
+  }
+
+  & .wfd-wire__label {
+    position: absolute;
+    top: -12px;
+  }
+
+  /* The added step's slot: the dashed placeholder, then the step */
+  & .wfd-added {
+    display: flex;
+    flex-direction: column;
+  }
+
+  & .wfd-slot {
+    display: grid;
+  }
+
+  & .wfd-slot > * {
+    grid-area: 1 / 1;
+  }
+
+  & .wfd-slot__step {
+    display: flex;
+  }
+
+  & .wfd-placeholder {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 10px;
+    width: var(--wfd-card);
+    height: 100%;
+    padding: 0 16px;
+    border: 1px dashed var(--ring);
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--card) 60%, transparent);
+    color: var(--muted-foreground);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Its line fills the card, as the placeholder's sentence nearly does */
+  & .wfd-placeholder .ss-bar {
+    flex: 1;
+  }
+
+  & .wfd-placeholder svg {
+    flex: none;
+    width: 14px;
+    height: 14px;
+  }
+
+  & .wfd-placeholder[data-show] {
+    opacity: 1;
+  }
+
+  & .wfd-slot__step {
+    opacity: 0;
+    transition: opacity 0.3s ease 0.05s;
+  }
+
+  & .wfd-slot__step[data-show] {
+    opacity: 1;
+  }
+
+  /* ---- the panel: property cards on its 12px inset ---- */
+
+  & .wfd-panel {
+    position: relative;
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  & .wfd-view {
+    display: flex;
+    grid-area: 1 / 1;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px;
+    opacity: 0;
+    transform: translateY(6px);
+    visibility: hidden;
+    will-change: transform;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      visibility 0s 0.18s;
+  }
+
+  & .wfd-view[data-show] {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    transition:
+      opacity 0.24s ease 0.08s,
+      transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.08s,
+      visibility 0s;
+  }
+
+  /* PropertyCard: hairline, 8px corners, a soft shadow, a 40px header on the band's tint */
+  & .wfd-pcard {
+    flex: none;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    color: var(--foreground);
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  & .wfd-pcard--picker .wfd-pcard__head {
+    box-sizing: content-box;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  & .wfd-pcard__head {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    background: color-mix(in oklab, var(--band) 50%, transparent);
+    font-weight: 600;
+  }
+
+  & .wfd-pcard__meta {
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  & .wfd-pcard__close {
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-button {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    margin-left: auto;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  & .wfd-prow {
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 8px 12px;
+    border-top: 1px solid var(--rule);
+  }
+
+  & .wfd-prow__key {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-prow__value {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 28px;
+  }
+
+  & .wfd-pgroup {
+    padding: 12px 12px 4px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted-foreground);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  & .wfd-input-key {
+    display: flex;
+    flex-direction: column;
+  }
+
+  & .wfd-input-key code {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    color: var(--foreground);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  & .wfd-input-key small {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  & .wfd-uses {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-uses svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  & .wfd-link {
+    color: var(--link);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  & .wfd-control {
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    white-space: nowrap;
+  }
+
+  & .wfd-control--mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  & .wfd-select {
+    justify-content: space-between;
+  }
+
+  & .wfd-select svg {
+    width: 15px;
+    height: 15px;
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-note {
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  /* The Switch, small and off */
+  & .wfd-switch {
+    position: relative;
+    width: 24px;
+    height: 14px;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  }
+
+  & .wfd-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--background);
+  }
+
+  & .wfd-pcard__foot {
+    padding: 4px;
+    border-top: 1px solid var(--rule);
+  }
+
+  & .wfd-remove {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    color: var(--destructive);
+  }
+
+  & .wfd-remove svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* ---- the step picker: search, group heading, rows ---- */
+
+  & .wfd-picker__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    margin: 4px 4px 0;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--border) 35%, transparent);
+    color: var(--muted-foreground);
+  }
+
+  & .wfd-picker__search svg {
+    flex: none;
+    width: 15px;
+    height: 15px;
+  }
+
+  & .wfd-picker__query {
+    color: var(--foreground);
+  }
+
+  & .wfd-caret {
+    width: 1.5px;
+    height: 16px;
+    margin-left: -7px;
+    background: var(--ring);
+    animation: wfd-caret 1.06s infinite;
+  }
+
+  & .wfd-picker__group {
+    padding: 12px 12px 8px;
+  }
+
+  & .wfd-picker__list {
+    padding: 0 4px 4px;
+  }
+
+  & .wfd-picker__list > .ss-collapse {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  & .wfd-picker__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 6px;
+    transition: background-color 0.12s ease;
+  }
+
+  & .wfd-picker__row[data-selected] {
+    background: var(--muted);
+  }
+
+  /* One line, cut with an ellipsis; the rest wraps out of sight inside its own width */
+  & .wfd-picker__desc {
+    display: -webkit-box;
+    flex: 1;
+    min-width: 0;
+    height: 20px;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  & .wfd-picker__name {
+    flex: none;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  /* ---- compact: the canvas over the panel ---- */
+
+  & .ss-stage[data-layout='compact'] {
+    --wfd-card: 310px;
+    --wfd-x: 24px;
+    --wfd-edge: 20px;
+    --wfd-top: 10px;
+  }
+
+  & .ss-stage[data-layout='compact'] .wfd-win {
+    flex-direction: column;
+  }
+
+  & .ss-stage[data-layout='compact'] .wfd-canvas {
+    width: auto;
+    height: 432px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ci's on-fail card is left out */
+  & .ss-stage[data-layout='compact'] .wfd-wire,
+  & .ss-stage[data-layout='compact'] .wfd-card[data-kind='on-fail'] {
+    display: none;
+  }
+
+  /* The panel scrolls on: its foot fades */
+  & .ss-stage[data-layout='compact'] .wfd-panel::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 32px;
+    background: linear-gradient(color-mix(in oklab, var(--background) 0%, transparent), var(--background) 90%);
+    pointer-events: none;
+  }
+}
+
+@keyframes wfd-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wfd .wfd-caret {
+    animation: none;
+  }
+}
