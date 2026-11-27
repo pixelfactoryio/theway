@@ -1,6 +1,6 @@
 ---
-name: theway dashboard
-description: The local web view of a theway home, a text-heavy desktop tool set in one inset panel on a cool ground.
+name: theway dashboard and site
+description: The local web view of a theway home, a text-heavy desktop tool set in one inset panel on a cool ground, and the public site and docs in the same world.
 colors:
   # Light theme (`:root`), one entry per token of globals.css; the dark entry follows each.
   ground-light: "#eceef1"
@@ -153,6 +153,12 @@ colors:
   icon-tile-shadow: "rgb(0 0 0 / 0.14)"
   grid-dirty-amber: "oklch(76.9% 0.188 70.08)"
   grid-new-green: "oklch(72.3% 0.219 149.579)"
+  # The site (site/app/global.css, site/components/workflow-demo.css): the dashboard's values above, plus these.
+  demo-card-shadow-ink: "rgb(0 0 0 / 0.07)"
+  demo-cursor-light: "#111"
+  demo-cursor-dark: "#fff"
+  demo-cursor-shadow: "rgba(0, 0, 0, 0.18)"
+  docs-overlay: "hsla(0, 0%, 0%, 0.2)"
 typography:
   interface:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
@@ -282,6 +288,98 @@ typography:
     fontFamily: '"Inter Variable", system-ui, sans-serif'
     fontSize: "10px"
     lineHeight: 1
+  # The site: Inter from @fontsource-variable/inter, Geist Mono from the geist package (family GeistMono).
+  site-display:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "3.25rem"
+    fontWeight: 600
+    lineHeight: 1.04
+    letterSpacing: "-0.028em"
+  site-display-sm:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "2.25rem"
+    fontWeight: 600
+    lineHeight: 1.1
+    letterSpacing: "-0.028em"
+  site-title:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "2rem"
+    fontWeight: 600
+    lineHeight: 1.15
+    letterSpacing: "-0.028em"
+  site-heading:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.375rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
+    letterSpacing: "-0.015em"
+  site-lead:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.0625rem"
+    fontWeight: 400
+    lineHeight: "1.625rem"
+  site-ui:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "0.9375rem"
+    fontWeight: 400
+    lineHeight: "1.375rem"
+  site-ui-name:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "0.9375rem"
+    fontWeight: 500
+    lineHeight: "1.375rem"
+  site-small:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "14px"
+    fontWeight: 400
+  site-code:
+    fontFamily: "GeistMono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: "1.25rem"
+  site-docs-title:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.75rem"
+    fontWeight: 600
+    lineHeight: "2.125rem"
+    letterSpacing: "-0.025em"
+  site-docs-lead:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.0625rem"
+    fontWeight: 400
+    lineHeight: "1.625rem"
+  site-docs-h2:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.375rem"
+    fontWeight: 600
+    lineHeight: "1.75rem"
+    letterSpacing: "-0.015em"
+  site-docs-h3:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.1875rem"
+    fontWeight: 600
+    lineHeight: "1.625rem"
+  site-docs-h4:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "1.0625rem"
+    fontWeight: 600
+  site-docs-table:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "0.875em"
+    fontWeight: 400
+  demo-text:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "14px"
+    fontWeight: 400
+    lineHeight: "20px"
+  demo-label:
+    fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif'
+    fontSize: "12px"
+    fontWeight: 400
+  demo-mono:
+    fontFamily: "GeistMono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "12px"
+    fontWeight: 400
 rounded:
   hairline: "1px"
   mark: "2px"
@@ -295,6 +393,7 @@ rounded:
   2xl: "12px"
   3xl: "16px"
   4xl: "20px"
+  favicon-tile: "7px"
   dot: "50%"
   full: "9999px"
 spacing:
@@ -470,9 +569,95 @@ components:
     typography: "{typography.label}"
     padding: "0 16px"
     height: "28px"
+  site-nav:
+    typography: "{typography.site-ui}"
+    height: "56px"
+  site-nav-link:
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.site-ui}"
+    rounded: "{rounded.md}"
+    padding: "4px 8px"
+  site-button-primary:
+    backgroundColor: "{colors.primary-light}"
+    textColor: "{colors.primary-foreground-light}"
+    typography: "{typography.site-ui-name}"
+    rounded: "{rounded.lg}"
+    padding: "0 16px"
+    height: "36px"
+  site-button-outline:
+    backgroundColor: "{colors.background-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.site-ui-name}"
+    rounded: "{rounded.lg}"
+    padding: "0 16px"
+    height: "36px"
+  install-field:
+    backgroundColor: "{colors.background-light}"
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.site-code}"
+    rounded: "{rounded.lg}"
+    padding: "4px 4px 4px 14px"
+    height: "40px"
+  install-copy:
+    textColor: "{colors.muted-foreground-light}"
+    rounded: "{rounded.md}"
+    size: "32px"
+  crop-window:
+    backgroundColor: "{colors.background-light}"
+    rounded: "{rounded.xl}"
+  crop-header:
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.site-code}"
+    padding: "0 16px"
+    height: "40px"
+  crop-status:
+    textColor: "{colors.muted-foreground-light}"
+    typography: "{typography.site-code}"
+    padding: "0 16px"
+    height: "28px"
+  crop-prompt:
+    backgroundColor: "{colors.band-light}"
+    typography: "{typography.site-code}"
+    rounded: "{rounded.md}"
+    padding: "6px 12px"
+  link-row:
+    textColor: "{colors.foreground-light}"
+    typography: "{typography.site-ui-name}"
+    padding: "12px 16px"
+  install-panel:
+    backgroundColor: "{colors.background-light}"
+    rounded: "{rounded.xl}"
+    padding: "24px"
+  docs-panel:
+    backgroundColor: "{colors.background-light}"
+    rounded: "{rounded.xl}"
+  docs-sidebar-row:
+    textColor: "{colors.sidebar-foreground-light}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+    padding: "4px 8px"
+    height: "28px"
+  docs-sidebar-row-active:
+    backgroundColor: "{colors.selected-light}"
+    textColor: "{colors.foreground-light}"
+  docs-code-block:
+    backgroundColor: "{colors.code-surface-light}"
+    typography: "{typography.site-code}"
+    rounded: "{rounded.lg}"
+  demo-step-card:
+    backgroundColor: "{colors.card-light}"
+    typography: "{typography.demo-text}"
+    rounded: "{rounded.lg}"
+    padding: "0 12px"
+    width: "340px"
+    height: "62px"
+  demo-property-card:
+    backgroundColor: "{colors.card-light}"
+    typography: "{typography.demo-text}"
+    rounded: "{rounded.lg}"
 ---
 
-# Design System: theway dashboard
+# Design System: theway dashboard and site
 
 ## Overview
 
@@ -483,6 +668,8 @@ The dashboard is a desktop tool for a developer who keeps it open beside Claude 
 Two modes share the panel. Lists, editors and the canvas are for operating: one-line 40px rows, sections that open with a tinted band, a sticky column head, IDs as small mono chips, the hover fill keeping the place. Every file the dashboard opens (a change's files, a prompt, a workflow's YAML) is edited whole in one code editor, as in Zed or VS Code: line numbers, the current line, a bar beside each changed line, a status bar under it, and Discard and Save at the right of the tab row; no field of a file is edited in place, and no title stands above a file. Documents are for reading (a Markdown file's Preview, an archived change's files): 17/24 body text in one 36rem column on the panel's left edge, about 65 characters a line. Everything is calm and dense: hierarchy comes from weight (400, 500, 600) and from the ink against the secondary ink, inside two interface sizes (15 and 14px). Every size is given at the 16px root, which grows with the window to 18px. Nothing is revealed only on hover: IDs, actions, the pin and the canvas's "+" are seen at rest.
 
 Colour is restrained. One clinical blue marks selection, the active item, focus and links. Red, amber and green belong to the statuses. Seven muted project hues tint each project's folder mark and the workflow card tiles, so a project is recognised wherever it shows; nothing else is coloured. Dark and light are equally finished and follow the system setting unless the user picks one (`data-theme` on `html`).
+
+The public site (`site/`, a static Next.js export on GitHub Pages with Fumadocs for the docs) wears the same world: the cool ground, the work on panels a step lighter with a hairline, 10px corners and shadow sm, Inter and Geist Mono, the one blue. The home page is a landing page composed in the dashboard's parts: a left-aligned two-sentence headline, the install command beside the primary action, a faux dashboard (the workflow canvas and its panel) that adds a step once, then file and session crops beside each command's facts, and lists of links as the dashboard's rows. The docs keep Fumadocs' routing, search and table of contents, restyled: the sidebar on the ground, the page on one inset panel, the dashboard's document scale one step up for a page that is only read. Each site section below ("The site") gives what differs from the dashboard; what it does not name is the dashboard's.
 
 **Key Characteristics:**
 
@@ -495,6 +682,7 @@ Colour is restrained. One clinical blue marks selection, the active item, focus 
 - A root that grows with the window: 16px up to 1280px wide, 17px at 1920, 18px from 2560; every size grows with it.
 - Facts in stacked property cards at the right: hairline, 8px corners, a 40px header on a half-strength band tint.
 - Flat panels; shadows only on the work area, cards and what floats.
+- The site: one 1344px column on the ground, a 52px headline (36px on a phone), the workflow demo across the column, panels with 10px corners and shadow sm; the docs' page on one inset panel beside the sidebar on the ground; a fixed 16px root.
 
 ## Colors
 
@@ -562,6 +750,17 @@ Fixed values both themes share:
 
 **The Project Hue Rule.** A project hue marks a project (its folder) or a workflow step's kind (its tile), always as a small mark or a 20% tint, never as text, a fill behind text or a border.
 
+### The site
+
+`site/app/global.css` repeats the dashboard's values for the tokens the site uses, light on `:root` and dark under `.dark` on `html`, which Fumadocs sets from the system setting or the nav's theme switch: `--ground`, `--background`, `--foreground`, `--card`, `--popover`, `--muted`, `--muted-foreground`, `--accent`, `--border`, `--rule`, `--band`, `--primary`, `--ring`, `--link`, `--selected`, `--canvas`, `--canvas-dot`, `--sidebar-foreground`, `--sidebar-accent`, `--success`, `--success-foreground`, `--warning`, `--destructive`, `--project-1` to `--project-7`, the seven `--code-*` colours and `--code-surface`. `@theme inline` names them for Tailwind: `ground`, `panel` (`--background`), `ink`, `card`, `dim` (`--muted-foreground`), `line` (`--border`), `rule`, `band`, `hover` (`--accent`), `blue` (`--link`), `action` (`--primary`), `success` (`--success-foreground`) and `selected`.
+
+- **Fumadocs' colours** are mapped onto them (`--color-fd-*`): its background is the ground, its primary the link blue (`#ffffff` on it), its ring, card, popover, muted, secondary, accent and border the dashboard's, its info, warning, error and success the blue, amber, red and green. Inside the docs sidebar its muted ink is `--sidebar-foreground` and its accent `--sidebar-accent`, in both themes. Kept as Fumadocs ships it: the dialog dim, `--color-fd-overlay` `hsla(0, 0%, 0%, 0.2)` in both themes.
+- **The primary button** is `--primary` with `text-white`, 90% on hover. A `fail` in a session crop is `--destructive`, a `pass` and the tool dot `--success-foreground`; a YAML key in a file crop `--code-property`.
+- **Text selection** is `--selected`; **focus** a 2px `--ring` outline 2px off (inset on the link rows).
+- **Docs:** a link is the blue, underlined at 40% of it (`color-mix`), fully on hover; inline code sits on the ink at 7% (`color-mix(in oklab, var(--foreground) 7%, transparent)`); a code block on `--code-surface` with a `--rule` hairline, its tokens in the `--code-*` colours (`lib/code-theme.ts`, one Shiki theme of `var()` colours for both themes: YAML keys in the property colour, quoted strings in the string colour, plain values in the ink, comments italic).
+- **The favicon** (`app/icon.svg`): the route mark in `#ffffff` on an `#111214` tile.
+- **The workflow demo** (`components/workflow-demo.css`) takes only site tokens: the canvas `--canvas` with `--canvas-dot` dots, cards `--card`, the hover `--muted`, the selected card `--ring` with a 15% halo, the step tiles `--project-4` (inputs), `--project-1` (agents), `--project-3` (on-fail) and `--project-2` (session, not in the scene) at 20% with a 30% inset ring, the round "+" on `--card` with `--accent` on hover, lines `--muted-foreground` at 70%, the on-fail border at 50%, the placeholder's dashed `--ring` on `--card` at 60%, the property cards' header `--band` at 50%, the picker's search `--border` at 35%, the switch's track the ink at 18%, Remove step `--destructive`, Uses `--link`. Stageshow's kit (`components/stageshow/kit/`, vendored as shipped) is mapped onto them (`--ss-*`): its skeleton bars are the ink at 4, 6, 8, 10 and 15%, its accent `--primary`, its soft accent `--selected`. Its cursor arrow keeps the kit's own colours: `#111`, `#fff` in dark, under a `rgba(0, 0, 0, 0.18)` drop shadow. The kit's other palettes (its default, blueprint, glass and mono themes, keycaps, touch cursors, ground orbs) are not shown.
+
 ## Typography
 
 **Interface Font:** Inter Variable (`--font-sans`, also `--font-heading`: `"Inter Variable", system-ui, sans-serif`), weights 100 to 900 with optical sizes (`font-optical-sizing: auto` on `html`), served at `/fonts/inter.woff2` from `@fontsource-variable/inter`.
@@ -607,6 +806,30 @@ Vendored sizes, kept as shipped: the shadcn small button and toggle set `text-[0
 
 **The Growing Root Rule.** The root grows with the window (16px up to 1280px, 17px at 1920, 18px from 2560), and every size grows with it: a box that holds text is never fixed in pixels, or its pixels are multiplied by the root's scale.
 
+### The site
+
+The same faces, bundled into the export, nothing loaded from another host: Inter Variable from `@fontsource-variable/inter/wght.css` (`--font-sans`: `'Inter Variable', ui-sans-serif, system-ui, sans-serif`), and Geist Mono from the `geist` package through `next/font` (family `GeistMono`; `--font-mono`: `var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace`). The body sets Inter's `cv11` and `ss01` (`font-feature-settings`). The root stays at 16px: the site has no growing root. Tailwind's `text-xs` and `text-sm` keep Tailwind's 12 and 14px there, so the site's own steps are in its `@theme` (`app/global.css`); weights are 400, 500 and 600.
+
+The home page:
+
+- **Display** (600, `text-display` 3.25rem/1.04, 52/54, from 768px; `text-display-sm` 2.25rem/1.1, 36/40, below; tracking `--tracking-display` -0.028em, `text-pretty`): the hero's headline, its second sentence on its own line in the secondary ink.
+- **Title** (600, `text-title` 2rem/1.15, 32/37, -0.028em, `text-balance`): a section's h2. The site's `--text-title` is its own; the dashboard's is 1.5rem/2rem.
+- **Heading** (600, 1.375rem/1.75rem, 22/28, -0.015em): a stage's h3 and the install panel's h2.
+- **Lead** (400, `text-lead` 1.0625rem/1.625rem, 17/26, the secondary ink): the hero's lead (at most 40rem) and each section's lead.
+- **UI** (`text-ui` 0.9375rem/1.375rem, 15/22, the dashboard's interface size): nav links, a stage's text and the install panel's in the secondary ink; buttons and a link row's name at 500.
+- **Small** (400, `text-[14px]`): the fact rows, a link row's description, the footer.
+- **Code** (Geist Mono 400, `text-code` 0.875rem/1.25rem, 14/20, the dashboard's `text-xs`): every mono on the page, the crops' lines, inline code (in the ink), a command's name, the install command, the nav's version. The crops' headers and status bars are set at the same size, their path and file name in mono, the rest in the sans.
+
+The docs (`#nd-page`, `.prose`), the dashboard's document scale one step up:
+
+- **Page title** (600, 1.75rem/2.125rem, 28/34, -0.025em, `text-balance`), then its description (`h1 + p`, 1.0625rem/1.625rem, 17/26, the secondary ink, at most 36rem).
+- **Body** (400, 1.0625rem/1.5rem, 17/24): paragraphs, list items and quotes at most 36rem (about 65 characters).
+- **h2** (600, 1.375rem/1.75rem, 22/28, -0.015em), **h3** (600, 1.1875rem/1.625rem, 19/26), **h4** (600, 1.0625rem, the body's size).
+- **Inline code** (Geist Mono at `max(0.75rem, 0.8125em)`, 13.8px in the body); **code block** (Geist Mono 0.875rem/1.25rem, 14/20); **table** (Fumadocs' prose, `0.875em`, 14.9px in the body; headers at 600).
+- **Chrome** (Fumadocs', kept): sidebar rows and "On this page" links at 14/20 (`text-sm`; the TOC's set by `#nd-toc a`), the chosen sidebar row at 500; its other parts (search, the phone's sidebar and header, the page footer) at Fumadocs' `text-xs`, `text-sm`, `text-[0.9375rem]` and `text-lg`.
+
+The workflow demo is a picture (`role="img"`), drawn at its design size and scaled down only when the column is narrower: the kit pins 16px on the stage; the added step's title and the property cards at 14/20 (`demo-text`); names, meta, notes and small buttons at 12px, in Geist Mono for names and values (`demo-mono`), the added step's number in its tile at 600. These sizes are the canvas zoomed out to the whole workflow; the One Mono Rule holds for the page's text, not inside the picture.
+
 ## Layout
 
 The window is the shell at full height (`h-svh`) with no page scroll; each region scrolls itself.
@@ -626,6 +849,23 @@ Breakpoints: 640px (`sm`: the search field's width, the count column), 768px (th
 
 Spacing is Tailwind's 4px scale (`--spacing` 0.25rem): mostly 4, 8, 12 and 16px, then 24 and 32px between blocks. 2px appears only inside controls and between tight marks (sidebar rows 1px apart, `gap-0.5` in the canvas toolbar and a row's actions, a chip value's marks, a canvas card's two lines). 6px is the step menu button's inset on a card, the vendored field label's margin, the code editor's changed-line gutter and the status bar's segments' side padding; 10px is the vendored buttons' and fields' side padding. Larger steps are layout heights: 24px (the `xs` buttons, the segmented switch's segments), 28px (sidebar rows, the status bar), 32px (the column head, a list's foot), 36px (a band), 40px (rows, view tabs, card headers, the canvas toolbar), 44px (the header).
 
+### The site
+
+The site scrolls as one page on the ground; spacing is Tailwind's 4px scale, as in the dashboard.
+
+- **Column** (`column` in `lib/site.ts`): centred, at most 90rem (`calc(84rem + 6rem)`) with 16px sides below 768px and 48px from 768px, so its content is at most 1344px. `--container-frame` (84rem) is defined and unused.
+- **Nav:** 56px on the ground, 16px gaps: the logo (8px more after it); from 640px Docs, Workflows and Commands, 4px apart; at the right, 8px apart, the version (from 768px, a link to its release), Search, the theme switch and GitHub.
+- **Hero:** 48px under the nav (64px from 768px). From 1360px two columns on one bottom edge, the headline's and a 31rem install column, 40px apart (`minmax(0, 1fr) 31rem`); below, stacked 32px apart. The install column is the install field, then the two buttons, 10px apart, side by side from 640px. The demo follows 48px under it (56px from 768px), across the column.
+- **Sections** start 96px under the one before (144px from 768px); a section's lead is 12px under its h2.
+- **Stages** ("One change, from request to archive"): 48px under the lead (64px from 768px), 80px apart (112px from 768px). From 768px a stage is a 12-column grid, 48px gap: its text on 5 columns (8px down), its crop on 7; below, stacked 32px apart. The text's body is 12px under its h3, the fact rows 24px under the body, each 10px above and below its line, a hairline between.
+- **Commands and Start here:** side by side from 1024px, 32px apart, stacked 48px apart below; the rows 32px under the lead.
+- **Install panel:** 24px inside (32px from 768px); its text and the install field side by side from 768px, stacked 24px apart below. 80px of ground under it (112px from 768px).
+- **Footer:** a hairline above, the column's 24px top and bottom, its items 24px apart (8px between wrapped lines).
+- **Workflow demo** (`components/workflow-demo.tsx`), three scenes: **desktop** 1344 × 540 from 1280px of viewport, the canvas on 60% and the panel beside it; **tablet** 672 × 740 below 1280px, the canvas 440px tall over the panel, the whole workflow with ci's on-fail card in it, the panel's foot fading over 32px; **phone** 358 × 680 when the column is under 600px, the canvas 432px tall over the panel, ci's on-fail card left out, the foot fading the same way. On the canvas, a 16px dot grid; cards 340px wide (310px on the phone) and 62px high, 28px of line between them (24px on the tablet, 20px on the phone); the on-fail card 220px wide (200px on the tablet), 72px to the right of ci (60px on the tablet). The panel holds property cards 12px apart on a 12px inset: a 40px header, rows `8px 12px` with a 100px key column 8px from its value, 28px controls.
+- **Docs** (Fumadocs' docs layout): the sidebar 268px wide from 768px on the ground, no border; the page and its table of contents on one inset panel (a `::before` of `#nd-docs-layout`, from the grid's third column and third row), 8px from the window's top, right and bottom (8px all round once the sidebar is collapsed, and below 768px), a hairline, 10px corners, `--background` and shadow sm. It starts under the bars that stay on top (the phone's header, the "on this page" bar below 1280px), which sit on the ground with no border, so its top edge and corners always show. "On this page" takes a 268px column from 1280px. Prose keeps the 36rem measure.
+
+Breakpoints: 600px of column (the demo's phone scene), 640px (`sm`: the nav's links, the buttons side by side, a link row's name in a 176px column with its description beside it, a session crop's notes), 768px (`md`: the 48px sides, the display size, the stage grid, the docs' sidebar), 1024px (`lg`: the two lists side by side), 1280px (the demo's desktop scene, the docs' "On this page"), 1360px (the hero's two columns). The build is approved at 390 and 1440px, and between 640 and 1279px (768 and 1024 checked).
+
 ## Elevation & Depth
 
 Flat by default: regions are told apart by tone (ground, panel, band, card) and 1px hairlines. Shadows are soft and few, kept to the work area, the cards and what floats.
@@ -643,6 +883,15 @@ Focus is a ring, not a shadow: a 2px `--ring` ring (inset on rows, bands and car
 
 **The Flat Ground Rule.** The sidebar, the bands, the rows and the documents never cast shadows; the work area, the cards and what floats over them do.
 
+### The site
+
+The same flat ground. `--panel-shadow` is the dashboard's sm (`0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.08)`) in both themes, as `shadow-panel`: the crops, the link lists, the install panel, the demo's stage and the docs' panel. The nav, the footer, the docs' sidebar and code blocks (Fumadocs' shadow removed) cast none.
+
+- **Demo:** the step cards `0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.07)`; the selected card a 3px halo of `--ring` at 15% over `0 1px 3px 0 rgb(0 0 0 / 0.08)`; the property cards xs (`0 1px 2px 0 rgb(0 0 0 / 0.05)`); the cursor a `0 1px 1.5px rgba(0, 0, 0, 0.18)` drop shadow. `--ss-popover-shadow` (a hairline ring over md) is mapped for the kit's popovers, none of which the scene shows.
+- **Fumadocs, kept:** the search dialog `shadow-2xl` in black at 50% (`0 25px 50px -12px`), the phone's sidebar and the collapsed sidebar's floating buttons `shadow-lg` (`0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)`).
+
+Focus is the global `:focus-visible` rule: a 2px `--ring` outline 2px off, inset by 2px on the link rows so the list's corners do not clip it.
+
 ## Shapes
 
 Small, even corners on a 0.5rem base (`--radius`), set in `@theme inline`:
@@ -657,6 +906,20 @@ Small, even corners on a 0.5rem base (`--radius`), set in `@theme inline`:
 - `--radius-2xl` (12px), `--radius-3xl` (16px) and `--radius-4xl` (20px) are on the scale and unused.
 
 Rows, column heads, the header, the view tab row, the canvas toolbar and the status bar are square: they run edge to edge inside the panel. Borders are 1px; a blockquote's left rule is 1px of `--border`; status icons and canvas lines are drawn at 1.5px and 1px.
+
+### The site
+
+Tailwind's own steps (`rounded-md` 0.375rem, `rounded-lg` 0.5rem), with `--radius-xl` set to 0.625rem in the site's `@theme` (Tailwind's is 12px):
+
+- **md 6px:** nav links, the install field's copy button, a session crop's prompt, the logo tile, the docs' sidebar rows, the demo's tiles, controls, small buttons and picker rows (`--ss-radius-sm`).
+- **lg 8px:** buttons, the install field, docs code blocks, the demo's step cards, property cards, placeholder and picker search (`--ss-radius-md`, `--ss-radius-lg`).
+- **xl 10px:** the crops, the link lists, the install panel, the demo's stage and window, the docs' panel, the search dialog.
+- **4px:** inline code in the docs.
+- **Full** (`999px`): the demo's round "+" and its switch; Fumadocs' round parts.
+- **Small marks:** 2px for the demo's skeleton bars, 3px for the on-fail line's label bar; the favicon's tile is 7px on its 32px square.
+- Fumadocs' other parts keep Tailwind's steps (4, 6, 8 and 16px). The kit's own defaults (a 12px window, a 10px popover, 20px for its ground, 13px and 7px for its touch cursor and keycaps) are not shown.
+
+The nav, the hero, the sections and the footer are not boxed: only the crops, the lists, the install panel and the demo sit on panels.
 
 ## Components
 
@@ -750,6 +1013,47 @@ The Tasks card (`TaskList`), read-only on every change page: it shows the saved 
 - A toast fades in and rises 8px over 150ms, and leaves the same way; at once under reduced motion.
 - Reduced motion: transitions are limited to opacity and colours, and overlays no longer scale, slide or rotate.
 
+### The site
+
+The site's parts, in `site/app/(home)/page.tsx`, `site/components/` and `site/app/global.css`.
+
+- **Logo** (`Wordmark`): the dashboard's, a 20px ink tile with 6px corners holding a 12px route mark in the panel's colour, then "theway" at 600 in `text-ui`, 8px apart; in the nav and at the top of the docs' sidebar. The favicon is the same mark on a 32px tile.
+- **Nav links:** `text-ui` in the secondary ink, `4px 8px` inside, 6px corners, the ink on hover. The version is mono `text-code` in the secondary ink. Search and the theme switch are Fumadocs' (a 30px ghost icon button with 6px corners for Search).
+- **Buttons:** 36px, 16px across, 8px corners, `text-ui` at 500, 8px between icon and label, `transition-colors`. **Primary** ("Read the docs"): the blue fill with white text, 90% on hover. **Outline** ("How a workflow runs"): a hairline on the panel, the accent on hover.
+- **Install field** (`InstallPill`): at least 40px, a hairline on the panel, 8px corners, 4px above and below, 14px at the left and 4px at the right, mono `text-code`. The `$` and its space are in the secondary ink, unselectable, inline with the command, so a wrapped command keeps it on its first line; the command wraps anywhere below 640px and holds one line from 640px. At its right a 32px ghost copy button with 6px corners in the secondary ink (the accent and the ink on hover), a 16px copy icon that turns to a check after a copy, named "Copy the install command" ("Copied" after). In the hero's install column and in the install panel (the panel's width below 768px).
+- **Crop** (a file or a session, beside each stage): a window on the panel, a hairline, 10px corners, shadow sm. Its 40px header, a hairline under it, 16px across, 8px gaps: a 16px file or terminal icon and the path or `claude — my-api` in mono, in the secondary ink, cut with an ellipsis. Its lines wrap anywhere inside it, as Claude Code wraps them; nothing scrolls sideways.
+  - **File crop:** 12px above and below the lines; line numbers in a 44px column, right-aligned 16px from the text, in the secondary ink, unselectable; a YAML key in `--code-property`, its colon in the secondary ink, `done: false` in the secondary ink. A 28px status bar under a hairline, 12px gaps: the file's name in mono, its language, its line count.
+  - **Session crop:** 16px above and below, lines 6px apart. The prompt on `--band` with 6px corners, `6px 12px` inside, 12px from the window's sides, after a `>` in the secondary ink; a tool call after a green `●`, its name at 500 and its arguments in the secondary ink, its result 16px in after `⎿`; a step's report as its label (cut), its note in the secondary ink from 640px, and `pass` (green) or `fail` (red) in a 40px column at the right; the closing message after a `●` in the secondary ink.
+- **Fact rows** (a stage's `dl`): 14px, a hairline above, between and under the rows; the key in the secondary ink at the left, the value at the right, code in mono `text-code` in the ink.
+- **Link rows** (`LinkRows`: Five commands, Start here): one list on the panel, a hairline, 10px corners, shadow sm; rows `12px 16px` (20px across from 768px), a `--rule` between (the site's lists rule their rows, the dashboard's do not); the name in `text-ui` at 500 (a command's in mono `text-code`), its description in 14px secondary ink (beside the name from 640px, in a 176px column, else under it), a 16px arrow in the secondary ink. Hover fills the row with the accent and moves the arrow 2px right, into the ink; the focus ring is inset.
+- **Install panel:** a panel with a hairline, 10px corners and shadow sm, 24px inside (32px from 768px): the heading, a line in `text-ui` secondary ink with its code in mono, and the install field.
+- **Footer:** under a hairline, 14px secondary ink: MIT License, GitHub (a 16px icon 6px before it), Docs; the ink on hover.
+- **Docs sidebar rows:** at least 28px, `4px 8px` inside, 6px corners, 14px in the sidebar's ink; hover on `--sidebar-accent` in the ink; the chosen row on the blue tint, at 500 in the ink.
+- **Docs code block** (Fumadocs' `figure.shiki`): `--code-surface`, a `--rule` hairline, 8px corners, no shadow; Fumadocs' head with its 24px copy button; Geist Mono 14/20 in the `--code-*` colours.
+- **Docs table:** Fumadocs' prose, without its box: cells `0.5rem 0.75rem`, aligned to the top, headers at 600 on `--muted`, a hairline under the header row and the light rule between rows.
+- **"On this page"** (Fumadocs' TOC): its links at 14/20 in the secondary ink, the section being read in the blue.
+- **Search** (Fumadocs' dialog, `components/search.tsx`, static search from the export): at most 640px wide, 10px corners, `--popover`, a hairline, its shadow and dim (Elevation), 16px from the top on a phone and 250px above the middle from 768px.
+
+### Workflow demo
+
+A faux dashboard (`components/workflow-demo.tsx` on Stageshow's kit), one picture to assistive tech (`role="img"` with a label saying what happens), at `minimal` fidelity: everything is skeleton bars but the step added, so there is one text to read.
+
+- **Stage:** transparent, 10px corners, shadow sm; the window on `--background` with its hairline drawn over everything (`::after`).
+- **Canvas:** `--canvas` with a 16px grid of 1.25px `--canvas-dot` dots; inputs, implement, review and ci in one column, ci's on-fail card (fix-ci) at its right.
+- **Step card:** 340 × 62px, 12px across, a hairline, 8px corners, `--card`, its shadow (Elevation); a 24px tile with 6px corners tinted by its kind (13px icon: inputs and on-fail), then a title bar over the name and meta bars. Hover is `--muted`.
+- **Step added** (open-pr, in words): at least 62px, `9px 12px` inside; its number in the tile in mono 12px at 600; "Push the feature branch and open its PR" at 14/20, balanced; `open-pr` in mono 12px and `agents · sonnet` at 12px, both in the secondary ink. Selected: a `--ring` border and its 15% halo.
+- **On-fail card:** 220px, a dashed border in the secondary ink at 50%, a wrench in its tile; joined to ci by a dashed line (4px dashes) carrying a 36px label bar.
+- **Lines and "+":** 1px lines in the secondary ink at 70%; on each, an 18px round "+" on `--card` with a hairline and an 11px plus, the accent and the ink on hover, pressed to 88%.
+- **Placeholder:** the card's width, a dashed `--ring` outline, `--card` at 60%, 8px corners, 16px across, a 14px plus and one bar.
+- **Panel:** property cards (a hairline, 8px corners, `--card`, xs shadow, 14/20): a 40px header on `--band` at 50% (600), key/value rows above a `--rule` (100px key column in the secondary ink, 28px values). At rest, the workflow's cards in skeleton. The **step picker**: its header with a close cross, a 32px search on `--border` at 35% with 8px corners (a 15px search icon, the query in the ink, a 1.5 × 16px blue caret blinking), a group heading, then 32px rows with 6px corners, the highlighted one on `--muted`: a description cut to one line, the name in mono 12px secondary ink. The **step's card**: "Step 3 of 4" with `open-pr` in mono 12px secondary ink and a 24px "Change prompt" button (a hairline, 6px corners, 12px at 500); Uses (the path in mono 12px blue, a 13px copy icon), Runs on and Model as 28px selects (a hairline, 6px corners, a 15px chevron), a "With" group label (12px at 500, secondary ink), `change` in mono 12px over "required" (12/16), its `${{ inputs.change }}` control in mono 12px and "The change ID" as a 12/16 note, Matrix as a 24 × 14px switch, off (the ink at 18%), On fail as a select, then Remove step (32px, red, a 15px trash icon) under a `--rule`.
+- **Cursor:** the kit's arrow (Colors, Elevation), pressed to 90% on a click; the kit's click ripple is off.
+
+### Site motion
+
+- Hover: `transition-colors` (Tailwind's 150ms); a link row's arrow with `transition-transform`.
+- **The demo** plays once when it comes into view (about 6s) and holds the result, with no loop and no reset: the cursor clicks the "+" under review, the placeholder opens (pushing ci down) as the picker replaces the panel's cards, `ope` is typed and the list narrows from nine rows to three, open-pr is clicked and becomes the selected step as the panel shows its card. Cards ease their border and shadow over 180ms and their fill over 150ms; the "+" scales over 160ms (`cubic-bezier(0.2, 0.8, 0.2, 1)`); the placeholder fades in over 250ms, the step over 300ms after 50ms; a panel view leaves over 180ms and enters 80ms later, fading over 240ms and rising 6px over 320ms (`cubic-bezier(0.22, 1, 0.36, 1)`); picker rows fill over 120ms; the caret blinks every 1.06s; the cursor dips to 90% over 80ms on a click and lets go over 260ms (`cubic-bezier(0.22, 1, 0.36, 1)`).
+- **Reduced motion:** the demo shows its result still (the poster) and the caret stops blinking.
+
 ## Do's and Don'ts
 
 ### Do
@@ -764,6 +1068,10 @@ The Tasks card (`TaskList`), read-only on every change page: it shows the saved 
 - **Do** edit every file whole in `FileEditor`, with `SaveControls` at the tab row's right and `Segmented` for any switch between views of one thing.
 - **Do** show every empty, not-found, error and loading state with `StateBlock` (`EmptyNote`, `StateLoading`, `Notice`).
 - **Do** use `tabular-nums` only where numbers line up.
+- **Do** take the site's colours from its tokens in `site/app/global.css` (`bg-panel`, `text-dim`, `border-line`), each with the dashboard's value, and map Fumadocs' and the kit's colours onto them.
+- **Do** set the site's mono in `text-code` (14px) and its interface in `text-ui` (15px); Tailwind's `text-xs` and `text-sm` are 12 and 14px there.
+- **Do** put the site's boxes on the panel with a hairline, 10px corners and `shadow-panel`, and nothing else boxed.
+- **Do** keep the workflow demo one picture (`role="img"`), skeleton but for the step added, played once in view and still under reduced motion.
 
 ### Don't
 
@@ -776,3 +1084,4 @@ The Tasks card (`TaskList`), read-only on every change page: it shows the saved 
 - **Don't** put shadows on the sidebar, bands, rows or documents.
 - **Don't** edit a part of a file in place on a file page (a pencil, a field on a title or a task), put a title above a file, or give the change panel an edit control; it is read-only.
 - **Don't** load fonts, scripts or images from another host; the CSP allows only the dashboard's own.
+- **Don't** bring back the old site's amber accent, warm paper ground, dashed guide lines with crosses, square corners or Unbounded wordmark, and don't load the site's fonts from another host.
