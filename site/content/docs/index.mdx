@@ -11,7 +11,7 @@ It is for Claude Code users who want the reasoning behind a change written down 
 
 `/theway:engineering` writes only the spec, through the shipped `engineering` workflow. It investigates the code, settles the unknowns and records what it found, the decisions and their reasons, the risks and the tasks. The code is written later, by `/theway:workflow`, inline in your session or through agents, from that spec. For a small change with nothing to decide, `/theway:engineering --light` writes a shorter spec, still before any code.
 
-Writing the spec first means the blockers and alternatives are weighed before any code exists. A spec written after the code describes that code instead of the problem. During implementation, a gap between the spec and the code is brought back to you as a decision, not smoothed over.
+Writing the spec first means the blockers and alternatives are weighed before any code exists. During implementation, when the code contradicts the spec, the work stops and you get what was found and the options.
 
 Every full spec (`/theway:engineering`) includes a [TAMM](./concepts/tamm.mdx) hardpoints table that names the Medium and High risks of the change and their countermeasures.
 
@@ -28,4 +28,4 @@ Each change is a folder under `<home>/projects/<key>/changes/`, where `<key>` is
 ## Next steps
 
 - [Install theway](./installation.mdx).
-- Read [How it works](./workflow.mdx): engineering, workflow, archive.
+- Read [How it works](./workflow.mdx) for the commands a change goes through.

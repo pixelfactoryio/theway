@@ -5,11 +5,13 @@ import { GeistMono } from 'geist/font/mono';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import SearchDialog from '@/components/search';
-import { tagline } from '@/lib/site';
+import { openGraphBase, tagline, title } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: { default: 'theway · A spec-first workflow for Claude Code', template: '%s · theway' },
+  title: { default: title, template: '%s · theway' },
   description: tagline,
+  openGraph: openGraphBase,
+  twitter: { card: 'summary_large_image' },
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

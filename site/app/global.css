@@ -206,6 +206,36 @@ body {
 #nd-docs-layout > [class*='grid-area:toc-popover'] > header {
   border-color: transparent;
 }
+/* Collapsing or expanding the sidebar gives the page its new width in one frame, with no reflow on the way. */
+#nd-docs-layout {
+  transition: none;
+}
+
+/*
+ * Focus Fumadocs leaves out: the "On this page" bar gets the global ring, inset since the bar spans the panel; the
+ * skip link, hidden until it has the focus, then shows at the top left on the panel.
+ */
+[data-toc-popover-trigger]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+a.sr-only[href='#nd-page']:focus-visible {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+}
 
 /*
  * Docs sidebar rows: the dashboard's (DESIGN.md, Navigation), 28px with 6px corners in the sidebar's ink, the accent
@@ -252,6 +282,9 @@ body {
   line-height: 1.625rem;
   color: var(--muted-foreground);
 }
+#nd-page h1 + p code {
+  color: var(--foreground);
+}
 .prose {
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
@@ -295,7 +328,10 @@ body {
 .prose :is(p, li, td, th, blockquote) a:not(.not-prose a):hover {
   text-decoration-color: var(--link);
 }
-.prose :not(pre) > code {
+/* Inline code, in the prose and in a page's description; a long path wraps anywhere rather than run past the panel. */
+.prose :not(pre) > code,
+#nd-page h1 + p code {
+  overflow-wrap: anywhere;
   border: 0;
   border-radius: 4px;
   background: color-mix(in oklab, var(--foreground) 7%, transparent);

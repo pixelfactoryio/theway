@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: The YAML workflows /theway:workflow runs, the Markdown prompts their steps use, and how both are found and checked.
+description: The YAML workflows `/theway:workflow` runs, the Markdown prompts their steps use, and how both are found and checked.
 ---
 
 A workflow is a YAML file that lists what [`/theway:workflow`](../commands/workflow.mdx) runs, in order: a flat list of steps. Each step uses one Markdown prompt, gives it values, and runs through agents or in your session. Every run of a step answers `pass`, `fail` or `blocked`, with a report that every later step reads. theway ships four workflows, `develop`, `agents`, and `engineering` and `engineering-light` (which [`/theway:engineering`](../commands/engineering.mdx) runs), and their prompts; you add your own next to them, globally or for one project, and the shipped ones are written the same way as yours.
