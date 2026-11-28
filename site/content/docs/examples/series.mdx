@@ -30,33 +30,33 @@ It assigned them in dependency order:
 | `add-user-auth-02` | `POST /login`, checking the password against the stored hash |
 | `add-user-auth-03` | README: how to create a user and log in |
 
-Each member is its own change folder, with its `spec.md` and its `change.yaml`. The series' total is its number of members: three.
+Each member is its own change folder, with its `spec.md` and its `change.yaml` (see [Series](../concepts/changes.mdx#series)).
 
 ## The review
 
-One round of the `spec-review` step covered the three members together. The report:
+The `spec-review` step's two critics covered the three members together. The triage confirmed three findings, `fix-spec` fixed them and the triage's second round checked each fix. The run's report, with the full reports of the failed triage round and of the last step:
 
 ```text
-Change folders:
-  <home>/projects/-home-you-code-my-api/changes/add-user-auth-01/
-  <home>/projects/-home-you-code-my-api/changes/add-user-auth-02/
-  <home>/projects/-home-you-code-my-api/changes/add-user-auth-03/
-Findings: no sessions exist today; settings are constants passed to createApp; no dependencies.
-Standards read: none.
-Open questions: none.
+Workflow: engineering (/home/you/.theway/workflows/engineering.yaml)
+- 1.scaffold: pass (inline)
+- 2.spec-review[prompts/grounding.md]: pass
+- 2.spec-review[prompts/implementability.md]: pass
+- 3.spec-triage: fail
+- 3.fix-spec: pass
+- 3.spec-triage (round 2): pass
 
-Review: 1 round (grounding and implementability critics).
+3.spec-triage: fail
+0 confirmed: add-user-auth-02 names a verifyPassword helper that -01 does not export. fixable.
+1 confirmed, settled: add-user-auth-02 does not say what POST /login returns on success. -02 returns 200 with a JSON body: every my-api route answers through send(status, body) with JSON (send(200, { ok: true }) in src/app.js), and -02's Out of Scope excludes sessions and tokens. fixable.
+2 confirmed: -03 has a task to review the README wording, which is not repository work. fixable.
+
+3.spec-triage (round 2): pass
+0 resolved: -01 task 2 now exports verifyPassword(password, hash).
+1 resolved: -02's spec.md says POST /login returns 200 with a JSON body.
+2 resolved: the -03 task to review the README wording is removed.
 ```
 
-| # | Finding | Verdict | Fix |
-|---|---------|---------|-----|
-| R1-0 | `add-user-auth-02` names a `verifyPassword` helper that `-01` does not export | confirmed | `-01` task 2 now exports `verifyPassword(password, hash)` |
-| R1-1 | `add-user-auth-02` does not say what `POST /login` returns on success | confirmed, settled | `-02` returns `200` with a JSON body: every `my-api` route answers through `send(status, body)` with JSON (`send(200, { ok: true })` in `src/app.js`), and `-02`'s Out of Scope excludes sessions and tokens |
-| R1-2 | `-03` has a task to review the README wording | confirmed | task removed: reviewing is not repository work |
-
-R1-1 settled: `POST /login` returns `200` with a JSON body on success, as every existing route in `src/app.js` does.
-
-## The develop run
+## The agents run
 
 ```text
 /theway:workflow --workflow agents add-user-auth-01 add-user-auth-02 add-user-auth-03

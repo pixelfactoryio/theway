@@ -21,11 +21,11 @@ A `fix-` change uses the fix template for `spec.md`, and the command reproduces 
 
 For a small change with nothing to decide, [`/theway:engineering --light`](./commands/engineering.mdx#light) writes a short spec (`**Mode:** light`) and 1 to 3 tasks, and one grounding critic reviews them. When it finds a decision, a contract change, a Medium or High risk or a series, it sends you to `/theway:engineering` without `--light`.
 
-It writes the change files only under `<home>/projects/<key>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops: the spec is not ready until it is answered.
+It writes the change files only under `<home>/projects/<key>/changes/<change-id>/` (`<home>` is the folder `theway path` prints, `~/.theway` by default); throwaway probes write to a temporary directory created with `mktemp -d`. If a question is still open, it reports the review and the question, then stops.
 
 ## 2. Workflow
 
-[`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file, resolved by `theway workflow` with the change ID as its input: each step uses a prompt and answers `pass`, `fail` or `blocked`. The change steps read `standards/develop.md`, the standards `theway context` lists, the change's `spec.md`, `change.yaml`, `design.md` and `notes.md`, and `docs/architecture/coding-standards.md` when it exists (`prompts/change.md`). The spec is the contract: when the code contradicts it, the work stops and comes back to you with the options.
+[`/theway:workflow`](./commands/workflow.mdx) runs the change through the steps of a [workflow](./concepts/workflows.mdx) file, resolved by `theway workflow` with the change ID as its input: each step uses a prompt and answers `pass`, `fail` or `blocked`. The change steps read `standards/develop.md`, the standards `theway context` lists, the change's `spec.md`, `change.yaml`, `design.md` and `notes.md`, and `docs/architecture/coding-standards.md` when it exists (`prompts/change.md`). When the code contradicts the spec, the step stops and reports what it found and the options (`standards/develop.md`).
 
 Each step runs in your session or through agents in the plugin workflow `theway:run-pipeline`, as its `runs-on` says. theway ships two workflows that run a change:
 

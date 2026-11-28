@@ -5,7 +5,7 @@ description: "Write the spec and ordered tasks for a change, without code; with 
 
 The spec is written so that someone else can implement it without guessing: the problem, what was found out, and the decisions and why. The code comes later, from [`/theway:workflow`](./workflow.mdx).
 
-For a small change with nothing to decide, `--light` is the light path: a short spec, 1 to 3 tasks and one critic (see [Light](#light)).
+For a small change with nothing to decide, use [`--light`](#light).
 
 `/theway:engineering` is an alias: `/theway:engineering <request>` runs [`/theway:workflow --workflow engineering <request>`](./workflow.mdx), and `/theway:engineering --light <request>` runs `/theway:workflow --workflow engineering-light <request>`. Both are shipped [workflows](../concepts/workflows.mdx) with one required input, `request`, built from prompts like any other, so you can change them (see [Customize](#customize)).
 
@@ -32,11 +32,14 @@ add-user-auth-02
 add-user-auth-03
 ```
 
-Each member is its own change folder; the series' total is the number of members. The report ends with the triage's report, trimmed here to one verdict:
+Each member is its own change folder (see [Series](../concepts/changes.mdx#series)). The report ends with the triage's two reports, trimmed here to one finding:
 
 ```text
+3.spec-triage: fail
+1 confirmed, settled: add-user-auth-02 does not say what POST /login returns on success. -02 returns 200 with a JSON body: every my-api route answers through send(status, body) with JSON, and -02's Out of Scope excludes sessions and tokens. fixable.
+
 3.spec-triage (round 2): pass
-1: confirmed, settled: add-user-auth-02 does not say what POST /login returns on success. -02 returns 204 with no body: my-api has no sessions, and -02's Out of Scope excludes tokens. Resolved: spec.md of -02 says so.
+1 resolved: -02's spec.md says POST /login returns 200 with a JSON body.
 ```
 
 ## Steps
@@ -102,7 +105,7 @@ Everything is written under `<home>/projects/<key>/changes/<change-id>/`:
 - `change.yaml`: the change's one-line description and its tasks, in the order they are done (see [`theway change`](../cli.mdx#change)).
 - `design.md`, when needed.
 
-The run's report gives each step's result and the full report of the last step: on success, the triage's verdicts; when the run stops, the open question, the stop report or the confirmed decisions, verbatim. If a question is open, the spec is not ready until it is answered.
+The run's report gives each step's result and the full report of the last step: on success, the triage's verdicts; when the run stops, the open question, the stop report or the confirmed decisions, verbatim.
 
 When a `fix-` change stopped in the scaffold, no folder is written and no review runs: the report gives the outcome, the attempts or the evidence, and the question for you.
 
@@ -118,7 +121,7 @@ With `--light`, for a small change with nothing to decide: a known cause, a loca
 /theway:engineering --light <request>
 ```
 
-Use it when you already know what changes and why. When the change needs a decision, a contract change or a risk analysis, run `/theway:engineering` without `--light`: the light path sends you there itself.
+Use it when you already know what changes and why. When the change needs a decision, a contract change or a risk analysis, run `/theway:engineering` without `--light`: `--light` stops and tells you to.
 
 ### Example
 
@@ -134,7 +137,8 @@ Workflow: engineering-light (/home/you/.theway/workflows/engineering-light.yaml)
 - 2.spec-review: pass
 - 3.spec-triage: pass
 
-3.spec-triage: no finding confirmed.
+3.spec-triage: pass
+0 out_of_scope: /users?x=1 is also unmatched by the route; the request and the Problem are about /health only.
 ```
 
 A request that needs a decision writes nothing and sends you to `/theway:engineering` without `--light`: see [An escalation](../examples/escalation.mdx).

@@ -1,6 +1,6 @@
 ---
 title: Run through a workflow
-description: "The full change example's change run through the `agents` workflow: a local review round, then a PR driven to green CI."
+description: "The `add-rate-limiting` change of the full change example, run through the `agents` workflow: a local review round, then a PR and its CI checks."
 ---
 
 This is an illustrative run on the sample project `my-api`. It takes the `add-rate-limiting` change of the [full change](./full-change.mdx), from the same spec and tasks, and runs it through agents with the shipped `agents` workflow, instead of inline in the session with the default `develop` workflow.
@@ -19,7 +19,7 @@ The session ran `1.branch` itself: it synced `main` and created the branch `add-
 
 ## Implement
 
-`2.implement` read `prompts/change.md`, followed `develop.md`, committed locally with the `feat` type of an `add-` change, ticked the four tasks of `change.yaml` with `theway task done`, ran `npm test` (10 tests, 10 pass) and answered `pass`.
+`2.implement` read `prompts/change.md`, followed `develop.md`, committed locally with the `feat` type of an `add-` change, ticked the nine tasks of `change.yaml` with `theway task done`, ran `npm test` (10 tests, 10 pass) and answered `pass`.
 
 ## Review locally
 
@@ -50,9 +50,9 @@ Workflow: agents (/home/you/.theway/workflows/agents.yaml)
 - 6.ci: pass
 
 4.triage: fail
-0 confirmed: the close test does not check that the sweep timer is cleared (test/limiter.test.js:41).
+0 confirmed: the close test does not check that the sweep timer is cleared (test/rate-limit.test.js:41).
 1 confirmed: no HTTP test sends from two addresses (test/app.test.js).
-2 false_positive: Retry-After is max(1, ceil((resetAt - now) / 1000)), never 0 (src/limiter.js:27).
+2 false_positive: Retry-After is max(1, ceil((resetAt - now) / 1000)), never 0 (src/rate-limit.js:14).
 
 6.ci: pass
 PR #12 https://github.com/example/my-api/pull/12: every check passed on 3f2c1a9.

@@ -38,7 +38,7 @@ Run instead:
 Standards read: none.
 ```
 
-The light path (`--light`) never writes a full spec itself: its `scaffold-light` step answered `blocked` with the escalation report, so the run stopped there and its `spec-review` step did not run, as there was nothing to review.
+`--light` never writes a full spec: its `scaffold-light` step answered `blocked` with the escalation report, so the run stopped there and its `spec-review` step did not run.
 
 ## The full spec
 
@@ -58,4 +58,4 @@ The limiter keeps its fixed window, but reads and increments each IP's counter i
 **Open question:** which store holds the counters? The code, the README and the request name none, and the project has no dependencies today. Redis adds a dependency and a service to run; a database table adds a database. The rest of the spec waits on this choice.
 ```
 
-The spec is not ready until you answer, and the review does not run while the question is open.
+The scaffold answers `blocked` with that question, so the review does not run (see [Steps](../commands/engineering.mdx#steps)).

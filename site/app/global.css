@@ -205,17 +205,69 @@ body {
 #nd-subnav,
 #nd-docs-layout > [class*='grid-area:toc-popover'] > header {
   border-color: transparent;
+  background: var(--ground);
+  backdrop-filter: none;
 }
 /* Collapsing or expanding the sidebar gives the page its new width in one frame, with no reflow on the way. */
 #nd-docs-layout {
   transition: none;
+}
+/*
+ * A focused element or a heading jumped to stops under the bars that stay on top: Fumadocs' header (3.5rem) and
+ * "On this page" bar (2.5rem) below 768px, the bar alone up to 1280px. Their heights are Fumadocs' `--fd-docs-row-3`,
+ * set on #nd-docs-layout, which `html` cannot read.
+ */
+@media (max-width: 767px) {
+  html {
+    scroll-padding-top: 6rem;
+  }
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  html {
+    scroll-padding-top: 2.5rem;
+  }
+}
+/*
+ * A collapse kept by this browser, before the first paint: the docs layout's script marks `<html>`, and the page is
+ * laid out as Fumadocs lays it out collapsed until its sidebar has the same state (components/docs-chrome.tsx).
+ */
+html[data-docs-sidebar-collapsed] #nd-docs-layout {
+  --fd-sidebar-col: 0px !important;
+}
+html[data-docs-sidebar-collapsed] #nd-docs-layout::before {
+  grid-column: 1 / -1;
+  margin: 8px;
+}
+html[data-docs-sidebar-collapsed] #nd-sidebar {
+  visibility: hidden;
+  width: var(--fd-sidebar-width);
+  translate: calc(var(--fd-sidebar-width) * -1) 0;
+}
+html[data-docs-sidebar-collapsed] [data-sidebar-panel] {
+  opacity: 1;
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  html[data-docs-sidebar-collapsed] #nd-page {
+    padding-top: 4rem;
+  }
+}
+/*
+ * With the sidebar collapsed from 768 to 1023px, the page starts clear of the floating Collapse and Search buttons
+ * (16px from the window's left, 82px to their right edge), 8px after them.
+ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  #nd-docs-layout[data-sidebar-collapsed='true'] #nd-page,
+  html[data-docs-sidebar-collapsed] #nd-page {
+    padding-inline-start: calc(82px + 8px);
+  }
 }
 
 /*
  * Focus Fumadocs leaves out: the "On this page" bar gets the global ring, inset since the bar spans the panel; the
  * skip link, hidden until it has the focus, then shows at the top left on the panel.
  */
-[data-toc-popover-trigger]:focus-visible {
+[data-toc-popover-trigger]:focus-visible,
+:is(#nd-toc, [data-toc-popover-content]) a:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
@@ -242,7 +294,9 @@ a.sr-only[href='#nd-page']:focus-visible {
  * on hover; the chosen row on the blue tint at 500 in the ink.
  */
 #nd-sidebar,
-.dark #nd-sidebar {
+.dark #nd-sidebar,
+#nd-sidebar-mobile,
+.dark #nd-sidebar-mobile {
   --color-fd-muted-foreground: var(--sidebar-foreground);
   --color-fd-accent: var(--sidebar-accent);
   --color-fd-accent-foreground: var(--foreground);
@@ -252,13 +306,15 @@ a.sr-only[href='#nd-page']:focus-visible {
 #nd-sidebar :is(a[data-active], button[data-state]):not([aria-label]) {
   min-height: 1.75rem;
   padding: 0.25rem 0.5rem;
+}
+:is(#nd-sidebar, #nd-sidebar-mobile) :is(a[data-active], button[data-state]):not([aria-label]) {
   border-radius: 6px;
 }
-#nd-sidebar :is(a[data-active='false'], button[data-state]):not([aria-label]):hover {
+:is(#nd-sidebar, #nd-sidebar-mobile) :is(a[data-active='false'], button[data-state]):not([aria-label]):hover {
   background-color: var(--sidebar-accent);
   color: var(--foreground);
 }
-#nd-sidebar a[data-active='true'] {
+:is(#nd-sidebar, #nd-sidebar-mobile) a[data-active='true'] {
   background-color: var(--selected);
   color: var(--foreground);
   font-weight: 500;
@@ -267,7 +323,8 @@ a.sr-only[href='#nd-page']:focus-visible {
 /*
  * Docs prose: the dashboard's document scale (DESIGN.md, Typography, Documents), body 17/24 in the 36rem reading
  * column (about 65 characters a line), headings at 600 under a 28/34 page title; links blue, underlined at 40% of the blue and fully
- * on hover; inline code the mono step on a tint, 4px corners; tables ruled with no box.
+ * on hover; inline code the mono step on a tint, 4px corners; tables ruled with no box. Only the page's prose: the
+ * search results and the "On this page" popover are `prose` too, and keep Fumadocs' sizes.
  */
 #nd-page h1 {
   font-size: 1.75rem;
@@ -285,7 +342,7 @@ a.sr-only[href='#nd-page']:focus-visible {
 #nd-page h1 + p code {
   color: var(--foreground);
 }
-.prose {
+#nd-page .prose {
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
   --tw-prose-links: var(--link);
@@ -300,36 +357,85 @@ a.sr-only[href='#nd-page']:focus-visible {
   font-size: 1.0625rem;
   line-height: 1.5rem;
 }
-.prose :is(p, li, blockquote) {
+#nd-page .prose :is(p, li, blockquote) {
   max-width: 36rem;
 }
-.prose h2 {
+/*
+ * The prose rhythm on the 4px scale, in rem: Fumadocs' margins are in em of the 17px body. Its resets come again after,
+ * since these rules outrank them: no margin above what follows a heading, at the start or the end of the page, of a
+ * quote or of a list item.
+ */
+#nd-page .prose :is(p, ul, ol, dl) {
+  margin-block: 1.25rem;
+}
+#nd-page .prose li {
+  margin-block: 0.5rem;
+}
+#nd-page .prose :is(ul, ol) :is(ul, ol),
+#nd-page .prose li p {
+  margin-block: 0.75rem;
+}
+#nd-page .prose :is(ul, ol) {
+  padding-inline-start: 1.5rem;
+}
+#nd-page .prose ol > li {
+  padding-inline-start: 0.5rem;
+}
+#nd-page .prose blockquote {
+  margin-block: 1.5rem;
+  padding-inline-start: 1rem;
+}
+#nd-page .prose h2 {
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+}
+#nd-page .prose h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+#nd-page .prose h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+#nd-page .prose :is(h2, h3, h4, hr) + *,
+#nd-page .prose > :first-child,
+#nd-page .prose :is(blockquote, li) > :first-child {
+  margin-top: 0;
+}
+#nd-page .prose > :last-child,
+#nd-page .prose :is(blockquote, li) > :last-child {
+  margin-bottom: 0;
+}
+#nd-page .prose h2 {
   font-size: 1.375rem;
   line-height: 1.75rem;
   font-weight: 600;
   letter-spacing: -0.015em;
 }
-.prose h3 {
+#nd-page .prose h3 {
   font-size: 1.1875rem;
   line-height: 1.625rem;
   font-weight: 600;
 }
-.prose h4 {
+#nd-page .prose h4 {
   font-size: 1.0625rem;
   font-weight: 600;
 }
-.prose :is(p, li, td, th, blockquote) a:not(.not-prose a) {
+#nd-page .prose :is(p, li, td, th, blockquote) a:not(.not-prose a) {
   font-weight: inherit;
   text-decoration-line: underline;
   text-decoration-color: color-mix(in oklab, var(--link) 40%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
-.prose :is(p, li, td, th, blockquote) a:not(.not-prose a):hover {
+#nd-page .prose :is(p, li, td, th, blockquote) a:not(.not-prose a):hover {
   text-decoration-color: var(--link);
 }
-/* Inline code, in the prose and in a page's description; a long path wraps anywhere rather than run past the panel. */
-.prose :not(pre) > code,
+/*
+ * Inline code, in the prose and in a page's description. Code of at most 32 characters with its backticks stays whole
+ * (`whole`, lib/inline-code.tsx), as in the dashboard; a longer path wraps anywhere rather than run past the panel.
+ */
+#nd-page .prose :not(pre) > code,
 #nd-page h1 + p code {
   overflow-wrap: anywhere;
   border: 0;
@@ -339,12 +445,36 @@ a.sr-only[href='#nd-page']:focus-visible {
   font-size: max(0.75rem, 0.8125em);
   box-decoration-break: clone;
 }
-.prose table {
-  border: 0;
+#nd-page .prose :not(pre) > code.whole,
+#nd-page h1 + p code.whole {
+  white-space: nowrap;
 }
-.prose :is(th, td) {
+/*
+ * Tables: Fumadocs' prose without its box (no fill, corners or column rules); a hairline under the header row, the light
+ * rule between rows. Their words never split: a table wider than the column scrolls in its own box.
+ */
+#nd-page .prose table {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+#nd-page .prose :is(th, td) {
   padding: 0.5rem 0.75rem;
   vertical-align: top;
+  border-inline-start: 0;
+  overflow-wrap: normal;
+}
+#nd-page .prose td:not(tr:last-child > td) {
+  border-bottom-color: var(--rule);
+}
+
+/* A heading's Copy Anchor Link shows at rest, in the secondary ink, as the code blocks' Copy does; the ink on hover. */
+#nd-page :is(h2, h3, h4, h5, h6) > button {
+  opacity: 1;
+  color: var(--muted-foreground);
+}
+#nd-page :is(h2, h3, h4, h5, h6) > button:hover {
+  color: var(--foreground);
 }
 
 /*
@@ -361,9 +491,28 @@ figure.shiki pre {
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
+/* An empty line keeps its height in every language, plain text included. */
+figure.shiki pre .line {
+  min-height: 1.25rem;
+}
 
-/* "On this page": the dashboard's outline, its links in the label size. */
-#nd-toc a {
+/* "On this page", beside the page and in the popover below 1280px: the dashboard's outline, its links in the label size. */
+:is(#nd-toc, [data-toc-popover-content]) a {
   font-size: 0.875rem;
   line-height: 1.25rem;
+}
+
+/*
+ * Reduced motion (DESIGN.md, Motion): the docs chrome's transitions are limited to opacity and colours, and the drawer,
+ * the folders, the "On this page" popover and the search dialog open and close without sliding, scaling or rotating.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #nd-docs-layout *,
+  #nd-docs-layout *::before,
+  #nd-docs-layout *::after,
+  [role='dialog'],
+  [role='dialog'] * {
+    animation: none;
+    transition-property: color, background-color, border-color, opacity;
+  }
 }
