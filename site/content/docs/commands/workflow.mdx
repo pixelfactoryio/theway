@@ -52,7 +52,7 @@ The change of the [full change example](../examples/full-change.mdx), through ag
    Without the Workflow tool in the session, the command makes each agent call with the Agent tool, under the same rules; without the Agent tool either, your session does the steps and the report says "inline". When a Workflow call returns an error, the run fails with that error and there is no fallback, since agents may already have committed.
 3. **Gate:** succeeded, the command reports it, and in a series asks about the merge; blocked, the error comes back to you with its options; failed, the command reports the error and never merges. In a series, no later change starts after a blocked or failed one.
 
-The prompts do what used to be the command's: `prompts/branch.md` syncs the default branch and creates the feature branch, `prompts/implement.md` ticks the tasks with `theway task done`, `prompts/implement.md` and `prompts/fix-review.md` write `notes.md`, and `prompts/change.md` gives every change step the change's files and standards.
+In the shipped prompts, `prompts/branch.md` syncs the default branch and creates the feature branch, `prompts/implement.md` ticks the tasks with `theway task done`, `prompts/implement.md` and `prompts/fix-review.md` write `notes.md`, and `prompts/change.md` gives every change step the change's files and standards.
 
 The shipped `agents` steps:
 

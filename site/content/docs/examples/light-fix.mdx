@@ -88,19 +88,17 @@ tasks:
       and route; run `npm test`
 ```
 
-The report ends with the outcome of the `spec-review` step, run with one grounding critic:
+The run's report ends with the report of `spec-triage`, which judged the grounding critic's one finding:
 
 ```text
-Change folder: <home>/projects/-home-you-code-my-api/changes/fix-health-query-limited/
-Findings: the bypass and the /health route compare req.url exactly (src/app.js:15, :21); reproduced: 60 × 404, then 429.
-Standards read: none.
+Workflow: engineering-light (/home/you/.theway/workflows/engineering-light.yaml)
+- 1.scaffold-light: pass (inline)
+- 2.spec-review: pass
+- 3.spec-triage: pass
 
-Review: 1 round (grounding critic).
+3.spec-triage: pass
+0 out_of_scope: /users?x=1 is also unmatched by the route; the request and the Problem are about /health only.
 ```
-
-| # | Finding | Verdict | Fix |
-|---|---------|---------|-----|
-| R1-0 | `/users?x=1` is also unmatched by the route | out_of_scope | the request and Problem are about `/health` only |
 
 ## The develop run
 

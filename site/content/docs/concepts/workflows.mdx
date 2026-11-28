@@ -3,7 +3,7 @@ title: Workflows
 description: The YAML workflows `/theway:workflow` runs, the Markdown prompts their steps use, and how both are found and checked.
 ---
 
-A workflow is a YAML file that lists what [`/theway:workflow`](../commands/workflow.mdx) runs, in order: a flat list of steps. Each step uses one Markdown prompt, gives it values, and runs through agents or in your session. Every run of a step answers `pass`, `fail` or `blocked`, with a report that every later step reads. theway ships four workflows, `develop`, `agents`, and `engineering` and `engineering-light` (which [`/theway:engineering`](../commands/engineering.mdx) runs), and their prompts; you add your own next to them, globally or for one project, and the shipped ones are written the same way as yours.
+A workflow is a YAML file that lists what [`/theway:workflow`](../commands/workflow.mdx) runs, in order: a flat list of steps. Each step uses one Markdown prompt, gives it values, and runs through agents or in your session. Every run of a step answers `pass`, `fail` or `blocked`, with a report that every later step reads. theway ships four workflows, `develop`, `agents`, and `engineering` and `engineering-light` (which [`/theway:engineering`](../commands/engineering.mdx) runs), and their prompts; you add your own next to them, globally or for one project.
 
 ## Your first workflow
 
@@ -50,7 +50,7 @@ steps:
       change: ${{ inputs.change }}
 ```
 
-`theway workflow develop-changelog` checks both files and prints the workflow, `theway workflow develop-changelog --input change=add-foo` prints it with every value in place, and `/theway:workflow --workflow develop-changelog add-foo` runs it.
+`theway workflow develop-changelog` checks both files and prints the workflow, `theway workflow develop-changelog --input change=add-rate-limiting` prints it with every value in place, and `/theway:workflow --workflow develop-changelog add-rate-limiting` runs it.
 
 ## Files and layering
 
@@ -96,7 +96,7 @@ steps:                               # required, a non-empty list
 
 Each step is a map:
 
-| Key | |
+| Key | Value |
 |---|---|
 | `uses` | required: the prompt it runs, `prompts/<name>.md` |
 | `with` | the prompt's inputs: a string, a number or a boolean each |
