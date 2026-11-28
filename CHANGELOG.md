@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/pixelfactoryio/theway/compare/v0.26.0...v0.27.0) (2026-11-28)
+
+
+### Features
+
+* **site:** redesign the site and docs in the dashboard's look ([#174](https://github.com/pixelfactoryio/theway/issues/174)) ([5b657f7](https://github.com/pixelfactoryio/theway/commit/5b657f79e06bc174bde0f9b5d1aec3dcd3f789ae))
+
 ## [0.26.0](https://github.com/pixelfactoryio/theway/compare/v0.25.0...v0.26.0) (2026-11-26)
 
 
