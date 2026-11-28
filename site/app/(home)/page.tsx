@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ReactNode } from 'react';
-import { ArrowRight, FileCode2, SquareTerminal } from 'lucide-react';
+import { ArrowRight, FileCode2, RotateCcw, SquareTerminal } from 'lucide-react';
 import { resolveLinkItems } from 'fumadocs-ui/layouts/shared';
 import { InstallPill } from '@/components/install-pill';
 import { WorkflowDemo } from '@/components/workflow-demo';
@@ -30,24 +32,24 @@ type Entry =
   | { kind: 'prompt'; text: string }
   | { kind: 'tool'; name: string; args: string; result?: string }
   | { kind: 'report'; label: string; result: 'pass' | 'fail'; note?: string }
-  | { kind: 'message'; text: string };
+  | { kind: 'message'; text: string }
+  | { kind: 'text'; text: string; dim?: boolean };
 
 type Crop = { kind: 'file'; path: string; language: string; lines: Line[] } | { kind: 'session'; entries: Entry[] };
 
-type Stage = { command: string; title: string; body: ReactNode; facts: [string, ReactNode][]; crop: Crop };
+type Stage = { command: string; body: ReactNode; facts: [string, ReactNode][]; crop: Crop };
 
 const stages: Stage[] = [
   {
     command: '/theway:engineering',
-    title: 'A spec and ordered tasks before any code',
     body: (
       <>
-        It investigates the request, writes <code>spec.md</code> and <code>change.yaml</code> in the change folder, then
-        critic agents review them through two lenses. No code is written in this step.
+        It investigates the request and writes <code>spec.md</code> and <code>change.yaml</code> in the change folder: the
+        decisions and their reasons, the risks and the ordered tasks. Critic agents then review them through two lenses.
+        No code is written in this step.
       </>
     ),
     facts: [
-      ['Command', <code key="c">/theway:engineering</code>],
       ['Workflow', <code key="w">engineering</code>],
       ['Review lenses', 'grounding, implementability'],
       ['Small change', <code key="l">--light</code>],
@@ -71,7 +73,6 @@ const stages: Stage[] = [
   },
   {
     command: '/theway:workflow',
-    title: 'The tasks implemented in your session or by agents',
     body: (
       <>
         By default the <code>develop</code> workflow works through the tasks in your session and commits nothing. The{' '}
@@ -80,7 +81,6 @@ const stages: Stage[] = [
       </>
     ),
     facts: [
-      ['Command', <code key="c">/theway:workflow</code>],
       [
         'Shipped workflows',
         <>
@@ -109,7 +109,6 @@ const stages: Stage[] = [
   },
   {
     command: '/theway:archive',
-    title: 'The finished change moved to the archive',
     body: (
       <>
         A finished change moves to <code>changes/archive/</code> under a dated folder, with its spec and tasks. It only
@@ -117,7 +116,6 @@ const stages: Stage[] = [
       </>
     ),
     facts: [
-      ['Command', <code key="c">/theway:archive</code>],
       ['Listing', <code key="li">/theway:list</code>],
       ['Open tasks', 'refused, or accepted by you'],
     ],
@@ -138,6 +136,70 @@ const stages: Stage[] = [
 ];
 
 const commands = ['engineering', 'workflow', 'list', 'archive', 'document'];
+
+/* The shipped agents workflow, read at build time from the repository, so the crop is the real file. */
+const agentsWorkflow: Line[] = readFileSync(join(process.cwd(), '..', 'plugin', 'home', 'workflows', 'agents.yaml'), 'utf-8')
+  .trimEnd()
+  .split('\n')
+  .map((line) => {
+    const top = /^([a-z-]+):\s?(.*)$/.exec(line);
+    return top ? { key: top[1], text: top[2] } : { text: line };
+  });
+
+/* The keys of a step, as the Workflows docs page lists them. */
+const stepKeys: [string, string][] = [
+  ['uses', 'the prompt it runs, prompts/<name>.md'],
+  ['with', "the prompt's inputs"],
+  ['runs-on', 'agents or session'],
+  ['model', 'opus, sonnet or haiku'],
+  ['matrix', 'one run per value'],
+  ['on-fail', 'the prompt that fixes a fail; the step then runs again'],
+  ['tries', 'how many times on-fail may run'],
+];
+
+/* The review loop of the agents workflow (plugin/home/workflows/agents.yaml), on the full-change example. */
+type LoopStep = { who: string; text: string; repeat?: string; crop: Crop };
+
+const loop: LoopStep[] = [
+  {
+    who: 'prompts/review.md',
+    text: 'One reviewer agent per lens tries to break the diff and checks it against `spec.md` and the project’s standards. It edits nothing and reports every finding with its file, line and evidence.',
+    crop: {
+      kind: 'session',
+      entries: [
+        { kind: 'report', label: '3.review[prompts/conformance.md]', result: 'pass', note: '1 finding' },
+        { kind: 'text', text: 'src/app.js: close() does not clear the sweep timer. spec.md, Memory bound: "cleared on server close".' },
+        { kind: 'report', label: '3.review[prompts/correctness.md]', result: 'pass', note: '1 finding' },
+        { kind: 'text', text: 'src/app.js: the 429 body differs from the 404 body.' },
+      ],
+    },
+  },
+  {
+    who: 'prompts/triage.md',
+    text: 'Checks each finding against the code and `spec.md` and gives it one verdict: confirmed, false positive, duplicate, nit or out of scope. It fails while a finding is confirmed.',
+    crop: {
+      kind: 'session',
+      entries: [
+        { kind: 'report', label: '4.triage', result: 'fail', note: '1 confirmed' },
+        { kind: 'text', text: '0 confirmed: no clearInterval on close.' },
+        { kind: 'text', text: '1 false_positive: both bodies are JSON {"error": ...}.', dim: true },
+      ],
+    },
+  },
+  {
+    who: 'prompts/fix-review.md',
+    text: 'Fixes the confirmed findings and nothing else, commits on the feature branch and re-runs the CI commands locally. The triage then runs again and checks the fix.',
+    repeat: 'triage again, up to tries',
+    crop: {
+      kind: 'session',
+      entries: [
+        { kind: 'report', label: '4.fix-review', result: 'pass', note: '1 commit' },
+        { kind: 'report', label: '4.triage (round 2)', result: 'pass' },
+        { kind: 'text', text: '0 resolved: close() clears the sweep timer.' },
+      ],
+    },
+  },
+];
 
 const startHere: [string, string, string][] = [
   ['Installation', 'Install, update, pin and uninstall theway.', '/docs/installation/'],
@@ -239,6 +301,13 @@ function SessionCrop({ entries }: { entries: Entry[] }) {
                   </span>
                 </div>
               );
+            case 'text':
+              return (
+                <div key={i} className={`flex px-4 ${entry.dim ? 'text-dim' : ''}`}>
+                  <span className="shrink-0 whitespace-pre text-dim">- </span>
+                  <span className={wrap}>{entry.text}</span>
+                </div>
+              );
             case 'message':
               return (
                 <div key={i} className="mt-1.5 px-4">
@@ -257,7 +326,7 @@ function StageRow({ stage }: { stage: Stage }) {
   return (
     <div className="grid gap-8 md:grid-cols-12 md:gap-12">
       <div className="flex flex-col md:col-span-5 md:pt-2">
-        <h3 className="text-balance text-[1.375rem] font-semibold leading-7 tracking-[-0.015em]">{stage.title}</h3>
+        <h3 className="font-mono text-[1.25rem] font-medium leading-7 tracking-[-0.01em]">{stage.command}</h3>
         <p className={`mt-3 text-pretty text-ui text-dim ${prose}`}>{stage.body}</p>
         <dl className="mt-6 divide-y divide-line border-y border-line text-[14px]">
           {stage.facts.map(([label, value]) => (
@@ -316,14 +385,11 @@ export default function HomePage() {
               id="hero"
               className="text-pretty text-display-sm font-semibold tracking-display md:text-display"
             >
-              Claude Code commands that write a spec before the code,{' '}
-              <span className="block text-dim">then implement it through a YAML&nbsp;workflow.</span>
+              A spec-first workflow for Claude&nbsp;Code
             </h1>
             <p className={`mt-5 max-w-[40rem] text-pretty text-lead text-dim ${prose}`}>
               <code>/theway:engineering</code> writes a spec and ordered tasks for a change. <code>/theway:workflow</code>{' '}
-              then implements the tasks: in your session with the default <code>develop</code> workflow, through agents
-              with the <code>agents</code> workflow, which reviews the work, fixes the confirmed findings and opens the
-              pull request, or through a workflow file you write.
+              implements them by running a workflow: a YAML file of steps, each a Markdown prompt, run in your session or through agents.
             </p>
           </div>
           <div className="flex min-w-0 max-w-[31rem] flex-col gap-2.5">
@@ -346,13 +412,89 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section aria-labelledby="workflows" className={`${column} pt-24 md:pt-36`}>
+        <h2 id="workflows" className={h2}>
+          Workflows
+        </h2>
+        <p className={`mt-3 max-w-[40rem] text-pretty text-lead text-dim ${prose}`}>
+          A workflow is the list of steps a change goes through, in a YAML file that <code>/theway:workflow</code> runs
+          in order. Each step uses a Markdown prompt, its instructions, and runs in your session or through agents.
+        </p>
+        <div className="mt-12 grid gap-8 md:mt-16 md:grid-cols-12 md:gap-12">
+          <div className="flex flex-col md:col-span-5 md:pt-2">
+            <p className={`text-pretty text-ui text-dim ${prose}`}>
+              Every run of a step answers pass, fail or blocked, with a report the later steps read. A fail runs the
+              step&apos;s <code>on-fail</code> prompt, when it has one, then the step again, up to <code>tries</code>{' '}
+              times; otherwise, and on blocked, the run stops and reports to you.
+            </p>
+            <p className={`mt-3 text-pretty text-ui text-dim ${prose}`}>
+              Writing the spec is a workflow too. theway ships <code>develop</code> (the default: the tasks implemented
+              in your session, nothing committed), <code>agents</code>, <code>engineering</code> and{' '}
+              <code>engineering-light</code>, written the same way as yours. Yours go in{' '}
+              <code>~/.theway/workflows/</code>, or in a project&apos;s folder, where a file replaces the global one of
+              the same name.
+            </p>
+            <dl className="mt-6 divide-y divide-line border-y border-line text-[14px]">
+              {stepKeys.map(([key, meaning]) => (
+                <div key={key} className="flex items-baseline justify-between gap-4 py-2.5">
+                  <dt className="shrink-0 whitespace-nowrap font-mono text-code">{key}</dt>
+                  <dd className="text-right text-dim">{meaning}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="min-w-0 md:col-span-7">
+            <FileCrop crop={{ kind: 'file', path: '~/.theway/workflows/agents.yaml', language: 'YAML', lines: agentsWorkflow }} />
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="loop" className={`${column} pt-24 md:pt-36`}>
+        <h2 id="loop" className={h2}>
+          The feedback loop
+        </h2>
+        <p className={`mt-3 max-w-[40rem] text-pretty text-lead text-dim ${prose}`}>
+          <code>/theway:engineering</code> settles every decision in the spec, with you, before any code. Then{' '}
+          <code>/theway:workflow --workflow=agents add-rate-limit</code> checks the code against that spec in three steps,
+          and fixes it until the check passes. CI runs the same loop, with <code>ci</code> and <code>fix-ci</code>.
+        </p>
+        <ol className="mt-12 md:mt-16">
+          {loop.map((step, i) => (
+            <li key={i} className="relative grid grid-cols-[0.75rem_minmax(0,1fr)] gap-x-5 pb-14 last:pb-0 md:gap-x-8">
+              {i < loop.length - 1 ? (
+                <span aria-hidden="true" className="absolute bottom-0 left-[calc(0.375rem-0.5px)] top-5 w-px bg-line" />
+              ) : null}
+              <span
+                aria-hidden="true"
+                className="mt-1.5 size-3 rounded-full border-2 border-action bg-ground"
+              />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span className={`font-mono text-code font-medium ${wrap}`}>{step.who}</span>
+                  {step.repeat ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-line px-2 py-0.5 text-[13px] text-dim">
+                      <RotateCcw aria-hidden="true" className="size-3.5" />
+                      {step.repeat}
+                    </span>
+                  ) : null}
+                </div>
+                <p className={`mt-2 max-w-[40rem] text-pretty text-ui text-dim ${prose}`}>{inlineCode(step.text)}</p>
+                <div className="mt-5 max-w-[48rem]">
+                  {step.crop.kind === 'file' ? <FileCrop crop={step.crop} /> : <SessionCrop entries={step.crop.entries} />}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <section aria-labelledby="how" className={`${column} pt-24 md:pt-36`}>
         <h2 id="how" className={h2}>
-          The commands one change uses
+          Commands
         </h2>
-        <p className="mt-3 max-w-[40rem] text-pretty text-lead text-dim">
-          You run them in the order below. A change&apos;s spec, tasks and notes are plain files in your theway home,
-          outside the repository.
+        <p className={`mt-3 max-w-[40rem] text-pretty text-lead text-dim ${prose}`}>
+          A change&apos;s spec, tasks and notes are files in your theway home, <code>~/.theway</code> by default, outside
+          the repository.
         </p>
         <ol className="mt-12 flex flex-col gap-20 md:mt-16 md:gap-28">
           {stages.map((stage) => (
@@ -365,15 +507,13 @@ export default function HomePage() {
 
       <section aria-label="Commands and docs" className={`${column} grid gap-12 pt-24 md:pt-36 lg:grid-cols-2 lg:gap-8`}>
         <div>
-          <h2 className={h2}>Five commands</h2>
-          <p className="mt-3 text-pretty text-lead text-dim">Slash commands in Claude Code, each with its own page.</p>
+          <h2 className={h2}>All commands</h2>
           <div className="mt-8">
             <LinkRows rows={commandRows} mono />
           </div>
         </div>
         <div>
-          <h2 className={h2}>Start here</h2>
-          <p className="mt-3 text-pretty text-lead text-dim">Four pages of the docs to read first.</p>
+          <h2 className={h2}>Docs</h2>
           <div className="mt-8">
             <LinkRows rows={startHere} />
           </div>
